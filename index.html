@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PuraVidaWay — Costa Rica Transfers, Sightseeing & Tours | Jorge Li</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+    body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col">
+
+  <!-- TOP NAVIGATION -->
+  <header class="bg-emerald-950 text-white sticky top-0 z-40 shadow-lg border-b border-emerald-800">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-emerald-500 flex items-center justify-center text-emerald-950 font-extrabold text-xl shadow">
+          <i class="fa-solid fa-compass"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="font-extrabold text-lg tracking-tight">PuraVidaWay</span>
+            <span class="text-[10px] uppercase tracking-wider bg-emerald-800 text-emerald-200 px-2 py-0.5 rounded-full font-semibold">Costa Rica Travel Planner</span>
+          </div>
+          <p class="text-xs text-emerald-300 hidden sm:block">Door-to-Door Sightseeing Transfers, Driver Bidding & Custom Expeditions</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button onclick="toggleCart(true)" class="relative bg-emerald-800 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition">
+          <i class="fa-solid fa-suitcase-rolling"></i>
+          <span>Trip Cart</span>
+          <span id="cartCountBadge" class="bg-amber-400 text-slate-950 px-1.5 py-0.2 rounded-full text-[11px] font-extrabold">0</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- MODULE TABS -->
+    <div class="bg-emerald-900/70 border-t border-emerald-800/80">
+      <div class="max-w-7xl mx-auto px-4 flex overflow-x-auto no-scrollbar gap-1 py-1.5">
+        <button onclick="switchTab('transfers')" id="tab-transfers" class="tab-btn whitespace-nowrap px-4 py-2 rounded-lg text-xs font-bold bg-amber-400 text-slate-950 shadow-sm flex items-center gap-2">
+          <i class="fa-solid fa-route"></i> 1. Transfers & Sightseeing (Daytrip + GetTransfer)
+        </button>
+        <button onclick="switchTab('daytours')" id="tab-daytours" class="tab-btn whitespace-nowrap px-4 py-2 rounded-lg text-xs font-semibold text-emerald-100 hover:bg-emerald-800/60 flex items-center gap-2">
+          <i class="fa-solid fa-sun"></i> 2. 1-Day Private Tours
+        </button>
+        <button onclick="switchTab('multiday')" id="tab-multiday" class="tab-btn whitespace-nowrap px-4 py-2 rounded-lg text-xs font-semibold text-emerald-100 hover:bg-emerald-800/60 flex items-center gap-2">
+          <i class="fa-solid fa-campground"></i> 3. Multi-Day Expeditions (Corcovado & Classic)
+        </button>
+        <button onclick="switchTab('admin')" id="tab-admin" class="tab-btn whitespace-nowrap px-4 py-2 rounded-lg text-xs font-semibold text-emerald-100 hover:bg-emerald-800/60 flex items-center gap-2">
+          <i class="fa-solid fa-headset"></i> 4. Dispatch & HubSpot Lead Center
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN CONTENT CONTAINER -->
+  <main class="max-w-7xl mx-auto w-full px-4 py-6 flex-1">
+
+    <!-- ==================== TAB 1: TRANSFERS & SIGHTSEEING ==================== -->
+    <section id="view-transfers" class="space-y-6">
+      <div class="bg-gradient-to-r from-emerald-900 via-emerald-800 to-teal-900 rounded-2xl p-6 text-white shadow-xl">
+        <div class="max-w-3xl">
+          <span class="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider bg-amber-400/20 text-amber-300 border border-amber-400/30 px-3 py-1 rounded-full mb-3">
+            <i class="fa-solid fa-bolt"></i> Daytrip Sightseeing + GetTransfer Bidding
+          </span>
+          <h1 class="text-2xl sm:text-3xl font-extrabold leading-tight">Book a Private Costa Rica Transfer or Turn the Drive Into an Adventure</h1>
+          <p class="text-emerald-100 text-sm mt-2">Add curated 60–90 minute wildlife, waterfall, or volcano stops along your transfer corridor, or name your price and let ICT-certified drivers bid on your ride.</p>
+        </div>
+
+        <!-- ROUTE CONFIGURATOR BAR -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mt-6 bg-white/10 backdrop-blur-md p-4 rounded-xl border border-white/15">
+          <div>
+            <label class="text-[11px] uppercase tracking-wider text-emerald-200 font-bold block mb-1">Origin Pickup</label>
+            <select id="originSelect" onchange="updateTransferRoute()" class="w-full bg-white text-slate-900 rounded-lg px-3 py-2.5 text-sm font-semibold focus:outline-none">
+              <option value="SJO">SJO Airport / San José</option>
+              <option value="LIR">Liberia Airport (LIR)</option>
+              <option value="Arenal">La Fortuna / Arenal</option>
+              <option value="ManuelAntonio">Manuel Antonio</option>
+              <option value="Monteverde">Monteverde Cloud Forest</option>
+              <option value="Sierpe">Sierpe Boat Dock (Osa)</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-[11px] uppercase tracking-wider text-emerald-200 font-bold block mb-1">Destination Drop-off</label>
+            <select id="destSelect" onchange="updateTransferRoute()" class="w-full bg-white text-slate-900 rounded-lg px-3 py-2.5 text-sm font-semibold focus:outline-none">
+              <option value="Arenal">La Fortuna / Arenal</option>
+              <option value="ManuelAntonio" selected>Manuel Antonio</option>
+              <option value="Monteverde">Monteverde Cloud Forest</option>
+              <option value="DrakeBay">Drake Bay (via Sierpe Boat)</option>
+              <option value="PuertoViejo">Puerto Viejo (Caribbean)</option>
+              <option value="Tamarindo">Tamarindo / Guanacaste</option>
+              <option value="SJO">SJO Airport / San José</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-[11px] uppercase tracking-wider text-emerald-200 font-bold block mb-1">Travel Date</label>
+            <input type="date" id="transferDate" value="2026-11-15" class="w-full bg-white text-slate-900 rounded-lg px-3 py-2.5 text-sm font-semibold focus:outline-none" />
+          </div>
+          <div>
+            <label class="text-[11px] uppercase tracking-wider text-emerald-200 font-bold block mb-1">Passengers</label>
+            <select id="paxSelect" onchange="updateTransferRoute()" class="w-full bg-white text-slate-900 rounded-lg px-3 py-2.5 text-sm font-semibold focus:outline-none">
+              <option value="2">2 Passengers</option>
+              <option value="3">3 Passengers</option>
+              <option value="4">4 Passengers</option>
+              <option value="6">6 Passengers (Group)</option>
+              <option value="8">8 Passengers (Van)</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-[11px] uppercase tracking-wider text-emerald-200 font-bold block mb-1">Pricing Mode</label>
+            <div class="grid grid-cols-2 bg-emerald-950/80 p-1 rounded-lg border border-emerald-700">
+              <button onclick="setPricingMode('fixed')" id="modeFixedBtn" class="py-1.5 text-xs font-bold rounded-md bg-amber-400 text-slate-950">Fixed Price</button>
+              <button onclick="setPricingMode('bid')" id="modeBidBtn" class="py-1.5 text-xs font-bold rounded-md text-emerald-200">Driver Bids</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- LEFT 2 COLS: SIGHTSEEING STOPS + VEHICLES / BIDS -->
+        <div class="lg:col-span-2 space-y-6">
+
+          <!-- DAYTRIP STYLE SIGHTSEEING STOPS -->
+          <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
+            <div class="flex items-center justify-between mb-3">
+              <div>
+                <h2 class="font-extrabold text-base text-slate-900 flex items-center gap-2">
+                  <i class="fa-solid fa-camera-retro text-emerald-600"></i> Optional Sightseeing Stops Along Your Route (Daytrip Style)
+                </h2>
+                <p class="text-xs text-slate-500">Your driver waits with your luggage in a locked vehicle while you explore.</p>
+              </div>
+              <span id="stopsCounter" class="text-xs font-bold bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full">0 stops added</span>
+            </div>
+            <div id="sightseeingList" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
+          </div>
+
+          <!-- FIXED VEHICLE TIERS OR GETTRANSFER BIDDING -->
+          <div id="fixedVehiclesPanel" class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
+            <h2 class="font-extrabold text-base text-slate-900 mb-3 flex items-center gap-2">
+              <i class="fa-solid fa-shuttle-van text-emerald-600"></i> Select Your Private Vehicle Class
+            </h2>
+            <div id="vehicleCardsContainer" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
+          </div>
+
+          <!-- GETTRANSFER STYLE BIDDING PANEL -->
+          <div id="biddingPanel" class="hidden bg-white rounded-2xl p-5 shadow-sm border-2 border-amber-400">
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+              <div>
+                <span class="text-[11px] font-extrabold uppercase tracking-wider bg-amber-100 text-amber-900 px-2.5 py-0.5 rounded-full">GetTransfer Marketplace Mode</span>
+                <h2 class="font-extrabold text-base text-slate-900 mt-1">Name Your Offer & Compare Local ICT-Certified Driver Bids</h2>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-semibold text-slate-600">Your Offer ($ USD):</span>
+                <input type="number" id="customOfferInput" value="165" class="w-24 border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm font-bold text-slate-900" />
+                <button onclick="BroadcastOffer()" class="bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-3 py-2 rounded-lg">Broadcast Offer</button>
+              </div>
+            </div>
+            <div id="driverBidsContainer" class="space-y-3"></div>
+          </div>
+        </div>
+
+        <!-- RIGHT COL: LIVE ROUTE TIMELINE & SUMMARY -->
+        <div class="space-y-4">
+          <div class="bg-white rounded-2xl p-5 shadow-md border border-slate-200 sticky top-28">
+            <h3 class="font-extrabold text-base text-slate-900 border-b border-slate-100 pb-3 flex items-center justify-between">
+              <span>Live Route Summary</span>
+              <span id="totalDurationBadge" class="text-xs bg-slate-100 text-slate-700 px-2.5 py-1 rounded-full font-bold">3.5 hrs</span>
+            </h3>
+
+            <!-- TIMELINE -->
+            <div id="routeTimeline" class="my-4 space-y-3 text-xs"></div>
+
+            <!-- FLIGHT / PICKUP NOTES -->
+            <div class="space-y-2 pt-2 border-t border-slate-100">
+              <input type="text" id="flightNumberInput" placeholder="Flight # or Hotel Name (e.g. AA 1234 / Arenas del Mar)" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-emerald-600" />
+            </div>
+
+            <!-- PRICE BREAKDOWN -->
+            <div class="mt-4 bg-slate-50 p-3.5 rounded-xl space-y-1.5 text-xs">
+              <div class="flex justify-between text-slate-600">
+                <span>Base Transfer / Selected Bid:</span>
+                <span id="basePriceDisplay" class="font-bold text-slate-900">$175</span>
+              </div>
+              <div class="flex justify-between text-slate-600">
+                <span>Sightseeing Detours:</span>
+                <span id="stopsPriceDisplay" class="font-bold text-emerald-700">+$0</span>
+              </div>
+              <div class="flex justify-between text-sm font-extrabold text-slate-900 pt-2 border-t border-slate-200">
+                <span>Total Private Ride:</span>
+                <span id="totalTransferPriceDisplay" class="text-emerald-700 text-lg">$175</span>
+              </div>
+            </div>
+
+            <button onclick="addTransferToCart()" class="w-full mt-4 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold py-3 rounded-xl shadow-md text-sm flex items-center justify-center gap-2 transition">
+              <i class="fa-solid fa-plus-circle"></i> Add Custom Transfer to Trip Cart
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 2: 1-DAY PRIVATE TOURS ==================== -->
+    <section id="view-daytours" class="hidden space-y-6">
+      <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <span class="text-xs font-extrabold uppercase tracking-wider text-emerald-700">ICT Certified Naturalist Guides</span>
+          <h2 class="text-2xl font-extrabold text-slate-900">1-Day Private Costa Rica Tours</h2>
+          <p class="text-xs text-slate-600 mt-1">Upgrade any 1-day tour into a <strong>Smart En-Route Transfer (+$65)</strong> to get picked up in one town and dropped off at your next hotel!</p>
+        </div>
+        <div class="flex gap-2">
+          <select id="dayTourRegionFilter" onchange="renderDayTours()" class="border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold bg-slate-50">
+            <option value="ALL">All Regions</option>
+            <option value="Arenal">La Fortuna / Arenal</option>
+            <option value="ManuelAntonio">Manuel Antonio / Central Pacific</option>
+            <option value="Osa">Osa Peninsula / Sierpe / Drake Bay</option>
+            <option value="Monteverde">Monteverde & Río Celeste</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="dayToursGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"></div>
+    </section>
+
+    <!-- ==================== TAB 3: MULTI-DAY EXPEDITIONS ==================== -->
+    <section id="view-multiday" class="hidden space-y-6">
+      <div class="bg-emerald-950 text-white rounded-2xl p-6 shadow-lg">
+        <span class="text-xs font-extrabold uppercase tracking-wider text-amber-400">Signature Costa Rica Travel Planner Expeditions</span>
+        <h2 class="text-2xl font-extrabold mt-1">Multi-Day Eco-Expeditions & Custom Packages</h2>
+        <p class="text-xs text-emerald-200 mt-1">All-inclusive logistics including SINAC park permits, Sierpe river boats, certified Corcovado guides, and private 4x4 transfers.</p>
+      </div>
+
+      <div id="multiDayGrid" class="space-y-5"></div>
+    </section>
+
+    <!-- ==================== TAB 4: DISPATCH & HUBSPOT LEAD CENTER ==================== -->
+    <section id="view-admin" class="hidden space-y-6">
+      <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-4">
+          <div>
+            <h2 class="text-xl font-extrabold text-slate-900">Jorge Li — Dispatch & HubSpot WhatsApp Lead Workflow</h2>
+            <p class="text-xs text-slate-500">Manage incoming Transfer + Tour itineraries and generate instant WhatsApp discovery & quote scripts.</p>
+          </div>
+          <div class="flex items-center gap-3">
+            <span class="text-xs font-bold text-slate-600">Season Multiplier:</span>
+            <select id="seasonMultiplier" onchange="applySeasonMultiplier()" class="border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-bold">
+              <option value="1">Green Season (1.0x Standard)</option>
+              <option value="1.15">High Season (1.15x Dec–Apr)</option>
+              <option value="1.25">Peak Holiday (1.25x Xmas/NYE/Easter)</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="adminBookingsList" class="mt-4 space-y-4"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- SLIDE-OVER TRIP CART DRAWER -->
+  <div id="cartDrawerBackdrop" onclick="toggleCart(false)" class="fixed inset-0 bg-slate-950/60 backdrop-blur-xs z-50 hidden"></div>
+  <aside id="cartDrawer" class="fixed top-0 right-0 h-full w-full max-w-md bg-white shadow-2xl z-50 transform translate-x-full transition-transform duration-300 flex flex-col">
+    <div class="p-4 bg-emerald-950 text-white flex items-center justify-between">
+      <div>
+        <h3 class="font-extrabold text-base">Custom Costa Rica Trip Cart</h3>
+        <p class="text-[11px] text-emerald-300">Combine transfers, sightseeing stops & tours</p>
+      </div>
+      <button onclick="toggleCart(false)" class="text-emerald-200 hover:text-white text-lg px-2">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
+    <div id="cartItemsList" class="p-4 flex-1 overflow-y-auto space-y-3"></div>
+
+    <div class="p-4 border-t border-slate-200 bg-slate-50 space-y-3">
+      <input type="text" id="clientNameInput" placeholder="Client Full Name (e.g. Sarah Jenkins)" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs font-semibold" />
+      <input type="tel" id="clientPhoneInput" placeholder="Client WhatsApp (e.g. +1 305 555 0192)" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs font-semibold" />
+      <div class="flex items-center justify-between text-base font-extrabold text-slate-900">
+        <span>Total Package Quote:</span>
+        <span id="cartTotalAmount" class="text-emerald-700 text-xl">$0</span>
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <button onclick="copyWhatsAppQuote()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5">
+          <i class="fa-brands fa-whatsapp text-sm"></i> Copy WhatsApp Quote
+        </button>
+        <button onclick="submitToDispatch()" class="bg-slate-900 hover:bg-slate-800 text-white font-bold py-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5">
+          <i class="fa-solid fa-paper-plane"></i> Send to Dispatch
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- TOAST NOTIFICATION -->
+  <div id="toastBox" class="fixed bottom-5 right-5 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl text-xs font-bold hidden items-center gap-2 z-50">
+    <i class="fa-solid fa-circle-check text-emerald-400"></i>
+    <span id="toastText">Saved!</span>
+  </div>
+
+  <script>
+    const SIGHTSEEING_STOPS = [
+      { id: 'tarcoles', name: 'Tarcoles Giant Crocodile Bridge', duration: '45 min', price: 25, desc: 'Observe 15-ft American crocodiles from the famous bridge with your driver watching the bags.' },
+      { id: 'carara', name: 'Carara National Park Scarlet Macaw Walk', duration: '90 min', price: 55, desc: 'Guided trail walk in a transitional rainforest teeming with wild Scarlet Macaws.' },
+      { id: 'poas', name: 'Poás Volcano Crater & Doka Coffee Estate', duration: '120 min', price: 68, desc: 'Peer into an active turquoise crater lake and sample highland Arabica coffee.' },
+      { id: 'rioceleste', name: 'Río Celeste Turquoise Waterfall Hike', duration: '120 min', price: 65, desc: 'Visit the sky-blue river confluence inside Tenorio Volcano National Park.' },
+      { id: 'sloth', name: 'La Fortuna Sloth & Wildlife Sanctuary Trail', duration: '75 min', price: 48, desc: 'Sp
