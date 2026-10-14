@@ -72,6 +72,12 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
 ## 4. Product modules
 
 ### 4.1 Customer storefront (public)
+Layout (decided 2026-10-14): a booking **app first**, not a marketing site. The home page opens
+on the trip builder; the trip is a persistent sidebar on desktop and a bottom bar + drawer on
+phones. Marketing lives on separate route/tour landing pages (`/transfers/[slug]`) that rank on
+Google and pre-fill the builder via `?from=<hub>&to=<hub>`. Trust content (driver checks,
+guarantees, real reviews only) lives in `src/lib/trust.ts`.
+
 1. **Transfers & Sightseeing** — exact pick-up/drop-off by map place search (hotel, dock,
    restaurant, address; see COMPETITORS.md §2d), date, passengers, Fixed Price vs Driver Bids
    toggle, sightseeing stop cards, live route timeline with total duration, flight number or hotel

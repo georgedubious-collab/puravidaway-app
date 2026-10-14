@@ -238,7 +238,8 @@ What the exact point does to price (Daytrip, Sedan, from SJO):
 1b. Pick-up/drop-off by **map search of any exact place** (hotel, dock, restaurant), with the
     route drawn on a map — not a town dropdown (§2d).
 2. Every transfer card states: flight tracking, driver waits, luggage allowance, free
-   cancellation window, English-speaking ICT-certified driver.
+   cancellation window, English-speaking local partner driver (ICT permit shown as a per-driver
+   badge, never a blanket claim; see PROJECT.md §10).
 3. Sightseeing stops show duration and whether entrance fees are included.
 4. Bid mode shows the fixed price as reference and warns on unrealistic offers.
 5. Cancellation and refund policy visible before payment.
