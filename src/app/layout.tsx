@@ -12,6 +12,12 @@ export const metadata: Metadata = {
   title: "PuraVidaWay — Costa Rica Transfers, Sightseeing & Tours",
   description:
     "Private door-to-door transfers with sightseeing stops, driver bidding, 1-day private tours and multi-day eco-expeditions across Costa Rica.",
+  // Pre-launch: keep every page out of search engines until Jorge flips this.
+  // Set NEXT_PUBLIC_SITE_INDEXABLE=true in Vercel to allow indexing.
+  robots:
+    process.env.NEXT_PUBLIC_SITE_INDEXABLE === "true"
+      ? { index: true, follow: true }
+      : { index: false, follow: false, googleBot: { index: false, follow: false } },
 };
 
 export default function RootLayout({
