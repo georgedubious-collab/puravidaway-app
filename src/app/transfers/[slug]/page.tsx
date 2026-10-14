@@ -44,8 +44,12 @@ export default async function RouteLandingPage({
   const stops = SIGHTSEEING_STOPS.filter(
     (s) => s.corridors.includes(page.origin) || s.corridors.includes(page.destination),
   );
-  const highSeason = SEASONS.find((s) => s.id === "high");
-  const highPct = highSeason ? Math.round((highSeason.multiplierBps - 10000) / 100) : 0;
+  const pct = (id: string) => {
+    const season = SEASONS.find((x) => x.id === id);
+    return season ? Math.round((season.multiplierBps - 10000) / 100) : 0;
+  };
+  const highPct = pct("high");
+  const peakPct = pct("peak");
   const href = builderHref(page.origin, page.destination);
   const routeLabel = `${originName.split(" /")[0]} → ${destName}`;
 
@@ -68,6 +72,7 @@ export default async function RouteLandingPage({
         </div>
       </header>
 
+      <main>
       <nav aria-label="Breadcrumb" className="max-w-6xl mx-auto px-4 sm:px-6 pt-5 text-sm text-slate-500">
         Costa Rica transfers › From {originName.split(" /")[0]} › {destName}
       </nav>
@@ -86,7 +91,8 @@ export default async function RouteLandingPage({
           </dl>
           <p className="mt-3 text-sm text-slate-500">
             Green-season price, {cheapest.name}, up to {cheapest.maxPax} travelers.
-            {highPct > 0 ? ` December to April adds ${highPct}%.` : ""}
+            {highPct > 0 ? ` December to April adds ${highPct}%` : ""}
+            {peakPct > 0 ? `; Christmas–New Year and Easter week add ${peakPct}%.` : highPct > 0 ? "." : ""}
           </p>
         </div>
 
@@ -183,6 +189,8 @@ export default async function RouteLandingPage({
           ))}
         </div>
       </section>
+
+      </main>
 
       <footer className="bg-emerald-950 text-emerald-200 text-sm">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">PuraVidaWay · Costa Rica</div>

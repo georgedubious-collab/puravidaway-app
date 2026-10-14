@@ -109,7 +109,7 @@ export function Storefront({ today }: { today: string }) {
 
         <main className={`min-w-0 space-y-5 ${items.length ? "pb-24 xl:pb-0" : ""}`}>
           <div
-            role="tablist"
+            role="group"
             aria-label="What do you want to add?"
             className="flex flex-wrap items-center gap-2"
           >
@@ -120,8 +120,7 @@ export function Storefront({ today }: { today: string }) {
                 <button
                   key={id}
                   type="button"
-                  role="tab"
-                  aria-selected={active}
+                  aria-pressed={active}
                   onClick={() => setBuilder(id)}
                   className={`min-h-11 px-4 rounded-full text-sm font-bold flex items-center gap-2 transition ${
                     active

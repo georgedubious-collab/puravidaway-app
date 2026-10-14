@@ -13,8 +13,7 @@ export function DriverStandards() {
           </h2>
           <p className="mt-3 text-base leading-relaxed text-emerald-100">
             Every ride is with an independent, local partner driver we&apos;ve personally
-            interviewed. They know these roads in rainy season and dry, and you rate them after
-            every ride.
+            interviewed. They know these roads in rainy season and dry.
           </p>
         </div>
         <div>

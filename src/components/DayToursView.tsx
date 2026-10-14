@@ -31,7 +31,7 @@ export function DayToursView({
       <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-slate-200 flex flex-wrap items-end justify-between gap-4">
         <div>
           <span className="text-xs font-extrabold uppercase tracking-wider text-emerald-700 flex items-center gap-1">
-            <ShieldCheck className="w-4 h-4" /> ICT-certified naturalist guides
+            <ShieldCheck className="w-4 h-4" /> Local naturalist guides
           </span>
           <h2 className="text-2xl font-extrabold text-slate-900">1-Day Private Costa Rica Tours</h2>
           <p className="text-xs text-slate-600 mt-1 max-w-xl">
