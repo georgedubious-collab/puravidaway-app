@@ -2,15 +2,12 @@
 
 import { Camera, Car, Gavel, MapPin, MessageCircle, PlusCircle, Users } from "lucide-react";
 import { useMemo, useState } from "react";
-import {
-  HUBS,
-  SIGHTSEEING_STOPS,
-  VEHICLE_CLASSES,
-  type HubId,
-} from "@/lib/catalog";
+import { HUBS, type HubId } from "@/lib/catalog";
+import { seasonForYmd } from "@/lib/catalogModel";
+import { useCatalog } from "./CatalogContext";
 import { newItemId, whatsAppLink, type CartItem } from "@/lib/cart";
 import { addDays } from "@/lib/dates";
-import { formatDuration, formatUSD, quoteTransfer, seasonForDate } from "@/lib/pricing";
+import { formatDuration, formatUSD, quoteTransfer } from "@/lib/pricing";
 
 type PricingMode = "fixed" | "bid";
 
@@ -40,32 +37,36 @@ export function TransfersView({
   const [notes, setNotes] = useState("");
   const [offer, setOffer] = useState("165");
 
-  const season = useMemo(() => seasonForDate(new Date(`${date}T12:00:00`)), [date]);
+  const catalog = useCatalog();
+  const season = useMemo(() => seasonForYmd(date, catalog), [date, catalog]);
 
   const availableStops = useMemo(
     () =>
-      SIGHTSEEING_STOPS.filter(
+      catalog.stops.filter(
         (s) => s.corridors.includes(origin) || s.corridors.includes(destination),
       ),
-    [origin, destination],
+    [catalog, origin, destination],
   );
 
   const availableVehicles = useMemo(
     () =>
-      VEHICLE_CLASSES.filter(
+      catalog.vehicles.filter(
         (v) =>
           v.maxPax >= pax &&
           (!v.onlyForHubs ||
             v.onlyForHubs.includes(origin) ||
             v.onlyForHubs.includes(destination)),
       ),
-    [pax, origin, destination],
+    [catalog, pax, origin, destination],
   );
 
   // Keep the selected vehicle valid when pax or route changes.
+  // No vehicle fits (e.g. a large group after the van was switched off in /admin):
+  // still show a price for reference, but don't allow adding the ride.
+  const noVehicleFits = availableVehicles.length === 0;
   const effectiveVehicleId = availableVehicles.some((v) => v.id === vehicleId)
     ? vehicleId
-    : (availableVehicles[0]?.id ?? "van");
+    : (availableVehicles[0]?.id ?? catalog.vehicles[0].id);
   const effectiveStopIds = stopIds.filter((id) => availableStops.some((s) => s.id === id));
 
   const quote = useMemo(
@@ -76,8 +77,9 @@ export function TransfersView({
         vehicleId: effectiveVehicleId,
         stopIds: effectiveStopIds,
         season,
+        catalog,
       }),
-    [origin, destination, effectiveVehicleId, effectiveStopIds, season],
+    [origin, destination, effectiveVehicleId, effectiveStopIds, season, catalog],
   );
 
   // Bid mode: the client's own offer (whole USD) replaces the fixed price.
@@ -89,8 +91,8 @@ export function TransfersView({
 
   const originName = HUBS.find((h) => h.id === origin)!.name;
   const destName = HUBS.find((h) => h.id === destination)!.name;
-  const vehicle = VEHICLE_CLASSES.find((v) => v.id === effectiveVehicleId)!;
-  const selectedStops = SIGHTSEEING_STOPS.filter((s) => effectiveStopIds.includes(s.id));
+  const vehicle = catalog.vehicles.find((v) => v.id === effectiveVehicleId)!;
+  const selectedStops = catalog.stops.filter((s) => effectiveStopIds.includes(s.id));
   const sameHub = origin === destination;
 
   function toggleStop(id: string) {
@@ -98,7 +100,7 @@ export function TransfersView({
   }
 
   function addToCart() {
-    if (sameHub || (mode === "bid" && !offerValid)) return;
+    if (sameHub || noVehicleFits || (mode === "bid" && !offerValid)) return;
     const stopsText = selectedStops.length
       ? ` + ${selectedStops.length} stop${selectedStops.length > 1 ? "s" : ""} (${selectedStops.map((s) => s.name).join(", ")})`
       : "";
@@ -415,10 +417,16 @@ export function TransfersView({
               )}
             </div>
 
+            {noVehicleFits && (
+              <p className="mt-3 text-xs font-semibold text-amber-700">
+                No vehicle for {pax} passengers on this route online. Ask us on WhatsApp and we&apos;ll
+                arrange it.
+              </p>
+            )}
             <button
               type="button"
               onClick={addToCart}
-              disabled={sameHub || (mode === "bid" && !offerValid)}
+              disabled={sameHub || noVehicleFits || (mode === "bid" && !offerValid)}
               className="w-full mt-4 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-extrabold py-3 rounded-xl shadow-md text-sm flex items-center justify-center gap-2 transition"
             >
               <PlusCircle className="w-4 h-4" />

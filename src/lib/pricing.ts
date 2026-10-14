@@ -15,6 +15,7 @@ import {
   type Season,
   routeMinutes,
 } from "./catalog";
+import type { CatalogData } from "./catalogModel";
 
 export function applyMultiplier(cents: number, multiplierBps: number): number {
   return Math.round((cents * multiplierBps) / 10000);
@@ -45,6 +46,8 @@ export interface TransferQuoteInput {
   season: Season;
   /** In bid mode the accepted bid replaces the vehicle base rate. */
   acceptedBidCents?: number;
+  /** Live catalog (from the database). Defaults to the built-in catalog. */
+  catalog?: CatalogData;
 }
 
 export interface TransferQuote {
@@ -59,11 +62,11 @@ export interface TransferQuote {
 }
 
 export function quoteTransfer(input: TransferQuoteInput): TransferQuote {
-  const vehicle = VEHICLE_CLASSES.find((v) => v.id === input.vehicleId);
+  const vehicle = (input.catalog?.vehicles ?? VEHICLE_CLASSES).find((v) => v.id === input.vehicleId);
   if (!vehicle) throw new Error(`Unknown vehicle class: ${input.vehicleId}`);
 
   const stops = input.stopIds
-    .map((id) => SIGHTSEEING_STOPS.find((s) => s.id === id))
+    .map((id) => (input.catalog?.stops ?? SIGHTSEEING_STOPS).find((s) => s.id === id))
     .filter((s): s is NonNullable<typeof s> => Boolean(s));
 
   const baseCents = input.acceptedBidCents ?? vehicle.baseRateCents;
@@ -90,10 +93,12 @@ export function quoteDayTour(
   tourId: string,
   enRouteUpgrade: boolean,
   season: Season,
+  catalog?: CatalogData,
 ): number {
-  const tour = DAY_TOURS.find((t) => t.id === tourId);
+  const tour = (catalog?.dayTours ?? DAY_TOURS).find((t) => t.id === tourId);
   if (!tour) throw new Error(`Unknown day tour: ${tourId}`);
-  const subtotal = tour.priceCents + (enRouteUpgrade ? EN_ROUTE_UPGRADE_CENTS : 0);
+  const upgradeCents = tour.enRouteUpgradeCents ?? EN_ROUTE_UPGRADE_CENTS;
+  const subtotal = tour.priceCents + (enRouteUpgrade ? upgradeCents : 0);
   return applyMultiplier(subtotal, season.multiplierBps);
 }
 
@@ -101,10 +106,11 @@ export function quoteExpedition(
   expeditionId: string,
   lodgingTierId: string,
   season: Season,
+  catalog?: CatalogData,
 ): number {
-  const exp = EXPEDITIONS.find((e) => e.id === expeditionId);
+  const exp = (catalog?.expeditions ?? EXPEDITIONS).find((e) => e.id === expeditionId);
   if (!exp) throw new Error(`Unknown expedition: ${expeditionId}`);
-  const tier = LODGING_TIERS.find((t) => t.id === lodgingTierId);
+  const tier = (catalog?.lodgingTiers ?? LODGING_TIERS).find((t) => t.id === lodgingTierId);
   if (!tier) throw new Error(`Unknown lodging tier: ${lodgingTierId}`);
   return applyMultiplier(exp.basePriceCents + tier.surchargeCents, season.multiplierBps);
 }

@@ -1,5 +1,6 @@
 import { connection } from "next/server";
 import { Storefront } from "@/components/Storefront";
+import { getCatalog } from "@/lib/catalogSource";
 import { todayInCostaRica } from "@/lib/dates";
 
 // Rendered on every request: default travel dates and season pricing depend
@@ -8,5 +9,6 @@ import { todayInCostaRica } from "@/lib/dates";
 export default async function HomePage() {
   await connection();
   const today = todayInCostaRica();
-  return <Storefront today={today} />;
+  const catalog = await getCatalog();
+  return <Storefront today={today} catalog={catalog} />;
 }
