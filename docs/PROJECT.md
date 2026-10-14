@@ -64,6 +64,9 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
 - `src/components/` — storefront UI: `Header`, `TransfersView`, `DayToursView`,
   `ExpeditionsView`, `CartDrawer`, `Toast`, `Storefront` (state + localStorage cart).
 - `legacy/index.html` — the original static prototype, kept as the **design reference**.
+- Logins: `/login` (email + 6-digit code), `src/proxy.ts` (session refresh on account pages),
+  `src/lib/auth.ts` (`requireRole`). `/admin` (dashboard) and `/admin/users` (roles) are live
+  once Supabase is connected.
 - `supabase/migrations/` — database schema, row-level security and catalog seed (Phase 2b);
   `supabase/tests/rls.test.mjs` checks the security rules (`npm run test:db`). Setup steps for
   Jorge: `docs/SETUP-SUPABASE.md`.

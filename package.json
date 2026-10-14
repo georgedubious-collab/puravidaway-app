@@ -11,6 +11,8 @@
     "db:seed": "node scripts/generate-catalog-seed.mjs"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.7.0",
+    "@supabase/supabase-js": "^2.58.0",
     "lucide-react": "^0.544.0",
     "next": "16.4.0",
     "react": "19.3.0",
