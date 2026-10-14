@@ -33,8 +33,16 @@ Environment Variables** (tick Production and Preview), then redeploy:
 
 (Alternative: Vercel → **Integrations → Supabase** sets these for you.)
 
-## 4. Make yourself the admin
-1. Open the site → **/login** → enter your email → type the 6-digit code from the email.
+## 4. Point sign-in emails at the site
+Supabase → **Authentication → URL Configuration**:
+- **Site URL:** `https://puravidaway-app.vercel.app` (later: your custom domain). The default
+  `http://localhost:3000` makes sign-in links lead nowhere.
+- **Redirect URLs → Add URL:** `https://puravidaway-app.vercel.app/**` (add the custom domain too
+  when you have one).
+
+## 5. Make yourself the admin
+1. Open the site → **/login** → enter your email → click the **sign-in link** in the email, in the
+   same browser. (You land on "this account doesn't have access" — expected.)
 2. Supabase → **SQL Editor** → run (with your email):
    ```sql
    update public.profiles set role = 'admin' where email = 'you@example.com';
@@ -43,11 +51,11 @@ Environment Variables** (tick Production and Preview), then redeploy:
 
 Every later admin or driver is promoted from inside `/admin`; this SQL step is only for the first one.
 
-## 5. Login emails
-Supabase → **Authentication → Email Templates → Magic Link**: make sure the template shows the
-code, e.g. `Your PuraVidaWay code: {{ .Token }}`. Supabase's built-in email sender is limited to a
-few emails per hour; before launch, add your own SMTP (Authentication → SMTP Settings), for example
-a PuraVidaWay mailbox on your email provider or Resend.
+## 6. Login emails
+Without your own email server, Supabase sends its default email: a **sign-in link** (handled by
+`/auth/callback`), limited to a few emails per hour. Before launch, add SMTP (Authentication →
+Emails → SMTP Settings) with a PuraVidaWay mailbox or a service like Resend. That also lets you
+brand the email and add a 6-digit code (`{{ .Token }}`), which the login page already accepts.
 
 ## Checking the security rules
 `npm run test:db` replays the migrations in a throwaway in-memory Postgres and runs 56 checks

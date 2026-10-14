@@ -4,12 +4,17 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
-/** Email + 6-digit code login. No passwords to forget or leak. */
+/**
+ * Email login, no passwords. Supabase's default email contains a sign-in link
+ * (handled by /auth/callback); a custom email server can also add a 6-digit
+ * code, which this form accepts as an alternative.
+ */
 export function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
   const next = safeNext(params.get("next"));
   const denied = params.get("denied") === "1";
+  const linkFailed = params.get("error") === "link";
 
   const [step, setStep] = useState<"email" | "code">("email");
   const [email, setEmail] = useState("");
@@ -25,7 +30,10 @@ export function LoginForm() {
     setError(null);
     const { error } = await supabase.auth.signInWithOtp({
       email: email.trim(),
-      options: { shouldCreateUser: true },
+      options: {
+        shouldCreateUser: true,
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+      },
     });
     setBusy(false);
     if (error) setError(friendly(error.message));
@@ -54,6 +62,12 @@ export function LoginForm() {
 
   return (
     <div className="mt-4 space-y-4">
+      {linkFailed && (
+        <p role="alert" className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-sm text-amber-900">
+          That sign-in link didn&apos;t work. It may have expired, or been opened in a different
+          browser from the one you requested it in. Request a new one below.
+        </p>
+      )}
       {denied && (
         <p role="alert" className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-sm text-amber-900">
           This account doesn&apos;t have access to that page. Sign in with a different email, or ask
@@ -78,14 +92,16 @@ export function LoginForm() {
             disabled={busy}
             className="w-full min-h-12 rounded-xl bg-emerald-950 text-white font-bold disabled:opacity-50"
           >
-            {busy ? "Sending…" : "Email me a sign-in code"}
+            {busy ? "Sending…" : "Email me a sign-in link"}
           </button>
         </form>
       ) : (
         <form onSubmit={verify} className="space-y-3">
-          <p className="text-sm text-slate-600">
-            We sent a 6-digit code to <strong>{email}</strong>.
+          <p className="rounded-xl bg-emerald-50 border border-emerald-200 p-3 text-sm text-emerald-900">
+            Check <strong>{email}</strong> and click the sign-in link. Open it in this same
+            browser. You can close this page.
           </p>
+          <p className="text-sm text-slate-600">If your email shows a code instead, enter it here:</p>
           <label className="block text-sm font-bold text-slate-700">
             Code
             <input

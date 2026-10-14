@@ -3,6 +3,11 @@
 Every merged change gets one line: `YYYY-MM-DD — <AI or Jorge> — <what changed>`.
 Newest entries first. AIs: read the top of this file before starting work.
 
+- 2026-10-14 — Claude — Sign-in by email link: `/auth/callback` finishes the sign-in from
+  Supabase's default email (which has a link, not a code, without custom SMTP); the home page
+  forwards a stray `?code=` there; login page now says "click the link", keeps the code box as a
+  fallback and explains expired links. SETUP-SUPABASE.md gains the Site URL / redirect URL step.
+
 - 2026-10-14 — Claude — Phase 2b, part 3 (pricing manager): the storefront and route pages read
   the catalog through `getCatalog()` (`src/lib/catalogSource.ts`): database when Supabase is
   connected, built-in `catalog.ts` otherwise or if the database fails; cached 1 h and refreshed the
