@@ -1,18 +1,12 @@
-import { Suspense } from "react";
+import { connection } from "next/server";
 import { Storefront } from "@/components/Storefront";
+import { todayInCostaRica } from "@/lib/dates";
 
-// Default travel dates and season pricing depend on "today", so the storefront
-// streams in per request instead of being frozen at build time.
-export default function HomePage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen flex items-center justify-center text-sm font-semibold text-slate-500">
-          Loading PuraVidaWay…
-        </div>
-      }
-    >
-      <Storefront />
-    </Suspense>
-  );
+// Rendered on every request: default travel dates and season pricing depend
+// on today's date in Costa Rica, and the full page must be in the HTML for
+// search engines and for visitors before JavaScript loads.
+export default async function HomePage() {
+  await connection();
+  const today = todayInCostaRica();
+  return <Storefront today={today} />;
 }

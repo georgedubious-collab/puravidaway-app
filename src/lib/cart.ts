@@ -33,6 +33,47 @@ export type CartItem =
 
 export type PaymentMode = "full_100" | "deposit_20";
 
+const KINDS = new Set(["transfer", "day_tour", "expedition"]);
+
+/**
+ * Validate data read back from browser storage. Anything malformed is dropped
+ * so a stale or tampered value can never crash the page.
+ */
+export function parseStoredCart(raw: string): CartItem[] {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(parsed)) return [];
+  const out: CartItem[] = [];
+  for (const x of parsed) {
+    if (!x || typeof x !== "object") continue;
+    const o = x as Record<string, unknown>;
+    if (
+      typeof o.kind === "string" &&
+      KINDS.has(o.kind) &&
+      typeof o.id === "string" &&
+      typeof o.title === "string" &&
+      typeof o.detail === "string" &&
+      typeof o.date === "string" &&
+      Number.isInteger(o.totalCents) &&
+      (o.totalCents as number) >= 0
+    ) {
+      out.push({
+        kind: o.kind as CartItem["kind"],
+        id: o.id,
+        title: o.title,
+        detail: o.detail,
+        date: o.date,
+        totalCents: o.totalCents as number,
+      });
+    }
+  }
+  return out;
+}
+
 export function cartTotalCents(items: CartItem[]): number {
   return items.reduce((sum, i) => sum + i.totalCents, 0);
 }

@@ -4,7 +4,13 @@ import { MessageCircle, Route, Sun, Tent } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { HUBS, type HubId } from "@/lib/catalog";
-import { cartTotalCents, type CartItem, type PaymentMode, whatsAppLink } from "@/lib/cart";
+import {
+  cartTotalCents,
+  type CartItem,
+  parseStoredCart,
+  type PaymentMode,
+  whatsAppLink,
+} from "@/lib/cart";
 import { formatUSD } from "@/lib/pricing";
 import { CartDrawer } from "./CartDrawer";
 import { DayToursView } from "./DayToursView";
@@ -34,7 +40,7 @@ function hubParam(value: string | null): HubId | undefined {
  * always visible. Smaller screens: a bottom bar opens the same trip in a drawer.
  * Route pages link here with ?from=SJO&to=ManuelAntonio to pre-fill a ride.
  */
-export function Storefront() {
+export function Storefront({ today }: { today: string }) {
   const params = useSearchParams();
   const initialOrigin = hubParam(params.get("from"));
   const initialDestination = hubParam(params.get("to"));
@@ -54,7 +60,7 @@ export function Storefront() {
       // Reading browser storage after mount is the one place a hydrating
       // setState is intentional: the server never knows this visitor's trip.
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      if (raw) setItems(JSON.parse(raw) as CartItem[]);
+      if (raw) setItems(parseStoredCart(raw));
     } catch {
       /* storage unavailable — start empty */
     }
@@ -103,7 +109,7 @@ export function Storefront() {
 
         <main className={`min-w-0 space-y-5 ${items.length ? "pb-24 xl:pb-0" : ""}`}>
           <div
-            role="tablist"
+            role="group"
             aria-label="What do you want to add?"
             className="flex flex-wrap items-center gap-2"
           >
@@ -114,8 +120,7 @@ export function Storefront() {
                 <button
                   key={id}
                   type="button"
-                  role="tab"
-                  aria-selected={active}
+                  aria-pressed={active}
                   onClick={() => setBuilder(id)}
                   className={`min-h-11 px-4 rounded-full text-sm font-bold flex items-center gap-2 transition ${
                     active
@@ -132,19 +137,20 @@ export function Storefront() {
 
           {builder === "transfers" && (
             <TransfersView
+              today={today}
               onAdd={addItem}
               initialOrigin={initialOrigin}
               initialDestination={initialDestination}
             />
           )}
-          {builder === "daytours" && <DayToursView onAdd={addItem} />}
-          {builder === "multiday" && <ExpeditionsView onAdd={addItem} />}
+          {builder === "daytours" && <DayToursView today={today} onAdd={addItem} />}
+          {builder === "multiday" && <ExpeditionsView today={today} onAdd={addItem} />}
         </main>
       </div>
 
       <footer className="border-t border-slate-200 bg-white">
         <div className="max-w-[1440px] mx-auto px-4 py-6 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-500">
-          <p>© {new Date().getFullYear()} PuraVidaWay · Costa Rica</p>
+          <p>© {today.slice(0, 4)} PuraVidaWay · Costa Rica</p>
           <a
             href={whatsAppLink("Hi PuraVidaWay! I have a question about planning a trip to Costa Rica.")}
             target="_blank"

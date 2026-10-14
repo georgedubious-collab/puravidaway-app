@@ -53,7 +53,7 @@ export const DRIVER_CHECKS: string[] = [
 ];
 
 export const ICT_BADGE_NOTE =
-  "Drivers holding a Costa Rica Tourism Institute (ICT) transport permit show an ICT badge on their profile.";
+  "Ask us which drivers hold a Costa Rica Tourism Institute (ICT) tourist-transport permit; driver profiles with an ICT badge are coming soon.";
 
 /** Marketplace wording modelled on GetTransfer. Have a Costa Rican lawyer review before launch. */
 export const CARRIER_NOTE =

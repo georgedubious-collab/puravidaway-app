@@ -8,18 +8,19 @@ import {
   REGION_NAMES,
   type Region,
 } from "@/lib/catalog";
+import { addDays } from "@/lib/dates";
 import { newItemId, type CartItem } from "@/lib/cart";
 import { formatUSD, quoteDayTour, seasonForDate } from "@/lib/pricing";
 
-function defaultDate(): string {
-  const d = new Date();
-  d.setDate(d.getDate() + 14);
-  return d.toISOString().slice(0, 10);
-}
-
-export function DayToursView({ onAdd }: { onAdd: (item: CartItem) => void }) {
+export function DayToursView({
+  today,
+  onAdd,
+}: {
+  today: string;
+  onAdd: (item: CartItem) => void;
+}) {
   const [region, setRegion] = useState<Region | "ALL">("ALL");
-  const [date, setDate] = useState(defaultDate);
+  const [date, setDate] = useState(() => addDays(today, 14));
   const [upgrades, setUpgrades] = useState<Record<string, boolean>>({});
   const season = seasonForDate(new Date(`${date}T12:00:00`));
 
@@ -30,7 +31,7 @@ export function DayToursView({ onAdd }: { onAdd: (item: CartItem) => void }) {
       <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-slate-200 flex flex-wrap items-end justify-between gap-4">
         <div>
           <span className="text-xs font-extrabold uppercase tracking-wider text-emerald-700 flex items-center gap-1">
-            <ShieldCheck className="w-4 h-4" /> ICT-certified naturalist guides
+            <ShieldCheck className="w-4 h-4" /> Local naturalist guides
           </span>
           <h2 className="text-2xl font-extrabold text-slate-900">1-Day Private Costa Rica Tours</h2>
           <p className="text-xs text-slate-600 mt-1 max-w-xl">
@@ -40,6 +41,7 @@ export function DayToursView({ onAdd }: { onAdd: (item: CartItem) => void }) {
         </div>
         <div className="flex flex-wrap gap-2">
           <select
+            aria-label="Region"
             value={region}
             onChange={(e) => setRegion(e.target.value as Region | "ALL")}
             className="border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold bg-slate-50"
@@ -53,6 +55,7 @@ export function DayToursView({ onAdd }: { onAdd: (item: CartItem) => void }) {
           </select>
           <input
             type="date"
+            aria-label="Tour date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
             className="border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold bg-slate-50"
