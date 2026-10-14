@@ -3,6 +3,8 @@
 Every merged change gets one line: `YYYY-MM-DD — <AI or Jorge> — <what changed>`.
 Newest entries first. AIs: read the top of this file before starting work.
 
+- 2026-10-14 — Claude — COMPETITORS.md §1b: driver economics from real Daytrip statements (~30%
+  cut) and GetTransfer's carrier commission tiers (13–25%); corrected the outdated 5% claim.
 - 2026-10-14 — Claude — Added `docs/COMPETITORS.md` (Daytrip, GetTransfer, Welcome Pickups
   business models, Costa Rica price points, openings, per-PR checklist) and linked it from
   PROJECT.md, CLAUDE.md and GEMINI.md as the standing benchmark.

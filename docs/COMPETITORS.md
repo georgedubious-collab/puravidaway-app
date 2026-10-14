@@ -10,12 +10,26 @@
 | :--- | :--- | :--- | :--- | :--- |
 | Core product | Door-to-door intercity private transfers with curated sightseeing stops | Marketplace: traveler posts a trip, carriers bid | Airport pickups with meet-and-greet, plus in-destination add-ons | All three combined, Costa Rica only, plus 1-day tours and multi-day expeditions |
 | Pricing model | Fixed price per car, shown "from $X per person"; stops priced on driver distance + wait time; entrance fees extra | Set by competing carriers; traveler can name a price; claims no hidden markup | Fixed per ride, premium vs ride-share; includes meet-and-greet and flight tracking | Fixed route × vehicle price table **and** bid mode with the fixed price as reference |
-| Revenue | Margin on fare; 5% to US/CA travel agents; local partner drivers are independent contractors | Commission from carriers (publicly cut to **5%** in Apr 2022, from a claimed 39% aggregator norm); traveler pays GetTransfer up front | Commission per transaction; shares it with referring hotels / Airbnb hosts (B2B2C) | Margin on own rides; **commission on accepted partner-driver bids** (% still to be set, §9 of PROJECT.md) |
+| Revenue | Sets retail price and keeps **~30%** of the fare (driver gets ~70%); 5% to US/CA travel agents; local partner drivers are independent contractors | Commission from carriers: **13–25%** by monthly volume and rating, minus tenure and prepaid-credit discounts (effective floor ~8%). The 2022 "5%" claim is not current | Commission per transaction; shares it with referring hotels / Airbnb hosts (B2B2C) | Margin on own rides; **commission on accepted partner-driver bids** (% still to be set, §9 of PROJECT.md) |
 | Payment | Card online or **cash to driver after the trip** | Card in advance on offer acceptance | Card online | Card via Green Pay: **100% or 20% deposit**; WhatsApp-assisted booking |
 | Cancellation | **Free up to 24 h before pickup** | Varies by carrier; refunds reported slow | Not prominent | To decide (PROJECT.md §9 #7) — must be at least as clear as Daytrip's |
 | Trust signals | 10,000+ drivers, 130+ countries; Tripadvisor 5.0 (5k+ reviews), Trustpilot 4.6; flight tracking; driver waits if delayed | Carrier ratings, vehicle photos, reviews; AI checks on photos and unresponsive drivers | Vetted English-speaking "Welcomers", meet-and-greet with name sign, flight tracking | **Owner-operated, no-handoff**: Jorge personally drives or vouches for every partner; ICT / INS / Dekra / Marchamo compliance visible per driver |
 | Scale | Global | 150–180 countries, ~1M passengers in 2025 | 374+ destinations; not in the US; Costa Rica unconfirmed | One country, deep: Costa Rica-specific logistics (Sierpe boats, SINAC permits, 4x4 roads) |
 | Distribution | Direct + travel agents | Direct | Direct + **hotels and short-term-rental hosts** via referral links/widgets | Direct + WhatsApp; hotel/Airbnb host referral program is an open opportunity |
+
+## 1b. Driver economics (what drivers actually keep)
+
+| | Daytrip | GetTransfer |
+| :--- | :--- | :--- |
+| Platform cut | ~30% of the client price (28–34% observed on Costa Rica rides, Aug 2026) | 25% → 13% by rides/month and rating (≤10 rides at 4–5★ = 20%); −1 to −5 points for tenure; −3 points if paid from prepaid Commission Credit |
+| Prepaid credit | — | Buy $100 → $150 credit, or swap $100 of payouts → $130 credit; non-withdrawable, never expires |
+| Driver keeps on a $150 ride | ~$105 | $120 (20%) to ~$135 (10%) |
+| Payout | After the trip, by statement | Card rides paid out later; Cash Direct paid same day by the passenger |
+| Driver tools | Driver app | 24/7 AI support, free dispatcher software, AI pricing tips |
+
+Implication: a simple, flat PuraVidaWay partner commission in the **12–15%** range, paid
+weekly, beats Daytrip outright and matches or beats most GetTransfer drivers without their
+tier maze. Final % is Jorge's call (PROJECT.md §9 #2).
 
 ## 2. Daytrip in Costa Rica (observed Oct 2026)
 
@@ -43,8 +57,11 @@
 
 **GetTransfer**
 - Transparent bidding with vehicle photos and ratings builds trust in unknown drivers.
-- Low driver commission attracts supply. Our commission should be low enough that good drivers
-  prefer us to GetTransfer, and we must pay drivers **on time** (their biggest complaint).
+- They compete hard for **driver supply**: volume-based commission tiers, tenure discounts,
+  prepaid "Commission Credit", a **Cash Direct** option (passenger pays the driver on ride day,
+  price locked at booking), opt-in long-distance and corporate rides, and a free dispatcher
+  web app for drivers' own bookings. Our commission must be clearly better than theirs **and
+  simpler**, and we must pay drivers **on time** (their biggest complaint).
 
 **Welcome Pickups**
 - Meet-and-greet ritual: name sign, local tips, a named "Welcomer" assigned ahead of time.
@@ -82,7 +99,9 @@
 - Daytrip agent FAQ: https://agents.daytrip.com/daytrip-for-travel-agents-frequently-asked-questions
 - Daytrip SJO→La Fortuna: https://daytrip.com/en/transfers/san-jose-international-airport-cr/la-fortuna-cr
 - Daytrip SJO→Puerto Viejo: https://daytrip.com/en/transfers/san-jose-international-airport-cr/puerto-viejo-cr
-- GetTransfer 5% commission (PR Newswire, Apr 2022): https://www.prnewswire.co.uk/news-releases/gettransfer-com-offers-record-low-commissions-for-drivers-872351810.html
+- GetTransfer driver earnings & commission tiers: carrier-facing offer shared by Jorge (Oct 2026)
+- Daytrip driver payout share: Jorge's own Daytrip driver statements (Aug 2026), summarized only
+- GetTransfer 5% commission, outdated (PR Newswire, Apr 2022): https://www.prnewswire.co.uk/news-releases/gettransfer-com-offers-record-low-commissions-for-drivers-872351810.html
 - GetTransfer marketplace model (Cyprus Mail, May 2026): https://cyprus-mail.com/2026/05/12/the-economics-of-transparency-in-a-mobility-marketplace
 - GetTransfer traveler review: https://www.thetraveler.org/is-gettransfer-com-worth-using-for-airport-transfers/
 - Welcome Pickups funding and model: https://trendingtopics.eu/greek-transfer-and-travel-service-welcome-pickups-raises-e3-3m-for-expand-in-cee-and-the-middle-east

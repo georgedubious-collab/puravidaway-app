@@ -289,7 +289,8 @@ jsonb · `sightseeing_stops` jsonb (array of stop IDs + snapshot prices) · `veh
    ($175–$290) regardless of route, which would make SJO→Manuel Antonio cost the same as
    SJO→Tamarindo. Recommended: a **route × vehicle price table** (each corridor has its own price
    per vehicle class), which matches how Costa Rica transfers are actually quoted.
-2. **Platform commission %** on accepted bids.
+2. **Platform commission %** on accepted bids. Benchmarks: Daytrip keeps ~30%, GetTransfer
+   13–25% (see COMPETITORS.md §1b). Recommendation: flat 12–15%, weekly payouts.
 3. **Bid floor/ceiling** relative to the reference price (e.g. 70%–130%).
 4. **Stop ↔ corridor mapping** (which stops are offered on which routes).
 5. **Lodging tier pricing**: per person or per booking? Same question for day tours.
