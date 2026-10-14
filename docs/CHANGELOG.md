@@ -3,6 +3,17 @@
 Every merged change gets one line: `YYYY-MM-DD — <AI or Jorge> — <what changed>`.
 Newest entries first. AIs: read the top of this file before starting work.
 
+- 2026-10-14 — Claude — Fixes from the independent review of Phase 2b. Security: sign-in
+  `next=` links can no longer send people to another website (`src/lib/safeNext.ts`); sign-out
+  only accepts requests from our own pages; users can't change their profile email; drivers see
+  open requests through `open_trip_requests` (no client id, coordinates or flight notes); bid
+  amounts are frozen once a request closes or the driver isn't approved (migration 0005).
+  Correctness: a failed catalog read is no longer cached for an hour; switching off every lodging
+  tier no longer breaks the home page, and tiers tied to one expedition only show there; "from
+  +$X" upgrade price follows the database; route pages survive no fitting vehicle and show the
+  default season's name and price; pricing saves that change nothing now say so; the home page's
+  `?code=` redirect keeps `next`. 96 database checks.
+
 - 2026-10-14 — Claude — Phase 2c (driver KYC vault): `/driver` lets any signed-in user apply
   (name, WhatsApp, licence/insurance/Dekra/Marchamo/criminal-record details, vehicle), upload the
   9 required documents + optional ICT permit to the private bucket, and see status and the team's

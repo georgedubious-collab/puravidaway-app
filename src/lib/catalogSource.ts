@@ -15,16 +15,28 @@ const bps = (v: number | string) => Math.round(Number(v) * 10000);
  * Cached for an hour and refreshed immediately when an admin saves a change
  * (revalidateTag(CATALOG_TAG) in /admin/pricing).
  */
-export const getCatalog = unstable_cache(loadCatalog, ["catalog-v1"], {
+export async function getCatalog(): Promise<CatalogData> {
+  const db = createSupabasePublicClient();
+  if (!db) return BUILT_IN_CATALOG;
+  try {
+    return await cachedDatabaseCatalog();
+  } catch (e) {
+    // Not cached: the next visitor tries the database again instead of
+    // seeing old built-in prices for an hour.
+    console.error("[PuraVidaWay] Using the built-in catalog; database read failed:", e);
+    return BUILT_IN_CATALOG;
+  }
+}
+
+/** Only successful database reads are cached (a thrown error is never stored). */
+const cachedDatabaseCatalog = unstable_cache(loadDatabaseCatalog, ["catalog-v2"], {
   tags: [CATALOG_TAG],
   revalidate: 3600,
 });
 
-async function loadCatalog(): Promise<CatalogData> {
-  const db = createSupabasePublicClient();
-  if (!db) return BUILT_IN_CATALOG;
-
-  try {
+async function loadDatabaseCatalog(): Promise<CatalogData> {
+  const db = createSupabasePublicClient()!;
+  {
     const [vehicles, stops, tours, exps, tiers, seasons, ranges] = await Promise.all([
       db.from("vehicle_classes").select("*").eq("active", true).order("sort_order"),
       db.from("sightseeing_stops").select("*").eq("active", true).order("sort_order"),
@@ -75,11 +87,15 @@ async function loadCatalog(): Promise<CatalogData> {
         includes: e.includes ?? [],
         itinerary: e.itinerary ?? [],
       })),
-      lodgingTiers: (tiers.data ?? []).map((l) => ({
-        id: l.id,
-        name: l.name,
-        surchargeCents: cents(l.surcharge),
-      })),
+      lodgingTiers: tiers.data?.length
+        ? tiers.data.map((l) => ({
+            id: l.id,
+            name: l.name,
+            surchargeCents: cents(l.surcharge),
+            expeditionId: l.expedition_id ?? undefined,
+          }))
+        : // Every tier switched off: expeditions are still sold, with no lodging upgrade.
+          [{ id: "standard", name: "Standard lodging", surchargeCents: 0 }],
       seasons: seasons.data.map((s) => ({
         id: s.id,
         name: s.name,
@@ -93,8 +109,5 @@ async function loadCatalog(): Promise<CatalogData> {
         endsOn: r.ends_on,
       })),
     };
-  } catch (e) {
-    console.error("[PuraVidaWay] Using the built-in catalog; database read failed:", e);
-    return BUILT_IN_CATALOG;
   }
 }

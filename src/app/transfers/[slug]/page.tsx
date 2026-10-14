@@ -6,7 +6,7 @@ import { DriverStandards } from "@/components/trust/DriverStandards";
 import { Reviews } from "@/components/trust/Reviews";
 import { HUBS, routeMinutes } from "@/lib/catalog";
 import { getCatalog } from "@/lib/catalogSource";
-import { formatDuration, formatUSD } from "@/lib/pricing";
+import { applyMultiplier, formatDuration, formatUSD } from "@/lib/pricing";
 import { builderHref, ROUTE_PAGES, routePage } from "@/lib/routePages";
 import { GUARANTEES } from "@/lib/trust";
 
@@ -40,9 +40,11 @@ export default async function RouteLandingPage({
   const touches = (hubs?: string[]) =>
     !hubs || hubs.includes(page.origin) || hubs.includes(page.destination);
   const catalog = await getCatalog();
-  const vehicles = catalog.vehicles.filter((v) => touches(v.onlyForHubs));
-  const fromCents = Math.min(...vehicles.map((v) => v.baseRateCents));
-  const cheapest = vehicles.find((v) => v.baseRateCents === fromCents)!;
+  const fitting = catalog.vehicles.filter((v) => touches(v.onlyForHubs));
+  const vehicles = fitting.length ? fitting : catalog.vehicles;
+  const cheapest = vehicles.reduce((a, b) => (b.baseRateCents < a.baseRateCents ? b : a));
+  const defaultSeason = catalog.seasons.find((x) => x.isDefault);
+  const fromCents = applyMultiplier(cheapest.baseRateCents, defaultSeason?.multiplierBps ?? 10000);
   const stops = catalog.stops.filter(
     (s) => s.corridors.includes(page.origin) || s.corridors.includes(page.destination),
   );
@@ -92,7 +94,7 @@ export default async function RouteLandingPage({
             <Fact icon={<MapPin className="w-4 h-4" />} label="Price is for" value="The vehicle" />
           </dl>
           <p className="mt-3 text-sm text-slate-500">
-            Green-season price, {cheapest.name}, up to {cheapest.maxPax} travelers.
+            {defaultSeason?.name ?? "Green season"} price, {cheapest.name}, up to {cheapest.maxPax} travelers.
             {highPct > 0 ? ` December to April adds ${highPct}%` : ""}
             {peakPct > 0 ? `; Christmas–New Year and Easter week add ${peakPct}%.` : highPct > 0 ? "." : ""}
           </p>

@@ -47,8 +47,10 @@ export function ExpeditionsView({
 
       <div className="space-y-5">
         {catalog.expeditions.map((exp) => {
-          const tierId = tiers[exp.id] ?? tiersList[0]?.id ?? "base";
-          const tier = tiersList.find((t) => t.id === tierId) ?? tiersList[0];
+          const expTiers = tiersList.filter((t) => !t.expeditionId || t.expeditionId === exp.id);
+          const tier = expTiers.find((t) => t.id === tiers[exp.id]) ?? expTiers[0];
+          if (!tier) return null; // no lodging offered for this trip right now
+          const tierId = tier.id;
           const total = quoteExpedition(exp.id, tier.id, season, catalog);
           return (
             <div
@@ -87,7 +89,7 @@ export function ExpeditionsView({
                   Lodging tier
                 </p>
                 <div className="space-y-1.5">
-                  {tiersList.map((t) => (
+                  {expTiers.map((t) => (
                     <label
                       key={t.id}
                       className={`flex items-center justify-between gap-2 text-xs rounded-lg border px-3 py-2 cursor-pointer ${

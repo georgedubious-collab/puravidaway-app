@@ -233,6 +233,8 @@ export interface LodgingTier {
   id: string;
   name: string;
   surchargeCents: number;
+  /** Only offered on this expedition; undefined = all expeditions. */
+  expeditionId?: string;
 }
 
 export const LODGING_TIERS: LodgingTier[] = [

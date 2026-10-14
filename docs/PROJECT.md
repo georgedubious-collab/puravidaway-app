@@ -275,7 +275,8 @@ and `season_for_date(date)` returns the season for a travel date.
 - `payments` — id, booking_id, provider (`greenpay`), provider_ref, amount, type (`deposit` | `balance` | `full`), status, raw_payload jsonb, created_at
 
 ### 7.7 Row Level Security
-- **profiles:** users read/update their own row; admins read/write all.
+- **profiles:** users read their own row and update their name and phone (not role or email);
+  admins read/write all.
 - **drivers:** any signed-in user can apply (create their own record, always `pending`); drivers
   read/update their own KYC fields and upload to their own folder in `driver-kyc-docs` (images/PDF,
   10 MB). Only admins change `kyc_status`, `kyc_note` and the review fields. A driver's change to
@@ -289,11 +290,13 @@ and `season_for_date(date)` returns the season for a travel date.
   After the first review, these four dates change only together with an upload of the renewed
   document. Clients never see Cédula,
   license or insurance numbers.
-- **bookings:** clients see their own; the assigned driver sees their assigned bookings; approved
-  drivers see **open** requests (`pending_bids`) with client contact details hidden until a bid is
-  accepted; admins see all.
-- **bids:** drivers create and manage their own; the booking's client reads bids on their
-  booking; admins see all.
+- **bookings:** clients see their own; the assigned driver sees their assigned bookings; admins
+  see all. Approved drivers see **open** requests (`pending_bids`) only through the
+  `open_trip_requests` view: towns, date, vehicle, passengers and price, without the client's id,
+  exact coordinates or flight/hotel notes, until a bid is accepted.
+- **bids:** drivers create and manage their own; the amount can change only while the request is
+  open and the driver is still approved (withdrawing is always allowed); the booking's client
+  reads bids on their booking; admins see all.
 - **trip_chats:** readable and writable only by the booking's client, assigned driver and admins.
 - **catalog tables:** public read for active items; admin write.
 - **payments:** written only by the server (service role); clients read their own; admins read all.

@@ -1,5 +1,6 @@
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
+import { safeNext } from "@/lib/safeNext";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 /**
@@ -24,8 +25,4 @@ export async function GET(request: NextRequest) {
     if (!error) return NextResponse.redirect(new URL(next, url.origin));
   }
   return NextResponse.redirect(new URL(`/login?error=link&next=${encodeURIComponent(next)}`, url.origin));
-}
-
-function safeNext(value: string | null): string {
-  return value && value.startsWith("/") && !value.startsWith("//") ? value : "/admin";
 }

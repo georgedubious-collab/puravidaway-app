@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
+import { safeNext } from "@/lib/safeNext";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 /**
@@ -143,9 +144,6 @@ export function LoginForm() {
 }
 
 /** Only allow redirects back into this site. */
-function safeNext(value: string | null): string {
-  return value && value.startsWith("/") && !value.startsWith("//") ? value : "/admin";
-}
 
 function friendly(message: string): string {
   if (/expired|invalid/i.test(message)) return "That code is wrong or has expired. Request a new one.";
