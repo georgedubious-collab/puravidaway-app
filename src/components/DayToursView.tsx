@@ -23,10 +23,9 @@ export function DayToursView({
   const season = seasonForYmd(date, catalog);
   const all = catalog.dayTours;
   const tours = region === "ALL" ? all : all.filter((t) => t.region === region);
-  const fromUpgradeCents = Math.min(
-    ...all.map((t) => t.enRouteUpgradeCents ?? EN_ROUTE_UPGRADE_CENTS),
-    EN_ROUTE_UPGRADE_CENTS,
-  );
+  const fromUpgradeCents = all.length
+    ? Math.min(...all.map((t) => t.enRouteUpgradeCents ?? EN_ROUTE_UPGRADE_CENTS))
+    : EN_ROUTE_UPGRADE_CENTS;
 
   return (
     <section className="space-y-6">

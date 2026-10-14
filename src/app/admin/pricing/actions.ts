@@ -68,8 +68,10 @@ async function save(table: string, fd: FormData, values: Record<string, unknown>
   await requireRole("admin", "/admin/pricing");
   const id = text(fd, "id", { max: 60 });
   const supabase = (await createSupabaseServerClient())!;
-  const { error } = await supabase.from(table).update(values).eq("id", id);
+  const { data, error } = await supabase.from(table).update(values).eq("id", id).select("id");
   if (error) throw new Error(error.message);
+  // RLS hides rows it won't let you change, so 0 rows means nothing was saved.
+  if (!data?.length) throw new InputError("Nothing was saved. Reload the page and try again.");
   done();
 }
 

@@ -14,8 +14,11 @@ export default async function HomePage({
 }) {
   await connection();
   // A sign-in link that fell back to the Site URL lands here with ?code=…
-  const { code } = await searchParams;
-  if (typeof code === "string" && code) redirect(`/auth/callback?code=${encodeURIComponent(code)}`);
+  const { code, next } = await searchParams;
+  if (typeof code === "string" && code) {
+    const keep = typeof next === "string" ? `&next=${encodeURIComponent(next)}` : "";
+    redirect(`/auth/callback?code=${encodeURIComponent(code)}${keep}`);
+  }
   const today = todayInCostaRica();
   const catalog = await getCatalog();
   return <Storefront today={today} catalog={catalog} />;

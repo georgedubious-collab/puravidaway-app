@@ -123,6 +123,7 @@ await expectRows("visitor sees no profiles", "anon", "select * from public.profi
 await expectRows("client sees only own profile", "client", "select * from public.profiles", 1);
 await expectRows("admin sees all profiles", "admin", "select * from public.profiles", 5);
 await expectOk("client edits own name", "client", `update public.profiles set full_name = 'Sarah' where id = '${U.client}'`);
+await expectBlocked("client cannot change own email", "client", `update public.profiles set email = 'boss@example.com' where id = '${U.client}'`);
 await expectBlocked("client cannot make self admin", "client", `update public.profiles set role = 'admin' where id = '${U.client}'`);
 await expectBlocked("client cannot edit someone else", "client", `update public.profiles set full_name = 'x' where id = '${U.client2}'`, { affected: 0 });
 
@@ -214,8 +215,10 @@ await expectOk("server creates bookings", "server", `
     ('10000000-0000-0000-0000-000000000001', '${U.client}', 'transfer', 190, 'pending_bids'),
     ('10000000-0000-0000-0000-000000000002', '${U.client2}', 'transfer', 200, 'confirmed')`);
 await expectRows("client sees own booking only", "client", "select * from public.bookings", 1);
-await expectRows("approved driver sees open request", "driver", "select * from public.bookings", 1);
-await expectRows("pending driver sees no requests", "pending", "select * from public.bookings", 0);
+await expectRows("approved driver sees open request summary", "driver", "select * from public.open_trip_requests", 1);
+await expectRows("driver cannot read the full booking row", "driver", "select * from public.bookings", 0);
+await expectRows("pending driver sees no requests", "pending", "select * from public.open_trip_requests", 0);
+await expectRows("client sees no open requests", "client2", "select * from public.open_trip_requests", 0);
 await expectRows("visitor sees no bookings", "anon", "select * from public.bookings", 0);
 await expectBlocked("client cannot change own price", "client", "update public.bookings set total_price = 1", { affected: 0 });
 await expectRows("booking ref generated", "admin", "select * from public.bookings where booking_ref like 'PVW-1000%'", 2);
@@ -230,6 +233,12 @@ await expectBlocked("driver cannot bid on closed booking", "driver", `
   insert into public.bids (booking_id, driver_id, bid_amount) values ('10000000-0000-0000-0000-000000000002', '${U.driver}', 150)`);
 await expectBlocked("driver cannot accept own bid", "driver",
   `update public.bids set status = 'accepted' where id = '20000000-0000-0000-0000-000000000001'`);
+await expectOk("driver lowers bid while open", "driver",
+  `update public.bids set bid_amount = 180 where id = '20000000-0000-0000-0000-000000000001'`);
+await expectOk("server closes the request", "server",
+  `update public.bookings set status = 'confirmed' where id = '10000000-0000-0000-0000-000000000001'`);
+await expectBlocked("driver cannot reprice after the request closes", "driver",
+  `update public.bids set bid_amount = 300 where id = '20000000-0000-0000-0000-000000000001'`);
 await expectRows("client sees bids on own booking", "client", "select * from public.bids", 1);
 await expectRows("other client sees no bids", "client2", "select * from public.bids", 0);
 await expectOk("driver withdraws own bid", "driver",
