@@ -51,31 +51,66 @@ tier maze. Final % is Jorge's call (PROJECT.md §9 #2).
 
 ## 2b. Daytrip price grid, Costa Rica (checked 2026-10-14 via daytrip.com)
 
-Quote for **Wed 18 Nov 2026, 9:00, 2 passengers, 2 bags** (green season). Prices are per car,
-one way, VAT included, free cancellation up to 24 h.
+Quote for **Wed 18 Nov 2026, 9:00, 2 passengers, 2 bags** (green season). Per car, one way,
+VAT included, free cancellation up to 24 h, driver waits up to 60 min after the flight lands.
 
 | Route | km / time | Sedan Lite | Sedan | Compact MPV | Van | SUV |
 | :--- | :--- | ---: | ---: | ---: | ---: | ---: |
+| LIR → Tamarindo | 69 km / 1 h 30 | — | $136 | $142 | $142 | $176 |
+| MA → Uvita | 68 km / 1 h 10 | $316 | $317 | $345 | $383 | $318 |
+| La Fortuna → Monteverde | 111 km / 2 h 50 | $197 | $200 | $217 | $238 | $266 |
 | SJO → La Fortuna | 116 km / 2 h 30 | $150 | $161 | $212 | $212 | $202 |
 | SJO → Monteverde | 132 km / 2 h 30 | $169 | $182 | $241 | $241 | $225 |
+| LIR → La Fortuna | 144 km / 2 h 40 | — | $242 | $244 | $244 | $236 |
 | SJO → Manuel Antonio | 159 km / 2 h 50 | $189 | $205 | $273 | $273 | $252 |
+| Monteverde → Manuel Antonio | 193 km / 3 h 40 | $227 | $251 | $330 | $330 | $323 |
+| SJO → Uvita | 211 km / 3 h 20 | $309 | $316 | $347 | $380 | $316 |
 | SJO → Puerto Viejo | 232 km / 4 h | $260 | $281 | $384 | $384 | $352 |
+| La Fortuna → Manuel Antonio | 235 km / 4 h 50 | $291 | $322 | $417 | $417 | $407 |
 | SJO → Tamarindo | 273 km / 4 h 40 | $313 | $338 | $457 | $457 | $421 |
 
+**Not sold by Daytrip:** any route to **Sierpe, Drake Bay or Corcovado** (no pages exist).
+Puerto Jiménez, Uvita, Dominical, Ojochal, Jacó, Santa Teresa, Nosara, Cahuita and Tortuguero
+are sold.
+
 Vehicle classes (Daytrip's definitions):
-- **Sedan Lite** — budget, direct ride only (no stops), driver may not speak English; 1–3 pax, 3 bags.
+- **Sedan Lite** — budget, direct ride only (no stops), driver may not speak English; 1–3 pax, 3
+  bags. Not offered from Liberia.
 - **Sedan** — default "best for you"; 1–3 pax, 3 bags.
-- **Compact MPV** — 4 pax, 4 bags. **Van** — 5–7 pax, 7 bags (same price as MPV).
+- **Compact MPV** — 4 pax, 4 bags. **Van** — 5–7 pax, 7 bags.
 - **SUV** — "built for any road", elevated seating; only **1–2 pax, 2 bags** (premium, not family).
 
-Pattern (fits all 5 routes within ~4%):
-- **Sedan ≈ $30 + $1.13 per km.** Price scales with distance; there is no flat rate.
-- Sedan Lite ≈ 0.93 × Sedan · SUV ≈ 1.24 × Sedan · MPV = Van ≈ 1.33 × Sedan.
+How the prices behave:
+- **SJO-origin routes follow distance:** Sedan ≈ $30 + $1.13/km (within ~4% on 5 routes); Lite ≈
+  0.93×, SUV ≈ 1.24×, MPV = Van ≈ 1.33× Sedan.
+- **Everywhere else, supply drives price, not distance.** MA → Uvita (68 km) costs the same as
+  SJO → Uvita (211 km): Daytrip charges for bringing a driver in. Liberia is ~50% dearer per km
+  than SJO, and its vehicle classes are nearly flat. Town-to-town routes run $1.4–2.0/km.
+- **Your own Aug bookings match these classes:** Monteverde → Manuel Antonio paid exactly the
+  Sedan price ($251).
 - Driver payout ≈ 68–71% of these prices (see §1b).
 
-Implication for PuraVidaWay: our prototype's flat $175 SUV is ~$27 too high on SJO→La Fortuna
-and ~$250 too low on SJO→Tamarindo. Transfer prices must be **distance-based per route ×
-vehicle class**, like Daytrip.
+### Sightseeing stops (SJO → La Fortuna, Sedan)
+| Stop | Time | Price |
+| :--- | :--- | ---: |
+| Else Kientzler Garden | 2 h | $48 |
+| Juan Santamaría Museum | 2 h | $47 |
+| La Fortuna Waterfall | 2 h | $47 |
+| Britt Coffee Tour | 1 h 30 | $43 |
+| Proyecto Asis | 1 h 30 | $38 |
+
+Stops cost **~$20–29 per hour** of driver waiting, entrance fees **not** included. Ours (Tárcoles
+$25/45 min, Carara $55/90 min, Poás $68/2 h) are in the same range or richer because they are
+guided — keep that difference visible.
+
+### Implications for PuraVidaWay
+1. Transfer prices must be **per route × vehicle class**, never flat. Our flat $175 is ~$27 high
+   on SJO→La Fortuna and ~$160 low on SJO→Tamarindo (vs Sedan).
+2. **Underserved corridors are where Daytrip is expensive or absent:** Southern Pacific
+   (MA→Uvita $317), Osa (Sierpe/Drake: not sold at all), Liberia. Jorge can undercut sharply there
+   or own them outright.
+3. Match Daytrip's class names and capacities so travellers compare like with like; our "SUV
+   1–4 pax" is not their SUV.
 
 ## 3. What each one does well — copy it
 
