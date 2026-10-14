@@ -11,7 +11,7 @@
 | **Repository** | `georgedubious-collab/puravidaway-app` (connected to Vercel; `main` deploys to production) |
 | **Vercel project** | `puravidaway-app` — team "Jorge Li's projects" |
 | **Production URL** | https://puravidaway-app.vercel.app |
-| **Spec last reviewed** | 2026-10-13 |
+| **Spec last reviewed** | 2026-10-14 |
 
 ---
 
@@ -51,22 +51,19 @@ the primary conversation channel.
 
 ---
 
-## 3. Current state of the code (honest status, 2026-10-13)
+## 3. Current state of the code (2026-10-14)
 
-- The repo contains a **single static prototype**: `index.html` (Tailwind via CDN, vanilla JS).
-- **`index.html` is truncated.** The file ends partway through the `SIGHTSEEING_STOPS` array, so
-  every function the UI calls (`switchTab`, `updateTransferRoute`, `setPricingMode`,
-  `toggleCart`, `addTransferToCart`, `copyWhatsAppQuote`, `submitToDispatch`, …) is missing. The
-  live site shows the layout but is not interactive.
-- The prototype has **four tabs inside one page**, including "4. Dispatch & HubSpot Lead Center".
-  The admin view is therefore public. **There is no `admin.html`** (that URL returns 404).
-- Not yet built anywhere: the 100% / 20% deposit checkout modal, the GPS fleet map, the KYC vault,
-  tri-party chat, Supabase, logins, Green Pay.
-- The prototype's **visual design is the reference** for the Next.js rebuild: emerald/amber
-  palette, Plus Jakarta Sans, route configurator bar, stop cards, live route summary, slide-over
-  Trip Cart.
-
----
+- **Next.js 16 (App Router) + TypeScript strict + Tailwind 4**, in `src/`.
+- `src/lib/catalog.ts` — the §5 catalog as typed data (prices in integer cents).
+- `src/lib/pricing.ts` — the §6 pricing engine (season multipliers in basis points, cents math).
+- `src/lib/cart.ts` — Trip Cart model, 100% / 20% deposit rule, WhatsApp deep-link builder.
+- `src/components/` — storefront UI: `Header`, `TransfersView`, `DayToursView`,
+  `ExpeditionsView`, `CartDrawer`, `Toast`, `Storefront` (state + localStorage cart).
+- `legacy/index.html` — the original static prototype, kept as the **design reference**.
+- Not yet built: Supabase, logins, `/admin`, driver portal, Green Pay checkout (the cart's
+  "Pay online" button is disabled), live bidding (bid mode adds a request to the cart for Jorge to
+  handle over WhatsApp), GPS map, chat.
+- Env: `NEXT_PUBLIC_WHATSAPP_NUMBER` (see `.env.example`) must be set in Vercel.
 
 ## 4. Product modules
 
@@ -270,8 +267,8 @@ jsonb · `sightseeing_stops` jsonb (array of stop IDs + snapshot prices) · `veh
 | Phase | Scope | Status |
 | :--- | :--- | :--- |
 | **1. Prototype** | Static `index.html` design for storefront + admin tab | Done as a design mock, but the JS is truncated and non-functional |
-| **2a. Next.js foundation** | Next.js + TS + Tailwind scaffold; rebuild storefront from the prototype design with catalog data from §5; working cart and WhatsApp buttons | **Next** |
-| **2b. Supabase core** | Schema + RLS from §7, Auth with roles, catalog served from DB, `/admin` behind login, inventory & season pricing manager | Planned |
+| **2a. Next.js foundation** | Next.js + TS + Tailwind scaffold; rebuild storefront from the prototype design with catalog data from §5; working cart and WhatsApp buttons | **Done (PR #2)** |
+| **2b. Supabase core** | Schema + RLS from §7, Auth with roles, catalog served from DB, `/admin` behind login, inventory & season pricing manager | **Next** |
 | **2c. Driver KYC vault** | Driver sign-up, document upload, admin approval, 30-day expiry alerts | Planned |
 | **2d. Checkout** | Green Pay integration, 100% / 20% deposit, payment webhooks, booking confirmation emails | Planned (needs Green Pay credentials) |
 | **3. Bidding & GPS** | Live driver bidding; driver on-duty GPS broadcast to admin Leaflet map | Planned |
