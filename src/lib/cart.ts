@@ -56,7 +56,7 @@ export function cartWhatsAppMessage(
   clientName?: string,
 ): string {
   const lines = [
-    `Hi Jorge! I'd like to book this trip with PuraVidaWay${clientName ? ` (${clientName})` : ""}:`,
+    `Hi PuraVidaWay! I'd like to book this trip${clientName ? ` (${clientName})` : ""}:`,
     "",
     ...items.map(
       (i, n) =>

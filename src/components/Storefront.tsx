@@ -64,11 +64,10 @@ export function Storefront() {
       <footer className="border-t border-slate-200 bg-white">
         <div className="max-w-7xl mx-auto px-4 py-6 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
           <p>
-            © {new Date().getFullYear()} PuraVidaWay · Costa Rica Travel Planner · Flores, Heredia,
-            Costa Rica
+            © {new Date().getFullYear()} PuraVidaWay · Costa Rica
           </p>
           <a
-            href={whatsAppLink("Hi Jorge! I have a question about planning a trip to Costa Rica.")}
+            href={whatsAppLink("Hi PuraVidaWay! I have a question about planning a trip to Costa Rica.")}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 font-bold text-emerald-700 hover:text-emerald-600"

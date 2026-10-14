@@ -31,9 +31,6 @@ export function Header({
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-extrabold text-lg tracking-tight">PuraVidaWay</span>
-              <span className="text-[10px] uppercase tracking-wider bg-emerald-800 text-emerald-200 px-2 py-0.5 rounded-full font-semibold whitespace-nowrap">
-                Costa Rica Travel Planner
-              </span>
             </div>
             <p className="text-xs text-emerald-300 hidden sm:block">
               Door-to-door sightseeing transfers, driver bidding & custom expeditions

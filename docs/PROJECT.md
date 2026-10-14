@@ -17,12 +17,12 @@
 
 ## 1. What PuraVidaWay is
 
-An all-in-one Costa Rica travel platform by **Costa Rica Travel Planner** that combines four
+An all-in-one Costa Rica travel platform that combines four
 revenue engines in one booking flow and one cart:
 
 1. **Daytrip-style sightseeing transfers.** Private point-to-point transfers where travelers add
    curated 45–120 minute stops (wildlife, volcano, waterfall) along the corridor while the
-   ICT-certified driver stays with the luggage in the locked vehicle.
+   driver stays with the luggage in the locked vehicle.
 2. **GetTransfer-style driver bidding.** Travelers choose instant **Fixed Price** or **Driver
    Bids**: they name an offer in USD and compare bids from verified local drivers.
 3. **1-day private eco-tours** with an optional **Smart En-Route Transfer (+$65)** that turns a
@@ -82,7 +82,7 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
    **100% full payment** or **20% deposit** (to lock SINAC permits and drivers). Checkout via
    Green Pay.
 5. **WhatsApp concierge** — context-aware buttons (`route`, `cart`, `general`) that pre-fill the
-   route or cart contents into a WhatsApp message to Costa Rica Travel Planner.
+   route or cart contents into a WhatsApp message to the PuraVidaWay team.
 
 ### 4.2 Admin command center (`/admin`, admin role only — never public)
 1. **Bookings & dispatch** — incoming bookings, assign drivers, status changes.
@@ -317,6 +317,13 @@ Rules for every AI:
 - When a change affects anything in this spec, update the spec in the same PR.
 - Add a dated line to `docs/CHANGELOG.md` for every merged change: `YYYY-MM-DD — <AI> — <what changed>`.
 - Address the founder as **Jorge Li**.
+- **Brand separation (decided 2026-10-14):** PuraVidaWay is a separate public brand. Nothing a
+  customer or driver can see (UI copy, page metadata, WhatsApp messages, emails, legal pages)
+  may name the owner, Costa Rica Travel Planner, La Familia Mágica or Jorge's Daytrip profile.
+  Use "PuraVidaWay" or "our team".
+- **Driver wording:** describe partner drivers as hand-picked, independent local partners who are
+  interviewed, background-checked (criminal and driving records) and submit vehicle information
+  and proof of insurance. Show the ICT permit as a per-driver badge, never as a blanket claim.
 - Reflect real Costa Rican operations: ICT permits, SINAC park permits and timed entries, Sierpe
   boat logistics, Marchamo / Dekra / INS compliance, realistic drive times, WhatsApp-first sales.
 - Never commit secrets. Supabase service-role keys and Green Pay credentials live only in Vercel
