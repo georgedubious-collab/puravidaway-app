@@ -106,7 +106,7 @@ export function TransfersView({ onAdd }: { onAdd: (item: CartItem) => void }) {
   }
 
   const routeWhatsApp = whatsAppLink(
-    `Hi Jorge! I'm looking at a private transfer ${originName} → ${destName} on ${date} for ${pax} passengers${
+    `Hi PuraVidaWay! I'm looking at a private transfer ${originName} → ${destName} on ${date} for ${pax} passengers${
       selectedStops.length ? ` with stops at ${selectedStops.map((s) => s.name).join(", ")}` : ""
     }. ${
       mode === "bid" && offerValid
@@ -128,7 +128,7 @@ export function TransfersView({ onAdd }: { onAdd: (item: CartItem) => void }) {
           </h1>
           <p className="text-emerald-100 text-sm mt-2">
             Add curated wildlife, waterfall or volcano stops along your route, or name your price and
-            let ICT-certified drivers bid on your ride.
+            let local partner drivers bid on your ride.
           </p>
         </div>
 
@@ -307,8 +307,8 @@ export function TransfersView({ onAdd }: { onAdd: (item: CartItem) => void }) {
                 <Gavel className="w-5 h-5 text-amber-600" /> Name your offer, compare driver bids
               </h2>
               <p className="text-xs text-slate-500 mt-1">
-                Reference fixed price for this route: {formatUSD(quote.totalCents)}. Verified
-                ICT-certified drivers will bid on your request.
+                Reference fixed price for this route: {formatUSD(quote.totalCents)}. Hand-picked
+                local partner drivers will bid on your request.
               </p>
               <div className="flex flex-wrap items-center gap-2 mt-4">
                 <span className="text-xs font-semibold text-slate-600">Your offer (USD):</span>
@@ -330,7 +330,7 @@ export function TransfersView({ onAdd }: { onAdd: (item: CartItem) => void }) {
               )}
               <p className="text-xs text-slate-500 mt-3 bg-slate-50 rounded-lg p-3">
                 Live bidding goes online in Phase 3. For now, add this request to your cart and
-                Jorge will source driver offers for you over WhatsApp.
+                our team will collect driver offers for you over WhatsApp.
               </p>
             </div>
           )}
@@ -415,7 +415,7 @@ export function TransfersView({ onAdd }: { onAdd: (item: CartItem) => void }) {
               rel="noopener noreferrer"
               className="w-full mt-2 border border-emerald-600 text-emerald-700 hover:bg-emerald-50 font-bold py-2.5 rounded-xl text-xs flex items-center justify-center gap-2 transition"
             >
-              <MessageCircle className="w-4 h-4" /> Ask Jorge about this route
+              <MessageCircle className="w-4 h-4" /> Ask about this route on WhatsApp
             </a>
           </div>
         </div>

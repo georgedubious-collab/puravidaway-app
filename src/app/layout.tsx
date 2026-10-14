@@ -11,7 +11,7 @@ const jakarta = Plus_Jakarta_Sans({
 export const metadata: Metadata = {
   title: "PuraVidaWay — Costa Rica Transfers, Sightseeing & Tours",
   description:
-    "Private door-to-door transfers with sightseeing stops, driver bidding, 1-day private tours and multi-day eco-expeditions across Costa Rica. By Costa Rica Travel Planner.",
+    "Private door-to-door transfers with sightseeing stops, driver bidding, 1-day private tours and multi-day eco-expeditions across Costa Rica.",
 };
 
 export default function RootLayout({

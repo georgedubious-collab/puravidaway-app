@@ -22,7 +22,7 @@ export function ExpeditionsView({ onAdd }: { onAdd: (item: CartItem) => void }) 
       <div className="bg-emerald-950 text-white rounded-2xl p-5 sm:p-6 shadow-lg flex flex-wrap items-end justify-between gap-4">
         <div>
           <span className="text-xs font-extrabold uppercase tracking-wider text-amber-400">
-            Signature Costa Rica Travel Planner expeditions
+            Signature PuraVidaWay expeditions
           </span>
           <h2 className="text-2xl font-extrabold mt-1">Multi-day eco-expeditions & custom packages</h2>
           <p className="text-xs text-emerald-200 mt-1 max-w-2xl">

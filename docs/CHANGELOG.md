@@ -3,6 +3,11 @@
 Every merged change gets one line: `YYYY-MM-DD — <AI or Jorge> — <what changed>`.
 Newest entries first. AIs: read the top of this file before starting work.
 
+- 2026-10-14 — Claude — Brand separation: removed Costa Rica Travel Planner and "Jorge" from
+  every customer-facing string (header badge, footer, page description, WhatsApp messages,
+  expeditions heading); driver copy changed from blanket "ICT-certified" to local partner
+  drivers. Rule added to PROJECT.md §10 and CLAUDE.md.
+
 - 2026-10-14 — Claude — COMPETITORS.md §2c GetTransfer "from" prices for 9 Costa Rica routes vs
   Daytrip; §2d exact pick-up/drop-off analysis (map place search, zone + distance pricing) with
   requirements for our transfer form; Sierpe road drop-off added to the Daytrip grid.

@@ -28,6 +28,9 @@ plainly, avoid jargon, and never assume a dev-team workflow (no "ask your backen
 - Prices are USD `numeric(10,2)`; apply season multipliers from the DB, not hardcoded.
 - Mobile-first responsive; the design reference is the original prototype (emerald/amber,
   Plus Jakarta Sans) — see `docs/PROJECT.md` §3.
+- Customer-facing text never names the owner, Costa Rica Travel Planner or La Familia Mágica
+  (brand separation, `docs/PROJECT.md` §10). Say "PuraVidaWay" or "our team".
+- ICT permits are a per-driver badge, not a site-wide promise; see `docs/PROJECT.md` §10.
 - No secrets in the repo. Env vars live in Vercel and `.env.local` (gitignored).
 
 ## Domain context (Costa Rica)
