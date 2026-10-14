@@ -51,7 +51,7 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
 | Maps | Leaflet + OpenStreetMap (admin fleet map) |
 | CRM | HubSpot (lead pipeline sync, Phase 4) |
 | Messaging | WhatsApp deep links now; WhatsApp Business API in Phase 4 |
-| Mobile (Phase 5) | **Recommended (pending Jorge, §9 #12): Expo (React Native + TypeScript).** Driver app first, then Client app, sharing the pricing code with the website. Full plan in §11 |
+| Mobile (Phase 5) | **Expo (React Native + TypeScript)** (decided 2026-10-14). Two apps: driver app first, then client app, sharing the pricing code with the website. Full plan in §11 |
 
 ---
 
@@ -361,11 +361,10 @@ and `season_for_date(date)` returns the season for a travel date.
     is cheaper.
 11. **In-app chat vs WhatsApp:** decided (Jorge, 2026-10-14): in-app trip chat with email
     notifications through Resend is the main channel; WhatsApp stays as an option. SMS later.
-12. **Mobile framework.** Recommended: **Expo (React Native)** for both apps (§11.2). Alternative:
-    Capacitor around the website (faster for the Client app, but weak background GPS and a higher
-    risk of App Store rejection as "just a website").
-13. **One app or two.** Recommended: **two store listings**, "PuraVidaWay" for travellers and
-    "PuraVidaWay Partner" for drivers, built from one codebase (§11.1).
+12. **Mobile framework:** decided (Jorge, 2026-10-14): **Expo (React Native)** for both apps
+    (§11.2). Capacitor was rejected (weak background GPS, App Store risk as "just a website").
+13. **One app or two:** decided (Jorge, 2026-10-14): **two store listings**, "PuraVidaWay" for
+    travellers and "PuraVidaWay Partner" for drivers, built from one codebase (§11.1).
 14. **Store publisher.** Which legal entity publishes the apps (needs a D-U-N-S number for Apple).
     It must not be Jorge personally or Costa Rica Travel Planner, or the store would show that name
     as the seller (brand separation, §10).
@@ -405,8 +404,8 @@ Rules for every AI:
 
 ## 11. Mobile apps (Phase 5) — plan
 
-> Drafted 2026-10-14. The framework and app split are **recommendations awaiting Jorge**
-> (§9 #12–#15). Nothing here changes the website.
+> Drafted 2026-10-14. Decided by Jorge the same day: **Expo** and **two apps** (§9 #12–#13).
+> Still open: store publisher and account deletion (§9 #14–#15). Nothing here changes the website.
 
 ### 11.1 Two apps, two jobs
 
@@ -424,7 +423,7 @@ Two listings rather than one: travellers and drivers are different audiences, an
 login screen inside the traveller app confuses both users and App Store reviewers. Both apps
 come from one codebase.
 
-### 11.2 Framework (recommended): Expo
+### 11.2 Framework: Expo (decided 2026-10-14)
 
 **Expo** (React Native + TypeScript, the same language as the website):
 - Background location, push notifications and camera are standard, well-supported modules.
@@ -501,7 +500,7 @@ These take weeks, so they can start before any app code:
 ### 11.7 Order of work
 
 1. This plan (docs only).
-2. Jorge: decide §9 #12–#15 and start the accounts in §11.6.
+2. Jorge: decide §9 #14–#15 and start the accounts in §11.6.
 3. PR: move shared logic to `packages/core/` (no behaviour change).
 4. PR: `/api/v1` routes (including chat), `device_tokens` table + push sender.
 5. PR: driver app MVP → TestFlight and Google Play internal testing with Jorge and 1–2 partner

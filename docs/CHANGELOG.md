@@ -3,6 +3,8 @@
 Every merged change gets one line: `YYYY-MM-DD — <AI or Jorge> — <what changed>`.
 Newest entries first. AIs: read the top of this file before starting work.
 
+- 2026-10-14 — Claude — Recorded Jorge's decisions: Expo for the mobile apps and two separate apps
+  (PuraVidaWay for travellers, PuraVidaWay Partner for drivers). PROJECT.md §2, §9 #12–#13, §11.
 - 2026-10-14 — Claude — Mobile apps plan: new PROJECT.md §11 (driver app first with Expo, then
   client app; shared `packages/core/`; `/api/v1` routes, push notifications, chat API, GPS
   rules; Green Pay allowed in-app; store accounts and requirements). Updated §2 and §8; open
