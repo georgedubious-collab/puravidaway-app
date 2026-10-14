@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { ActionForm } from "@/components/ActionForm";
 import { ChatBox } from "@/components/ChatBox";
 import { requireRole } from "@/lib/auth";
-import { BOOKING_STATUSES, BOOKING_STATUS_LABEL, SERVICE_LABEL, usd, type BookingRow } from "@/lib/bookings";
+import { BOOKING_STATUSES, BOOKING_STATUS_LABEL, SERVICE_LABEL, usd, type BookingRow, type TripContact } from "@/lib/bookings";
 import { getCatalog } from "@/lib/catalogSource";
 import { todayInCostaRica } from "@/lib/dates";
 import { canTakeTrips, type DriverRecord, type VehicleRecord } from "@/lib/driverKyc";
@@ -20,7 +20,11 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
   if (!UUID.test(id)) notFound();
   const supabase = (await createSupabaseServerClient())!;
   const [{ data: b, error }, { data: drivers }, catalog] = await Promise.all([
-    supabase.from("bookings").select("*").eq("id", id).maybeSingle<BookingRow>(),
+    supabase
+      .from("bookings")
+      .select("*, trips(guest_name, guest_email, guest_phone)")
+      .eq("id", id)
+      .maybeSingle<BookingRow & { trips: TripContact | null }>(),
     supabase
       .from("drivers")
       .select("*, profiles!drivers_id_fkey(full_name), driver_vehicles(*)")
@@ -64,7 +68,8 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
     .map((s) => (s.id === "en_route_upgrade" ? "Smart En-Route Transfer" : (catalog.stops.find((x) => x.id === s.id)?.name ?? s.id)))
     .join(", ");
   const due = b.payment_mode === "deposit_20" ? Math.round(Number(b.total_price) * 20) / 100 : Number(b.total_price);
-  const phoneDigits = b.guest_phone?.replace(/\D/g, "") ?? "";
+  const guest: TripContact = b.trips ?? { guest_name: null, guest_email: null, guest_phone: null };
+  const phoneDigits = guest.guest_phone?.replace(/\D/g, "") ?? "";
   const field = "mt-1 block w-full min-h-10 rounded-lg border border-slate-300 px-2 font-normal";
 
   return (
@@ -86,14 +91,14 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
         <section className="rounded-xl border border-slate-200 bg-white p-5">
           <h2 className="font-extrabold text-slate-900">Client</h2>
           <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
-            <Item k="Name" v={b.guest_name} />
-            <Item k="Email" v={b.guest_email} />
-            <Item k="WhatsApp" v={b.guest_phone} />
+            <Item k="Name" v={guest.guest_name} />
+            <Item k="Email" v={guest.guest_email} />
+            <Item k="WhatsApp" v={guest.guest_phone} />
             <Item k="Their notes" v={b.client_notes} />
           </dl>
           {phoneDigits && (
             <a
-              href={`https://wa.me/${phoneDigits}?text=${encodeURIComponent(`Hi ${b.guest_name ?? ""}! This is PuraVidaWay about your trip request ${b.booking_ref}.`)}`}
+              href={`https://wa.me/${phoneDigits}?text=${encodeURIComponent(`Hi ${guest.guest_name ?? ""}! This is PuraVidaWay about your trip request ${b.booking_ref}.`)}`}
               target="_blank"
               rel="noreferrer"
               className="mt-4 inline-flex min-h-10 items-center rounded-lg bg-emerald-700 px-4 text-sm font-bold text-white"

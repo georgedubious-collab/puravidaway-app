@@ -1,6 +1,7 @@
 "use server";
 
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
+import { headers } from "next/headers";
 import { after } from "next/server";
 import { getCatalog } from "@/lib/catalogSource";
 import { HUBS } from "@/lib/catalog";
@@ -21,7 +22,8 @@ export interface TripRequestInput {
 }
 
 export type TripRequestResult =
-  | { ok: true; refs: string[]; tripId: string | null }
+  /** tripToken: the code in the traveller's private trip-page link. */
+  | { ok: true; refs: string[]; tripToken: string | null }
   | { ok: false; error: string }
   /** Prices changed since the item was added: the cart shows the new totals and asks again. */
   | { ok: false; error: string; repriced: Record<string, number> };
@@ -35,7 +37,7 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
  */
 export async function submitTripRequest(input: TripRequestInput): Promise<TripRequestResult> {
   try {
-    if (input.website) return { ok: true, refs: [], tripId: null }; // bot: pretend it worked
+    if (input.website) return { ok: true, refs: [], tripToken: null }; // bot: pretend it worked
     const name = String(input.name ?? "").trim();
     const email = String(input.email ?? "").trim().toLowerCase();
     const phone = String(input.phone ?? "").trim();
@@ -76,7 +78,24 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
       return { ok: false, error: "Some prices have changed since you added them. Please check the new totals and send again.", repriced };
     }
 
+    // Abuse limit (every request emails the address given): 5 an hour per network, 3 per email.
+    const h = await headers();
+    const ip = (h.get("x-forwarded-for") ?? "").split(",")[0].trim() || h.get("x-real-ip") || "unknown";
+    const allowed = await db.rpc("allow_trip_request", { p_ip: ip, p_email: email });
+    if (allowed.error) throw allowed.error;
+    if (allowed.data !== true) {
+      return { ok: false, error: "We've received several requests from you already. Please wait a little, or message us on WhatsApp." };
+    }
+
     const tripId = randomUUID();
+    const tripToken = randomBytes(32).toString("hex");
+    const trip = await db
+      .from("trips")
+      .insert({ id: tripId, access_token: tripToken, guest_name: name, guest_email: email, guest_phone: phone });
+    if (trip.error) {
+      console.error("[trip request]", trip.error);
+      return { ok: false, error: "We couldn't save your request. Please try again or send it on WhatsApp." };
+    }
     const rows = priced.map(({ spec, date, totalCents, referenceCents }) => ({
       trip_id: tripId,
       service_type: spec.kind,
@@ -101,9 +120,6 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
       currency: "USD",
       payment_mode: input.mode,
       status: "pending_payment",
-      guest_name: name,
-      guest_email: email,
-      guest_phone: phone,
       client_notes:
         [notes, spec.kind === "transfer" && spec.pricing === "bid" ? `Offer; fixed price was $${(referenceCents / 100).toFixed(2)}` : ""]
           .filter(Boolean)
@@ -117,7 +133,7 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
     }
     const refs = (data ?? []).map((r) => r.booking_ref as string);
     const total = priced.reduce((n, p) => n + p.totalCents, 0) / 100;
-    const tripUrl = `${SITE_URL}/trip/${tripId}`;
+    const tripUrl = `${SITE_URL}/trip/${tripToken}`;
     after(async () => {
       await sendEmail({
         to: email,
@@ -142,7 +158,7 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
         });
       }
     });
-    return { ok: true, refs, tripId };
+    return { ok: true, refs, tripToken };
   } catch (e) {
     console.error("[trip request]", e);
     return { ok: false, error: "We couldn't save your request. Please try again or send it on WhatsApp." };

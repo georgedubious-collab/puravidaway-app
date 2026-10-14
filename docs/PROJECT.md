@@ -301,8 +301,12 @@ and `season_for_date(date)` returns the season for a travel date.
   vehicles always start `pending`; only admins change `status`, `note` and review fields; file
   links must be in the driver's own folder. Clients never see Cédula,
   license or insurance numbers.
-- **bookings:** clients see their own; the assigned driver sees their assigned bookings; admins
-  see all. Approved drivers see **open** requests (`pending_bids`) only through the
+- **bookings:** clients see their own; the assigned driver sees their assigned bookings (so
+  nothing private may live on the booking row); admins see all. Traveller contact details and
+  the private trip-page code live in **`trips`**, readable only by admins and the server.
+- **trip_chats:** per booking; travellers post through the server after it checks their trip
+  code; drivers and travellers can't send phone numbers, emails or links. `chat_reads`,
+  `request_log` and the rate-limit functions are server-only. Approved drivers see **open** requests (`pending_bids`) only through the
   `open_trip_requests` view: towns, date, vehicle, passengers and price, without the client's id,
   exact coordinates or flight/hotel notes, until a bid is accepted.
 - **bids:** drivers create and manage their own; the amount can change only while the request is

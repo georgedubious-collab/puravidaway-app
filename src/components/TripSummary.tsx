@@ -32,8 +32,8 @@ export interface TripState {
   /** Booking references once the trip was sent (the cart is then emptied). */
   sentRefs: string[] | null;
   /** Private trip page (driver, car photos) once the trip was sent. */
-  sentTripId: string | null;
-  onSent: (refs: string[], tripId: string | null) => void;
+  sentTripToken: string | null;
+  onSent: (refs: string[], tripToken: string | null) => void;
   onNewTrip: () => void;
 }
 
@@ -52,7 +52,7 @@ export function TripSummary({ trip }: { trip: TripState }) {
   const [error, setError] = useState<string | null>(null);
   const [website, setWebsite] = useState(""); // spam trap, hidden from people
 
-  if (trip.sentRefs) return <Sent refs={trip.sentRefs} tripId={trip.sentTripId} contact={contact} onNewTrip={trip.onNewTrip} />;
+  if (trip.sentRefs) return <Sent refs={trip.sentRefs} tripToken={trip.sentTripToken} contact={contact} onNewTrip={trip.onNewTrip} />;
 
   const set = (k: keyof TripContact) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     onContact({ ...contact, [k]: e.target.value });
@@ -68,7 +68,7 @@ export function TripSummary({ trip }: { trip: TripState }) {
         website,
       });
       if (res.ok) {
-        trip.onSent(res.refs, res.tripId);
+        trip.onSent(res.refs, res.tripToken);
       } else {
         if ("repriced" in res) trip.onReprice(res.repriced);
         setError(res.error);
@@ -219,12 +219,12 @@ export function TripSummary({ trip }: { trip: TripState }) {
 
 function Sent({
   refs,
-  tripId,
+  tripToken,
   contact,
   onNewTrip,
 }: {
   refs: string[];
-  tripId: string | null;
+  tripToken: string | null;
   contact: TripContact;
   onNewTrip: () => void;
 }) {
@@ -247,15 +247,15 @@ function Sent({
           <p className="mt-1 font-mono text-base font-bold text-emerald-950">{refs.join(" · ")}</p>
         </div>
       )}
-      {tripId && (
+      {tripToken && (
         <a
-          href={`/trip/${tripId}`}
+          href={`/trip/${tripToken}`}
           className="flex min-h-12 items-center justify-center rounded-xl bg-emerald-700 font-extrabold text-white hover:bg-emerald-600"
         >
           Open your trip page &amp; chat
         </a>
       )}
-      {tripId && (
+      {tripToken && (
         <p className="text-xs text-emerald-900">
           Bookmark it: your driver&apos;s profile and car photos appear there once your trip is confirmed.
         </p>

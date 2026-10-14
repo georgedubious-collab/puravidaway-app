@@ -12,7 +12,14 @@ Newest entries first. AIs: read the top of this file before starting work.
   after 30 min). Trip requests now email the traveller a confirmation with the trip-page link and
   the team a new-request alert. The trip panel now leads with email + chat; WhatsApp is optional.
   Drivers see the traveller's phone only from the day before the trip, and don't see the price.
-  143 database checks.
+  Security review fixes before merge: traveller contact details and the trip link moved to a
+  server-only `trips` table (drivers could read them on their booking row); trip pages use a
+  separate 64-character code (`/trip/<code>`), not the trip id; trip requests limited to 5 an
+  hour per network and 3 per email (atomic `allow_trip_request`); chat flood guard and email
+  "slots" are claimed in one database step (`post_chat_message`, `claim_chat_email`), and no
+  email goes out while the recipient is reading; the contact filter now allows written dates and
+  catches "8888_1234", "pepe at gmail dot com" and @handles; no posts on cancelled bookings;
+  suspended drivers lose chat access. 168 database checks.
 
 - 2026-10-14 — Claude — Ride preferences, driver profiles, trip page (migration 0008). The ride
   builder asks for the driver's language (English-speaking / Spanish or basic English is fine),

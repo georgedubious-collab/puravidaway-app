@@ -23,7 +23,7 @@ Either way works; the first needs no installs.
 6. `20261014000006_driver_vehicles.sql` — several vehicles per driver
 7. `20261014000007_trip_requests.sql` — trip requests from the website, dispatch fields
 8. `20261014000008_preferences_profiles.sql` — ride preferences, driver bios, vehicle features
-9. `20261014000009_trip_chat.sql` — trip chat (travellers, drivers, team) and email throttling
+9. `20261014000009_trip_chat.sql` — trip chat, server-only traveller contacts, abuse limits
 
 Later files are added as the app grows; each pull request says when there's a new one to run.
 
@@ -83,6 +83,6 @@ Every later admin or driver is promoted from inside `/admin`; this SQL step is o
 Without `RESEND_API_KEY` the app works the same; emails are simply not sent.
 
 ## Checking the security rules
-`npm run test:db` replays the migrations in a throwaway in-memory Postgres and runs 143 checks
+`npm run test:db` replays the migrations in a throwaway in-memory Postgres and runs 168 checks
 (clients can't see each other's bookings, drivers can't approve themselves, nobody but the server
 can record payments, and so on).

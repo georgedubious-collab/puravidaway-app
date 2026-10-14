@@ -71,8 +71,13 @@ export function prefMismatches(
  * Mirrors public.no_contact_details() in the database.
  */
 export function hasContactDetails(t: string): boolean {
-  if (/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i.test(t)) return true;
-  if (/(https?:\/\/|www\.|\.com\b|\.cr\b|wa\.me)/i.test(t)) return true;
-  const noYears = t.replace(/(19|20)\d{2}\s*[-–]\s*(19|20)\d{2}/g, "");
-  return /\d{8,}/.test(noYears.replace(/(?<=\d)[ ().+-]+(?=\d)/g, ""));
+  if (/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i.test(t)) return true; // email
+  if (/(https?:\/\/|www\.|\.com\b|\.cr\b|wa\.me|\bdot\s+com\b)/i.test(t)) return true; // links
+  if (/\b(gmail|hotmail|yahoo|outlook|icloud|proton)\b/i.test(t)) return true; // email providers
+  if (/(^|\s)@[a-z0-9_.]{3,}/i.test(t)) return true; // social handles
+  const cleaned = t
+    .replace(/(19|20)\d{2}\s*[-–]\s*(19|20)\d{2}/g, "") // year ranges
+    .replace(/\d{4}[-/.]\d{1,2}[-/.]\d{1,2}|\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4}/g, "") // dates
+    .replace(/(?<=\d)[ ().+_/,-]+(?=\d)/g, "");
+  return /\d{8,}/.test(cleaned); // phone numbers
 }

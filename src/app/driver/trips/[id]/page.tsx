@@ -8,6 +8,7 @@ import { BOOKING_STATUS_LABEL, SERVICE_LABEL, type BookingRow } from "@/lib/book
 import { getCatalog } from "@/lib/catalogSource";
 import { addDays, todayInCostaRica } from "@/lib/dates";
 import { prefsSummary } from "@/lib/preferences";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { DriverHeader } from "../../DriverHeader";
 
@@ -39,6 +40,14 @@ async function Trip({ params }: { params: Promise<{ id: string }> }) {
   ]);
   if (!b) notFound();
 
+  // Traveller contact details are server-only: read them here, after the database
+  // confirmed (through the driver's own sign-in) that this trip is assigned to them.
+  const admin = createSupabaseAdminClient();
+  const { data: guest } =
+    admin && b.trip_id
+      ? await admin.from("trips").select("guest_name, guest_phone").eq("id", b.trip_id).maybeSingle()
+      : { data: null };
+
   const date = b.scheduled_at?.slice(0, 10) ?? "";
   // The traveller's phone shows from the day before the trip, for the pickup itself.
   const showPhone = Boolean(date) && todayInCostaRica() >= addDays(date, -1);
@@ -66,8 +75,8 @@ async function Trip({ params }: { params: Promise<{ id: string }> }) {
 
       <section className="rounded-xl border border-slate-200 bg-white p-5">
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
-          <Item k="Traveller" v={(b.guest_name ?? "").split(" ")[0] || "—"} />
-          <Item k="WhatsApp / phone" v={showPhone ? b.guest_phone : "Shown the day before the trip"} />
+          <Item k="Traveller" v={(guest?.guest_name ?? "").split(" ")[0] || "—"} />
+          <Item k="WhatsApp / phone" v={showPhone ? guest?.guest_phone : "Shown the day before the trip"} />
           {b.passenger_count && <Item k="Passengers" v={b.passenger_count} />}
           {b.vehicle_class && <Item k="Vehicle class" v={catalog.vehicles.find((v) => v.id === b.vehicle_class)?.name ?? b.vehicle_class} />}
           {stops && <Item k="Stops / extras" v={stops} />}

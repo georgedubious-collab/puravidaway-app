@@ -2,6 +2,7 @@
 
 import { after } from "next/server";
 import { getCurrentProfile } from "@/lib/auth";
+import { TRIP_TOKEN } from "@/lib/bookings";
 import { ADMIN_EMAIL, SITE_URL, sendEmail } from "@/lib/email";
 import { hasContactDetails } from "@/lib/preferences";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -13,7 +14,8 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
  * written by the server after that check.
  */
 
-export type ChatViewer = { kind: "traveller"; tripId: string } | { kind: "staff" };
+/** Travellers prove who they are with the code in their private trip link. */
+export type ChatViewer = { kind: "traveller"; token: string } | { kind: "staff" };
 export type Party = "client" | "driver" | "admin";
 
 export interface ChatMessage {
@@ -38,10 +40,11 @@ interface Ctx {
     id: string;
     trip_id: string | null;
     booking_ref: string;
-    guest_name: string | null;
-    guest_email: string | null;
+    status: string;
     assigned_driver_id: string | null;
   };
+  /** Server-only traveller details (never from the booking row, which the driver can read). */
+  trip: { access_token: string; guest_name: string | null; guest_email: string | null } | null;
 }
 
 async function authorize(bookingId: string, viewer: ChatViewer): Promise<Ctx | string> {
@@ -50,19 +53,26 @@ async function authorize(bookingId: string, viewer: ChatViewer): Promise<Ctx | s
   if (!db) return "Chat isn't switched on yet.";
   const { data: booking } = await db
     .from("bookings")
-    .select("id, trip_id, booking_ref, guest_name, guest_email, assigned_driver_id")
+    .select("id, trip_id, booking_ref, status, assigned_driver_id")
     .eq("id", bookingId)
     .maybeSingle();
   if (!booking) return "Chat not found.";
+  const { data: trip } = booking.trip_id
+    ? await db.from("trips").select("access_token, guest_name, guest_email").eq("id", booking.trip_id).maybeSingle()
+    : { data: null };
 
   if (viewer.kind === "traveller") {
-    if (!UUID.test(viewer.tripId) || booking.trip_id !== viewer.tripId) return "Chat not found.";
-    return { db, party: "client", userId: null, booking };
+    if (!TRIP_TOKEN.test(viewer.token) || !trip || trip.access_token !== viewer.token) return "Chat not found.";
+    return { db, party: "client", userId: null, booking, trip };
   }
   const me = await getCurrentProfile();
   if (!me) return "Please sign in again.";
-  if (me.role === "admin") return { db, party: "admin", userId: me.id, booking };
-  if (me.role === "driver" && booking.assigned_driver_id === me.id) return { db, party: "driver", userId: me.id, booking };
+  if (me.role === "admin") return { db, party: "admin", userId: me.id, booking, trip };
+  if (me.role === "driver" && booking.assigned_driver_id === me.id) {
+    const { data: d } = await db.from("drivers").select("kyc_status").eq("id", me.id).maybeSingle();
+    if (d?.kyc_status !== "approved") return "Your driver account is paused. Please contact our team.";
+    return { db, party: "driver", userId: me.id, booking, trip };
+  }
   return "You don't have access to this chat.";
 }
 
@@ -79,7 +89,7 @@ async function load(ctx: Ctx): Promise<ChatMessage[]> {
     const { data: profiles } = await ctx.db.from("profiles").select("id, full_name").in("id", senderIds);
     for (const p of profiles ?? []) names[p.id] = (p.full_name ?? "").split(" ")[0] || "Driver";
   }
-  const clientName = (ctx.booking.guest_name ?? "Traveller").split(" ")[0];
+  const clientName = (ctx.trip?.guest_name ?? "Traveller").split(" ")[0] || "Traveller";
   return (rows ?? []).map((r) => ({
     id: r.id,
     party: r.sender_role as Party,
@@ -120,20 +130,19 @@ export async function sendChat(bookingId: string, viewer: ChatViewer, raw: strin
       return { ok: false, error: "Please keep phone numbers, emails and links out of the chat. Our team shares contact details when needed." };
     }
 
-    // Simple flood guard: at most 8 messages a minute from one side of a chat.
-    const since = new Date(Date.now() - 60_000).toISOString();
-    const { count } = await ctx.db
-      .from("trip_chats")
-      .select("id", { count: "exact", head: true })
-      .eq("booking_id", ctx.booking.id)
-      .eq("sender_role", ctx.party)
-      .gte("sent_at", since);
-    if ((count ?? 0) >= 8) return { ok: false, error: "You're sending messages very fast. Please wait a moment." };
+    if (ctx.booking.status === "cancelled" && ctx.party !== "admin") {
+      return { ok: false, error: "This booking was cancelled. Contact our team if you need help." };
+    }
 
-    const { error } = await ctx.db
-      .from("trip_chats")
-      .insert({ booking_id: ctx.booking.id, sender_id: ctx.userId, sender_role: ctx.party, message: text });
+    // Flood guard (8 a minute per side) and insert happen in one database step.
+    const { error } = await ctx.db.rpc("post_chat_message", {
+      p_booking: ctx.booking.id,
+      p_sender: ctx.userId,
+      p_role: ctx.party,
+      p_message: text,
+    });
     if (error) {
+      if (/Too many messages/.test(error.message)) return { ok: false, error: "You're sending messages very fast. Please wait a moment." };
       if (/keep phone numbers/.test(error.message)) return { ok: false, error: "Please keep phone numbers, emails and links out of the chat." };
       throw error;
     }
@@ -148,59 +157,44 @@ export async function sendChat(bookingId: string, viewer: ChatViewer, raw: strin
 }
 
 /**
- * One email per party until they come back and read: send if they were never
- * emailed, have read since the last email, or the last email is over 30 minutes old.
+ * Email the other parties. Each email "slot" is claimed in one database step
+ * (claim_chat_email), so at most one email goes out until the person reads the
+ * chat again (or after 30 minutes), and none while they're reading it.
  */
 async function notifyOthers(ctx: Ctx, text: string) {
   const b = ctx.booking;
   const recipients: { party: Party; email: string; url: string; greeting: string }[] = [];
-  if (ctx.party !== "client" && b.guest_email && b.trip_id) {
+  if (ctx.party !== "client" && ctx.trip?.guest_email) {
     recipients.push({
       party: "client",
-      email: b.guest_email,
-      url: `${SITE_URL}/trip/${b.trip_id}#chat-${b.id}`,
-      greeting: `Hi ${(b.guest_name ?? "").split(" ")[0] || "there"},`,
+      email: ctx.trip.guest_email,
+      url: `${SITE_URL}/trip/${ctx.trip.access_token}#chat-${b.id}`,
+      greeting: `Hi ${(ctx.trip.guest_name ?? "").split(" ")[0] || "there"},`,
     });
   }
   if (ctx.party !== "driver" && b.assigned_driver_id) {
     const { data: p } = await ctx.db.from("profiles").select("email, full_name").eq("id", b.assigned_driver_id).maybeSingle();
     if (p?.email) {
-      recipients.push({
-        party: "driver",
-        email: p.email,
-        url: `${SITE_URL}/driver/trips/${b.id}`,
-        greeting: `Hola ${(p.full_name ?? "").split(" ")[0] || ""},`.replace(" ,", ","),
-      });
+      const first = (p.full_name ?? "").split(" ")[0];
+      recipients.push({ party: "driver", email: p.email, url: `${SITE_URL}/driver/trips/${b.id}`, greeting: first ? `Hola ${first},` : "Hola," });
     }
   }
   if (ctx.party !== "admin" && ADMIN_EMAIL) {
     recipients.push({ party: "admin", email: ADMIN_EMAIL, url: `${SITE_URL}/admin/bookings/${b.id}`, greeting: "New chat message." });
   }
-  if (!recipients.length) return;
 
-  const { data: reads } = await ctx.db
-    .from("chat_reads")
-    .select("party, last_read_at, last_emailed_at")
-    .eq("booking_id", b.id);
   const fromFor = (to: Party) =>
     ctx.party === "admin" ? "the PuraVidaWay team" : ctx.party === "client" ? "the traveller" : to === "client" ? "your driver" : "the driver";
   const snippet = text.length > 300 ? `${text.slice(0, 300)}…` : text;
 
   for (const r of recipients) {
-    const read = reads?.find((x) => x.party === r.party);
-    const last = read?.last_emailed_at ? Date.parse(read.last_emailed_at) : 0;
-    const seen = read?.last_read_at ? Date.parse(read.last_read_at) : 0;
-    if (last && seen < last && Date.now() - last < 30 * 60_000) continue;
-    const sent = await sendEmail({
+    const claim = await ctx.db.rpc("claim_chat_email", { p_booking: b.id, p_party: r.party });
+    if (claim.error || claim.data !== true) continue;
+    await sendEmail({
       to: r.email,
       subject: `New message about your trip ${b.booking_ref}`,
       lines: [r.greeting, `You have a new message from ${fromFor(r.party)}:`, `“${snippet}”`, "Reply in the trip chat (please don't reply to this email)."],
       button: { label: "Open the chat", url: r.url },
     });
-    if (sent) {
-      await ctx.db
-        .from("chat_reads")
-        .upsert({ booking_id: b.id, party: r.party, last_emailed_at: new Date().toISOString() }, { onConflict: "booking_id,party" });
-    }
   }
 }
