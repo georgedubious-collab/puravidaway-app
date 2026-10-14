@@ -41,13 +41,14 @@ tier maze. Final % is Jorge's call (PROJECT.md §9 #2).
 - Included everywhere: door-to-door, flight tracking + driver waits, English-speaking licensed
   and insured driver, A/C vehicle, 1 suitcase + 1 carry-on per pax, child seats on request,
   pet-friendly, free cancellation up to 24 h.
-- "From $X per person" is the **per-car price divided by the vehicle's max seats**. A sedan at
-  $29 × 4 = roughly **$116–120 per car** SJO → La Fortuna. Real SUV bookings on that route
-  cleared at **~$150** (Aug 2026). Our prototype SUV at $175 is above both; the price table must
-  be built against these numbers (see Route-Pricing decision).
-- Observed real client prices (SUV, Aug 2026): SJO→La Fortuna ~$150, Arenal→SJO ~$185,
-  SJO→Tamarindo ~$320, Monteverde→Manuel Antonio ~$251, Puerto Viejo→SJO ~$280,
-  San José→Limón ~$150.
+- "From $X per person" is the **cheapest per-seat price: the 7-seat Van divided by 7** (SJO→La
+  Fortuna: Van $212 ÷ 7 ≈ $30 → "from $29"; Puerto Viejo $384 ÷ 7 ≈ $55 → "from $52"; Tamarindo
+  $457 ÷ 7 ≈ $65 → "from $63"). It is a marketing number; a couple actually pays the Sedan price
+  ($161 for SJO→La Fortuna). (Corrected 2026-10-14 — an earlier version wrongly derived it from a
+  4-seat sedan.)
+- Observed real client prices (Jorge's rides, Aug 2026): SJO→La Fortuna $150, Tabacón→SJO $185,
+  SJO→Tamarindo $320, Monteverde→Manuel Antonio $251, Puerto Viejo→SJO $280, San José→Limón
+  $150 — all within a few dollars of today's Sedan / Sedan Lite grid prices.
 
 ## 2b. Daytrip price grid, Costa Rica (checked 2026-10-14 via daytrip.com)
 
@@ -122,8 +123,10 @@ guided — keep that difference visible.
 ## 2c. GetTransfer price grid, Costa Rica (checked 2026-10-14 via gettransfer.com)
 
 GetTransfer shows a **"from" price per class** as soon as A and B are entered (before any request
-is posted). These are indicative floors; real driver bids can be higher. Origin for SJO rows was
-the SJO airport terminal.
+is posted). These are indicative floors; real driver bids can be higher. Origin for SJO rows resolved to
+the SIXT in-terminal desk at SJO (same building as arrivals); destinations resolved to the first
+Google suggestion in each town (e.g. a surf camp in Tamarindo, a lodge in Monteverde), which is
+inside the town zone in every case.
 
 | Route | Economy | Comfort | Business | Premium | VIP | SUV | Van | Minibus |
 | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -164,8 +167,9 @@ Takeaways:
 
 ## 2d. Exact pick-up / drop-off points (both competitors)
 
-Neither app limits travellers to a list of towns. Both use **map search** (GetTransfer shows the
-Google Maps logo; Daytrip's results look the same): travellers type a hotel, Airbnb, restaurant,
+Neither app limits travellers to a list of towns. Both use **map place search** (GetTransfer's
+dropdown carries the Google Maps logo; Daytrip's is a similar autocomplete, provider not
+confirmed): travellers type a hotel, Airbnb, restaurant,
 tour operator, ferry/boat dock, surf camp, car-rental desk, or street address, and the exact
 point is stored. Searches are global (typing "Sierpe" also offers places in Poland and Spain;
 "Tabacón" also offers a business in Côte d'Ivoire), so a country bias matters.
