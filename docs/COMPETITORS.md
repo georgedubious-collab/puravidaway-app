@@ -49,6 +49,34 @@ tier maze. Final % is Jorge's call (PROJECT.md §9 #2).
   SJO→Tamarindo ~$320, Monteverde→Manuel Antonio ~$251, Puerto Viejo→SJO ~$280,
   San José→Limón ~$150.
 
+## 2b. Daytrip price grid, Costa Rica (checked 2026-10-14 via daytrip.com)
+
+Quote for **Wed 18 Nov 2026, 9:00, 2 passengers, 2 bags** (green season). Prices are per car,
+one way, VAT included, free cancellation up to 24 h.
+
+| Route | km / time | Sedan Lite | Sedan | Compact MPV | Van | SUV |
+| :--- | :--- | ---: | ---: | ---: | ---: | ---: |
+| SJO → La Fortuna | 116 km / 2 h 30 | $150 | $161 | $212 | $212 | $202 |
+| SJO → Monteverde | 132 km / 2 h 30 | $169 | $182 | $241 | $241 | $225 |
+| SJO → Manuel Antonio | 159 km / 2 h 50 | $189 | $205 | $273 | $273 | $252 |
+| SJO → Puerto Viejo | 232 km / 4 h | $260 | $281 | $384 | $384 | $352 |
+| SJO → Tamarindo | 273 km / 4 h 40 | $313 | $338 | $457 | $457 | $421 |
+
+Vehicle classes (Daytrip's definitions):
+- **Sedan Lite** — budget, direct ride only (no stops), driver may not speak English; 1–3 pax, 3 bags.
+- **Sedan** — default "best for you"; 1–3 pax, 3 bags.
+- **Compact MPV** — 4 pax, 4 bags. **Van** — 5–7 pax, 7 bags (same price as MPV).
+- **SUV** — "built for any road", elevated seating; only **1–2 pax, 2 bags** (premium, not family).
+
+Pattern (fits all 5 routes within ~4%):
+- **Sedan ≈ $30 + $1.13 per km.** Price scales with distance; there is no flat rate.
+- Sedan Lite ≈ 0.93 × Sedan · SUV ≈ 1.24 × Sedan · MPV = Van ≈ 1.33 × Sedan.
+- Driver payout ≈ 68–71% of these prices (see §1b).
+
+Implication for PuraVidaWay: our prototype's flat $175 SUV is ~$27 too high on SJO→La Fortuna
+and ~$250 too low on SJO→Tamarindo. Transfer prices must be **distance-based per route ×
+vehicle class**, like Daytrip.
+
 ## 3. What each one does well — copy it
 
 **Daytrip**
