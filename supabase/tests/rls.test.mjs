@@ -22,7 +22,7 @@ await db.exec(`
   create function auth.uid() returns uuid language sql stable as
     $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
   create schema storage;
-  create table storage.buckets (id text primary key, name text, public boolean);
+  create table storage.buckets (id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]);
   create table storage.objects (id uuid primary key default gen_random_uuid(), bucket_id text, name text, owner uuid);
   alter table storage.objects enable row level security;
   create function storage.foldername(name text) returns text[] language sql immutable as
@@ -94,7 +94,11 @@ for (const [k, id] of Object.entries(U)) {
 await db.exec(`
   update public.profiles set role = 'admin' where id = '${U.admin}';
   update public.profiles set role = 'driver' where id in ('${U.driver}', '${U.pending}');
-  insert into public.drivers (id, kyc_status) values ('${U.driver}', 'approved'), ('${U.pending}', 'pending');
+  insert into public.drivers (id, kyc_status, license_expiry, ins_insurance_expiry, marchamo_year, dekra_inspection_expiry, documents) values
+    ('${U.driver}', 'approved', '2099-01-01', '2099-01-01', 2099, '2099-01-01',
+     '{"license": "${U.driver}/license-0.pdf", "insurance": "${U.driver}/insurance-0.pdf",
+       "marchamo": "${U.driver}/marchamo-0.pdf", "dekra": "${U.driver}/dekra-0.pdf"}'),
+    ('${U.pending}', 'pending', null, null, null, null, '{}');
 `);
 
 // --- Catalog ------------------------------------------------------------------
@@ -127,9 +131,80 @@ await expectRows("client sees no driver KYC", "client", "select * from public.dr
 await expectRows("driver sees only own KYC", "driver", "select * from public.drivers", 1);
 await expectOk("driver updates own license", "pending", `update public.drivers set license_number = 'B1-123' where id = '${U.pending}'`);
 await expectBlocked("pending driver cannot approve self", "pending", `update public.drivers set kyc_status = 'approved' where id = '${U.pending}'`);
-await expectBlocked("client cannot register as driver", "client", `insert into public.drivers (id) values ('${U.client}')`);
+await expectBlocked("client cannot apply as already approved", "client",
+  `insert into public.drivers (id, kyc_status) values ('${U.client}', 'approved')`);
+await expectBlocked("client cannot upload KYC docs before applying", "client",
+  `insert into storage.objects (bucket_id, name) values ('driver-kyc-docs', '${U.client}/x.pdf')`);
+await expectBlocked("client cannot apply on someone else's behalf", "client",
+  `insert into public.drivers (id) values ('${U.client2}')`);
+await expectOk("client applies as a driver (pending)", "client",
+  `insert into public.drivers (id, license_number) values ('${U.client}', 'B1-999')`);
+await expectRows("application is pending", "client",
+  `select * from public.drivers where id = '${U.client}' and kyc_status = 'pending' and submitted_at is not null`, 1);
+await expectOk("applicant uploads to own folder", "client",
+  `insert into storage.objects (bucket_id, name) values ('driver-kyc-docs', '${U.client}/licence.pdf')`);
+await expectRows("applicant cannot write a review note (silently ignored)", "client",
+  `update public.drivers set kyc_note = 'looks great', reviewed_at = now() where id = '${U.client}' returning kyc_note`, 1);
+await expectRows("review note stayed empty", "admin",
+  `select * from public.drivers where id = '${U.client}' and kyc_note is null and reviewed_at is null`, 1);
+await expectRows("applicant still cannot see other drivers", "client", "select * from public.drivers", 1);
 await expectOk("admin approves a driver", "admin", `update public.drivers set kyc_status = 'approved' where id = '${U.pending}'`);
 await expectOk("admin suspends driver again", "admin", `update public.drivers set kyc_status = 'pending' where id = '${U.pending}'`);
+await expectBlocked("approved driver cannot change an expiry date without the new document", "driver",
+  `update public.drivers set license_expiry = '2098-01-01' where id = '${U.driver}'`);
+await expectOk("approved driver renews licence with the new document", "driver",
+  `update public.drivers set license_expiry = '2098-01-01',
+     documents = documents || '{"license": "${U.driver}/license-1.pdf"}' where id = '${U.driver}'`);
+await expectRows("renewal flags the record for review", "admin",
+  `select * from public.drivers where id = '${U.driver}' and needs_review and kyc_status = 'approved'`, 1);
+await expectOk("location ping", "driver", `update public.drivers set last_lat = 9.9 where id = '${U.driver}'`);
+await expectOk("admin clears the review flag", "admin", `update public.drivers set needs_review = false where id = '${U.driver}'`);
+await expectOk("location ping again", "driver", `update public.drivers set last_lat = 9.8 where id = '${U.driver}'`);
+await expectRows("location pings don't flag for review", "admin",
+  `select * from public.drivers where id = '${U.driver}' and not needs_review`, 1);
+await expectOk("applicant links a document in own folder", "client",
+  `update public.drivers set documents = '{"license": "${U.client}/license-1.pdf"}' where id = '${U.client}'`);
+await expectBlocked("applicant cannot link someone else's file", "client",
+  `update public.drivers set documents = '{"license": "${U.driver}/license-1.pdf"}' where id = '${U.client}'`);
+await expectBlocked("pending applicant cannot go on duty", "client",
+  `update public.drivers set is_on_duty = true where id = '${U.client}'`);
+await expectOk("approved driver goes on duty", "driver", `update public.drivers set is_on_duty = true where id = '${U.driver}'`);
+await expectOk("admin suspends the driver", "admin", `update public.drivers set kyc_status = 'suspended' where id = '${U.driver}'`);
+await expectRows("suspension takes them off duty", "admin",
+  `select * from public.drivers where id = '${U.driver}' and not is_on_duty`, 1);
+await expectOk("admin re-approves", "admin", `update public.drivers set kyc_status = 'approved' where id = '${U.driver}'`);
+
+// Document validity: licence and Marchamo have no grace period, insurance has 15 days.
+const approvedNow = (name, n) =>
+  expectRows(name, "driver", "select 1 where public.is_approved_driver()", n);
+const setDriver = (sql) => as("server", `update public.drivers set ${sql} where id = '${U.driver}'`);
+await approvedNow("approved driver with current documents gets trips", 1);
+await setDriver("ins_insurance_expiry = public.cr_today() - 15");
+await approvedNow("insurance expired 15 days ago: still in grace", 1);
+await setDriver("ins_insurance_expiry = public.cr_today() - 16");
+await approvedNow("insurance expired 16 days ago: no trips", 0);
+await setDriver("ins_insurance_expiry = '2099-01-01', license_expiry = public.cr_today() - 1");
+await approvedNow("licence expired yesterday: no trips (no grace)", 0);
+await setDriver("license_expiry = public.cr_today()");
+await approvedNow("licence expiring today still counts", 1);
+await setDriver("marchamo_year = extract(year from public.cr_today())::int - 1");
+await approvedNow("last year's Marchamo: no trips", 0);
+await expectBlocked("expired documents: cannot go on duty", "driver",
+  `update public.drivers set is_on_duty = true where id = '${U.driver}'`);
+await setDriver("marchamo_year = 2099, dekra_inspection_expiry = public.cr_today() - 1");
+await approvedNow("Dekra expired yesterday: no trips (no grace)", 0);
+await expectBlocked("cannot move the Dekra date without the new certificate", "driver",
+  `update public.drivers set dekra_inspection_expiry = '2098-01-01' where id = '${U.driver}'`);
+await expectOk("Dekra renewed with the new certificate", "driver",
+  `update public.drivers set dekra_inspection_expiry = '2098-01-01',
+     documents = documents || '{"dekra": "${U.driver}/dekra-1.pdf"}' where id = '${U.driver}'`);
+await setDriver("license_expiry = '2098-01-01'");
+await approvedNow("documents renewed: trips again", 1);
+
+// The admin pages join drivers to profiles with the hint profiles!drivers_id_fkey
+// (drivers has two links to profiles since reviewed_by was added).
+await expectRows("drivers_id_fkey constraint name is stable", "admin",
+  "select 1 from pg_constraint where conname = 'drivers_id_fkey'", 1);
 
 // --- Bookings -----------------------------------------------------------------------
 await expectBlocked("client cannot create a booking with their own price", "client",
@@ -186,10 +261,10 @@ await expectOk("driver uploads to own folder", "driver",
   `insert into storage.objects (bucket_id, name) values ('driver-kyc-docs', '${U.driver}/license.pdf')`);
 await expectBlocked("driver cannot upload to another folder", "driver",
   `insert into storage.objects (bucket_id, name) values ('driver-kyc-docs', '${U.pending}/license.pdf')`);
-await expectBlocked("client cannot upload KYC docs", "client",
-  `insert into storage.objects (bucket_id, name) values ('driver-kyc-docs', '${U.client}/x.pdf')`);
+await expectBlocked("non-applicant cannot upload KYC docs", "client2",
+  `insert into storage.objects (bucket_id, name) values ('driver-kyc-docs', '${U.client2}/x.pdf')`);
 await expectRows("other driver cannot read the document", "pending", "select * from storage.objects", 0);
-await expectRows("admin reads the document", "admin", "select * from storage.objects", 1);
+await expectRows("admin reads the documents", "admin", "select * from storage.objects", 2);
 
 // --- Report -----------------------------------------------------------------------------------
 console.log(`${passed} checks passed, ${failures.length} failed`);

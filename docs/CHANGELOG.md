@@ -3,6 +3,19 @@
 Every merged change gets one line: `YYYY-MM-DD — <AI or Jorge> — <what changed>`.
 Newest entries first. AIs: read the top of this file before starting work.
 
+- 2026-10-14 — Claude — Phase 2c (driver KYC vault): `/driver` lets any signed-in user apply
+  (name, WhatsApp, licence/insurance/Dekra/Marchamo/criminal-record details, vehicle), upload the
+  9 required documents + optional ICT permit to the private bucket, and see status and the team's
+  message. `/admin/drivers` lists applications by state; the detail page shows details next to
+  10-minute document links and approves (also grants the driver role), rejects, suspends or marks
+  changes checked. Migration 0004: review fields, `needs_review` on driver edits, own-folder
+  document links, on-duty only when approved, bucket type/size limits, explicit API grants.
+  Dashboard reuses `expiryIssues` and links to drivers; footer link "Drive with PuraVidaWay".
+  Document validity: approved drivers stop receiving trips when the licence expires (no grace),
+  INS insurance is more than 15 days past expiry, the Marchamo isn't for the current year (no
+  grace) or the Dekra has expired (no grace); renewed dates are entered with the upload of the
+  new document. Fixed: role change to driver now reports a failed KYC-row insert. 90 database checks.
+
 - 2026-10-14 — Claude — Sign-in by email link: `/auth/callback` finishes the sign-in from
   Supabase's default email (which has a link, not a code, without custom SMTP); the home page
   forwards a stray `?code=` there; login page now says "click the link", keeps the code box as a

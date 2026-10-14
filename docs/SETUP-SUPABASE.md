@@ -18,6 +18,9 @@ Either way works; the first needs no installs.
 1. `20261014000001_core_schema.sql` — tables
 2. `20261014000002_row_level_security.sql` — security rules + private bucket for driver documents
 3. `20261014000003_seed_catalog.sql` — current vehicles, stops, tours, expeditions, seasons
+4. `20261014000004_driver_applications.sql` — driver applications and the document vault (Phase 2c)
+
+Later files are added as the app grows; each pull request says when there's a new one to run.
 
 **Option B — Supabase CLI.** `npx supabase link --project-ref <your ref>` then `npx supabase db push`.
 
@@ -58,6 +61,6 @@ Emails → SMTP Settings) with a PuraVidaWay mailbox or a service like Resend. T
 brand the email and add a 6-digit code (`{{ .Token }}`), which the login page already accepts.
 
 ## Checking the security rules
-`npm run test:db` replays the migrations in a throwaway in-memory Postgres and runs 56 checks
+`npm run test:db` replays the migrations in a throwaway in-memory Postgres and runs 90 checks
 (clients can't see each other's bookings, drivers can't approve themselves, nobody but the server
 can record payments, and so on).
