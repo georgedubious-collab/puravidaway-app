@@ -3,6 +3,8 @@
 ## First, read
 - `docs/PROJECT.md` — the single source of truth (product, stack, schema, pricing, roadmap).
 - `docs/CHANGELOG.md` — latest entries, to see what changed since your training of this repo.
+- `docs/COMPETITORS.md` — Daytrip, GetTransfer and Welcome Pickups are the benchmark for every
+  decision. Run its §5 checklist on any UI or pricing change.
 
 ## Who you work for
 Jorge Li, founder of Costa Rica Travel Planner. Solo operator, non-engineer: explain decisions

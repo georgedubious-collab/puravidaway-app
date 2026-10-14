@@ -33,6 +33,10 @@ revenue engines in one booking flow and one cart:
 Target market: travelers from the US, Canada and Europe. Sales are high-touch, with WhatsApp as
 the primary conversation channel.
 
+**Competitive benchmark (standing rule):** PuraVidaWay competes with **Daytrip**, **GetTransfer**
+and **Welcome Pickups**. Every pricing, product and UX decision is checked against them — see
+`docs/COMPETITORS.md` for the analysis and the per-PR checklist.
+
 ---
 
 ## 2. Tech stack (decided 2026-10-13)
@@ -279,7 +283,8 @@ jsonb · `sightseeing_stops` jsonb (array of stop IDs + snapshot prices) · `veh
 
 ## 9. Open decisions
 
-1. **Transfer pricing model.** The original Route-Pricing doc describes *base fee + distance/time
+1. **Transfer pricing model.** Daytrip sells SJO→La Fortuna from ~$29/person (≈$116–120 per
+   car), so our flat $175 SUV rate is not competitive. The original Route-Pricing doc describes *base fee + distance/time
    × vehicle multiplier* (1.0× / 1.4× / 1.8×). The prototype uses *flat rates per vehicle class*
    ($175–$290) regardless of route, which would make SJO→Manuel Antonio cost the same as
    SJO→Tamarindo. Recommended: a **route × vehicle price table** (each corridor has its own price

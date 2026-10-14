@@ -3,6 +3,9 @@
 Every merged change gets one line: `YYYY-MM-DD — <AI or Jorge> — <what changed>`.
 Newest entries first. AIs: read the top of this file before starting work.
 
+- 2026-10-14 — Claude — Added `docs/COMPETITORS.md` (Daytrip, GetTransfer, Welcome Pickups
+  business models, Costa Rica price points, openings, per-PR checklist) and linked it from
+  PROJECT.md, CLAUDE.md and GEMINI.md as the standing benchmark.
 - 2026-10-14 — Claude — Phase 2a: rebuilt the storefront on Next.js 16 + TypeScript + Tailwind.
   Typed catalog and cents-based pricing engine with season multipliers; working Transfers
   (corridor-filtered stops, vehicle classes, live route summary, fixed/bid toggle), Day Tours
