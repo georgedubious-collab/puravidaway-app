@@ -21,10 +21,10 @@
 
 | | Daytrip | GetTransfer |
 | :--- | :--- | :--- |
-| Platform cut | ~30% of the client price (28–34% observed on Costa Rica rides, Aug 2026) | 25% → 13% by rides/month and rating (≤10 rides at 4–5★ = 20%); −1 to −5 points for tenure; −3 points if paid from prepaid Commission Credit |
+| Platform cut | ~29% of the client price (19–34% across 9 Costa Rica rides, Aug 2026; most 29–33%) | 25% → 13% by rides/month and rating (≤10 rides at 4–5★ = 20%); −1 to −5 points for tenure; −3 points if paid from prepaid Commission Credit |
 | Prepaid credit | — | Buy $100 → $150 credit, or swap $100 of payouts → $130 credit; non-withdrawable, never expires |
 | Driver keeps on a $150 ride | ~$105 | $120 (20%) to ~$135 (10%) |
-| Payout | After the trip, by statement | Card rides paid out later; Cash Direct paid same day by the passenger |
+| Payout | Weekly statement, paid ~3 days after the week closes | Card rides paid out later; Cash Direct paid same day by the passenger |
 | Driver tools | Driver app | 24/7 AI support, free dispatcher software, AI pricing tips |
 
 Implication: a simple, flat PuraVidaWay partner commission in the **12–15%** range, paid
@@ -42,8 +42,12 @@ tier maze. Final % is Jorge's call (PROJECT.md §9 #2).
   and insured driver, A/C vehicle, 1 suitcase + 1 carry-on per pax, child seats on request,
   pet-friendly, free cancellation up to 24 h.
 - "From $X per person" is the **per-car price divided by the vehicle's max seats**. A sedan at
-  $29 × 4 = roughly **$116–120 per car** SJO → La Fortuna. Our SUV at $175 is well above that;
-  the price table must be built against these numbers (see Route-Pricing decision).
+  $29 × 4 = roughly **$116–120 per car** SJO → La Fortuna. Real SUV bookings on that route
+  cleared at **~$150** (Aug 2026). Our prototype SUV at $175 is above both; the price table must
+  be built against these numbers (see Route-Pricing decision).
+- Observed real client prices (SUV, Aug 2026): SJO→La Fortuna ~$150, Arenal→SJO ~$185,
+  SJO→Tamarindo ~$320, Monteverde→Manuel Antonio ~$251, Puerto Viejo→SJO ~$280,
+  San José→Limón ~$150.
 
 ## 3. What each one does well — copy it
 
