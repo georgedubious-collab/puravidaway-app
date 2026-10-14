@@ -3,6 +3,13 @@
 Every merged change gets one line: `YYYY-MM-DD — <AI or Jorge> — <what changed>`.
 Newest entries first. AIs: read the top of this file before starting work.
 
+- 2026-10-14 — Claude — Phase 2b, part 1 (database): Supabase migrations for every PROJECT.md §7
+  table, row-level security per §7.7, guards so only admins change roles/KYC status and drivers can
+  only withdraw bids, private `driver-kyc-docs` bucket, `season_for_date()` with season date ranges
+  (2026–2031, incl. Semana Santa), and a catalog seed generated from `catalog.ts`.
+  `npm run test:db` runs 56 security checks in an in-memory Postgres. Setup guide:
+  `docs/SETUP-SUPABASE.md`.
+
 - 2026-10-14 — Claude — Review fixes for PR #2 (applied on top of the app-first redesign): page
   is server-rendered per request (was a blank loading shell with no SEO content); `today` is
   computed server-side in Costa Rica time and passed down, no `new Date()` in client render;
