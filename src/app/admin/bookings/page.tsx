@@ -1,6 +1,14 @@
 import Link from "next/link";
 import { requireRole } from "@/lib/auth";
-import { BOOKING_STATUSES, BOOKING_STATUS_LABEL, SERVICE_LABEL, usd, type BookingRow, type BookingStatus } from "@/lib/bookings";
+import {
+  BOOKING_STATUSES,
+  BOOKING_STATUS_LABEL,
+  SERVICE_LABEL,
+  usd,
+  type BookingRow,
+  type BookingStatus,
+  type TripContact,
+} from "@/lib/bookings";
 import { getCatalog } from "@/lib/catalogSource";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -12,9 +20,9 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
   const filter = BOOKING_STATUSES.some(([s]) => s === status) ? (status as BookingStatus) : null;
 
   const supabase = (await createSupabaseServerClient())!;
-  let q = supabase.from("bookings").select("*").order("created_at", { ascending: false }).limit(300);
+  let q = supabase.from("bookings").select("*, trips(guest_name, guest_email, guest_phone)").order("created_at", { ascending: false }).limit(300);
   q = filter ? q.eq("status", filter) : q.in("status", OPEN);
-  const [{ data, error }, catalog] = await Promise.all([q.returns<BookingRow[]>(), getCatalog()]);
+  const [{ data, error }, catalog] = await Promise.all([q.returns<(BookingRow & { trips: TripContact | null })[]>(), getCatalog()]);
   const itemName = (b: BookingRow) =>
     b.service_type === "transfer"
       ? `${b.origin} → ${b.destination}`
@@ -22,7 +30,7 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
   if (error) return <p className="font-semibold text-red-700">Couldn&apos;t load bookings: {error.message}</p>;
 
   // One card per trip request (its items share a trip_id).
-  const trips = new Map<string, BookingRow[]>();
+  const trips = new Map<string, (BookingRow & { trips: TripContact | null })[]>();
   for (const b of data ?? []) {
     const key = b.trip_id ?? b.id;
     trips.set(key, [...(trips.get(key) ?? []), b]);
@@ -54,9 +62,9 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
             <li key={first.trip_id ?? first.id} className="rounded-xl border border-slate-200 bg-white p-4">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <p className="font-extrabold text-slate-900">
-                  {first.guest_name ?? "Client"}{" "}
+                  {first.trips?.guest_name ?? "Client"}{" "}
                   <span className="text-sm font-semibold text-slate-500">
-                    · {first.guest_phone} · sent {first.created_at.slice(0, 10)}
+                    · {first.trips?.guest_phone} · sent {first.created_at.slice(0, 10)}
                   </span>
                 </p>
                 <p className="text-sm font-bold text-slate-700">

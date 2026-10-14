@@ -3,7 +3,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { Car, CheckCircle2, Compass, Languages, ShieldCheck } from "lucide-react";
-import { SERVICE_LABEL, usd, type BookingRow, type BookingStatus } from "@/lib/bookings";
+import { ChatBox } from "@/components/ChatBox";
+import { SERVICE_LABEL, TRIP_TOKEN, usd, type BookingRow, type BookingStatus } from "@/lib/bookings";
 import { getCatalog } from "@/lib/catalogSource";
 import { ENGLISH_LEVEL_LABEL, prefsSummary } from "@/lib/preferences";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -13,7 +14,6 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** What travellers see for each status. */
 const TRAVELLER_STATUS: Record<BookingStatus, string> = {
@@ -42,17 +42,20 @@ interface CarCard {
 }
 
 /**
- * Private trip page, reached by the link shown after sending a request (the
- * trip id is a long random code). Shows each booking and, once a driver is
+ * Private trip page, reached by the link shown after sending a request and in
+ * every email (a 64-character random code, kept in the server-only trips table). Shows each booking and, once a driver is
  * assigned, their profile and car photos. Read with the server key because
  * travellers don't have accounts; only safe, traveller-facing fields are shown.
  */
-export default async function TripPage({ params }: { params: Promise<{ tripId: string }> }) {
+export default async function TripPage({ params }: { params: Promise<{ token: string }> }) {
   await connection();
-  const { tripId } = await params;
-  if (!UUID.test(tripId)) notFound();
+  const { token } = await params;
+  if (!TRIP_TOKEN.test(token)) notFound();
   const db = createSupabaseAdminClient();
   if (!db) notFound();
+  const { data: trip } = await db.from("trips").select("id, guest_name").eq("access_token", token).maybeSingle();
+  if (!trip) notFound();
+  const tripId = trip.id as string;
 
   const { data: bookings } = await db
     .from("bookings")
@@ -145,7 +148,6 @@ export default async function TripPage({ params }: { params: Promise<{ tripId: s
     };
   };
 
-  const first = bookings[0];
   const itemName = (b: BookingRow) =>
     b.service_type === "transfer"
       ? `${b.origin} → ${b.destination}`
@@ -167,7 +169,7 @@ export default async function TripPage({ params }: { params: Promise<{ tripId: s
       <main className="mx-auto max-w-3xl space-y-5 px-4 py-8">
         <div>
           <h1 className="text-2xl font-extrabold text-slate-900">
-            {first.guest_name ? `${first.guest_name.split(" ")[0]}'s trip` : "Your trip"}
+            {trip.guest_name ? `${String(trip.guest_name).split(" ")[0]}'s trip` : "Your trip"}
           </h1>
           <p className="mt-1 text-sm text-slate-600">
             Keep this page: your driver&apos;s profile and car photos appear here once each ride is confirmed.
@@ -255,6 +257,21 @@ export default async function TripPage({ params }: { params: Promise<{ tripId: s
                     We&apos;re matching you with a hand-picked local driver. Their profile and car photos will show here.
                   </p>
                 )
+              )}
+
+              {b.status !== "cancelled" && (
+                <div>
+                  <h3 className="mb-2 text-sm font-extrabold text-slate-900">Chat about this {SERVICE_LABEL[b.service_type].toLowerCase()}</h3>
+                  <ChatBox
+                    bookingId={b.id}
+                    viewer={{ kind: "traveller", token }}
+                    intro={
+                      showDriver
+                        ? `Questions for ${driver.firstName} or our team? Write here. We'll email you when someone replies.`
+                        : "Questions about this booking? Write here. Our team replies here and we'll email you when we do."
+                    }
+                  />
+                </div>
               )}
             </section>
           );

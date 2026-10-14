@@ -32,8 +32,8 @@ export interface TripState {
   /** Booking references once the trip was sent (the cart is then emptied). */
   sentRefs: string[] | null;
   /** Private trip page (driver, car photos) once the trip was sent. */
-  sentTripId: string | null;
-  onSent: (refs: string[], tripId: string | null) => void;
+  sentTripToken: string | null;
+  onSent: (refs: string[], tripToken: string | null) => void;
   onNewTrip: () => void;
 }
 
@@ -52,7 +52,7 @@ export function TripSummary({ trip }: { trip: TripState }) {
   const [error, setError] = useState<string | null>(null);
   const [website, setWebsite] = useState(""); // spam trap, hidden from people
 
-  if (trip.sentRefs) return <Sent refs={trip.sentRefs} tripId={trip.sentTripId} contact={contact} onNewTrip={trip.onNewTrip} />;
+  if (trip.sentRefs) return <Sent refs={trip.sentRefs} tripToken={trip.sentTripToken} contact={contact} onNewTrip={trip.onNewTrip} />;
 
   const set = (k: keyof TripContact) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     onContact({ ...contact, [k]: e.target.value });
@@ -68,7 +68,7 @@ export function TripSummary({ trip }: { trip: TripState }) {
         website,
       });
       if (res.ok) {
-        trip.onSent(res.refs, res.tripId);
+        trip.onSent(res.refs, res.tripToken);
       } else {
         if ("repriced" in res) trip.onReprice(res.repriced);
         setError(res.error);
@@ -156,7 +156,7 @@ export function TripSummary({ trip }: { trip: TripState }) {
               <input required type="email" value={contact.email} onChange={set("email")} autoComplete="email" className={field} />
             </label>
             <label className="block text-xs font-bold text-slate-600">
-              WhatsApp number (with country code)
+              Mobile number (with country code)
               <input
                 required
                 type="tel"
@@ -199,8 +199,8 @@ export function TripSummary({ trip }: { trip: TripState }) {
           <Send className="w-5 h-5" /> {pending ? "Sending…" : "Send trip request"}
         </button>
         <p className="text-xs text-slate-500 text-center">
-          Nothing is charged now. Our team confirms availability and your pickup times on WhatsApp,
-          then sends your payment link.
+          Nothing is charged now. Our team confirms availability and your pickup times by email and
+          in your trip chat, then sends your payment link.
         </p>
         {items.length > 0 && (
           <a
@@ -219,12 +219,12 @@ export function TripSummary({ trip }: { trip: TripState }) {
 
 function Sent({
   refs,
-  tripId,
+  tripToken,
   contact,
   onNewTrip,
 }: {
   refs: string[];
-  tripId: string | null;
+  tripToken: string | null;
   contact: TripContact;
   onNewTrip: () => void;
 }) {
@@ -235,8 +235,8 @@ function Sent({
       <div>
         <p className="text-lg font-extrabold text-emerald-950">Request sent. Thank you!</p>
         <p className="mt-1 text-sm text-emerald-900">
-          Our team will check availability and message you on WhatsApp at <strong>{contact.phone}</strong>.
-          Nothing has been charged.
+          We&apos;ve emailed a copy to <strong>{contact.email}</strong>. Our team will check
+          availability and reply in your trip chat; we&apos;ll email you when we do. Nothing has been charged.
         </p>
       </div>
       {refs.length > 0 && (
@@ -247,15 +247,15 @@ function Sent({
           <p className="mt-1 font-mono text-base font-bold text-emerald-950">{refs.join(" · ")}</p>
         </div>
       )}
-      {tripId && (
+      {tripToken && (
         <a
-          href={`/trip/${tripId}`}
-          className="flex min-h-12 items-center justify-center rounded-xl border-2 border-emerald-700 bg-white font-extrabold text-emerald-800 hover:bg-emerald-50"
+          href={`/trip/${tripToken}`}
+          className="flex min-h-12 items-center justify-center rounded-xl bg-emerald-700 font-extrabold text-white hover:bg-emerald-600"
         >
-          Open your trip page
+          Open your trip page &amp; chat
         </a>
       )}
-      {tripId && (
+      {tripToken && (
         <p className="text-xs text-emerald-900">
           Bookmark it: your driver&apos;s profile and car photos appear there once your trip is confirmed.
         </p>
@@ -264,9 +264,9 @@ function Sent({
         href={whatsAppLink(message)}
         target="_blank"
         rel="noopener noreferrer"
-        className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-emerald-700 font-extrabold text-white hover:bg-emerald-600"
+        className="flex min-h-11 items-center justify-center gap-2 text-sm font-bold text-emerald-800 hover:text-emerald-700"
       >
-        <MessageCircle className="h-5 w-5" /> Say hi on WhatsApp
+        <MessageCircle className="h-4 w-4" /> Prefer WhatsApp? Message us there
       </a>
       <button type="button" onClick={onNewTrip} className="w-full min-h-11 text-sm font-bold text-emerald-800 underline">
         Plan another trip

@@ -3,6 +3,24 @@
 Every merged change gets one line: `YYYY-MM-DD — <AI or Jorge> — <what changed>`.
 Newest entries first. AIs: read the top of this file before starting work.
 
+- 2026-10-14 — Claude — Trip chat (Phase 4, migration 0009). One thread per booking between the
+  traveller (on their private trip page, no account), the assigned driver (new `/driver/trips`
+  and trip detail) and the team (admin booking page). Server actions check the trip link or the
+  sign-in, then read/write with the server key; travellers and drivers can't share phone
+  numbers, emails or links (app + database), the team can. New messages refresh every 8 s and
+  are emailed through Resend (`src/lib/email.ts`) at most once until the recipient reads (or
+  after 30 min). Trip requests now email the traveller a confirmation with the trip-page link and
+  the team a new-request alert. The trip panel now leads with email + chat; WhatsApp is optional.
+  Drivers see the traveller's phone only from the day before the trip, and don't see the price.
+  Security review fixes before merge: traveller contact details and the trip link moved to a
+  server-only `trips` table (drivers could read them on their booking row); trip pages use a
+  separate 64-character code (`/trip/<code>`), not the trip id; trip requests limited to 5 an
+  hour per network and 3 per email (atomic `allow_trip_request`); chat flood guard and email
+  "slots" are claimed in one database step (`post_chat_message`, `claim_chat_email`), and no
+  email goes out while the recipient is reading; the contact filter now allows written dates and
+  catches "8888_1234", "pepe at gmail dot com" and @handles; no posts on cancelled bookings;
+  suspended drivers lose chat access. 168 database checks.
+
 - 2026-10-14 — Claude — Ride preferences, driver profiles, trip page (migration 0008). The ride
   builder asks for the driver's language (English-speaking / Spanish or basic English is fine),
   Wi-Fi, stroller, child seats (0–4), pets and a message for the driver (phone numbers, emails and

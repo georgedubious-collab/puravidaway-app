@@ -301,8 +301,12 @@ and `season_for_date(date)` returns the season for a travel date.
   vehicles always start `pending`; only admins change `status`, `note` and review fields; file
   links must be in the driver's own folder. Clients never see Cédula,
   license or insurance numbers.
-- **bookings:** clients see their own; the assigned driver sees their assigned bookings; admins
-  see all. Approved drivers see **open** requests (`pending_bids`) only through the
+- **bookings:** clients see their own; the assigned driver sees their assigned bookings (so
+  nothing private may live on the booking row); admins see all. Traveller contact details and
+  the private trip-page code live in **`trips`**, readable only by admins and the server.
+- **trip_chats:** per booking; travellers post through the server after it checks their trip
+  code; drivers and travellers can't send phone numbers, emails or links. `chat_reads`,
+  `request_log` and the rate-limit functions are server-only. Approved drivers see **open** requests (`pending_bids`) only through the
   `open_trip_requests` view: towns, date, vehicle, passengers and price, without the client's id,
   exact coordinates or flight/hotel notes, until a bid is accepted.
 - **bids:** drivers create and manage their own; the amount can change only while the request is
@@ -324,7 +328,7 @@ and `season_for_date(date)` returns the season for a travel date.
 | **2c. Driver KYC vault** | Driver sign-up, document upload, admin approval, 30-day expiry alerts | **Built (PRs #12–#14): `/driver` portal with several vehicles, `/admin/drivers` vault** |
 | **2d. Checkout** | Part 1: trip requests saved online (server re-prices every item, guest name/email/WhatsApp, booking refs) + `/admin/bookings` dispatch (status, driver + vehicle, amount received, internal notes). Part 2: Green Pay, 100% / 20% deposit, webhooks, confirmation emails | **Part 1 built (PR #15)**; part 2 needs Green Pay credentials and the cancellation policy (§9 #7) |
 | **3. Bidding & GPS** | Live driver bidding; driver on-duty GPS broadcast to admin Leaflet map | Planned |
-| **4. Chat & CRM** | Tri-party chat via Supabase Realtime; HubSpot sync; WhatsApp Business API | Planned |
+| **4. Chat & CRM** | Tri-party trip chat (traveller via private trip link, assigned driver, team) with Resend email notifications; HubSpot sync; SMS / WhatsApp Business API | **Chat built (PR #17)**, polling every 8 s; HubSpot and SMS planned |
 | **5. Mobile apps** | Client and Driver apps for App Store / Google Play | Planned |
 
 ---
@@ -355,8 +359,8 @@ and `season_for_date(date)` returns the season for a travel date.
     English), Wi-Fi, stroller, child seats and pets. Built as **free requests matched by the
     team**. Decide whether any cost extra (e.g. child seats) or whether "Spanish / basic English"
     is cheaper.
-11. **In-app chat vs WhatsApp** for travellers (many US travellers don't use WhatsApp): recommended: in-app trip
-    chat with email/SMS notifications, WhatsApp optional (Phase 4).
+11. **In-app chat vs WhatsApp:** decided (Jorge, 2026-10-14): in-app trip chat with email
+    notifications through Resend is the main channel; WhatsApp stays as an option. SMS later.
 
 ---
 

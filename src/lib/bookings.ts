@@ -40,9 +40,6 @@ export interface BookingRow {
   assigned_driver_id: string | null;
   assigned_vehicle_id: string | null;
   status: BookingStatus;
-  guest_name: string | null;
-  guest_email: string | null;
-  guest_phone: string | null;
   client_notes: string | null;
   preferences: Partial<import("./preferences").RidePrefs>;
   driver_notes: string | null;
@@ -52,3 +49,13 @@ export interface BookingRow {
 export function usd(n: number | string): string {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(Number(n));
 }
+
+/** Traveller contact details (server/admin only, never readable by drivers). */
+export interface TripContact {
+  guest_name: string | null;
+  guest_email: string | null;
+  guest_phone: string | null;
+}
+
+/** Private trip-page codes: 64 hex characters. */
+export const TRIP_TOKEN = /^[0-9a-f]{64}$/;

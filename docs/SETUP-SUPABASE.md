@@ -23,6 +23,7 @@ Either way works; the first needs no installs.
 6. `20261014000006_driver_vehicles.sql` — several vehicles per driver
 7. `20261014000007_trip_requests.sql` — trip requests from the website, dispatch fields
 8. `20261014000008_preferences_profiles.sql` — ride preferences, driver bios, vehicle features
+9. `20261014000009_trip_chat.sql` — trip chat, server-only traveller contacts, abuse limits
 
 Later files are added as the app grows; each pull request says when there's a new one to run.
 
@@ -58,13 +59,30 @@ Supabase → **Authentication → URL Configuration**:
 
 Every later admin or driver is promoted from inside `/admin`; this SQL step is only for the first one.
 
-## 6. Login emails
-Without your own email server, Supabase sends its default email: a **sign-in link** (handled by
-`/auth/callback`), limited to a few emails per hour. Before launch, add SMTP (Authentication →
-Emails → SMTP Settings) with a PuraVidaWay mailbox or a service like Resend. That also lets you
-brand the email and add a 6-digit code (`{{ .Token }}`), which the login page already accepts.
+## 6. Email with Resend (trip chat, request confirmations, login emails)
+1. Sign up at [resend.com](https://resend.com) (free: 3,000 emails a month).
+2. **Domains → Add domain** (the PuraVidaWay domain once bought) and add the DNS records it shows
+   at your domain registrar. Until the domain is verified, Resend only delivers to the email
+   address you signed up with, which is fine for testing.
+3. **API Keys → Create API key** (permission "Sending access"). Copy it.
+4. Vercel → **Settings → Environment Variables** (Production + Preview, tick **Sensitive** for the key), then redeploy:
+
+| Vercel variable | Value |
+| :--- | :--- |
+| `RESEND_API_KEY` | the key from step 3 — **secret** |
+| `EMAIL_FROM` | `PuraVidaWay <hello@your-domain>` (after step 2; leave unset until then) |
+| `ADMIN_NOTIFY_EMAIL` | the team inbox that gets new requests and chat messages |
+| `NEXT_PUBLIC_SITE_URL` | `https://puravidaway-app.vercel.app` (later: your domain) |
+
+5. **Login emails through Resend too** (removes Supabase's few-per-hour limit): Supabase →
+   Authentication → Emails → **SMTP Settings** → enable custom SMTP: host `smtp.resend.com`,
+   port `465`, username `resend`, password = the Resend API key, sender = the `EMAIL_FROM` address.
+   Then you can also brand the sign-in email and add the 6-digit code (`{{ .Token }}`), which the
+   login page already accepts.
+
+Without `RESEND_API_KEY` the app works the same; emails are simply not sent.
 
 ## Checking the security rules
-`npm run test:db` replays the migrations in a throwaway in-memory Postgres and runs 133 checks
+`npm run test:db` replays the migrations in a throwaway in-memory Postgres and runs 168 checks
 (clients can't see each other's bookings, drivers can't approve themselves, nobody but the server
 can record payments, and so on).
