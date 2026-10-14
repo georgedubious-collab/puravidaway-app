@@ -230,8 +230,9 @@ function Application({
       <div className="pt-2">
         <h2 className="text-xl font-extrabold text-slate-900">Your vehicles</h2>
         <p className="mt-1 text-sm text-slate-600">
-          Add every vehicle you&apos;ll drive. Each one needs its insurance, Dekra, Marchamo and at
-          least {MIN_VEHICLE_PHOTOS} photos (outside and inside), and is approved separately. Insurance
+          Add every vehicle you&apos;ll drive. Each one needs its registration (tarjeta de
+          circulación), insurance, Dekra, Marchamo and at least {MIN_VEHICLE_PHOTOS} photos, one of
+          them clearly showing the licence plate. Each vehicle is approved separately. Insurance
           has a 15-day grace period after it ends; Dekra and Marchamo have none.
         </p>
       </div>
@@ -270,6 +271,9 @@ function VehicleCard({ me, v, thumbs }: { me: Profile; v: VehicleRecord; thumbs:
       <h4 className="mt-5 font-bold text-slate-900">
         Photos <span className="font-normal text-slate-500">({photos.length} of max {MAX_VEHICLE_PHOTOS})</span>
       </h4>
+      <p className="text-sm text-slate-500">
+        At least {MIN_VEHICLE_PHOTOS}: one showing the licence plate clearly, plus the outside and inside.
+      </p>
       {photos.length > 0 && (
         <ul className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-4">
           {photos.map((p) => (

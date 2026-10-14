@@ -242,8 +242,8 @@ check-constraints (or Postgres enums) for status fields. **RLS is enabled on eve
 **`driver_vehicles`** (a driver can register several; each approved separately): `id` uuid PK ·
 `driver_id` → `drivers.id` · `plate` · `make_model` · `year` · `color` · `passenger_capacity` ·
 `ins_policy_number` · `ins_insurance_expiry` date · `dekra_inspection_expiry` date ·
-`marchamo_year` int · `documents` jsonb (`insurance`, `dekra`, `marchamo`, optional
-`vehicle_registration`) · `photos` jsonb array (at least 2, at most 12) · `status` · `note` ·
+`marchamo_year` int · `documents` jsonb (`insurance`, `dekra`, `marchamo`,
+`vehicle_registration`) · `photos` jsonb array (at least 2, one showing the plate; at most 12) · `status` · `note` ·
 `needs_review` · `reviewed_at` · `reviewed_by` · `created_at`
 
 The criminal record certificate must be issued ≤ 30 days before first approval (checked by the

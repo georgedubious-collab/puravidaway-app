@@ -189,6 +189,10 @@ export default async function DriverDetail({ params }: { params: Promise<{ id: s
               </dl>
               <DocLinks specs={VEHICLE_DOCS} docs={v.documents} links={links} />
             </div>
+            <p className="text-xs text-slate-500">
+              Before approving: one photo must show the plate, and it must match the registration, insurance,
+              Dekra and Marchamo.
+            </p>
             <ActionForm action={reviewVehicle} className="space-y-3 border-t border-slate-100 pt-4">
               <input type="hidden" name="vehicle_id" value={v.id} />
               <fieldset className="flex flex-wrap gap-x-5 gap-y-2 text-sm">

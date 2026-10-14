@@ -30,7 +30,7 @@ export const VEHICLE_DOCS: DocSpec[] = [
   { key: "insurance", label: "INS insurance policy", hint: "Showing this vehicle and the valid dates.", required: true },
   { key: "dekra", label: "Dekra / RTV inspection", hint: "Current certificate.", required: true },
   { key: "marchamo", label: "Marchamo (current year)", required: true },
-  { key: "vehicle_registration", label: "Registration (tarjeta de circulación)", hint: "Optional.", required: false },
+  { key: "vehicle_registration", label: "Registration (tarjeta de circulación)", required: true },
 ];
 
 export const MIN_VEHICLE_PHOTOS = 2;
@@ -157,7 +157,7 @@ export function missingVehicleItems(v: VehicleRecord): string[] {
   if (!v.marchamo_year) out.push("Marchamo year");
   for (const doc of VEHICLE_DOCS) if (doc.required && !v.documents?.[doc.key]) out.push(doc.label);
   const photos = v.photos?.length ?? 0;
-  if (photos < MIN_VEHICLE_PHOTOS) out.push(`Photos (at least ${MIN_VEHICLE_PHOTOS}: outside and inside)`);
+  if (photos < MIN_VEHICLE_PHOTOS) out.push(`Photos (at least ${MIN_VEHICLE_PHOTOS}, one showing the licence plate)`);
   return out;
 }
 

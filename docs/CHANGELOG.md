@@ -4,8 +4,8 @@ Every merged change gets one line: `YYYY-MM-DD — <AI or Jorge> — <what chang
 Newest entries first. AIs: read the top of this file before starting work.
 
 - 2026-10-14 — Claude — Drivers can register several vehicles (new `driver_vehicles` table,
-  migration 0006). Each vehicle has its own plate, seats, insurance / Dekra / Marchamo documents and
-  dates, and 2–12 photos, and is approved by the admin separately. Driver documents are now: photo,
+  migration 0006). Each vehicle has its own plate, seats, registration (tarjeta de circulación),
+  insurance / Dekra / Marchamo documents and dates, and 2–12 photos (one showing the plate), and is approved by the admin separately. Driver documents are now: photo,
   ID front, ID back, licence, criminal record certificate (must be ≤ 30 days old when first
   approved; the approve button checks), optional ICT permit. A driver gets trips only with a
   current licence and at least one approved vehicle with current documents. Vehicle columns moved
