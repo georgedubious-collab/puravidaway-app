@@ -2,30 +2,11 @@
 
 import { X } from "lucide-react";
 import { useEffect } from "react";
-import { type CartItem, type PaymentMode } from "@/lib/cart";
-import { TripSummary } from "./TripSummary";
+import { TripSummary, type TripState } from "./TripSummary";
 import { TrustPanel } from "./trust/TrustPanel";
 
 /** Phone and tablet version of the trip sidebar. */
-export function CartDrawer({
-  open,
-  items,
-  onClose,
-  onRemove,
-  mode,
-  onMode,
-  name,
-  onName,
-}: {
-  open: boolean;
-  items: CartItem[];
-  onClose: () => void;
-  onRemove: (id: string) => void;
-  mode: PaymentMode;
-  onMode: (m: PaymentMode) => void;
-  name: string;
-  onName: (n: string) => void;
-}) {
+export function CartDrawer({ open, trip, onClose }: { open: boolean; trip: TripState; onClose: () => void }) {
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -63,14 +44,7 @@ export function CartDrawer({
           </button>
         </div>
         <div className="p-4 flex-1 overflow-y-auto space-y-6">
-          <TripSummary
-            items={items}
-            onRemove={onRemove}
-            mode={mode}
-            onMode={onMode}
-            name={name}
-            onName={onName}
-          />
+          <TripSummary trip={trip} />
           <TrustPanel />
         </div>
       </aside>

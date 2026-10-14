@@ -118,6 +118,7 @@ export function DayToursView({
                       detail: `${t.durationHours}h private tour${upgrade ? " + Smart En-Route Transfer" : ""}`,
                       date,
                       totalCents: total,
+                      spec: { kind: "day_tour", tourId: t.id, upgrade },
                     })
                   }
                   className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2.5 rounded-xl text-xs flex items-center gap-1.5 transition"

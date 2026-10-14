@@ -5,7 +5,7 @@ import { driverIssues, vehicleIssues, type DriverRecord, type VehicleRecord } fr
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const STATUSES = [
-  ["pending_payment", "Waiting for payment"],
+  ["pending_payment", "New requests / waiting for payment"],
   ["pending_bids", "Collecting driver offers"],
   ["confirmed", "Confirmed"],
   ["in_progress", "On the road"],
@@ -59,14 +59,18 @@ export default async function AdminDashboard() {
         <h2 id="bookings-h" className="text-lg font-extrabold text-slate-900">Bookings</h2>
         <div className="mt-3 grid gap-3 grid-cols-2 md:grid-cols-4">
           {STATUSES.map(([status, label], i) => (
-            <div key={status} className="rounded-xl border border-slate-200 bg-white p-4">
+            <Link
+              key={status}
+              href={`/admin/bookings?status=${status}`}
+              className="rounded-xl border border-slate-200 bg-white p-4 hover:border-emerald-400"
+            >
               <p className="text-sm text-slate-500">{label}</p>
               <p className="text-3xl font-extrabold text-slate-900">{counts[i]}</p>
-            </div>
+            </Link>
           ))}
         </div>
         <p className="mt-2 text-sm text-slate-500">
-          Online bookings start with checkout (Phase 2d). Until then they arrive on WhatsApp.
+          Trip requests sent from the website land in Bookings. Card payment comes with Phase 2d.
         </p>
       </section>
 

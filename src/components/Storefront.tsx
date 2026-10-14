@@ -21,7 +21,7 @@ import { ExpeditionsView } from "./ExpeditionsView";
 import { Header } from "./Header";
 import { Toast, useToast } from "./Toast";
 import { TransfersView } from "./TransfersView";
-import { TripSummary } from "./TripSummary";
+import { TripSummary, type TripContact, type TripState } from "./TripSummary";
 import { TrustPanel } from "./trust/TrustPanel";
 
 const STORAGE_KEY = "pvw-cart-v1";
@@ -53,7 +53,8 @@ export function Storefront({ today, catalog }: { today: string; catalog: Catalog
   const [cartOpen, setCartOpen] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [mode, setMode] = useState<PaymentMode>("deposit_20");
-  const [name, setName] = useState("");
+  const [contact, setContact] = useState<TripContact>({ name: "", email: "", phone: "", notes: "" });
+  const [sentRefs, setSentRefs] = useState<string[] | null>(null);
   const toast = useToast();
 
   // Per-visitor convenience only: restore the trip on reload.
@@ -84,6 +85,23 @@ export function Storefront({ today, catalog }: { today: string; catalog: Catalog
   }
   const removeItem = (id: string) => setItems((prev) => prev.filter((i) => i.id !== id));
   const total = cartTotalCents(items);
+  const trip: TripState = {
+    items,
+    onRemove: removeItem,
+    mode,
+    onMode: setMode,
+    contact,
+    onContact: setContact,
+    // The server re-priced some items (catalog changed since they were added).
+    onReprice: (prices) =>
+      setItems((prev) => prev.map((i) => (prices[i.id] !== undefined ? { ...i, totalCents: prices[i.id] } : i))),
+    sentRefs,
+    onSent: (refs) => {
+      setSentRefs(refs);
+      setItems([]);
+    },
+    onNewTrip: () => setSentRefs(null),
+  };
 
   return (
     <CatalogProvider catalog={catalog}>
@@ -97,14 +115,7 @@ export function Storefront({ today, catalog }: { today: string; catalog: Catalog
           <h2 id="trip-heading" className="text-xl font-extrabold text-slate-900">
             Your trip
           </h2>
-          <TripSummary
-            items={items}
-            onRemove={removeItem}
-            mode={mode}
-            onMode={setMode}
-            name={name}
-            onName={setName}
-          />
+          <TripSummary trip={trip} />
           <div className="border-t border-slate-200 pt-5">
             <TrustPanel />
           </div>
@@ -190,16 +201,7 @@ export function Storefront({ today, catalog }: { today: string; catalog: Catalog
         </div>
       )}
 
-      <CartDrawer
-        open={cartOpen}
-        items={items}
-        onClose={() => setCartOpen(false)}
-        onRemove={removeItem}
-        mode={mode}
-        onMode={setMode}
-        name={name}
-        onName={setName}
-      />
+      <CartDrawer open={cartOpen} trip={trip} onClose={() => setCartOpen(false)} />
       <Toast message={toast.message} />
     </CatalogProvider>
   );

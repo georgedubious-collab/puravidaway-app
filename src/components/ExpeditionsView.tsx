@@ -129,6 +129,7 @@ export function ExpeditionsView({
                         detail: `${exp.days}D/${exp.nights}N · ${tier.name}`,
                         date,
                         totalCents: total,
+                        spec: { kind: "expedition", expeditionId: exp.id, tierId: tier.id },
                       })
                     }
                     className="w-full mt-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 transition"

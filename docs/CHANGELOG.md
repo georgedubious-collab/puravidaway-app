@@ -3,6 +3,15 @@
 Every merged change gets one line: `YYYY-MM-DD — <AI or Jorge> — <what changed>`.
 Newest entries first. AIs: read the top of this file before starting work.
 
+- 2026-10-14 — Claude — Phase 2d part 1, trip requests: the trip panel now sends the trip online
+  (name, email, WhatsApp, notes; spam trap). Cart items carry what was chosen (`spec`), and the
+  server re-prices each one from the live catalog before saving (`src/lib/tripRequest.ts`,
+  `src/app/trip/actions.ts`); changed prices are shown back for re-confirmation. Bookings are
+  written with the server-only secret key (`SUPABASE_SERVICE_ROLE_KEY`); without it the panel says
+  to use WhatsApp. New `/admin/bookings` (grouped by trip, status filter) and booking detail
+  (status, approved driver + vehicle, amount received, internal notes in admin-only
+  `booking_admin_notes`). Migration 0007. 121 database checks.
+
 - 2026-10-14 — Claude — Drivers can register several vehicles (new `driver_vehicles` table,
   migration 0006). Each vehicle has its own plate, seats, registration (tarjeta de circulación),
   insurance / Dekra / Marchamo documents and dates, and 2–12 photos (one showing the plate), and is approved by the admin separately. Driver documents are now: photo,

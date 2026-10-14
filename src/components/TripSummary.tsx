@@ -1,6 +1,8 @@
 "use client";
 
-import { MessageCircle, Trash2 } from "lucide-react";
+import { CheckCircle2, MessageCircle, Send, Trash2 } from "lucide-react";
+import { useState, useTransition } from "react";
+import { submitTripRequest } from "@/app/trip/actions";
 import {
   amountDueNowCents,
   cartTotalCents,
@@ -11,28 +13,66 @@ import {
 } from "@/lib/cart";
 import { formatUSD } from "@/lib/pricing";
 
-/**
- * The trip: its legs in date order, payment choice and the booking button.
- * Used in the desktop sidebar and inside the mobile drawer.
- */
-export function TripSummary({
-  items,
-  onRemove,
-  mode,
-  onMode,
-  name,
-  onName,
-}: {
+export interface TripContact {
+  name: string;
+  email: string;
+  phone: string;
+  notes: string;
+}
+
+/** Everything the trip panel needs; owned by Storefront so sidebar and drawer stay in sync. */
+export interface TripState {
   items: CartItem[];
   onRemove: (id: string) => void;
   mode: PaymentMode;
   onMode: (m: PaymentMode) => void;
-  name: string;
-  onName: (n: string) => void;
-}) {
+  contact: TripContact;
+  onContact: (c: TripContact) => void;
+  onReprice: (prices: Record<string, number>) => void;
+  /** Booking references once the trip was sent (the cart is then emptied). */
+  sentRefs: string[] | null;
+  onSent: (refs: string[]) => void;
+  onNewTrip: () => void;
+}
+
+const field = "mt-1 w-full min-h-11 border border-slate-300 rounded-xl px-3 text-base sm:text-sm font-semibold text-slate-900";
+
+/**
+ * The trip: its legs in date order, payment choice and sending the request.
+ * Used in the desktop sidebar and inside the mobile drawer.
+ */
+export function TripSummary({ trip }: { trip: TripState }) {
+  const { items, onRemove, mode, onMode, contact, onContact } = trip;
   const total = cartTotalCents(items);
   const dueNow = amountDueNowCents(total, mode);
   const legs = [...items].sort((a, b) => (a.date || "9999").localeCompare(b.date || "9999"));
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const [website, setWebsite] = useState(""); // spam trap, hidden from people
+
+  if (trip.sentRefs) return <Sent refs={trip.sentRefs} contact={contact} onNewTrip={trip.onNewTrip} />;
+
+  const set = (k: keyof TripContact) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+    onContact({ ...contact, [k]: e.target.value });
+
+  function send(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    startTransition(async () => {
+      const res = await submitTripRequest({
+        items: items.map((i) => ({ id: i.id, date: i.date, totalCents: i.totalCents, spec: i.spec })),
+        mode,
+        ...contact,
+        website,
+      });
+      if (res.ok) {
+        trip.onSent(res.refs);
+      } else {
+        if ("repriced" in res) trip.onReprice(res.repriced);
+        setError(res.error);
+      }
+    });
+  }
 
   return (
     <div className="space-y-4">
@@ -55,9 +95,7 @@ export function TripSummary({
                 <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{item.detail}</p>
               </div>
               <div className="text-right shrink-0">
-                <p className="text-sm font-extrabold text-emerald-700">
-                  {formatUSD(item.totalCents)}
-                </p>
+                <p className="text-sm font-extrabold text-emerald-700">{formatUSD(item.totalCents)}</p>
                 <button
                   type="button"
                   onClick={() => onRemove(item.id)}
@@ -72,7 +110,7 @@ export function TripSummary({
         </ol>
       )}
 
-      <div className="space-y-3">
+      <form onSubmit={send} className="space-y-3">
         <div role="group" aria-label="Payment" className="grid grid-cols-2 gap-2">
           {(
             [
@@ -95,37 +133,119 @@ export function TripSummary({
             </button>
           ))}
         </div>
-        <label className="block text-xs font-bold text-slate-600">
-          Your name
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => onName(e.target.value)}
-            autoComplete="name"
-            className="mt-1 w-full min-h-11 border border-slate-300 rounded-xl px-3 text-sm font-semibold text-slate-900"
-          />
-        </label>
         <div className="flex items-center justify-between text-sm text-slate-600">
           <span>Trip total</span>
           <span className="font-bold text-slate-900">{formatUSD(total)}</span>
         </div>
         <div className="flex items-center justify-between font-extrabold text-slate-900">
-          <span>Due now</span>
+          <span>Due when confirmed</span>
           <span className="text-2xl text-emerald-700">{formatUSD(dueNow)}</span>
         </div>
-        <a
-          href={items.length ? whatsAppLink(cartWhatsAppMessage(items, mode, name)) : undefined}
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-disabled={items.length === 0}
-          className={`min-h-12 bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold rounded-xl flex items-center justify-center gap-2 ${
-            items.length === 0 ? "opacity-50 pointer-events-none" : ""
-          }`}
+
+        {items.length > 0 && (
+          <fieldset className="space-y-3 rounded-xl border border-slate-200 bg-white p-3">
+            <legend className="px-1 text-xs font-bold uppercase tracking-wider text-slate-500">Your details</legend>
+            <label className="block text-xs font-bold text-slate-600">
+              Full name
+              <input required value={contact.name} onChange={set("name")} autoComplete="name" className={field} />
+            </label>
+            <label className="block text-xs font-bold text-slate-600">
+              Email
+              <input required type="email" value={contact.email} onChange={set("email")} autoComplete="email" className={field} />
+            </label>
+            <label className="block text-xs font-bold text-slate-600">
+              WhatsApp number (with country code)
+              <input
+                required
+                type="tel"
+                value={contact.phone}
+                onChange={set("phone")}
+                autoComplete="tel"
+                placeholder="+1 555 123 4567"
+                className={field}
+              />
+            </label>
+            <label className="block text-xs font-bold text-slate-600">
+              Anything we should know? (optional)
+              <textarea
+                value={contact.notes}
+                onChange={set("notes")}
+                rows={2}
+                maxLength={1000}
+                placeholder="Flight number, hotel, child seats, luggage…"
+                className="mt-1 w-full border border-slate-300 rounded-xl p-3 text-base sm:text-sm text-slate-900"
+              />
+            </label>
+            <label aria-hidden className="hidden">
+              Website
+              <input tabIndex={-1} autoComplete="off" value={website} onChange={(e) => setWebsite(e.target.value)} />
+            </label>
+          </fieldset>
+        )}
+
+        {error && (
+          <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm font-semibold text-red-800">
+            {error}
+          </p>
+        )}
+
+        <button
+          type="submit"
+          disabled={items.length === 0 || pending}
+          className="w-full min-h-12 bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold rounded-xl flex items-center justify-center gap-2 disabled:opacity-50"
         >
-          <MessageCircle className="w-5 h-5" /> Book this trip on WhatsApp
-        </a>
-        <p className="text-xs text-slate-500 text-center">Online card payment is coming soon.</p>
+          <Send className="w-5 h-5" /> {pending ? "Sending…" : "Send trip request"}
+        </button>
+        <p className="text-xs text-slate-500 text-center">
+          Nothing is charged now. Our team confirms availability and your pickup times on WhatsApp,
+          then sends your payment link.
+        </p>
+        {items.length > 0 && (
+          <a
+            href={whatsAppLink(cartWhatsAppMessage(items, mode, contact.name))}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex min-h-11 items-center justify-center gap-2 text-sm font-bold text-emerald-700 hover:text-emerald-600"
+          >
+            <MessageCircle className="w-4 h-4" /> Or chat with us on WhatsApp first
+          </a>
+        )}
+      </form>
+    </div>
+  );
+}
+
+function Sent({ refs, contact, onNewTrip }: { refs: string[]; contact: TripContact; onNewTrip: () => void }) {
+  const message = `Hi PuraVidaWay! I just sent my trip request${refs.length ? ` (${refs.join(", ")})` : ""}. My name is ${contact.name}.`;
+  return (
+    <div className="space-y-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-5" role="status">
+      <CheckCircle2 className="h-8 w-8 text-emerald-600" />
+      <div>
+        <p className="text-lg font-extrabold text-emerald-950">Request sent. Thank you!</p>
+        <p className="mt-1 text-sm text-emerald-900">
+          Our team will check availability and message you on WhatsApp at <strong>{contact.phone}</strong>.
+          Nothing has been charged.
+        </p>
       </div>
+      {refs.length > 0 && (
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wider text-emerald-800">
+            Your booking reference{refs.length > 1 ? "s" : ""}
+          </p>
+          <p className="mt-1 font-mono text-base font-bold text-emerald-950">{refs.join(" · ")}</p>
+        </div>
+      )}
+      <a
+        href={whatsAppLink(message)}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-emerald-700 font-extrabold text-white hover:bg-emerald-600"
+      >
+        <MessageCircle className="h-5 w-5" /> Say hi on WhatsApp
+      </a>
+      <button type="button" onClick={onNewTrip} className="w-full min-h-11 text-sm font-bold text-emerald-800 underline">
+        Plan another trip
+      </button>
     </div>
   );
 }
