@@ -231,16 +231,23 @@ check-constraints (or Postgres enums) for status fields. **RLS is enabled on eve
 `id` uuid PK → `auth.users.id` · `role` (`client` | `driver` | `admin`) · `full_name` · `phone` ·
 `email` · `created_at`
 
-### 7.2 `drivers` (KYC & fleet vault)
-`id` uuid PK → `profiles.id` · `cedula_number` · `ict_permit_number` · `license_number` ·
-`license_expiry` date · `marchamo_year` int · `ins_policy_number` · `ins_insurance_expiry` date ·
-`dekra_inspection_expiry` date · `vehicle_model` · `vehicle_year` int · `passenger_capacity` int ·
-`kyc_status` (`pending` | `approved` | `rejected` | `suspended`) · `documents` jsonb (Storage
-paths in bucket `driver-kyc-docs`) · `is_on_duty` bool · `last_lat` float · `last_lng` float ·
-`last_seen_at` timestamptz · `created_at`
+### 7.2 `drivers` (the person) and `driver_vehicles` (KYC & fleet vault)
+**`drivers`:** `id` uuid PK → `profiles.id` · `cedula_number` · `ict_permit_number` ·
+`license_number` · `license_expiry` date · `criminal_record_date` date · `kyc_status` (`pending` |
+`approved` | `rejected` | `suspended`) · `kyc_note` · `needs_review` · `submitted_at` ·
+`reviewed_at` · `reviewed_by` · `documents` jsonb (`driver_photo`, `id_front`, `id_back`,
+`license`, `criminal_record`, optional `ict_permit`; Storage paths in bucket `driver-kyc-docs`) ·
+`is_on_duty` bool · `last_lat` · `last_lng` · `last_seen_at` · `created_at`
 
-The 30-day expiry warning checks `license_expiry`, `ins_insurance_expiry`,
-`dekra_inspection_expiry` and the Marchamo year.
+**`driver_vehicles`** (a driver can register several; each approved separately): `id` uuid PK ·
+`driver_id` → `drivers.id` · `plate` · `make_model` · `year` · `color` · `passenger_capacity` ·
+`ins_policy_number` · `ins_insurance_expiry` date · `dekra_inspection_expiry` date ·
+`marchamo_year` int · `documents` jsonb (`insurance`, `dekra`, `marchamo`, optional
+`vehicle_registration`) · `photos` jsonb array (at least 2, at most 12) · `status` · `note` ·
+`needs_review` · `reviewed_at` · `reviewed_by` · `created_at`
+
+The criminal record certificate must be issued ≤ 30 days before first approval (checked by the
+approve button). Expiry warnings cover the licence, insurance, Dekra and Marchamo.
 
 ### 7.3 `bookings`
 `id` uuid PK · `booking_ref` text unique (e.g. `PVW-10492`) · `client_id` → `profiles.id` ·
@@ -284,11 +291,14 @@ and `season_for_date(date)` returns the season for a travel date.
   open choice in §9). Document links must point into the driver's own folder. Only approved
   drivers with current documents can be on duty; anyone not approved is forced off duty.
 - **Document validity (Jorge, 2026-10-14):** an approved driver receives trips only while the
-  driver's licence is unexpired (no grace), INS insurance expired ≤ 15 days ago (15-day grace) and
-  the Marchamo covers the current year (no grace) and the Dekra / RTV inspection is unexpired
-  (no grace). `is_approved_driver()` checks this, so expired documents stop bids automatically.
-  After the first review, these four dates change only together with an upload of the renewed
-  document. Clients never see Cédula,
+  driver's licence is unexpired (no grace) and at least one **approved vehicle** has INS insurance
+  expired ≤ 15 days ago (15-day grace), a Marchamo for the current year (no grace) and an
+  unexpired Dekra / RTV (no grace). `is_approved_driver()` checks this, so expired documents stop
+  bids automatically. After the first review, these dates change only together with an upload
+  of the renewed document.
+- **driver_vehicles:** the driver and admins only; drivers add, edit and remove their own; new
+  vehicles always start `pending`; only admins change `status`, `note` and review fields; file
+  links must be in the driver's own folder. Clients never see Cédula,
   license or insurance numbers.
 - **bookings:** clients see their own; the assigned driver sees their assigned bookings; admins
   see all. Approved drivers see **open** requests (`pending_bids`) only through the
@@ -310,7 +320,7 @@ and `season_for_date(date)` returns the season for a travel date.
 | **1. Prototype** | Static `index.html` design for storefront + admin tab | Done as a design mock, but the JS is truncated and non-functional |
 | **2a. Next.js foundation** | Next.js + TS + Tailwind scaffold; rebuild storefront from the prototype design with catalog data from §5; working cart and WhatsApp buttons | **Done (PR #2)** |
 | **2b. Supabase core** | Schema + RLS from §7, Auth with roles, catalog served from DB, `/admin` behind login, inventory & season pricing manager | **Built (PRs #7–#9); live once Supabase is set up** |
-| **2c. Driver KYC vault** | Driver sign-up, document upload, admin approval, 30-day expiry alerts | **Built (PR #12): `/driver` portal, `/admin/drivers` vault; needs SQL file 4** |
+| **2c. Driver KYC vault** | Driver sign-up, document upload, admin approval, 30-day expiry alerts | **Built (PRs #12–#14): `/driver` portal with several vehicles, `/admin/drivers` vault** |
 | **2d. Checkout** | Green Pay integration, 100% / 20% deposit, payment webhooks, booking confirmation emails | Planned (needs Green Pay credentials) |
 | **3. Bidding & GPS** | Live driver bidding; driver on-duty GPS broadcast to admin Leaflet map | Planned |
 | **4. Chat & CRM** | Tri-party chat via Supabase Realtime; HubSpot sync; WhatsApp Business API | Planned |

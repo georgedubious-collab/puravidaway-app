@@ -94,11 +94,14 @@ for (const [k, id] of Object.entries(U)) {
 await db.exec(`
   update public.profiles set role = 'admin' where id = '${U.admin}';
   update public.profiles set role = 'driver' where id in ('${U.driver}', '${U.pending}');
-  insert into public.drivers (id, kyc_status, license_expiry, ins_insurance_expiry, marchamo_year, dekra_inspection_expiry, documents) values
-    ('${U.driver}', 'approved', '2099-01-01', '2099-01-01', 2099, '2099-01-01',
-     '{"license": "${U.driver}/license-0.pdf", "insurance": "${U.driver}/insurance-0.pdf",
-       "marchamo": "${U.driver}/marchamo-0.pdf", "dekra": "${U.driver}/dekra-0.pdf"}'),
-    ('${U.pending}', 'pending', null, null, null, null, '{}');
+  insert into public.drivers (id, kyc_status, license_expiry, documents) values
+    ('${U.driver}', 'approved', '2099-01-01', '{"license": "${U.driver}/license-0.pdf"}'),
+    ('${U.pending}', 'pending', null, '{}');
+  insert into public.driver_vehicles (id, driver_id, status, ins_insurance_expiry, dekra_inspection_expiry, marchamo_year, documents, photos) values
+    ('30000000-0000-0000-0000-000000000001', '${U.driver}', 'approved', '2099-01-01', '2099-01-01', 2099,
+     '{"insurance": "${U.driver}/vehicles/1/insurance-0.pdf", "dekra": "${U.driver}/vehicles/1/dekra-0.pdf",
+       "marchamo": "${U.driver}/vehicles/1/marchamo-0.pdf"}',
+     '["${U.driver}/vehicles/1/photo-0.jpg", "${U.driver}/vehicles/1/photo-1.jpg"]');
 `);
 
 // --- Catalog ------------------------------------------------------------------
@@ -175,32 +178,65 @@ await expectRows("suspension takes them off duty", "admin",
   `select * from public.drivers where id = '${U.driver}' and not is_on_duty`, 1);
 await expectOk("admin re-approves", "admin", `update public.drivers set kyc_status = 'approved' where id = '${U.driver}'`);
 
-// Document validity: licence and Marchamo have no grace period, insurance has 15 days.
+// Document validity: licence, Dekra and Marchamo have no grace period, insurance has 15 days.
 const approvedNow = (name, n) =>
   expectRows(name, "driver", "select 1 where public.is_approved_driver()", n);
 const setDriver = (sql) => as("server", `update public.drivers set ${sql} where id = '${U.driver}'`);
+const setCar = (sql) => as("server", `update public.driver_vehicles set ${sql} where id = '30000000-0000-0000-0000-000000000001'`);
 await approvedNow("approved driver with current documents gets trips", 1);
-await setDriver("ins_insurance_expiry = public.cr_today() - 15");
+await setCar("ins_insurance_expiry = public.cr_today() - 15");
 await approvedNow("insurance expired 15 days ago: still in grace", 1);
-await setDriver("ins_insurance_expiry = public.cr_today() - 16");
+await setCar("ins_insurance_expiry = public.cr_today() - 16");
 await approvedNow("insurance expired 16 days ago: no trips", 0);
-await setDriver("ins_insurance_expiry = '2099-01-01', license_expiry = public.cr_today() - 1");
+await setCar("ins_insurance_expiry = '2099-01-01'");
+await setDriver("license_expiry = public.cr_today() - 1");
 await approvedNow("licence expired yesterday: no trips (no grace)", 0);
 await setDriver("license_expiry = public.cr_today()");
 await approvedNow("licence expiring today still counts", 1);
-await setDriver("marchamo_year = extract(year from public.cr_today())::int - 1");
+await setCar("marchamo_year = extract(year from public.cr_today())::int - 1");
 await approvedNow("last year's Marchamo: no trips", 0);
 await expectBlocked("expired documents: cannot go on duty", "driver",
   `update public.drivers set is_on_duty = true where id = '${U.driver}'`);
-await setDriver("marchamo_year = 2099, dekra_inspection_expiry = public.cr_today() - 1");
+await setCar("marchamo_year = 2099, dekra_inspection_expiry = public.cr_today() - 1");
 await approvedNow("Dekra expired yesterday: no trips (no grace)", 0);
 await expectBlocked("cannot move the Dekra date without the new certificate", "driver",
-  `update public.drivers set dekra_inspection_expiry = '2098-01-01' where id = '${U.driver}'`);
+  `update public.driver_vehicles set dekra_inspection_expiry = '2098-01-01' where id = '30000000-0000-0000-0000-000000000001'`);
 await expectOk("Dekra renewed with the new certificate", "driver",
-  `update public.drivers set dekra_inspection_expiry = '2098-01-01',
-     documents = documents || '{"dekra": "${U.driver}/dekra-1.pdf"}' where id = '${U.driver}'`);
-await setDriver("license_expiry = '2098-01-01'");
+  `update public.driver_vehicles set dekra_inspection_expiry = '2098-01-01',
+     documents = documents || '{"dekra": "${U.driver}/vehicles/1/dekra-1.pdf"}' where id = '30000000-0000-0000-0000-000000000001'`);
+await expectRows("renewal flags the vehicle for review", "admin",
+  `select 1 from public.driver_vehicles where id = '30000000-0000-0000-0000-000000000001' and needs_review and status = 'approved'`, 1);
 await approvedNow("documents renewed: trips again", 1);
+
+// --- Vehicles ------------------------------------------------------------------------
+await expectRows("driver sees own vehicle", "driver", "select * from public.driver_vehicles", 1);
+await expectRows("client sees no vehicles", "client2", "select * from public.driver_vehicles", 0);
+await expectBlocked("non-driver cannot add a vehicle", "client2",
+  `insert into public.driver_vehicles (driver_id) values ('${U.client2}')`);
+await expectBlocked("cannot add a vehicle to someone else", "pending",
+  `insert into public.driver_vehicles (driver_id) values ('${U.driver}')`);
+await expectOk("driver adds a second vehicle (starts pending)", "driver",
+  `insert into public.driver_vehicles (id, driver_id, status, make_model) values
+   ('30000000-0000-0000-0000-000000000002', '${U.driver}', 'approved', 'Toyota Hiace')`);
+await expectRows("new vehicle forced to pending", "admin",
+  "select 1 from public.driver_vehicles where id = '30000000-0000-0000-0000-000000000002' and status = 'pending'", 1);
+await expectBlocked("driver cannot approve own vehicle", "driver",
+  "update public.driver_vehicles set status = 'approved' where id = '30000000-0000-0000-0000-000000000002'");
+await expectBlocked("vehicle photos must be in own folder", "driver",
+  `update public.driver_vehicles set photos = '["${U.pending}/x.jpg"]' where id = '30000000-0000-0000-0000-000000000002'`);
+await expectOk("driver adds photos", "driver",
+  `update public.driver_vehicles set photos = '["${U.driver}/vehicles/2/a.jpg", "${U.driver}/vehicles/2/b.jpg"]'
+   where id = '30000000-0000-0000-0000-000000000002'`);
+await expectBlocked("other driver cannot edit the vehicle", "pending",
+  "update public.driver_vehicles set plate = 'X' where id = '30000000-0000-0000-0000-000000000002'", { affected: 0 });
+await expectOk("admin approves the vehicle", "admin",
+  "update public.driver_vehicles set status = 'approved' where id = '30000000-0000-0000-0000-000000000002'");
+await expectOk("driver removes a vehicle", "driver",
+  "delete from public.driver_vehicles where id = '30000000-0000-0000-0000-000000000002'");
+await setCar("status = 'suspended'");
+await approvedNow("no approved vehicle: no trips", 0);
+await setCar("status = 'approved'");
+await approvedNow("vehicle approved again: trips", 1);
 
 // The admin pages join drivers to profiles with the hint profiles!drivers_id_fkey
 // (drivers has two links to profiles since reviewed_by was added).
