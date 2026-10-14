@@ -127,7 +127,7 @@ export function ExpeditionsView({ onAdd }: { onAdd: (item: CartItem) => void }) 
                     }
                     className="w-full mt-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 transition"
                   >
-                    <PlusCircle className="w-4 h-4" /> Add expedition to cart
+                    <PlusCircle className="w-4 h-4" /> Add expedition to your trip
                   </button>
                 </div>
               </div>

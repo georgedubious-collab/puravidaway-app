@@ -19,9 +19,18 @@ function defaultDate(): string {
   return d.toISOString().slice(0, 10);
 }
 
-export function TransfersView({ onAdd }: { onAdd: (item: CartItem) => void }) {
-  const [origin, setOrigin] = useState<HubId>("SJO");
-  const [destination, setDestination] = useState<HubId>("ManuelAntonio");
+export function TransfersView({
+  onAdd,
+  initialOrigin = "SJO",
+  initialDestination = "ManuelAntonio",
+}: {
+  onAdd: (item: CartItem) => void;
+  /** Pre-filled from route pages via ?from=&to= */
+  initialOrigin?: HubId;
+  initialDestination?: HubId;
+}) {
+  const [origin, setOrigin] = useState<HubId>(initialOrigin);
+  const [destination, setDestination] = useState<HubId>(initialDestination);
   const [date, setDate] = useState(defaultDate);
   const [pax, setPax] = useState(2);
   const [mode, setMode] = useState<PricingMode>("fixed");
@@ -407,7 +416,7 @@ export function TransfersView({ onAdd }: { onAdd: (item: CartItem) => void }) {
               className="w-full mt-4 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-extrabold py-3 rounded-xl shadow-md text-sm flex items-center justify-center gap-2 transition"
             >
               <PlusCircle className="w-4 h-4" />
-              {mode === "bid" ? "Add bid request to cart" : "Add transfer to trip cart"}
+              {mode === "bid" ? "Add offer request to your trip" : "Add this ride to your trip"}
             </button>
             <a
               href={routeWhatsApp}

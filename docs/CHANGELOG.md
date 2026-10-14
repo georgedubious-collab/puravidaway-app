@@ -3,6 +3,14 @@
 Every merged change gets one line: `YYYY-MM-DD — <AI or Jorge> — <what changed>`.
 Newest entries first. AIs: read the top of this file before starting work.
 
+- 2026-10-14 — Claude — App-first storefront: the trip is a persistent sidebar on desktop (legs
+  in date order, 20%/full payment, WhatsApp booking, trust panel) and a bottom bar + drawer on
+  phones; numbered module tabs replaced by "Add to your trip: Ride / Day tour / Expedition".
+  New `/transfers/[slug]` route landing pages (first: SJO Airport → Manuel Antonio) that pre-fill
+  the builder via `?from=&to=`. Trust content in `src/lib/trust.ts`: driver checks (Daytrip-style
+  wording), marketplace carrier note (GetTransfer-style), guarantees; reviews and ratings render
+  only once real ones are added. Cancellation terms left out until PROJECT.md §9 #7 is decided.
+
 - 2026-10-14 — Claude — Brand separation: removed Costa Rica Travel Planner and "Jorge" from
   every customer-facing string (header badge, footer, page description, WhatsApp messages,
   expeditions heading); driver copy changed from blanket "ICT-certified" to local partner
