@@ -3,6 +3,9 @@
 Every merged change gets one line: `YYYY-MM-DD — <AI or Jorge> — <what changed>`.
 Newest entries first. AIs: read the top of this file before starting work.
 
+- 2026-10-14 — Claude — COMPETITORS.md §2c GetTransfer "from" prices for 9 Costa Rica routes vs
+  Daytrip; §2d exact pick-up/drop-off analysis (map place search, zone + distance pricing) with
+  requirements for our transfer form; Sierpe road drop-off added to the Daytrip grid.
 - 2026-10-14 — Claude — COMPETITORS.md §2b: Daytrip per-vehicle price grid for 12 Costa Rica
   routes (Nov 2026 quote), stop pricing, pricing behaviour (distance from SJO, supply elsewhere),
   plus SJO→Drake Bay and SJO→Puerto Jiménez (Daytrip sells both; it does not sell the Sierpe

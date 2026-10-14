@@ -69,14 +69,15 @@ VAT included, free cancellation up to 24 h, driver waits up to 60 min after the 
 | La Fortuna → Manuel Antonio | 235 km / 4 h 50 | $291 | $322 | $417 | $417 | $407 |
 | SJO → Tamarindo | 273 km / 4 h 40 | $313 | $338 | $457 | $457 | $421 |
 | SJO → Puerto Jiménez (Corcovado) | ~5 h 35 | $518 | $530 | $582 | $639 | $530 |
+| SJO → Sierpe (town / dock) | ~4 h 15 | $284 | $307 | $425 | $425 | $390 |
 | SJO → Drake Bay (by road) | ~6 h 10 | $398 | $431 | $588 | $588 | $540 |
 
 **Osa coverage (corrected 2026-10-14):** Daytrip **does** sell Drake Bay and Puerto Jiménez.
 Drake Bay has no landing page (so it doesn't show up in route URLs or Google), but it is bookable
 from the search box as a door-to-door road transfer. Puerto Jiménez has landing pages from SJO,
-Manuel Antonio, Uvita and Quepos. **Not sold:** a Sierpe dock transfer or a boat connection —
-Daytrip only drives you; the Sierpe → Drake boat, SINAC permits and Corcovado logistics are not
-part of their product.
+Manuel Antonio, Uvita and Quepos. Sierpe town is also bookable by road (SJO → Sierpe Sedan
+$307). **Not sold:** the Sierpe → Drake **boat**, SINAC permits or Corcovado logistics — Daytrip
+only drives you.
 
 Vehicle classes (Daytrip's definitions):
 - **Sedan Lite** — budget, direct ride only (no stops), driver may not speak English; 1–3 pax, 3
@@ -118,6 +119,78 @@ guided — keep that difference visible.
 3. Match Daytrip's class names and capacities so travellers compare like with like; our "SUV
    1–4 pax" is not their SUV.
 
+## 2c. GetTransfer price grid, Costa Rica (checked 2026-10-14 via gettransfer.com)
+
+GetTransfer shows a **"from" price per class** as soon as A and B are entered (before any request
+is posted). These are indicative floors; real driver bids can be higher. Origin for SJO rows was
+the SJO airport terminal.
+
+| Route | Economy | Comfort | Business | Premium | VIP | SUV | Van | Minibus |
+| :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| LIR → Tamarindo | $105 | $119 | $152 | $157 | $313 | $127 | $117 | $246 |
+| SJO → La Fortuna | $92 | $106 | $134 | $138 | $277 | $113 | $103 | $257 |
+| SJO → Monteverde | $101 | $115 | $146 | $151 | $302 | $123 | $113 | $305 |
+| SJO → Manuel Antonio (Arenas del Mar) | $99 | $113 | $143 | $147 | $296 | $120 | $111 | $258 |
+| SJO → Puerto Viejo | $142 | $163 | $206 | $213 | $426 | $173 | $156 | $327 |
+| SJO → Tamarindo | $164 | $187 | $237 | $243 | $488 | $198 | $182 | $395 |
+| SJO → Sierpe | $169 | $192 | $243 | $251 | $504 | $204 | $181 | $381 |
+| SJO → Drake Bay (road) | $222 | $253 | $321 | $331 | $663 | $270 | $243 | $510 |
+| SJO → Puerto Jiménez | $223 | $255 | $323 | $333 | $668 | $272 | $244 | $514 |
+
+**Daytrip Sedan vs GetTransfer Comfort (closest like-for-like):**
+
+| Route | Daytrip Sedan | GetTransfer Comfort | GT as % of Daytrip |
+| :--- | ---: | ---: | ---: |
+| LIR → Tamarindo | $136 | $119 | 88% |
+| SJO → La Fortuna | $161 | $106 | 66% |
+| SJO → Monteverde | $182 | $115 | 63% |
+| SJO → Manuel Antonio | $205 | $113 | 55% |
+| SJO → Puerto Viejo | $281 | $163 | 58% |
+| SJO → Tamarindo | $338 | $187 | 55% |
+| SJO → Sierpe | $307 | $192 | 63% |
+| SJO → Drake Bay | $431 | $253 | 59% |
+| SJO → Puerto Jiménez | $530 | $255 | 48% |
+
+Takeaways:
+- GetTransfer's floors are **~55–65% of Daytrip** on long routes and close to Daytrip on short
+  ones. They also follow distance smoothly (≈ $0.65–0.70/km for Comfort), with **no scarcity
+  premium** — Puerto Jiménez ≈ Drake Bay, unlike Daytrip.
+- Their floor is roughly what a Daytrip driver *receives* (~70% of Daytrip retail). PuraVidaWay's
+  retail should sit **between the two**: above GetTransfer's floor (they're a bidding lottery
+  with cancellation risk), below Daytrip's retail.
+- Booking extras GetTransfer asks up front: flight number, **name on the sign**, children and
+  child seats, return trip, English-speaking driver, Wi-Fi, comment, promo code; plus a
+  **price-match guarantee** and up to 60 min free waiting.
+
+## 2d. Exact pick-up / drop-off points (both competitors)
+
+Neither app limits travellers to a list of towns. Both use **map search** (GetTransfer shows the
+Google Maps logo; Daytrip's results look the same): travellers type a hotel, Airbnb, restaurant,
+tour operator, ferry/boat dock, surf camp, car-rental desk, or street address, and the exact
+point is stored. Searches are global (typing "Sierpe" also offers places in Poland and Spain;
+"Tabacón" also offers a business in Côte d'Ivoire), so a country bias matters.
+
+What the exact point does to price (Daytrip, Sedan, from SJO):
+- **Arenas del Mar resort = Manuel Antonio town** ($205 = $205): points inside a destination
+  area share its price.
+- **Tabacón Thermal Resort ($185) > La Fortuna town ($161):** 13 km further = +$24. Price follows
+  the real routed distance/time to the exact point. (Jorge's Aug Tabacón ride paid exactly $185.)
+- GetTransfer draws the **routed path on a map** and prices from it (SJO → Arenas del Mar shown
+  as 162 km / 2 h 52).
+
+**Requirement for PuraVidaWay (replaces the 9-hub dropdown):**
+1. Pick-up and drop-off are **place search fields** (Google Places or Mapbox) restricted/biased to
+   Costa Rica, with suggestions for hotels, docks, restaurants, operators and addresses; store
+   name, address, lat/lng and place ID on the booking (schema: `origin_coords` /
+   `destination_coords` already planned).
+2. Price = **zone price** (route table between named zones, e.g. "Manuel Antonio area") **plus a
+   per-km surcharge** when the exact point is outside the zone radius — matching the Daytrip
+   behaviour above. Distance/time come from a routing API, never straight-line.
+3. Show the **route on a map** and the drive time, like GetTransfer.
+4. Recognise special points: SJO/LIR terminals (flight number, name sign, 60-min wait), the
+   **Sierpe boat dock** (offer the boat-to-Drake combo), Drake Bay lodges (boat drop-off only).
+5. Driver gets the exact pin and a Waze / Google Maps link.
+
 ## 3. What each one does well — copy it
 
 **Daytrip**
@@ -158,6 +231,8 @@ guided — keep that difference visible.
 ## 5. Product requirements that follow (checklist for every PR)
 
 1. Price display: per car **and** "from $X per person".
+1b. Pick-up/drop-off by **map search of any exact place** (hotel, dock, restaurant), with the
+    route drawn on a map — not a town dropdown (§2d).
 2. Every transfer card states: flight tracking, driver waits, luggage allowance, free
    cancellation window, English-speaking ICT-certified driver.
 3. Sightseeing stops show duration and whether entrance fees are included.

@@ -72,7 +72,8 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
 ## 4. Product modules
 
 ### 4.1 Customer storefront (public)
-1. **Transfers & Sightseeing** — origin/destination, date, passengers, Fixed Price vs Driver Bids
+1. **Transfers & Sightseeing** — exact pick-up/drop-off by map place search (hotel, dock,
+   restaurant, address; see COMPETITORS.md §2d), date, passengers, Fixed Price vs Driver Bids
    toggle, sightseeing stop cards, live route timeline with total duration, flight number or hotel
    field, price breakdown.
 2. **1-Day Private Tours** — region filter, Smart En-Route Transfer upgrade (+$65).
@@ -283,8 +284,9 @@ jsonb · `sightseeing_stops` jsonb (array of stop IDs + snapshot prices) · `veh
 
 ## 9. Open decisions
 
-1. **Transfer pricing model.** Daytrip sells SJO→La Fortuna from ~$29/person (≈$116–120 per
-   car), so our flat $175 SUV rate is not competitive. The original Route-Pricing doc describes *base fee + distance/time
+1. **Transfer pricing model.** Research done (COMPETITORS.md §2b–2d): Daytrip Sedan SJO→La
+   Fortuna $161, GetTransfer Comfort $106; both price by routed distance to the exact point.
+   Recommendation: zone-to-zone price table per vehicle class + per-km surcharge outside zones. The original Route-Pricing doc describes *base fee + distance/time
    × vehicle multiplier* (1.0× / 1.4× / 1.8×). The prototype uses *flat rates per vehicle class*
    ($175–$290) regardless of route, which would make SJO→Manuel Antonio cost the same as
    SJO→Tamarindo. Recommended: a **route × vehicle price table** (each corridor has its own price
