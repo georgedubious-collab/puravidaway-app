@@ -3,6 +3,13 @@
 Every merged change gets one line: `YYYY-MM-DD — <AI or Jorge> — <what changed>`.
 Newest entries first. AIs: read the top of this file before starting work.
 
+- 2026-10-14 — Claude — Phase 2b, part 2 (logins + admin): email-code sign-in at `/login`
+  (Supabase Auth via `@supabase/ssr`), `src/proxy.ts` keeps sessions fresh on `/admin`, `/account`
+  and `/login` only, `requireRole()` re-checks the role on every admin page and action. `/admin`
+  dashboard (bookings by status, drivers waiting for approval, licence / INS / Dekra / Marchamo
+  expiring in 30 days) and `/admin/users` to make people drivers or admins. Works without Supabase
+  keys (shows a setup notice).
+
 - 2026-10-14 — Claude — Phase 2b, part 1 (database): Supabase migrations for every PROJECT.md §7
   table, row-level security per §7.7, guards so only admins change roles/KYC status and drivers can
   only withdraw bids, private `driver-kyc-docs` bucket, `season_for_date()` with season date ranges
