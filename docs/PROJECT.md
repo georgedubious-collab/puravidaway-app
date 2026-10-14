@@ -58,7 +58,9 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
 ## 3. Current state of the code (2026-10-14)
 
 - **Next.js 16 (App Router) + TypeScript strict + Tailwind 4**, in `src/`.
-- `src/lib/catalog.ts` — the §5 catalog as typed data (prices in integer cents).
+- `src/lib/catalog.ts` — the §5 catalog as typed data (prices in integer cents). Since Phase 2b this is the
+  **built-in fallback**: the live catalog comes from Supabase via `getCatalog()`
+  (`src/lib/catalogSource.ts`) and is edited at `/admin/pricing`.
 - `src/lib/pricing.ts` — the §6 pricing engine (season multipliers in basis points, cents math).
 - `src/lib/cart.ts` — Trip Cart model, 100% / 20% deposit rule, WhatsApp deep-link builder.
 - `src/components/` — storefront UI: `Header`, `TransfersView`, `DayToursView`,
@@ -294,7 +296,7 @@ and `season_for_date(date)` returns the season for a travel date.
 | :--- | :--- | :--- |
 | **1. Prototype** | Static `index.html` design for storefront + admin tab | Done as a design mock, but the JS is truncated and non-functional |
 | **2a. Next.js foundation** | Next.js + TS + Tailwind scaffold; rebuild storefront from the prototype design with catalog data from §5; working cart and WhatsApp buttons | **Done (PR #2)** |
-| **2b. Supabase core** | Schema + RLS from §7, Auth with roles, catalog served from DB, `/admin` behind login, inventory & season pricing manager | **Next** |
+| **2b. Supabase core** | Schema + RLS from §7, Auth with roles, catalog served from DB, `/admin` behind login, inventory & season pricing manager | **Built (PRs #7–#9); live once Supabase is set up** |
 | **2c. Driver KYC vault** | Driver sign-up, document upload, admin approval, 30-day expiry alerts | Planned |
 | **2d. Checkout** | Green Pay integration, 100% / 20% deposit, payment webhooks, booking confirmation emails | Planned (needs Green Pay credentials) |
 | **3. Bidding & GPS** | Live driver bidding; driver on-duty GPS broadcast to admin Leaflet map | Planned |

@@ -188,6 +188,8 @@ export interface DayTour {
   durationHours: number;
   priceCents: number;
   highlights: string[];
+  /** Per-tour Smart En-Route price; falls back to EN_ROUTE_UPGRADE_CENTS. */
+  enRouteUpgradeCents?: number;
 }
 
 export const EN_ROUTE_UPGRADE_CENTS = 6500;

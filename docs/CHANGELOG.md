@@ -3,6 +3,15 @@
 Every merged change gets one line: `YYYY-MM-DD — <AI or Jorge> — <what changed>`.
 Newest entries first. AIs: read the top of this file before starting work.
 
+- 2026-10-14 — Claude — Phase 2b, part 3 (pricing manager): the storefront and route pages read
+  the catalog through `getCatalog()` (`src/lib/catalogSource.ts`): database when Supabase is
+  connected, built-in `catalog.ts` otherwise or if the database fails; cached 1 h and refreshed the
+  moment an admin saves. Season lookup now uses date ranges (`seasonForYmd`; identical to the old
+  rule on every day 2025–2040). `/admin/pricing` edits vehicles, stops (incl. corridors, park fee,
+  add new), day tours (per-tour en-route price), expeditions, lodging tiers, season multipliers and
+  season dates, with inline "Saved" / error messages. Ride builder blocks adding a ride when no
+  live vehicle fits the group.
+
 - 2026-10-14 — Claude — Phase 2b, part 2 (logins + admin): email-code sign-in at `/login`
   (Supabase Auth via `@supabase/ssr`), `src/proxy.ts` keeps sessions fresh on `/admin`, `/account`
   and `/login` only, `requireRole()` re-checks the role on every admin page and action. `/admin`

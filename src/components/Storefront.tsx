@@ -4,6 +4,8 @@ import { MessageCircle, Route, Sun, Tent } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { HUBS, type HubId } from "@/lib/catalog";
+import type { CatalogData } from "@/lib/catalogModel";
+import { CatalogProvider } from "./CatalogContext";
 import {
   cartTotalCents,
   type CartItem,
@@ -40,7 +42,7 @@ function hubParam(value: string | null): HubId | undefined {
  * always visible. Smaller screens: a bottom bar opens the same trip in a drawer.
  * Route pages link here with ?from=SJO&to=ManuelAntonio to pre-fill a ride.
  */
-export function Storefront({ today }: { today: string }) {
+export function Storefront({ today, catalog }: { today: string; catalog: CatalogData }) {
   const params = useSearchParams();
   const initialOrigin = hubParam(params.get("from"));
   const initialDestination = hubParam(params.get("to"));
@@ -83,7 +85,7 @@ export function Storefront({ today }: { today: string }) {
   const total = cartTotalCents(items);
 
   return (
-    <>
+    <CatalogProvider catalog={catalog}>
       <Header cartCount={items.length} totalCents={total} onOpenCart={() => setCartOpen(true)} />
 
       <div className="max-w-[1440px] mx-auto w-full px-4 py-5 flex-1 xl:grid xl:grid-cols-[340px_minmax(0,1fr)] xl:gap-6 xl:items-start">
@@ -193,6 +195,6 @@ export function Storefront({ today }: { today: string }) {
         onName={setName}
       />
       <Toast message={toast.message} />
-    </>
+    </CatalogProvider>
   );
 }
