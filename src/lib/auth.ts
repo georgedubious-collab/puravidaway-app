@@ -42,3 +42,10 @@ export async function requireRole(role: Role, nextPath = "/admin"): Promise<Prof
   if (profile.role !== role) redirect(`/login?denied=1&next=${encodeURIComponent(nextPath)}`);
   return profile;
 }
+
+/** Any signed-in user (client, driver or admin). Logged out → login page. */
+export async function requireUser(nextPath: string): Promise<Profile> {
+  const profile = await getCurrentProfile();
+  if (!profile) redirect(`/login?next=${encodeURIComponent(nextPath)}`);
+  return profile;
+}

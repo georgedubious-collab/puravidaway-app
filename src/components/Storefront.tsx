@@ -1,6 +1,7 @@
 "use client";
 
 import { MessageCircle, Route, Sun, Tent } from "lucide-react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { HUBS, type HubId } from "@/lib/catalog";
@@ -152,7 +153,12 @@ export function Storefront({ today, catalog }: { today: string; catalog: Catalog
 
       <footer className="border-t border-slate-200 bg-white">
         <div className="max-w-[1440px] mx-auto px-4 py-6 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-500">
-          <p>© {today.slice(0, 4)} PuraVidaWay · Costa Rica</p>
+          <p>
+            © {today.slice(0, 4)} PuraVidaWay · Costa Rica ·{" "}
+            <Link href="/driver" className="font-bold text-slate-600 hover:text-emerald-700">
+              Drive with PuraVidaWay
+            </Link>
+          </p>
           <a
             href={whatsAppLink("Hi PuraVidaWay! I have a question about planning a trip to Costa Rica.")}
             target="_blank"

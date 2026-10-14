@@ -20,7 +20,8 @@ export async function setUserRole(formData: FormData): Promise<void> {
 
   if (role === "driver") {
     // New drivers get an empty KYC record in "pending" until their documents are checked.
-    await supabase.from("drivers").upsert({ id: userId }, { onConflict: "id", ignoreDuplicates: true });
+    const d = await supabase.from("drivers").upsert({ id: userId }, { onConflict: "id", ignoreDuplicates: true });
+    if (d.error) throw new Error(d.error.message);
   }
   revalidatePath("/admin/users");
 }

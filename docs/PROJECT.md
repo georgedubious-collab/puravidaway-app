@@ -276,9 +276,13 @@ and `season_for_date(date)` returns the season for a travel date.
 
 ### 7.7 Row Level Security
 - **profiles:** users read/update their own row; admins read/write all.
-- **drivers:** drivers read/update their own KYC fields and upload to their own folder in
-  `driver-kyc-docs`; only admins change `kyc_status`. Clients never see Cédula, license or
-  insurance numbers.
+- **drivers:** any signed-in user can apply (create their own record, always `pending`); drivers
+  read/update their own KYC fields and upload to their own folder in `driver-kyc-docs` (images/PDF,
+  10 MB). Only admins change `kyc_status`, `kyc_note` and the review fields. A driver's change to
+  an approved record sets `needs_review` (they stay approved until the admin acts — flagged as an
+  open choice in §9). Document links must point into the driver's own folder. Only approved
+  drivers can be on duty; anyone not approved is forced off duty. Clients never see Cédula,
+  license or insurance numbers.
 - **bookings:** clients see their own; the assigned driver sees their assigned bookings; approved
   drivers see **open** requests (`pending_bids`) with client contact details hidden until a bid is
   accepted; admins see all.
@@ -297,7 +301,7 @@ and `season_for_date(date)` returns the season for a travel date.
 | **1. Prototype** | Static `index.html` design for storefront + admin tab | Done as a design mock, but the JS is truncated and non-functional |
 | **2a. Next.js foundation** | Next.js + TS + Tailwind scaffold; rebuild storefront from the prototype design with catalog data from §5; working cart and WhatsApp buttons | **Done (PR #2)** |
 | **2b. Supabase core** | Schema + RLS from §7, Auth with roles, catalog served from DB, `/admin` behind login, inventory & season pricing manager | **Built (PRs #7–#9); live once Supabase is set up** |
-| **2c. Driver KYC vault** | Driver sign-up, document upload, admin approval, 30-day expiry alerts | Planned |
+| **2c. Driver KYC vault** | Driver sign-up, document upload, admin approval, 30-day expiry alerts | **Built (PR #12): `/driver` portal, `/admin/drivers` vault; needs SQL file 4** |
 | **2d. Checkout** | Green Pay integration, 100% / 20% deposit, payment webhooks, booking confirmation emails | Planned (needs Green Pay credentials) |
 | **3. Bidding & GPS** | Live driver bidding; driver on-duty GPS broadcast to admin Leaflet map | Planned |
 | **4. Chat & CRM** | Tri-party chat via Supabase Realtime; HubSpot sync; WhatsApp Business API | Planned |
@@ -323,6 +327,9 @@ and `season_for_date(date)` returns the season for a travel date.
 7. **Cancellation & refund policy** for deposits and full payments.
 8. **Custom domain** for the app (removes the Vercel login wall on previews and looks
    professional).
+9. **Driver edits after approval.** Built as: the driver stays approved and the record is flagged
+   "changed since last review" for the admin. Stricter alternative: any change sends them back to
+   *pending* (off the job board) until re-approved. Decide before drivers can receive trips (Phase 3).
 
 ---
 

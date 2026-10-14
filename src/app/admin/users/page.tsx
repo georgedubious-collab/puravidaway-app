@@ -16,9 +16,9 @@ export default async function UsersPage() {
     <div className="space-y-4">
       <h1 className="text-2xl font-extrabold text-slate-900">Users &amp; roles</h1>
       <p className="text-sm text-slate-600">
-        Everyone who signs in starts as a client. Make partner drivers <strong>driver</strong> (they
-        then appear as &ldquo;waiting for approval&rdquo; until their documents are checked) and
-        trusted staff <strong>admin</strong>.
+        Everyone who signs in starts as a client. Drivers apply at <code>/driver</code> and get the{" "}
+        <strong>driver</strong> role when you approve them in <strong>Drivers</strong>. Make trusted
+        staff <strong>admin</strong> here.
       </p>
       <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
         <table className="w-full text-sm">

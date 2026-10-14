@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { addDays, todayInCostaRica } from "@/lib/dates";
+import { expiryIssues, type DriverRecord } from "@/lib/driverKyc";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const STATUSES = [
@@ -10,22 +11,13 @@ const STATUSES = [
   ["in_progress", "On the road"],
 ] as const;
 
-interface DriverRow {
-  id: string;
-  kyc_status: string;
-  license_expiry: string | null;
-  ins_insurance_expiry: string | null;
-  dekra_inspection_expiry: string | null;
-  marchamo_year: number | null;
-  profiles: { full_name: string | null; email: string | null } | null;
-}
+type DriverRow = DriverRecord & { profiles: { full_name: string | null; email: string | null } | null };
 
 export default async function AdminDashboard() {
   await requireRole("admin");
   const supabase = (await createSupabaseServerClient())!;
   const today = todayInCostaRica();
   const soon = addDays(today, 30);
-  const year = Number(today.slice(0, 4));
 
   const counts = await Promise.all(
     STATUSES.map(async ([status]) => {
@@ -39,22 +31,15 @@ export default async function AdminDashboard() {
 
   const { data: drivers } = await supabase
     .from("drivers")
-    .select(
-      "id, kyc_status, license_expiry, ins_insurance_expiry, dekra_inspection_expiry, marchamo_year, profiles(full_name, email)",
-    )
+    .select("*, profiles!drivers_id_fkey(full_name, email)")
     .returns<DriverRow[]>();
 
-  const pendingKyc = (drivers ?? []).filter((d) => d.kyc_status === "pending");
+  const pendingKyc = (drivers ?? []).filter((d) => d.kyc_status === "pending" || d.needs_review);
   const expiring = (drivers ?? [])
     .filter((d) => d.kyc_status === "approved")
     .map((d) => ({
       d,
-      issues: [
-        expiry("Driver's license", d.license_expiry, today, soon),
-        expiry("INS insurance", d.ins_insurance_expiry, today, soon),
-        expiry("Dekra inspection", d.dekra_inspection_expiry, today, soon),
-        d.marchamo_year !== null && d.marchamo_year < year ? `Marchamo ${d.marchamo_year} not renewed` : null,
-      ].filter(Boolean) as string[],
+      issues: expiryIssues(d, today, soon),
     }))
     .filter((x) => x.issues.length > 0);
 
@@ -79,13 +64,18 @@ export default async function AdminDashboard() {
 
       <section aria-labelledby="kyc-h" className="grid gap-4 md:grid-cols-2">
         <div className="rounded-xl border border-slate-200 bg-white p-5">
-          <h2 id="kyc-h" className="font-extrabold text-slate-900">Drivers waiting for approval</h2>
+          <h2 id="kyc-h" className="font-extrabold text-slate-900">Drivers to review</h2>
           {pendingKyc.length === 0 ? (
             <p className="mt-2 text-sm text-slate-500">None right now.</p>
           ) : (
             <ul className="mt-2 space-y-1 text-sm">
               {pendingKyc.map((d) => (
-                <li key={d.id}>{d.profiles?.full_name || d.profiles?.email}</li>
+                <li key={d.id}>
+                  <Link href={`/admin/drivers/${d.id}`} className="font-bold text-emerald-700 underline">
+                    {d.profiles?.full_name || d.profiles?.email}
+                  </Link>
+                  {d.needs_review && <span className="text-slate-500"> · changed details</span>}
+                </li>
               ))}
             </ul>
           )}
@@ -98,7 +88,9 @@ export default async function AdminDashboard() {
             <ul className="mt-2 space-y-2 text-sm">
               {expiring.map(({ d, issues }) => (
                 <li key={d.id}>
-                  <strong>{d.profiles?.full_name || d.profiles?.email}</strong>
+                  <Link href={`/admin/drivers/${d.id}`} className="font-bold text-emerald-700 underline">
+                    {d.profiles?.full_name || d.profiles?.email}
+                  </Link>
                   <span className="block text-red-700">{issues.join(" · ")}</span>
                 </li>
               ))}
@@ -108,7 +100,11 @@ export default async function AdminDashboard() {
       </section>
 
       <p className="text-sm text-slate-600">
-        Make someone a driver or an admin in{" "}
+        Review driver applications in{" "}
+        <Link href="/admin/drivers" className="font-bold text-emerald-700 underline">
+          Drivers
+        </Link>
+        ; make someone an admin in{" "}
         <Link href="/admin/users" className="font-bold text-emerald-700 underline">
           Users &amp; roles
         </Link>
@@ -116,11 +112,4 @@ export default async function AdminDashboard() {
       </p>
     </div>
   );
-}
-
-function expiry(label: string, date: string | null, today: string, soon: string): string | null {
-  if (!date) return `${label}: missing`;
-  if (date < today) return `${label} expired ${date}`;
-  if (date <= soon) return `${label} expires ${date}`;
-  return null;
 }
