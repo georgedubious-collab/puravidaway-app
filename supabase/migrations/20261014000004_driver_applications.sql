@@ -25,6 +25,52 @@ alter table public.drivers
   add column if not exists reviewed_at   timestamptz,
   add column if not exists reviewed_by   uuid references public.profiles (id) on delete set null;
 
+-- ---------------------------------------------------------------------------
+-- Document validity. An approved driver only gets trips while:
+--   * the driver's licence has not expired (no grace period),
+--   * the INS insurance expired no more than 15 days ago (grace period),
+--   * the Marchamo is paid for the current year (no grace period).
+-- Dates are Costa Rica dates.
+-- ---------------------------------------------------------------------------
+create or replace function public.cr_today()
+returns date
+language sql
+stable
+as $$
+  select (now() at time zone 'America/Costa_Rica')::date;
+$$;
+
+create or replace function public.driver_documents_current(d public.drivers)
+returns boolean
+language sql
+stable
+set search_path = public
+as $$
+  select coalesce(
+    d.license_expiry >= public.cr_today()
+    and d.ins_insurance_expiry + 15 >= public.cr_today()
+    and d.marchamo_year >= extract(year from public.cr_today())::int,
+    false);
+$$;
+
+-- "Approved driver" now also means "documents current": an expired licence,
+-- insurance past its grace period or an unpaid Marchamo stops bids and open
+-- requests automatically, without the admin having to suspend anyone.
+create or replace function public.is_approved_driver()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.drivers d
+    join public.profiles p on p.id = d.id
+    where d.id = auth.uid() and p.role = 'driver' and d.kyc_status = 'approved'
+      and public.driver_documents_current(d)
+  );
+$$;
+
 -- Non-admins (applicants and drivers) can edit their own details and documents,
 -- but never the review fields. Any change they make to an approved record flags
 -- it for the admin to look at again (e.g. a renewed licence uploaded).
@@ -76,9 +122,26 @@ begin
       else
         new.needs_review := old.needs_review;
       end if;
-      -- Only approved drivers can show up as available for trips.
-      if new.is_on_duty and old.kyc_status <> 'approved' then
-        raise exception 'Only approved drivers can go on duty';
+      -- After the first review, a new expiry date only counts with the renewed
+      -- document uploaded in the same change.
+      if old.kyc_status <> 'pending' then
+        if new.license_expiry is distinct from old.license_expiry
+           and new.documents ->> 'license' is not distinct from old.documents ->> 'license' then
+          raise exception 'Upload the renewed licence to change its expiry date';
+        end if;
+        if new.ins_insurance_expiry is distinct from old.ins_insurance_expiry
+           and new.documents ->> 'insurance' is not distinct from old.documents ->> 'insurance' then
+          raise exception 'Upload the renewed insurance policy to change its expiry date';
+        end if;
+        if new.marchamo_year is distinct from old.marchamo_year
+           and new.documents ->> 'marchamo' is not distinct from old.documents ->> 'marchamo' then
+          raise exception 'Upload the new Marchamo to change its year';
+        end if;
+      end if;
+      -- Only approved drivers with current documents can show up as available.
+      if new.is_on_duty and not old.is_on_duty
+         and (old.kyc_status <> 'approved' or not public.driver_documents_current(new)) then
+        raise exception 'Only approved drivers with current documents can go on duty';
       end if;
     end if;
   end if;

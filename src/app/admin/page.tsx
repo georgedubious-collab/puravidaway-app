@@ -81,7 +81,7 @@ export default async function AdminDashboard() {
           )}
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-5">
-          <h2 className="font-extrabold text-slate-900">Documents expiring in 30 days</h2>
+          <h2 className="font-extrabold text-slate-900">Expired or expiring documents</h2>
           {expiring.length === 0 ? (
             <p className="mt-2 text-sm text-slate-500">All approved drivers are up to date.</p>
           ) : (
@@ -91,7 +91,11 @@ export default async function AdminDashboard() {
                   <Link href={`/admin/drivers/${d.id}`} className="font-bold text-emerald-700 underline">
                     {d.profiles?.full_name || d.profiles?.email}
                   </Link>
-                  <span className="block text-red-700">{issues.join(" · ")}</span>
+                  {issues.map((i) => (
+                    <span key={i.text} className={`block ${i.blocking ? "font-bold text-red-700" : "text-amber-700"}`}>
+                      {i.text}
+                    </span>
+                  ))}
                 </li>
               ))}
             </ul>

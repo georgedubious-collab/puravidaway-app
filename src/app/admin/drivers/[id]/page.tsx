@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { ActionForm } from "@/components/ActionForm";
 import { requireRole } from "@/lib/auth";
 import { addDays, todayInCostaRica } from "@/lib/dates";
-import { DRIVER_DOCS, STATUS_LABEL, expiryIssues, missingDetails, type DriverRecord } from "@/lib/driverKyc";
+import { DRIVER_DOCS, STATUS_LABEL, canTakeTrips, expiryIssues, missingDetails, type DriverRecord } from "@/lib/driverKyc";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { reviewDriver } from "../actions";
 
@@ -63,13 +63,21 @@ export default async function DriverDetail({ params }: { params: Promise<{ id: s
           {d.needs_review && <span className="ml-2 rounded bg-amber-100 px-2 py-0.5 text-amber-900 font-bold">Changed since last review</span>}
           {d.submitted_at && <span className="text-slate-500"> · applied {d.submitted_at.slice(0, 10)}</span>}
           {d.reviewed_at && <span className="text-slate-500"> · last reviewed {d.reviewed_at.slice(0, 10)}</span>}
+          {d.kyc_status === "approved" && !canTakeTrips(d, today) && (
+            <span className="ml-2 rounded bg-red-100 px-2 py-0.5 text-red-900 font-bold">Can&apos;t take trips: documents expired</span>
+          )}
           {d.ict_permit_number && <span className="ml-2 rounded bg-emerald-100 px-2 py-0.5 text-emerald-900 font-bold">ICT permit</span>}
         </p>
       </div>
 
       {(issues.length > 0 || missing.length > 0) && (
         <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-900">
-          {issues.map((i) => <p key={i}>⚠ {i}</p>)}
+          {issues.map((i) => (
+            <p key={i.text} className={i.blocking ? "font-bold" : ""}>
+              {i.blocking ? "⛔ " : "⚠ "}
+              {i.text}
+            </p>
+          ))}
           {missing.length > 0 && <p>Missing details: {missing.join(", ")}</p>}
         </div>
       )}

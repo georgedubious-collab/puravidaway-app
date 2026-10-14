@@ -21,12 +21,16 @@ export function DocumentUpload({
   docKey,
   label,
   uploaded,
+  renew,
 }: {
   userId: string;
   docKey: string;
   label: string;
   uploaded: boolean;
+  /** Renewable document (licence, insurance, Marchamo): ask for its new date with the file. */
+  renew?: { ask: string; kind: "date" | "year" };
 }) {
+  const [renewed, setRenewed] = useState("");
   const input = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -36,6 +40,10 @@ export function DocumentUpload({
   async function onPick(file: File | undefined) {
     if (!file) return;
     setMsg(null);
+    if (renew && !renewed) {
+      if (input.current) input.current.value = "";
+      return setMsg({ ok: false, text: `Enter the ${renew.ask.toLowerCase()} first.` });
+    }
     const ext = (file.name.split(".").pop() ?? "").toLowerCase();
     const type = TYPES[ext];
     if (!type) return setMsg({ ok: false, text: "Use a photo (JPG, PNG, WEBP, HEIC) or a PDF." });
@@ -54,12 +62,13 @@ export function DocumentUpload({
         setMsg({ ok: false, text: "Upload failed. Check your connection and try again." });
         return;
       }
-      const res = await attachDocument(docKey, path);
+      const res = await attachDocument(docKey, path, renew ? renewed : undefined);
       if (res.error) {
         setMsg({ ok: false, text: res.error });
         return;
       }
       setMsg({ ok: true, text: "Uploaded" });
+      setRenewed("");
       startTransition(() => router.refresh());
     } finally {
       setBusy(false);
@@ -68,7 +77,21 @@ export function DocumentUpload({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-3">
+    <div className="flex flex-wrap items-end gap-3">
+      {renew && (
+        <label className="text-xs font-bold text-slate-600">
+          {renew.ask}
+          <input
+            type={renew.kind === "year" ? "number" : "date"}
+            inputMode={renew.kind === "year" ? "numeric" : undefined}
+            min={renew.kind === "year" ? 2020 : undefined}
+            max={renew.kind === "year" ? 2100 : undefined}
+            value={renewed}
+            onChange={(e) => setRenewed(e.target.value)}
+            className="mt-1 block min-h-11 rounded-lg border border-slate-300 px-3 text-base font-normal sm:text-sm"
+          />
+        </label>
+      )}
       <input
         ref={input}
         id={`doc-${docKey}`}

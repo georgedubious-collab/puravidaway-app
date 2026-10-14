@@ -61,6 +61,6 @@ Emails → SMTP Settings) with a PuraVidaWay mailbox or a service like Resend. T
 brand the email and add a 6-digit code (`{{ .Token }}`), which the login page already accepts.
 
 ## Checking the security rules
-`npm run test:db` replays the migrations in a throwaway in-memory Postgres and runs 78 checks
+`npm run test:db` replays the migrations in a throwaway in-memory Postgres and runs 87 checks
 (clients can't see each other's bookings, drivers can't approve themselves, nobody but the server
 can record payments, and so on).

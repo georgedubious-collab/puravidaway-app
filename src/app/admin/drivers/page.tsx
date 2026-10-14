@@ -59,7 +59,11 @@ export default async function DriversPage() {
                       </span>
                       <span className="text-sm font-semibold">
                         {todo > 0 ? <span className="text-amber-700">{todo} item{todo === 1 ? "" : "s"} missing</span> : <span className="text-emerald-700">Complete</span>}
-                        {issues.length > 0 && <span className="block text-red-700">{issues.length} expiry warning{issues.length === 1 ? "" : "s"}</span>}
+                        {issues.some((i) => i.blocking) ? (
+                          <span className="block text-red-700">Documents expired: no trips</span>
+                        ) : issues.length > 0 ? (
+                          <span className="block text-amber-700">{issues.length} expiry warning{issues.length === 1 ? "" : "s"}</span>
+                        ) : null}
                       </span>
                     </Link>
                   </li>

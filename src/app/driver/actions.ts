@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth";
 import { isValidYmd } from "@/lib/dates";
-import { DOC_KEYS } from "@/lib/driverKyc";
+import { DOC_KEYS, RENEWABLE } from "@/lib/driverKyc";
 import { InputError, runAction, type FormState } from "@/lib/forms/formState";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -32,21 +32,25 @@ function int(fd: FormData, name: string, label: string, min: number, max: number
   return n;
 }
 
+/** Only the fields present in the form, so a form without a field never blanks it. */
 function driverDetails(fd: FormData) {
-  return {
-    cedula_number: text(fd, "cedula_number", 30),
-    license_number: text(fd, "license_number", 30),
-    license_expiry: date(fd, "license_expiry", "Licence expiry"),
-    ict_permit_number: text(fd, "ict_permit_number", 40),
-    ins_policy_number: text(fd, "ins_policy_number", 40),
-    ins_insurance_expiry: date(fd, "ins_insurance_expiry", "Insurance expiry"),
-    dekra_inspection_expiry: date(fd, "dekra_inspection_expiry", "Dekra expiry"),
-    marchamo_year: int(fd, "marchamo_year", "Marchamo year", 2020, 2100),
-    criminal_record_date: date(fd, "criminal_record_date", "Criminal record date"),
-    vehicle_model: text(fd, "vehicle_model", 60),
-    vehicle_year: int(fd, "vehicle_year", "Vehicle year", 1990, 2100),
-    passenger_capacity: int(fd, "passenger_capacity", "Passenger seats", 1, 60),
+  const all = {
+    cedula_number: () => text(fd, "cedula_number", 30),
+    license_number: () => text(fd, "license_number", 30),
+    license_expiry: () => date(fd, "license_expiry", "Licence expiry"),
+    ict_permit_number: () => text(fd, "ict_permit_number", 40),
+    ins_policy_number: () => text(fd, "ins_policy_number", 40),
+    ins_insurance_expiry: () => date(fd, "ins_insurance_expiry", "Insurance expiry"),
+    dekra_inspection_expiry: () => date(fd, "dekra_inspection_expiry", "Dekra expiry"),
+    marchamo_year: () => int(fd, "marchamo_year", "Marchamo year", 2020, 2100),
+    criminal_record_date: () => date(fd, "criminal_record_date", "Criminal record date"),
+    vehicle_model: () => text(fd, "vehicle_model", 60),
+    vehicle_year: () => int(fd, "vehicle_year", "Vehicle year", 1990, 2100),
+    passenger_capacity: () => int(fd, "passenger_capacity", "Passenger seats", 1, 60),
   };
+  const out: Record<string, string | number | null> = {};
+  for (const [k, read] of Object.entries(all)) if (fd.has(k)) out[k] = read();
+  return out;
 }
 
 async function db() {
@@ -96,7 +100,7 @@ export async function saveDriverDetails(_prev: FormState, fd: FormData): Promise
  * Called by the upload widget after the file is in storage: remember which
  * file belongs to which document.
  */
-export async function attachDocument(key: string, path: string): Promise<FormState> {
+export async function attachDocument(key: string, path: string, renewedValue?: string): Promise<FormState> {
   return runAction(async () => {
     const me = await requireUser("/driver");
     if (!DOC_KEYS.has(key)) throw new InputError("Unknown document type.");
@@ -106,7 +110,21 @@ export async function attachDocument(key: string, path: string): Promise<FormSta
     const cur = await supabase.from("drivers").select("documents").eq("id", me.id).single();
     if (cur.error) throw cur.error;
     const documents = { ...((cur.data?.documents as Record<string, string>) ?? {}), [key]: path };
-    const up = await supabase.from("drivers").update({ documents }).eq("id", me.id);
+    const patch: Record<string, unknown> = { documents };
+    // Renewed licence / insurance / Marchamo: the new date is saved together
+    // with the new document (the database refuses a date change without it).
+    const renew = RENEWABLE[key];
+    if (renew && renewedValue !== undefined) {
+      const fd = new FormData();
+      fd.set(renew.field, renewedValue);
+      const v =
+        renew.kind === "year"
+          ? int(fd, renew.field, "Marchamo year", 2020, 2100)
+          : date(fd, renew.field, "Expiry date");
+      if (v === null) throw new InputError("Please enter the new date.");
+      patch[renew.field] = v;
+    }
+    const up = await supabase.from("drivers").update(patch).eq("id", me.id);
     if (up.error) throw up.error;
     revalidatePath("/driver");
   }, "The file uploaded but we couldn't link it to your application. Please try again.");

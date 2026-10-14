@@ -6,7 +6,9 @@ import { requireUser, type Profile } from "@/lib/auth";
 import { addDays, todayInCostaRica } from "@/lib/dates";
 import {
   DRIVER_DOCS,
+  RENEWABLE,
   STATUS_LABEL,
+  canTakeTrips,
   expiryIssues,
   missingDetails,
   missingDocs,
@@ -94,13 +96,18 @@ function Application({ me, d }: { me: Profile; d: DriverRecord }) {
   const detailsMissing = missingDetails(d);
   const issues = expiryIssues(d, today, addDays(today, 30));
   const complete = docsMissing.length === 0 && detailsMissing.length === 0;
+  // After the first review, licence, insurance and Marchamo dates change only
+  // together with the renewed document.
+  const reviewed = d.kyc_status !== "pending";
 
   const tone =
-    d.kyc_status === "approved"
+    d.kyc_status === "approved" && canTakeTrips(d, today)
       ? "border-emerald-200 bg-emerald-50 text-emerald-900"
       : d.kyc_status === "pending"
         ? "border-amber-200 bg-amber-50 text-amber-900"
-        : "border-red-200 bg-red-50 text-red-900";
+        : d.kyc_status === "approved"
+          ? "border-amber-200 bg-amber-50 text-amber-900"
+          : "border-red-200 bg-red-50 text-red-900";
 
   return (
     <div className="space-y-6">
@@ -114,9 +121,11 @@ function Application({ me, d }: { me: Profile; d: DriverRecord }) {
               ? "Thanks! Everything is in. Our team will check your documents and message you on WhatsApp to set up a short interview."
               : "Finish the items below so we can review your application.")}
           {d.kyc_status === "approved" &&
-            (d.needs_review
-              ? "You're approved. We're checking the changes you made recently."
-              : "You're approved to receive trip requests. Keep your documents up to date here.")}
+            (!canTakeTrips(d, today)
+              ? "You're approved, but you can't receive trips until you upload the renewed documents listed below."
+              : d.needs_review
+                ? "You're approved. We're checking the changes you made recently."
+                : "You're approved to receive trip requests. Keep your documents up to date here.")}
           {d.kyc_status === "rejected" && "We can't approve your application right now."}
           {d.kyc_status === "suspended" && "Your account is paused. Contact our team on WhatsApp."}
         </p>
@@ -131,8 +140,8 @@ function Application({ me, d }: { me: Profile; d: DriverRecord }) {
               <li key={m}>Add: {m}</li>
             ))}
             {issues.map((m) => (
-              <li key={m} className="text-red-700 font-semibold">
-                {m}
+              <li key={m.text} className={m.blocking ? "text-red-700 font-bold" : "text-amber-800 font-semibold"}>
+                {m.text}
               </li>
             ))}
           </ul>
@@ -143,6 +152,8 @@ function Application({ me, d }: { me: Profile; d: DriverRecord }) {
         <h2 className="text-lg font-extrabold text-slate-900">Documents</h2>
         <p className="mt-1 text-sm text-slate-600">
           Clear photos or PDFs, up to 10 MB each. Only you and our team can see them.
+          {reviewed &&
+            " When your licence, insurance or Marchamo is renewed, upload the new one here with its new date. The licence and Marchamo have no grace period; insurance has 15 days."}
         </p>
         <ul className="mt-4 divide-y divide-slate-100">
           {DRIVER_DOCS.map((doc) => {
@@ -159,7 +170,13 @@ function Application({ me, d }: { me: Profile; d: DriverRecord }) {
                   </p>
                   {doc.hint && <p className="text-sm text-slate-500">{doc.hint}</p>}
                 </div>
-                <DocumentUpload userId={me.id} docKey={doc.key} label={doc.label} uploaded={has} />
+                <DocumentUpload
+                  userId={me.id}
+                  docKey={doc.key}
+                  label={doc.label}
+                  uploaded={has}
+                  renew={reviewed && RENEWABLE[doc.key] ? { ask: RENEWABLE[doc.key].ask, kind: RENEWABLE[doc.key].kind } : undefined}
+                />
               </li>
             );
           })}
@@ -172,7 +189,7 @@ function Application({ me, d }: { me: Profile; d: DriverRecord }) {
           <p className="mt-1 text-sm text-slate-600">Changes are checked by our team again before they count.</p>
         )}
         <ActionForm action={saveDriverDetails} className="mt-4 space-y-6">
-          <Details me={me} d={d} />
+          <Details me={me} d={d} lockRenewable={reviewed} />
         </ActionForm>
       </Card>
     </div>
@@ -181,7 +198,7 @@ function Application({ me, d }: { me: Profile; d: DriverRecord }) {
 
 /* ------------------------------------------------------------------------- */
 
-function Details({ me, d }: { me: Profile; d?: DriverRecord }) {
+function Details({ me, d, lockRenewable = false }: { me: Profile; d?: DriverRecord; lockRenewable?: boolean }) {
   return (
     <>
       <Group title="About you">
@@ -197,9 +214,13 @@ function Details({ me, d }: { me: Profile; d?: DriverRecord }) {
         <Field l="Driver's licence number">
           <input name="license_number" defaultValue={d?.license_number ?? ""} className={input} />
         </Field>
-        <Field l="Licence expiry">
-          <input name="license_expiry" type="date" defaultValue={d?.license_expiry ?? ""} className={input} />
-        </Field>
+        {lockRenewable ? (
+          <Locked l="Licence expiry" v={d?.license_expiry} />
+        ) : (
+          <Field l="Licence expiry">
+            <input name="license_expiry" type="date" defaultValue={d?.license_expiry ?? ""} className={input} />
+          </Field>
+        )}
         <Field l="Criminal record certificate date">
           <input name="criminal_record_date" type="date" defaultValue={d?.criminal_record_date ?? ""} className={input} />
         </Field>
@@ -220,17 +241,37 @@ function Details({ me, d }: { me: Profile; d?: DriverRecord }) {
         <Field l="INS policy number">
           <input name="ins_policy_number" defaultValue={d?.ins_policy_number ?? ""} className={input} />
         </Field>
-        <Field l="Insurance valid until">
-          <input name="ins_insurance_expiry" type="date" defaultValue={d?.ins_insurance_expiry ?? ""} className={input} />
-        </Field>
+        {lockRenewable ? (
+          <Locked l="Insurance valid until" v={d?.ins_insurance_expiry} />
+        ) : (
+          <Field l="Insurance valid until">
+            <input name="ins_insurance_expiry" type="date" defaultValue={d?.ins_insurance_expiry ?? ""} className={input} />
+          </Field>
+        )}
         <Field l="Dekra / RTV valid until">
           <input name="dekra_inspection_expiry" type="date" defaultValue={d?.dekra_inspection_expiry ?? ""} className={input} />
         </Field>
-        <Field l="Marchamo year paid">
-          <input name="marchamo_year" type="number" inputMode="numeric" min={2020} max={2100} defaultValue={d?.marchamo_year ?? ""} className={input} />
-        </Field>
+        {lockRenewable ? (
+          <Locked l="Marchamo year paid" v={d?.marchamo_year} />
+        ) : (
+          <Field l="Marchamo year paid">
+            <input name="marchamo_year" type="number" inputMode="numeric" min={2020} max={2100} defaultValue={d?.marchamo_year ?? ""} className={input} />
+          </Field>
+        )}
       </Group>
     </>
+  );
+}
+
+function Locked({ l, v }: { l: string; v: string | number | null | undefined }) {
+  return (
+    <div className="text-sm font-bold text-slate-700">
+      {l}
+      <p className="mt-1 min-h-11 flex items-center font-normal text-slate-900">
+        {v ?? "—"}
+        <span className="ml-2 text-xs text-slate-500">(change it by uploading the renewed document)</span>
+      </p>
+    </div>
   );
 }
 
