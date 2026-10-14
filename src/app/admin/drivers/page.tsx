@@ -1,17 +1,31 @@
 import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { addDays, todayInCostaRica } from "@/lib/dates";
-import { STATUS_LABEL, expiryIssues, missingDetails, missingDocs, type DriverRecord } from "@/lib/driverKyc";
+import {
+  STATUS_LABEL,
+  driverIssues,
+  missingDriverDetails,
+  missingDriverDocs,
+  missingVehicleItems,
+  vehicleIssues,
+  type DriverRecord,
+  type VehicleRecord,
+} from "@/lib/driverKyc";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-type Row = DriverRecord & { profiles: { full_name: string | null; email: string | null; phone: string | null } | null };
+type Row = DriverRecord & {
+  profiles: { full_name: string | null; email: string | null; phone: string | null } | null;
+  driver_vehicles: VehicleRecord[];
+};
+
+const vehiclesToCheck = (r: Row) => r.driver_vehicles.filter((v) => v.status === "pending" || v.needs_review).length;
 
 export default async function DriversPage() {
   await requireRole("admin", "/admin/drivers");
   const supabase = (await createSupabaseServerClient())!;
   const { data, error } = await supabase
     .from("drivers")
-    .select("*, profiles!drivers_id_fkey(full_name, email, phone)")
+    .select("*, profiles!drivers_id_fkey(full_name, email, phone), driver_vehicles(*)")
     .order("submitted_at", { ascending: false, nullsFirst: false })
     .returns<Row[]>();
 
@@ -22,8 +36,11 @@ export default async function DriversPage() {
 
   const groups: [string, Row[]][] = [
     ["Waiting for review", rows.filter((r) => r.kyc_status === "pending")],
-    ["Approved drivers with changes to check", rows.filter((r) => r.kyc_status === "approved" && r.needs_review)],
-    ["Approved", rows.filter((r) => r.kyc_status === "approved" && !r.needs_review)],
+    [
+      "Approved drivers with changes or new vehicles to check",
+      rows.filter((r) => r.kyc_status === "approved" && (r.needs_review || vehiclesToCheck(r) > 0)),
+    ],
+    ["Approved", rows.filter((r) => r.kyc_status === "approved" && !r.needs_review && vehiclesToCheck(r) === 0)],
     ["Not approved or suspended", rows.filter((r) => r.kyc_status === "rejected" || r.kyc_status === "suspended")],
   ];
 
@@ -46,15 +63,21 @@ export default async function DriversPage() {
           ) : (
             <ul className="mt-2 divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white">
               {list.map((r) => {
-                const todo = missingDocs(r).length + missingDetails(r).length;
-                const issues = expiryIssues(r, today, soon);
+                const todo =
+                  missingDriverDocs(r).length +
+                  missingDriverDetails(r).length +
+                  r.driver_vehicles.reduce((n, v) => n + missingVehicleItems(v).length, 0) +
+                  (r.driver_vehicles.length === 0 ? 1 : 0);
+                const issues = [...driverIssues(r, today, soon), ...r.driver_vehicles.flatMap((v) => vehicleIssues(v, today, soon))];
                 return (
                   <li key={r.id}>
                     <Link href={`/admin/drivers/${r.id}`} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 hover:bg-slate-50">
                       <span>
                         <span className="font-bold text-slate-900">{r.profiles?.full_name || "(no name yet)"}</span>
                         <span className="block text-sm text-slate-500">
-                          {r.profiles?.email} · {r.vehicle_model ?? "vehicle?"} · {STATUS_LABEL[r.kyc_status]}
+                          {r.profiles?.email} · {r.driver_vehicles.length} vehicle{r.driver_vehicles.length === 1 ? "" : "s"} ·{" "}
+                          {STATUS_LABEL[r.kyc_status]}
+                          {vehiclesToCheck(r) > 0 && ` · ${vehiclesToCheck(r)} vehicle(s) to check`}
                         </span>
                       </span>
                       <span className="text-sm font-semibold">

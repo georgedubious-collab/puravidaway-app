@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { addDays, todayInCostaRica } from "@/lib/dates";
-import { expiryIssues, type DriverRecord } from "@/lib/driverKyc";
+import { driverIssues, vehicleIssues, type DriverRecord, type VehicleRecord } from "@/lib/driverKyc";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const STATUSES = [
@@ -11,7 +11,10 @@ const STATUSES = [
   ["in_progress", "On the road"],
 ] as const;
 
-type DriverRow = DriverRecord & { profiles: { full_name: string | null; email: string | null } | null };
+type DriverRow = DriverRecord & {
+  profiles: { full_name: string | null; email: string | null } | null;
+  driver_vehicles: VehicleRecord[];
+};
 
 export default async function AdminDashboard() {
   await requireRole("admin");
@@ -31,15 +34,20 @@ export default async function AdminDashboard() {
 
   const { data: drivers } = await supabase
     .from("drivers")
-    .select("*, profiles!drivers_id_fkey(full_name, email)")
+    .select("*, profiles!drivers_id_fkey(full_name, email), driver_vehicles(*)")
     .returns<DriverRow[]>();
 
-  const pendingKyc = (drivers ?? []).filter((d) => d.kyc_status === "pending" || d.needs_review);
+  const pendingKyc = (drivers ?? []).filter(
+    (d) =>
+      d.kyc_status === "pending" ||
+      d.needs_review ||
+      (d.kyc_status === "approved" && d.driver_vehicles.some((v) => v.status === "pending" || v.needs_review)),
+  );
   const expiring = (drivers ?? [])
     .filter((d) => d.kyc_status === "approved")
     .map((d) => ({
       d,
-      issues: expiryIssues(d, today, soon),
+      issues: [...driverIssues(d, today, soon), ...d.driver_vehicles.flatMap((v) => vehicleIssues(v, today, soon))],
     }))
     .filter((x) => x.issues.length > 0);
 
@@ -74,7 +82,11 @@ export default async function AdminDashboard() {
                   <Link href={`/admin/drivers/${d.id}`} className="font-bold text-emerald-700 underline">
                     {d.profiles?.full_name || d.profiles?.email}
                   </Link>
-                  {d.needs_review && <span className="text-slate-500"> · changed details</span>}
+                  {d.kyc_status === "pending" ? (
+                    <span className="text-slate-500"> · new application</span>
+                  ) : (
+                    <span className="text-slate-500"> · changes or vehicles to check</span>
+                  )}
                 </li>
               ))}
             </ul>
