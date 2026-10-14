@@ -282,6 +282,27 @@ await expectRows("assigned driver sees the trip", "driver",
 await expectRows("drivers' open-request view has no guest details", "admin",
   "select 1 from information_schema.columns where table_name = 'open_trip_requests' and column_name in ('guest_name','guest_phone','client_notes','admin_notes')", 0);
 
+// --- Preferences & profiles (file 8) -----------------------------------------------
+await expectOk("driver writes a bio", "driver",
+  `update public.drivers set bio = 'Driving visitors around Arenal since 2010-2024, birder and dad of two.', english_level = 'fluent' where id = '${U.driver}'`);
+await expectRows("bio change on an approved driver is flagged", "admin",
+  `select 1 from public.drivers where id = '${U.driver}' and needs_review`, 1);
+for (const [label, bio] of [["phone", "Call me at +506 8888-1234"], ["email", "write to pepe@gmail.com"], ["link", "see www.mytours.cr"], ["whatsapp", "wa.me/50688881234"]]) {
+  await expectBlocked(`bio cannot contain a ${label}`, "driver", `update public.drivers set bio = '${bio}' where id = '${U.driver}'`);
+}
+await expectBlocked("English level must be fluent or basic", "driver",
+  `update public.drivers set english_level = 'native' where id = '${U.driver}'`);
+await expectOk("admin clears review flag", "admin", `update public.drivers set needs_review = false where id = '${U.driver}'`);
+await expectOk("driver lists vehicle features", "driver",
+  `update public.driver_vehicles set has_wifi = true, child_seats = 2 where id = '30000000-0000-0000-0000-000000000001'`);
+await expectRows("feature change on an approved vehicle is flagged", "admin",
+  "select 1 from public.driver_vehicles where id = '30000000-0000-0000-0000-000000000001' and needs_review", 1);
+await expectOk("server saves preferences with a request", "server", `
+  update public.bookings set preferences = '{"language":"english","child_seats":1,"pets":true}', driver_notes = 'We have a small dog'
+   where id = '10000000-0000-0000-0000-000000000001'`);
+await expectRows("open-request view shows preferences but no contact details", "admin",
+  "select 1 from information_schema.columns where table_name = 'open_trip_requests' and column_name in ('preferences','driver_notes')", 2);
+
 // --- Bids -----------------------------------------------------------------------------
 await expectOk("approved driver bids on open request", "driver", `
   insert into public.bids (id, booking_id, driver_id, bid_amount) values

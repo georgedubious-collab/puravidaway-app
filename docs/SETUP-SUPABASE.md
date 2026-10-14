@@ -22,6 +22,7 @@ Either way works; the first needs no installs.
 5. `20261014000005_review_fixes.sql` — security fixes from the Phase 2b review
 6. `20261014000006_driver_vehicles.sql` — several vehicles per driver
 7. `20261014000007_trip_requests.sql` — trip requests from the website, dispatch fields
+8. `20261014000008_preferences_profiles.sql` — ride preferences, driver bios, vehicle features
 
 Later files are added as the app grows; each pull request says when there's a new one to run.
 
@@ -64,6 +65,6 @@ Emails → SMTP Settings) with a PuraVidaWay mailbox or a service like Resend. T
 brand the email and add a 6-digit code (`{{ .Token }}`), which the login page already accepts.
 
 ## Checking the security rules
-`npm run test:db` replays the migrations in a throwaway in-memory Postgres and runs 121 checks
+`npm run test:db` replays the migrations in a throwaway in-memory Postgres and runs 133 checks
 (clients can't see each other's bookings, drivers can't approve themselves, nobody but the server
 can record payments, and so on).

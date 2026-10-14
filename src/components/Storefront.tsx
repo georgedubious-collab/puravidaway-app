@@ -55,6 +55,7 @@ export function Storefront({ today, catalog }: { today: string; catalog: Catalog
   const [mode, setMode] = useState<PaymentMode>("deposit_20");
   const [contact, setContact] = useState<TripContact>({ name: "", email: "", phone: "", notes: "" });
   const [sentRefs, setSentRefs] = useState<string[] | null>(null);
+  const [sentTripId, setSentTripId] = useState<string | null>(null);
   const toast = useToast();
 
   // Per-visitor convenience only: restore the trip on reload.
@@ -96,8 +97,10 @@ export function Storefront({ today, catalog }: { today: string; catalog: Catalog
     onReprice: (prices) =>
       setItems((prev) => prev.map((i) => (prices[i.id] !== undefined ? { ...i, totalCents: prices[i.id] } : i))),
     sentRefs,
-    onSent: (refs) => {
+    sentTripId,
+    onSent: (refs, tripId) => {
       setSentRefs(refs);
+      setSentTripId(tripId);
       setItems([]);
     },
     onNewTrip: () => setSentRefs(null),

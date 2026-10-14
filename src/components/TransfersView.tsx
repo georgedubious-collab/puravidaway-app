@@ -1,6 +1,6 @@
 "use client";
 
-import { Camera, Car, Gavel, MapPin, MessageCircle, PlusCircle, Users } from "lucide-react";
+import { Camera, Car, Gavel, Languages, MapPin, MessageCircle, PlusCircle, Users } from "lucide-react";
 import { useMemo, useState } from "react";
 import { HUBS, type HubId } from "@/lib/catalog";
 import { seasonForYmd } from "@/lib/catalogModel";
@@ -9,6 +9,7 @@ import { newItemId, whatsAppLink, type CartItem } from "@/lib/cart";
 import { addDays } from "@/lib/dates";
 import { formatDuration, formatUSD, quoteTransfer } from "@/lib/pricing";
 import { MIN_OFFER_USD } from "@/lib/tripRequest";
+import { DEFAULT_PREFS, LANGUAGE_LABEL, hasContactDetails, prefsSummary, type DriverLanguage, type RidePrefs } from "@/lib/preferences";
 
 type PricingMode = "fixed" | "bid";
 
@@ -35,6 +36,9 @@ export function TransfersView({
   const [vehicleId, setVehicleId] = useState("suv");
   const [stopIds, setStopIds] = useState<string[]>([]);
   const [notes, setNotes] = useState("");
+  const [prefs, setPrefs] = useState<RidePrefs>(DEFAULT_PREFS);
+  const [driverNotes, setDriverNotes] = useState("");
+  const driverNotesBlocked = hasContactDetails(driverNotes);
   const [offer, setOffer] = useState("165");
 
   const catalog = useCatalog();
@@ -100,7 +104,7 @@ export function TransfersView({
   }
 
   function addToCart() {
-    if (sameHub || noVehicleFits || (mode === "bid" && !offerValid)) return;
+    if (sameHub || noVehicleFits || (mode === "bid" && !offerValid) || driverNotesBlocked) return;
     const stopsText = selectedStops.length
       ? ` + ${selectedStops.length} stop${selectedStops.length > 1 ? "s" : ""} (${selectedStops.map((s) => s.name).join(", ")})`
       : "";
@@ -109,9 +113,10 @@ export function TransfersView({
       id: newItemId(),
       title: `${originName} → ${destName}`,
       detail:
-        mode === "bid"
+        (mode === "bid"
           ? `Driver bid request — your offer covers the ride${selectedStops.length ? " + stops" : ""} (fixed price would be ${formatUSD(quote.totalCents)}), ${pax} pax${stopsText}${notes ? ` — ${notes}` : ""}`
-          : `${vehicle.name}, ${pax} pax${stopsText}${notes ? ` — ${notes}` : ""}`,
+          : `${vehicle.name}, ${pax} pax${stopsText}${notes ? ` — ${notes}` : ""}`
+        ) + (prefsSummary(prefs).length ? ` · ${prefsSummary(prefs).join(", ")}` : ""),
       date,
       totalCents: itemTotalCents,
       spec: {
@@ -124,6 +129,8 @@ export function TransfersView({
         pricing: mode === "bid" ? "bid" : "fixed",
         offerCents: mode === "bid" ? offerCents : undefined,
         notes: notes.trim() || undefined,
+        prefs,
+        driverNotes: driverNotes.trim() || undefined,
       },
     });
   }
@@ -362,6 +369,84 @@ export function TransfersView({
               </p>
             </div>
           )}
+
+          {/* DRIVER & EXTRAS */}
+          <Card>
+            <h2 className="font-extrabold text-base text-slate-900 mb-3 flex items-center gap-2">
+              <Languages className="w-5 h-5 text-emerald-600" /> Your driver &amp; extras
+            </h2>
+            <fieldset>
+              <legend className="text-xs font-bold text-slate-600 mb-2">Driver&apos;s language</legend>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {(Object.keys(LANGUAGE_LABEL) as DriverLanguage[]).map((l) => (
+                  <label
+                    key={l}
+                    className={`flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border-2 px-3 text-sm font-bold ${
+                      prefs.language === l ? "border-emerald-600 bg-emerald-50" : "border-slate-200"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="driver-language"
+                      checked={prefs.language === l}
+                      onChange={() => setPrefs({ ...prefs, language: l })}
+                    />
+                    {LANGUAGE_LABEL[l]}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+            <fieldset className="mt-4">
+              <legend className="text-xs font-bold text-slate-600 mb-2">Extras (free, subject to availability)</legend>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
+                {(
+                  [
+                    ["wifi", "Wi-Fi on board"],
+                    ["stroller", "Stroller"],
+                    ["pets", "Travelling with a pet"],
+                  ] as const
+                ).map(([k, label]) => (
+                  <label key={k} className="flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 px-3 font-semibold">
+                    <input type="checkbox" checked={prefs[k]} onChange={(e) => setPrefs({ ...prefs, [k]: e.target.checked })} />
+                    {label}
+                  </label>
+                ))}
+                <label className="flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 px-3 font-semibold">
+                  <span>Baby / child seats</span>
+                  <select
+                    value={prefs.childSeats}
+                    onChange={(e) => setPrefs({ ...prefs, childSeats: Number(e.target.value) })}
+                    className="ml-auto rounded-lg border border-slate-300 px-1 py-1"
+                  >
+                    {[0, 1, 2, 3, 4].map((n) => (
+                      <option key={n} value={n}>
+                        {n}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              {prefs.childSeats > 0 && (
+                <p className="mt-2 text-xs text-slate-500">Add the children&apos;s ages in the message below so the right seats come along.</p>
+              )}
+            </fieldset>
+            <label className="mt-4 block text-xs font-bold text-slate-600">
+              Message for your driver (optional)
+              <textarea
+                value={driverNotes}
+                onChange={(e) => setDriverNotes(e.target.value)}
+                rows={2}
+                maxLength={500}
+                placeholder="e.g. Kids are 2 and 5 · we'd love a stop for fresh fruit · large surfboard bag"
+                className="mt-1 w-full rounded-xl border border-slate-300 p-3 text-base sm:text-sm font-normal text-slate-900"
+              />
+            </label>
+            {driverNotesBlocked && (
+              <p role="alert" className="mt-2 text-xs font-semibold text-red-700">
+                Please leave out phone numbers, emails and links. Your driver gets your contact details once confirmed.
+              </p>
+            )}
+          </Card>
         </div>
 
         {/* ROUTE SUMMARY */}
@@ -437,7 +522,7 @@ export function TransfersView({
             <button
               type="button"
               onClick={addToCart}
-              disabled={sameHub || noVehicleFits || (mode === "bid" && !offerValid)}
+              disabled={sameHub || noVehicleFits || (mode === "bid" && !offerValid) || driverNotesBlocked}
               className="w-full mt-4 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-extrabold py-3 rounded-xl shadow-md text-sm flex items-center justify-center gap-2 transition"
             >
               <PlusCircle className="w-4 h-4" />

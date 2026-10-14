@@ -237,12 +237,13 @@ check-constraints (or Postgres enums) for status fields. **RLS is enabled on eve
 `approved` | `rejected` | `suspended`) · `kyc_note` · `needs_review` · `submitted_at` ·
 `reviewed_at` · `reviewed_by` · `documents` jsonb (`driver_photo`, `id_front`, `id_back`,
 `license`, `criminal_record`, optional `ict_permit`; Storage paths in bucket `driver-kyc-docs`) ·
-`is_on_duty` bool · `last_lat` · `last_lng` · `last_seen_at` · `created_at`
+`is_on_duty` bool · `last_lat` · `last_lng` · `last_seen_at` · `created_at` · `bio` (≤ 600 chars,
+no phone/email/links; shown to travellers) · `english_level` (`fluent` | `basic`)
 
 **`driver_vehicles`** (a driver can register several; each approved separately): `id` uuid PK ·
 `driver_id` → `drivers.id` · `plate` · `make_model` · `year` · `color` · `passenger_capacity` ·
 `ins_policy_number` · `ins_insurance_expiry` date · `dekra_inspection_expiry` date ·
-`marchamo_year` int · `documents` jsonb (`insurance`, `dekra`, `marchamo`,
+`marchamo_year` int · `has_wifi` · `child_seats` · `stroller_space` · `pet_friendly` · `documents` jsonb (`insurance`, `dekra`, `marchamo`,
 `vehicle_registration`) · `photos` jsonb array (at least 2, one showing the plate; at most 12) · `status` · `note` ·
 `needs_review` · `reviewed_at` · `reviewed_by` · `created_at`
 
@@ -350,6 +351,12 @@ and `season_for_date(date)` returns the season for a travel date.
    automatically, see §7.7; this is about other edits.) Built as: the driver stays approved and the record is flagged
    "changed since last review" for the admin. Stricter alternative: any change sends them back to
    *pending* (off the job board) until re-approved. Decide before drivers can receive trips (Phase 3).
+10. **Ride extras pricing.** Travellers can ask for an English-speaking driver (vs Spanish / basic
+    English), Wi-Fi, stroller, child seats and pets. Built as **free requests matched by the
+    team**. Decide whether any cost extra (e.g. child seats) or whether "Spanish / basic English"
+    is cheaper.
+11. **In-app chat vs WhatsApp** for travellers (many US travellers don't use WhatsApp): recommended: in-app trip
+    chat with email/SMS notifications, WhatsApp optional (Phase 4).
 
 ---
 

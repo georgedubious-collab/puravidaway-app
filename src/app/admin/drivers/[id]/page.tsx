@@ -16,6 +16,7 @@ import {
   type Issue,
   type VehicleRecord,
 } from "@/lib/driverKyc";
+import { ENGLISH_LEVEL_LABEL } from "@/lib/preferences";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { reviewDriver, reviewVehicle } from "../actions";
 
@@ -109,8 +110,11 @@ export default async function DriverDetail({ params }: { params: Promise<{ id: s
             <Item k="Licence expiry" v={d.license_expiry} />
             <Item k="Criminal record date" v={d.criminal_record_date} />
             <Item k="ICT permit" v={d.ict_permit_number} />
+            <Item k="English" v={d.english_level ? ENGLISH_LEVEL_LABEL[d.english_level] : null} />
           </dl>
           <p className="mt-3 text-xs text-slate-500">Check each one against the document before approving.</p>
+          <h3 className="mt-4 text-sm font-extrabold text-slate-900">Bio shown to travellers</h3>
+          <p className="mt-1 whitespace-pre-line text-sm text-slate-700">{d.bio || "—"}</p>
         </section>
 
         <section className="rounded-xl border border-slate-200 bg-white p-5">
@@ -186,6 +190,14 @@ export default async function DriverDetail({ params }: { params: Promise<{ id: s
                 <Item k="Insurance until" v={v.ins_insurance_expiry} />
                 <Item k="Dekra until" v={v.dekra_inspection_expiry} />
                 <Item k="Marchamo" v={v.marchamo_year} />
+                <Item
+                  k="Offers"
+                  v={
+                    [v.has_wifi && "Wi-Fi", v.stroller_space && "stroller space", v.pet_friendly && "pets", v.child_seats > 0 && `${v.child_seats} child seat(s)`]
+                      .filter(Boolean)
+                      .join(", ") || null
+                  }
+                />
               </dl>
               <DocLinks specs={VEHICLE_DOCS} docs={v.documents} links={links} />
             </div>

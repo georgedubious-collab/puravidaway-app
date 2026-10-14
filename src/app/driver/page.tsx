@@ -30,6 +30,7 @@ import {
   removeVehicle,
   removeVehiclePhoto,
   saveDriverDetails,
+  saveDriverProfile,
   saveVehicle,
 } from "./actions";
 import { DocumentUpload } from "./DocumentUpload";
@@ -195,6 +196,41 @@ function Application({
         <h2 className="text-lg font-extrabold text-slate-900">About you</h2>
         <ActionForm action={saveDriverDetails} className="mt-4 space-y-6">
           <PersonFields me={me} d={d} lockLicence={reviewed} />
+        </ActionForm>
+      </Card>
+
+      <Card>
+        <h2 className="text-lg font-extrabold text-slate-900">Your profile for travellers</h2>
+        <p className="mt-1 text-sm text-slate-600">
+          Travellers see your photo, first name, this bio and your vehicle once you&apos;re their
+          driver. Tell them what makes a ride with you special: years driving, regions you know
+          best, wildlife spotting, family-friendly… No phone numbers, emails or links, please.
+        </p>
+        <ActionForm action={saveDriverProfile} className="mt-4 space-y-4">
+          <fieldset>
+            <legend className="text-sm font-bold text-slate-700">Your English</legend>
+            <div className="mt-2 flex flex-wrap gap-x-6 gap-y-2 text-sm">
+              <label className="flex min-h-10 items-center gap-2">
+                <input type="radio" name="english_level" value="fluent" required defaultChecked={d.english_level === "fluent"} />
+                I hold conversations in English
+              </label>
+              <label className="flex min-h-10 items-center gap-2">
+                <input type="radio" name="english_level" value="basic" defaultChecked={d.english_level === "basic"} />
+                Spanish, basic English
+              </label>
+            </div>
+          </fieldset>
+          <label className="block text-sm font-bold text-slate-700">
+            Short bio (up to 600 characters)
+            <textarea
+              name="bio"
+              rows={4}
+              maxLength={600}
+              defaultValue={d.bio ?? ""}
+              placeholder="Pura vida! I'm Carlos, born in La Fortuna. I've driven travellers across Costa Rica for 12 years and love spotting sloths along the way…"
+              className="mt-1 block w-full rounded-lg border border-slate-300 p-3 text-base font-normal sm:text-sm"
+            />
+          </label>
         </ActionForm>
       </Card>
 
@@ -385,6 +421,31 @@ function VehicleFields({ v, lockDates = false }: { v?: VehicleRecord; lockDates?
       <Field l="INS policy number">
         <input name="ins_policy_number" defaultValue={v?.ins_policy_number ?? ""} className={input} />
       </Field>
+      <fieldset className="sm:col-span-2">
+        <legend className="text-sm font-bold text-slate-700">What this vehicle offers</legend>
+        <input type="hidden" name="features" value="1" />
+        <div className="mt-2 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
+          <label className="flex min-h-10 items-center gap-2">
+            <input type="checkbox" name="has_wifi" defaultChecked={v?.has_wifi} /> Wi-Fi
+          </label>
+          <label className="flex min-h-10 items-center gap-2">
+            <input type="checkbox" name="stroller_space" defaultChecked={v?.stroller_space} /> Room for a stroller
+          </label>
+          <label className="flex min-h-10 items-center gap-2">
+            <input type="checkbox" name="pet_friendly" defaultChecked={v?.pet_friendly} /> Pets welcome
+          </label>
+          <label className="flex min-h-10 items-center gap-2">
+            Child seats
+            <select name="child_seats" defaultValue={v?.child_seats ?? 0} className="rounded-lg border border-slate-300 px-1 py-1">
+              {[0, 1, 2, 3, 4, 5, 6].map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      </fieldset>
       {lockDates ? (
         <>
           <Locked l="Insurance valid until" v={v?.ins_insurance_expiry} />

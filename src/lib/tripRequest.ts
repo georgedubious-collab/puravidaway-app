@@ -6,6 +6,7 @@
 import { HUBS, type HubId } from "./catalog";
 import { seasonForYmd, type CatalogData } from "./catalogModel";
 import { isValidYmd } from "./dates";
+import { hasContactDetails, parsePrefs, type RidePrefs } from "./preferences";
 import { quoteDayTour, quoteExpedition, quoteTransfer } from "./pricing";
 
 export const MIN_OFFER_USD = 50;
@@ -23,7 +24,11 @@ export type ItemSpec =
       /** "bid": the traveller's own offer replaces the fixed price. */
       pricing: "fixed" | "bid";
       offerCents?: number;
+      /** Flight number or hotel. */
       notes?: string;
+      prefs?: RidePrefs;
+      /** Message for the driver (no contact details). */
+      driverNotes?: string;
     }
   | { kind: "day_tour"; tourId: string; upgrade: boolean }
   | { kind: "expedition"; expeditionId: string; tierId: string };
@@ -43,6 +48,9 @@ export function parseSpec(raw: unknown): ItemSpec | null {
     if (o.pricing !== "fixed" && o.pricing !== "bid") return null;
     if (o.pricing === "bid" && (!Number.isInteger(o.offerCents) || (o.offerCents as number) <= 0)) return null;
     if (o.notes !== undefined && (typeof o.notes !== "string" || o.notes.length > 500)) return null;
+    const prefs = o.prefs === undefined ? undefined : parsePrefs(o.prefs);
+    if (prefs === null) return null;
+    if (o.driverNotes !== undefined && (typeof o.driverNotes !== "string" || o.driverNotes.length > 500)) return null;
     return {
       kind: "transfer",
       origin: o.origin as HubId,
@@ -53,6 +61,8 @@ export function parseSpec(raw: unknown): ItemSpec | null {
       pricing: o.pricing,
       offerCents: o.pricing === "bid" ? (o.offerCents as number) : undefined,
       notes: (o.notes as string | undefined) || undefined,
+      prefs,
+      driverNotes: (o.driverNotes as string | undefined) || undefined,
     };
   }
   if (o.kind === "day_tour") {
@@ -82,6 +92,9 @@ export function priceItem(spec: ItemSpec, date: string, catalog: CatalogData): P
 
   if (spec.kind === "transfer") {
     if (spec.origin === spec.destination) throw new Error("Pickup and drop-off are the same place.");
+    if (spec.driverNotes && hasContactDetails(spec.driverNotes)) {
+      throw new Error("Please keep phone numbers, emails and links out of the message for your driver. Our team shares contact details once your driver is confirmed.");
+    }
     const vehicle = catalog.vehicles.find((v) => v.id === spec.vehicleId);
     if (!vehicle) throw new Error("That vehicle is no longer offered. Please choose another.");
     if (vehicle.maxPax < spec.pax) throw new Error(`The ${vehicle.name} seats up to ${vehicle.maxPax}.`);
