@@ -284,9 +284,10 @@ and `season_for_date(date)` returns the season for a travel date.
   drivers with current documents can be on duty; anyone not approved is forced off duty.
 - **Document validity (Jorge, 2026-10-14):** an approved driver receives trips only while the
   driver's licence is unexpired (no grace), INS insurance expired ≤ 15 days ago (15-day grace) and
-  the Marchamo covers the current year (no grace). `is_approved_driver()` checks this, so expired
-  documents stop bids automatically. After the first review, these three dates change only
-  together with an upload of the renewed document. Dekra expiry only warns (not decided). Clients never see Cédula,
+  the Marchamo covers the current year (no grace) and the Dekra / RTV inspection is unexpired
+  (no grace). `is_approved_driver()` checks this, so expired documents stop bids automatically.
+  After the first review, these four dates change only together with an upload of the renewed
+  document. Clients never see Cédula,
   license or insurance numbers.
 - **bookings:** clients see their own; the assigned driver sees their assigned bookings; approved
   drivers see **open** requests (`pending_bids`) with client contact details hidden until a bid is
@@ -332,12 +333,10 @@ and `season_for_date(date)` returns the season for a travel date.
 7. **Cancellation & refund policy** for deposits and full payments.
 8. **Custom domain** for the app (removes the Vercel login wall on previews and looks
    professional).
-9. **Driver edits after approval.** (Expired licence / insurance / Marchamo already block trips
+9. **Driver edits after approval.** (Expired licence / insurance / Dekra / Marchamo already block trips
    automatically, see §7.7; this is about other edits.) Built as: the driver stays approved and the record is flagged
    "changed since last review" for the admin. Stricter alternative: any change sends them back to
    *pending* (off the job board) until re-approved. Decide before drivers can receive trips (Phase 3).
-10. **Dekra / RTV expiry:** warn only (current), or block trips like the licence, with or without
-   a grace period?
 
 ---
 

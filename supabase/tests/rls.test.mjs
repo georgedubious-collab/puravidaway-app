@@ -94,10 +94,11 @@ for (const [k, id] of Object.entries(U)) {
 await db.exec(`
   update public.profiles set role = 'admin' where id = '${U.admin}';
   update public.profiles set role = 'driver' where id in ('${U.driver}', '${U.pending}');
-  insert into public.drivers (id, kyc_status, license_expiry, ins_insurance_expiry, marchamo_year, documents) values
-    ('${U.driver}', 'approved', '2099-01-01', '2099-01-01', 2099,
-     '{"license": "${U.driver}/license-0.pdf", "insurance": "${U.driver}/insurance-0.pdf", "marchamo": "${U.driver}/marchamo-0.pdf"}'),
-    ('${U.pending}', 'pending', null, null, null, '{}');
+  insert into public.drivers (id, kyc_status, license_expiry, ins_insurance_expiry, marchamo_year, dekra_inspection_expiry, documents) values
+    ('${U.driver}', 'approved', '2099-01-01', '2099-01-01', 2099, '2099-01-01',
+     '{"license": "${U.driver}/license-0.pdf", "insurance": "${U.driver}/insurance-0.pdf",
+       "marchamo": "${U.driver}/marchamo-0.pdf", "dekra": "${U.driver}/dekra-0.pdf"}'),
+    ('${U.pending}', 'pending', null, null, null, null, '{}');
 `);
 
 // --- Catalog ------------------------------------------------------------------
@@ -190,7 +191,14 @@ await setDriver("marchamo_year = extract(year from public.cr_today())::int - 1")
 await approvedNow("last year's Marchamo: no trips", 0);
 await expectBlocked("expired documents: cannot go on duty", "driver",
   `update public.drivers set is_on_duty = true where id = '${U.driver}'`);
-await setDriver("marchamo_year = 2099, license_expiry = '2098-01-01'");
+await setDriver("marchamo_year = 2099, dekra_inspection_expiry = public.cr_today() - 1");
+await approvedNow("Dekra expired yesterday: no trips (no grace)", 0);
+await expectBlocked("cannot move the Dekra date without the new certificate", "driver",
+  `update public.drivers set dekra_inspection_expiry = '2098-01-01' where id = '${U.driver}'`);
+await expectOk("Dekra renewed with the new certificate", "driver",
+  `update public.drivers set dekra_inspection_expiry = '2098-01-01',
+     documents = documents || '{"dekra": "${U.driver}/dekra-1.pdf"}' where id = '${U.driver}'`);
+await setDriver("license_expiry = '2098-01-01'");
 await approvedNow("documents renewed: trips again", 1);
 
 // The admin pages join drivers to profiles with the hint profiles!drivers_id_fkey

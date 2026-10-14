@@ -74,7 +74,7 @@ export function missingDetails(d: DriverRecord): string[] {
   return out;
 }
 
-/** Days of grace after the INS policy's end date (licence and Marchamo have none). */
+/** Days of grace after the INS policy's end date (licence, Dekra and Marchamo have none). */
 export const INSURANCE_GRACE_DAYS = 15;
 
 /**
@@ -82,9 +82,13 @@ export const INSURANCE_GRACE_DAYS = 15;
  * the first review, the driver changes the date only by uploading the new
  * document together with it (enforced in the database too).
  */
-export const RENEWABLE: Record<string, { field: "license_expiry" | "ins_insurance_expiry" | "marchamo_year"; ask: string; kind: "date" | "year" }> = {
+export const RENEWABLE: Record<
+  string,
+  { field: "license_expiry" | "ins_insurance_expiry" | "dekra_inspection_expiry" | "marchamo_year"; ask: string; kind: "date" | "year" }
+> = {
   license: { field: "license_expiry", ask: "New expiry date", kind: "date" },
   insurance: { field: "ins_insurance_expiry", ask: "Policy valid until", kind: "date" },
+  dekra: { field: "dekra_inspection_expiry", ask: "Valid until", kind: "date" },
   marchamo: { field: "marchamo_year", ask: "Year it covers", kind: "year" },
 };
 
@@ -101,8 +105,8 @@ function addDaysYmd(ymd: string, days: number): string {
 
 /**
  * Expired and soon-to-expire documents, in plain sentences. Mirrors
- * driver_documents_current() in the database: licence and Marchamo have no
- * grace period; insurance has 15 days. `today` and `soon` are YYYY-MM-DD
+ * driver_documents_current() in the database: licence, Dekra and Marchamo
+ * have no grace period; insurance has 15 days. `today` and `soon` are YYYY-MM-DD
  * (Costa Rica time).
  */
 export function expiryIssues(d: DriverRecord, today: string, soon: string): ExpiryIssue[] {
@@ -134,8 +138,10 @@ export function expiryIssues(d: DriverRecord, today: string, soon: string): Expi
   }
 
   if (d.dekra_inspection_expiry) {
-    if (d.dekra_inspection_expiry < today) out.push({ text: `Dekra inspection expired ${d.dekra_inspection_expiry}.`, blocking: false });
-    else if (d.dekra_inspection_expiry <= soon) out.push({ text: `Dekra inspection expires ${d.dekra_inspection_expiry}.`, blocking: false });
+    if (d.dekra_inspection_expiry < today)
+      out.push({ text: `Dekra inspection expired ${d.dekra_inspection_expiry}. Upload the new certificate to receive trips again.`, blocking: true });
+    else if (d.dekra_inspection_expiry <= soon)
+      out.push({ text: `Dekra inspection expires ${d.dekra_inspection_expiry}. Upload the new certificate before then; there is no grace period.`, blocking: false });
   }
 
   // The hoja de delincuencia should be recent when the driver applies.
@@ -152,7 +158,7 @@ export function expiryIssues(d: DriverRecord, today: string, soon: string): Expi
 export function canTakeTrips(d: DriverRecord, today: string): boolean {
   return (
     d.kyc_status === "approved" &&
-    !!d.license_expiry && !!d.ins_insurance_expiry && d.marchamo_year !== null &&
+    !!d.license_expiry && !!d.ins_insurance_expiry && !!d.dekra_inspection_expiry && d.marchamo_year !== null &&
     !expiryIssues(d, today, today).some((i) => i.blocking)
   );
 }

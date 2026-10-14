@@ -96,7 +96,7 @@ function Application({ me, d }: { me: Profile; d: DriverRecord }) {
   const detailsMissing = missingDetails(d);
   const issues = expiryIssues(d, today, addDays(today, 30));
   const complete = docsMissing.length === 0 && detailsMissing.length === 0;
-  // After the first review, licence, insurance and Marchamo dates change only
+  // After the first review, licence, insurance, Dekra and Marchamo dates change only
   // together with the renewed document.
   const reviewed = d.kyc_status !== "pending";
 
@@ -153,7 +153,7 @@ function Application({ me, d }: { me: Profile; d: DriverRecord }) {
         <p className="mt-1 text-sm text-slate-600">
           Clear photos or PDFs, up to 10 MB each. Only you and our team can see them.
           {reviewed &&
-            " When your licence, insurance or Marchamo is renewed, upload the new one here with its new date. The licence and Marchamo have no grace period; insurance has 15 days."}
+            " When your licence, insurance, Dekra or Marchamo is renewed, upload the new one here with its new date. Insurance has a 15-day grace period; the others have none."}
         </p>
         <ul className="mt-4 divide-y divide-slate-100">
           {DRIVER_DOCS.map((doc) => {
@@ -248,9 +248,13 @@ function Details({ me, d, lockRenewable = false }: { me: Profile; d?: DriverReco
             <input name="ins_insurance_expiry" type="date" defaultValue={d?.ins_insurance_expiry ?? ""} className={input} />
           </Field>
         )}
-        <Field l="Dekra / RTV valid until">
-          <input name="dekra_inspection_expiry" type="date" defaultValue={d?.dekra_inspection_expiry ?? ""} className={input} />
-        </Field>
+        {lockRenewable ? (
+          <Locked l="Dekra / RTV valid until" v={d?.dekra_inspection_expiry} />
+        ) : (
+          <Field l="Dekra / RTV valid until">
+            <input name="dekra_inspection_expiry" type="date" defaultValue={d?.dekra_inspection_expiry ?? ""} className={input} />
+          </Field>
+        )}
         {lockRenewable ? (
           <Locked l="Marchamo year paid" v={d?.marchamo_year} />
         ) : (

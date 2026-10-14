@@ -29,7 +29,8 @@ alter table public.drivers
 -- Document validity. An approved driver only gets trips while:
 --   * the driver's licence has not expired (no grace period),
 --   * the INS insurance expired no more than 15 days ago (grace period),
---   * the Marchamo is paid for the current year (no grace period).
+--   * the Marchamo is paid for the current year (no grace period),
+--   * the Dekra / RTV inspection has not expired (no grace period).
 -- Dates are Costa Rica dates.
 -- ---------------------------------------------------------------------------
 create or replace function public.cr_today()
@@ -49,12 +50,13 @@ as $$
   select coalesce(
     d.license_expiry >= public.cr_today()
     and d.ins_insurance_expiry + 15 >= public.cr_today()
-    and d.marchamo_year >= extract(year from public.cr_today())::int,
+    and d.marchamo_year >= extract(year from public.cr_today())::int
+    and d.dekra_inspection_expiry >= public.cr_today(),
     false);
 $$;
 
--- "Approved driver" now also means "documents current": an expired licence,
--- insurance past its grace period or an unpaid Marchamo stops bids and open
+-- "Approved driver" now also means "documents current": an expired licence or
+-- Dekra, insurance past its grace period or an unpaid Marchamo stops bids and open
 -- requests automatically, without the admin having to suspend anyone.
 create or replace function public.is_approved_driver()
 returns boolean
@@ -132,6 +134,10 @@ begin
         if new.ins_insurance_expiry is distinct from old.ins_insurance_expiry
            and new.documents ->> 'insurance' is not distinct from old.documents ->> 'insurance' then
           raise exception 'Upload the renewed insurance policy to change its expiry date';
+        end if;
+        if new.dekra_inspection_expiry is distinct from old.dekra_inspection_expiry
+           and new.documents ->> 'dekra' is not distinct from old.documents ->> 'dekra' then
+          raise exception 'Upload the new Dekra certificate to change its expiry date';
         end if;
         if new.marchamo_year is distinct from old.marchamo_year
            and new.documents ->> 'marchamo' is not distinct from old.documents ->> 'marchamo' then

@@ -12,9 +12,9 @@ Newest entries first. AIs: read the top of this file before starting work.
   document links, on-duty only when approved, bucket type/size limits, explicit API grants.
   Dashboard reuses `expiryIssues` and links to drivers; footer link "Drive with PuraVidaWay".
   Document validity: approved drivers stop receiving trips when the licence expires (no grace),
-  INS insurance is more than 15 days past expiry, or the Marchamo isn't for the current year (no
-  grace); renewed dates are entered with the upload of the new document.
-  Fixed: role change to driver now reports a failed KYC-row insert. 87 database checks.
+  INS insurance is more than 15 days past expiry, the Marchamo isn't for the current year (no
+  grace) or the Dekra has expired (no grace); renewed dates are entered with the upload of the
+  new document. Fixed: role change to driver now reports a failed KYC-row insert. 90 database checks.
 
 - 2026-10-14 — Claude — Sign-in by email link: `/auth/callback` finishes the sign-in from
   Supabase's default email (which has a link, not a code, without custom SMTP); the home page
