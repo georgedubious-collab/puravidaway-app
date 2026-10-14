@@ -70,6 +70,13 @@ export function TransfersView({ onAdd }: { onAdd: (item: CartItem) => void }) {
     [origin, destination, effectiveVehicleId, effectiveStopIds, season],
   );
 
+  // Bid mode: the client's own offer (whole USD) replaces the fixed price.
+  const offerNumber = Number(offer);
+  const offerValid = Number.isFinite(offerNumber) && offerNumber >= 1;
+  const offerCents = offerValid ? Math.round(offerNumber * 100) : 0;
+  const offerIsLow = offerValid && offerCents < quote.totalCents * 0.7;
+  const itemTotalCents = mode === "bid" ? offerCents : quote.totalCents;
+
   const originName = HUBS.find((h) => h.id === origin)!.name;
   const destName = HUBS.find((h) => h.id === destination)!.name;
   const vehicle = VEHICLE_CLASSES.find((v) => v.id === effectiveVehicleId)!;
@@ -81,7 +88,7 @@ export function TransfersView({ onAdd }: { onAdd: (item: CartItem) => void }) {
   }
 
   function addToCart() {
-    if (sameHub) return;
+    if (sameHub || (mode === "bid" && !offerValid)) return;
     const stopsText = selectedStops.length
       ? ` + ${selectedStops.length} stop${selectedStops.length > 1 ? "s" : ""} (${selectedStops.map((s) => s.name).join(", ")})`
       : "";
@@ -89,18 +96,23 @@ export function TransfersView({ onAdd }: { onAdd: (item: CartItem) => void }) {
       kind: "transfer",
       id: newItemId(),
       title: `${originName} → ${destName}`,
-      detail: `${vehicle.name}, ${pax} pax${stopsText}${notes ? ` — ${notes}` : ""}${
-        mode === "bid" ? " — DRIVER BID REQUEST" : ""
-      }`,
+      detail:
+        mode === "bid"
+          ? `Driver bid request — your offer (fixed price would be ${formatUSD(quote.totalCents)}), ${pax} pax${stopsText}${notes ? ` — ${notes}` : ""}`
+          : `${vehicle.name}, ${pax} pax${stopsText}${notes ? ` — ${notes}` : ""}`,
       date,
-      totalCents: quote.totalCents,
+      totalCents: itemTotalCents,
     });
   }
 
   const routeWhatsApp = whatsAppLink(
     `Hi Jorge! I'm looking at a private transfer ${originName} → ${destName} on ${date} for ${pax} passengers${
       selectedStops.length ? ` with stops at ${selectedStops.map((s) => s.name).join(", ")}` : ""
-    }. Quoted ${formatUSD(quote.totalCents)}. Can you confirm availability?`,
+    }. ${
+      mode === "bid" && offerValid
+        ? `I'd like to offer ${formatUSD(offerCents)} (fixed price shows ${formatUSD(quote.totalCents)}).`
+        : `Quoted ${formatUSD(quote.totalCents)}.`
+    } Can you confirm availability?`,
   );
 
   return (
@@ -308,6 +320,14 @@ export function TransfersView({ onAdd }: { onAdd: (item: CartItem) => void }) {
                   className="w-28 border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm font-bold"
                 />
               </div>
+              {!offerValid && (
+                <p className="text-xs font-semibold text-red-600 mt-2">Enter an offer in USD.</p>
+              )}
+              {offerIsLow && (
+                <p className="text-xs font-semibold text-amber-700 mt-2">
+                  That&apos;s well below the fixed price, so drivers may not accept it.
+                </p>
+              )}
               <p className="text-xs text-slate-500 mt-3 bg-slate-50 rounded-lg p-3">
                 Live bidding goes online in Phase 3. For now, add this request to your cart and
                 Jorge will source driver offers for you over WhatsApp.
@@ -352,24 +372,38 @@ export function TransfersView({ onAdd }: { onAdd: (item: CartItem) => void }) {
             />
 
             <div className="mt-4 bg-slate-50 p-3.5 rounded-xl space-y-1.5 text-xs">
-              <Row label={mode === "bid" ? "Reference price" : vehicle.name} value={formatUSD(quote.baseCents)} />
-              <Row label="Sightseeing stops" value={`+${formatUSD(quote.stopsCents)}`} green />
-              {quote.seasonMultiplierBps !== 10000 && (
-                <Row
-                  label={`${season.name} ×${(quote.seasonMultiplierBps / 10000).toFixed(2)}`}
-                  value={`+${formatUSD(quote.totalCents - quote.subtotalCents)}`}
-                />
+              {mode === "bid" ? (
+                <>
+                  <Row label="Fixed price (reference)" value={formatUSD(quote.totalCents)} />
+                  <div className="flex justify-between text-sm font-extrabold text-slate-900 pt-2 border-t border-slate-200">
+                    <span>Your offer</span>
+                    <span className="text-amber-600 text-lg">
+                      {offerValid ? formatUSD(offerCents) : "—"}
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <Row label={vehicle.name} value={formatUSD(quote.baseCents)} />
+                  <Row label="Sightseeing stops" value={`+${formatUSD(quote.stopsCents)}`} green />
+                  {quote.seasonMultiplierBps !== 10000 && (
+                    <Row
+                      label={`${season.name} ×${(quote.seasonMultiplierBps / 10000).toFixed(2)}`}
+                      value={`+${formatUSD(quote.totalCents - quote.subtotalCents)}`}
+                    />
+                  )}
+                  <div className="flex justify-between text-sm font-extrabold text-slate-900 pt-2 border-t border-slate-200">
+                    <span>Total private ride</span>
+                    <span className="text-emerald-700 text-lg">{formatUSD(quote.totalCents)}</span>
+                  </div>
+                </>
               )}
-              <div className="flex justify-between text-sm font-extrabold text-slate-900 pt-2 border-t border-slate-200">
-                <span>Total private ride</span>
-                <span className="text-emerald-700 text-lg">{formatUSD(quote.totalCents)}</span>
-              </div>
             </div>
 
             <button
               type="button"
               onClick={addToCart}
-              disabled={sameHub}
+              disabled={sameHub || (mode === "bid" && !offerValid)}
               className="w-full mt-4 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-extrabold py-3 rounded-xl shadow-md text-sm flex items-center justify-center gap-2 transition"
             >
               <PlusCircle className="w-4 h-4" />
