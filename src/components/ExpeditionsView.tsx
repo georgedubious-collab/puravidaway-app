@@ -3,17 +3,18 @@
 import { ChevronRight, PlusCircle } from "lucide-react";
 import { useState } from "react";
 import { EXPEDITIONS, LODGING_TIERS } from "@/lib/catalog";
+import { addDays } from "@/lib/dates";
 import { newItemId, type CartItem } from "@/lib/cart";
 import { formatUSD, quoteExpedition, seasonForDate } from "@/lib/pricing";
 
-function defaultDate(): string {
-  const d = new Date();
-  d.setDate(d.getDate() + 30);
-  return d.toISOString().slice(0, 10);
-}
-
-export function ExpeditionsView({ onAdd }: { onAdd: (item: CartItem) => void }) {
-  const [date, setDate] = useState(defaultDate);
+export function ExpeditionsView({
+  today,
+  onAdd,
+}: {
+  today: string;
+  onAdd: (item: CartItem) => void;
+}) {
+  const [date, setDate] = useState(() => addDays(today, 30));
   const [tiers, setTiers] = useState<Record<string, string>>({});
   const season = seasonForDate(new Date(`${date}T12:00:00`));
 

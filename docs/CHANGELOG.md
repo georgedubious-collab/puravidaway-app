@@ -3,6 +3,15 @@
 Every merged change gets one line: `YYYY-MM-DD — <AI or Jorge> — <what changed>`.
 Newest entries first. AIs: read the top of this file before starting work.
 
+- 2026-10-14 — Claude — Review fixes for PR #2 (applied on top of the app-first redesign): page
+  is server-rendered per request (was a blank loading shell with no SEO content); `today` is
+  computed server-side in Costa Rica time and passed down, no `new Date()` in client render;
+  stored trip validated before use; trip drawer closes on Escape; WhatsApp number validated with
+  a build-time warning; Semana Santa added to peak season; deposit uses integer math; form
+  controls labelled; bid offer minimum is consistently $50 and messages say the offer covers
+  ride + stops; `.env.example` now committed; COMPETITORS.md per-person price derivation
+  corrected.
+
 - 2026-10-14 — Claude — App-first storefront: the trip is a persistent sidebar on desktop (legs
   in date order, 20%/full payment, WhatsApp booking, trust panel) and a bottom bar + drawer on
   phones; numbered module tabs replaced by "Add to your trip: Ride / Day tour / Expedition".

@@ -8,18 +8,19 @@ import {
   REGION_NAMES,
   type Region,
 } from "@/lib/catalog";
+import { addDays } from "@/lib/dates";
 import { newItemId, type CartItem } from "@/lib/cart";
 import { formatUSD, quoteDayTour, seasonForDate } from "@/lib/pricing";
 
-function defaultDate(): string {
-  const d = new Date();
-  d.setDate(d.getDate() + 14);
-  return d.toISOString().slice(0, 10);
-}
-
-export function DayToursView({ onAdd }: { onAdd: (item: CartItem) => void }) {
+export function DayToursView({
+  today,
+  onAdd,
+}: {
+  today: string;
+  onAdd: (item: CartItem) => void;
+}) {
   const [region, setRegion] = useState<Region | "ALL">("ALL");
-  const [date, setDate] = useState(defaultDate);
+  const [date, setDate] = useState(() => addDays(today, 14));
   const [upgrades, setUpgrades] = useState<Record<string, boolean>>({});
   const season = seasonForDate(new Date(`${date}T12:00:00`));
 
@@ -40,6 +41,7 @@ export function DayToursView({ onAdd }: { onAdd: (item: CartItem) => void }) {
         </div>
         <div className="flex flex-wrap gap-2">
           <select
+            aria-label="Region"
             value={region}
             onChange={(e) => setRegion(e.target.value as Region | "ALL")}
             className="border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold bg-slate-50"
@@ -53,6 +55,7 @@ export function DayToursView({ onAdd }: { onAdd: (item: CartItem) => void }) {
           </select>
           <input
             type="date"
+            aria-label="Tour date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
             className="border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold bg-slate-50"

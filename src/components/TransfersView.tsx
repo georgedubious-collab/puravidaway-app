@@ -9,21 +9,22 @@ import {
   type HubId,
 } from "@/lib/catalog";
 import { newItemId, whatsAppLink, type CartItem } from "@/lib/cart";
+import { addDays } from "@/lib/dates";
 import { formatDuration, formatUSD, quoteTransfer, seasonForDate } from "@/lib/pricing";
 
 type PricingMode = "fixed" | "bid";
 
-function defaultDate(): string {
-  const d = new Date();
-  d.setDate(d.getDate() + 14);
-  return d.toISOString().slice(0, 10);
-}
+/** Lowest offer a client may broadcast in bid mode (USD). */
+const MIN_OFFER_USD = 50;
 
 export function TransfersView({
+  today,
   onAdd,
   initialOrigin = "SJO",
   initialDestination = "ManuelAntonio",
 }: {
+  /** Today's date in Costa Rica (YYYY-MM-DD), computed on the server. */
+  today: string;
   onAdd: (item: CartItem) => void;
   /** Pre-filled from route pages via ?from=&to= */
   initialOrigin?: HubId;
@@ -31,7 +32,7 @@ export function TransfersView({
 }) {
   const [origin, setOrigin] = useState<HubId>(initialOrigin);
   const [destination, setDestination] = useState<HubId>(initialDestination);
-  const [date, setDate] = useState(defaultDate);
+  const [date, setDate] = useState(() => addDays(today, 14));
   const [pax, setPax] = useState(2);
   const [mode, setMode] = useState<PricingMode>("fixed");
   const [vehicleId, setVehicleId] = useState("suv");
@@ -81,7 +82,7 @@ export function TransfersView({
 
   // Bid mode: the client's own offer (whole USD) replaces the fixed price.
   const offerNumber = Number(offer);
-  const offerValid = Number.isFinite(offerNumber) && offerNumber >= 1;
+  const offerValid = Number.isFinite(offerNumber) && offerNumber >= MIN_OFFER_USD;
   const offerCents = offerValid ? Math.round(offerNumber * 100) : 0;
   const offerIsLow = offerValid && offerCents < quote.totalCents * 0.7;
   const itemTotalCents = mode === "bid" ? offerCents : quote.totalCents;
@@ -107,7 +108,7 @@ export function TransfersView({
       title: `${originName} → ${destName}`,
       detail:
         mode === "bid"
-          ? `Driver bid request — your offer (fixed price would be ${formatUSD(quote.totalCents)}), ${pax} pax${stopsText}${notes ? ` — ${notes}` : ""}`
+          ? `Driver bid request — your offer covers the ride${selectedStops.length ? " + stops" : ""} (fixed price would be ${formatUSD(quote.totalCents)}), ${pax} pax${stopsText}${notes ? ` — ${notes}` : ""}`
           : `${vehicle.name}, ${pax} pax${stopsText}${notes ? ` — ${notes}` : ""}`,
       date,
       totalCents: itemTotalCents,
@@ -119,7 +120,7 @@ export function TransfersView({
       selectedStops.length ? ` with stops at ${selectedStops.map((s) => s.name).join(", ")}` : ""
     }. ${
       mode === "bid" && offerValid
-        ? `I'd like to offer ${formatUSD(offerCents)} (fixed price shows ${formatUSD(quote.totalCents)}).`
+        ? `I'd like to offer ${formatUSD(offerCents)} for the ride${selectedStops.length ? " including the stops" : ""} (fixed price shows ${formatUSD(quote.totalCents)}).`
         : `Quoted ${formatUSD(quote.totalCents)}.`
     } Can you confirm availability?`,
   );
@@ -189,7 +190,7 @@ export function TransfersView({
               ))}
             </select>
           </Field>
-          <Field label="Pricing mode">
+          <Field label="Pricing mode" group>
             <div className="grid grid-cols-2 bg-emerald-950/80 p-1 rounded-lg border border-emerald-700">
               {(
                 [
@@ -320,17 +321,22 @@ export function TransfersView({
                 local partner drivers will bid on your request.
               </p>
               <div className="flex flex-wrap items-center gap-2 mt-4">
-                <span className="text-xs font-semibold text-slate-600">Your offer (USD):</span>
+                <label htmlFor="bid-offer" className="text-xs font-semibold text-slate-600">
+                  Your offer (USD):
+                </label>
                 <input
+                  id="bid-offer"
                   type="number"
-                  min={50}
+                  min={MIN_OFFER_USD}
                   value={offer}
                   onChange={(e) => setOffer(e.target.value)}
                   className="w-28 border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm font-bold"
                 />
               </div>
               {!offerValid && (
-                <p className="text-xs font-semibold text-red-600 mt-2">Enter an offer in USD.</p>
+                <p className="text-xs font-semibold text-red-600 mt-2">
+                  Enter an offer of at least {formatUSD(MIN_OFFER_USD * 100)}.
+                </p>
               )}
               {offerIsLow && (
                 <p className="text-xs font-semibold text-amber-700 mt-2">
@@ -433,14 +439,30 @@ export function TransfersView({
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  children,
+  group,
+}: {
+  label: string;
+  children: React.ReactNode;
+  /** true when the control is a button group rather than a single input */
+  group?: boolean;
+}) {
+  const cls = "text-[11px] uppercase tracking-wider text-emerald-200 font-bold block mb-1";
+  if (group) {
+    return (
+      <div role="group" aria-label={label}>
+        <span className={cls}>{label}</span>
+        {children}
+      </div>
+    );
+  }
   return (
-    <div>
-      <label className="text-[11px] uppercase tracking-wider text-emerald-200 font-bold block mb-1">
-        {label}
-      </label>
+    <label className="block">
+      <span className={cls}>{label}</span>
       {children}
-    </div>
+    </label>
   );
 }
 

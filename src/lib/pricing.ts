@@ -109,21 +109,48 @@ export function quoteExpedition(
   return applyMultiplier(exp.basePriceCents + tier.surchargeCents, season.multiplierBps);
 }
 
+/** Easter Sunday (Gregorian) for a given year — anonymous algorithm. */
+export function easterSunday(year: number): Date {
+  const a = year % 19;
+  const b = Math.floor(year / 100);
+  const c = year % 100;
+  const d = Math.floor(b / 4);
+  const e = b % 4;
+  const f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4);
+  const k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31); // 3 = March, 4 = April
+  const day = ((h + l - 7 * m + 114) % 31) + 1;
+  return new Date(Date.UTC(year, month - 1, day));
+}
+
 /**
- * Pick the season for a travel date. Simple rule for Phase 2a:
- * Dec 20 – Jan 5 and the week before Easter = peak; Dec–Apr = high; else green.
- * TODO(Jorge): exact peak date ranges; move to the `seasons` table in Phase 2b.
+ * Pick the season for a travel date (Phase 2a rule, moves to the `seasons`
+ * table in Phase 2b):
+ *   peak  = Dec 20 – Jan 5, and Semana Santa (Palm Sunday → Easter Sunday)
+ *   high  = Dec – Apr otherwise
+ *   green = everything else
+ * TODO(Jorge): confirm exact peak ranges.
  */
 export function seasonForDate(date: Date): Season {
+  const y = date.getFullYear();
   const m = date.getMonth(); // 0 = Jan
   const d = date.getDate();
-  const peak = (m === 11 && d >= 20) || (m === 0 && d <= 5);
-  if (peak) return SEASONS[2];
+  const xmas = (m === 11 && d >= 20) || (m === 0 && d <= 5);
+  const easter = easterSunday(y);
+  const palmSunday = new Date(easter.getTime() - 7 * 86400000);
+  const dayUtc = Date.UTC(y, m, d);
+  const semanaSanta = dayUtc >= palmSunday.getTime() && dayUtc <= easter.getTime();
+  if (xmas || semanaSanta) return SEASONS[2];
   if (m === 11 || m <= 3) return SEASONS[1];
   return SEASONS[0];
 }
 
-/** Deposit rule: 20% of total, rounded to the cent. */
+/** Deposit rule: 20% of total (integer arithmetic), rounded to the cent. */
 export function depositCents(totalCents: number): number {
-  return Math.round(totalCents * 0.2);
+  return Math.round(totalCents / 5);
 }

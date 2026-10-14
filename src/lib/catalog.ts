@@ -306,6 +306,21 @@ export const SEASONS: Season[] = [
   { id: "peak", name: "Peak holiday (Christmas / New Year / Easter)", multiplierBps: 12500 },
 ];
 
-/** WhatsApp number for the concierge button. TODO(Jorge): set in env as NEXT_PUBLIC_WHATSAPP_NUMBER. */
-export const WHATSAPP_NUMBER =
-  process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "50600000000";
+/**
+ * WhatsApp number for the concierge buttons (digits only, with country code).
+ * Set NEXT_PUBLIC_WHATSAPP_NUMBER in Vercel before launch; until then the
+ * buttons open the placeholder below and a warning is logged at build time.
+ */
+const WHATSAPP_PLACEHOLDER = "50600000000";
+function resolveWhatsAppNumber(): string {
+  const raw = (process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "").replace(/[^\d]/g, "");
+  if (/^\d{8,15}$/.test(raw)) return raw;
+  if (typeof window === "undefined") {
+    console.warn(
+      "[PuraVidaWay] NEXT_PUBLIC_WHATSAPP_NUMBER is missing or invalid; WhatsApp buttons use a placeholder number.",
+    );
+  }
+  return WHATSAPP_PLACEHOLDER;
+}
+export const WHATSAPP_NUMBER = resolveWhatsAppNumber();
+export const WHATSAPP_CONFIGURED = WHATSAPP_NUMBER !== WHATSAPP_PLACEHOLDER;

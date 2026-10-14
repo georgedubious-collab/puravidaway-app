@@ -67,7 +67,12 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
 - Not yet built: Supabase, logins, `/admin`, driver portal, Green Pay checkout (the cart's
   "Pay online" button is disabled), live bidding (bid mode adds a request to the cart for Jorge to
   handle over WhatsApp), GPS map, chat.
-- Env: `NEXT_PUBLIC_WHATSAPP_NUMBER` (see `.env.example`) must be set in Vercel.
+- Env: `NEXT_PUBLIC_WHATSAPP_NUMBER` (see `.env.example`) **must be set in Vercel before
+  launch**; until then WhatsApp buttons open a placeholder number and the build logs a warning.
+- Rendered per request (`connection()` in `page.tsx`): full HTML for search engines; "today" is
+  computed server-side in `America/Costa_Rica`.
+- Season rule in code: peak = Dec 20–Jan 5 + Semana Santa (Palm Sunday → Easter); high = Dec–Apr;
+  else green. Moves to the `seasons` table in Phase 2b.
 
 ## 4. Product modules
 
@@ -79,7 +84,8 @@ Google and pre-fill the builder via `?from=<hub>&to=<hub>`. Trust content (drive
 guarantees, real reviews only) lives in `src/lib/trust.ts`.
 
 1. **Transfers & Sightseeing** — exact pick-up/drop-off by map place search (hotel, dock,
-   restaurant, address; see COMPETITORS.md §2d), date, passengers, Fixed Price vs Driver Bids
+   restaurant, address; see COMPETITORS.md §2d — *target; Phase 2a ships hub dropdowns*), date,
+   passengers, Fixed Price vs Driver Bids
    toggle, sightseeing stop cards, live route timeline with total duration, flight number or hotel
    field, price breakdown.
 2. **1-Day Private Tours** — region filter, Smart En-Route Transfer upgrade (+$65).
