@@ -44,6 +44,8 @@ export interface BookingRow {
   guest_email: string | null;
   guest_phone: string | null;
   client_notes: string | null;
+  preferences: Partial<import("./preferences").RidePrefs>;
+  driver_notes: string | null;
   created_at: string;
 }
 

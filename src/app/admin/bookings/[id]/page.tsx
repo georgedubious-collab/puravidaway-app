@@ -6,6 +6,7 @@ import { BOOKING_STATUSES, BOOKING_STATUS_LABEL, SERVICE_LABEL, usd, type Bookin
 import { getCatalog } from "@/lib/catalogSource";
 import { todayInCostaRica } from "@/lib/dates";
 import { canTakeTrips, type DriverRecord, type VehicleRecord } from "@/lib/driverKyc";
+import { prefMismatches, prefsSummary } from "@/lib/preferences";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { updateBooking } from "../actions";
 
@@ -40,11 +41,18 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
   const options = (drivers ?? []).flatMap((d) =>
     d.driver_vehicles
       .filter((v) => v.status === "approved")
-      .map((v) => ({
-        value: `${d.id}:${v.id}`,
-        label: `${d.profiles?.full_name ?? "Driver"} — ${v.make_model ?? "vehicle"} ${v.plate ?? ""} (${v.passenger_capacity ?? "?"} seats)`,
-        ok: canTakeTrips(d, [v], today) && (v.passenger_capacity ?? 0) >= seats,
-      })),
+      .map((v) => {
+        const problems = [
+          ...(canTakeTrips(d, [v], today) ? [] : ["documents"]),
+          ...((v.passenger_capacity ?? 0) >= seats ? [] : ["seats"]),
+          ...prefMismatches(b.preferences, d, v),
+        ];
+        return {
+          value: `${d.id}:${v.id}`,
+          label: `${d.profiles?.full_name ?? "Driver"} — ${v.make_model ?? "vehicle"} ${v.plate ?? ""} (${v.passenger_capacity ?? "?"} seats)`,
+          problems,
+        };
+      }),
   );
   const current = b.assigned_driver_id && b.assigned_vehicle_id ? `${b.assigned_driver_id}:${b.assigned_vehicle_id}` : "";
   const name =
@@ -116,6 +124,8 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
             {stops && <Item k="Stops / extras" v={stops} />}
             {b.lodging_tier && <Item k="Lodging" v={catalog.lodgingTiers.find((t) => t.id === b.lodging_tier)?.name ?? b.lodging_tier} />}
             {b.flight_or_hotel_notes && <Item k="Ride notes" v={b.flight_or_hotel_notes} />}
+            {prefsSummary(b.preferences).length > 0 && <Item k="Asked for" v={prefsSummary(b.preferences).join(", ")} />}
+            {b.driver_notes && <Item k="Message for driver" v={b.driver_notes} />}
             <Item k="Price" v={`${usd(b.total_price)}${b.pricing_mode === "bid" ? " (client's offer)" : ""}`} />
             <Item k="Payment" v={b.payment_mode === "deposit_20" ? `20% deposit: ${usd(due)}` : `In full: ${usd(due)}`} />
             <Item k="Received" v={usd(b.amount_paid)} />
@@ -145,7 +155,7 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
                 {options.map((o) => (
                   <option key={o.value} value={o.value}>
                     {o.label}
-                    {o.ok ? "" : " — check documents / seats"}
+                    {o.problems.length ? ` ⚠ ${o.problems.join(", ")}` : " ✓"}
                   </option>
                 ))}
               </select>

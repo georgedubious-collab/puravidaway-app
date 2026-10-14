@@ -5,6 +5,7 @@ import { requireUser } from "@/lib/auth";
 import { isValidYmd } from "@/lib/dates";
 import { DRIVER_DOC_KEYS, MAX_VEHICLE_PHOTOS, RENEWABLE, VEHICLE_DOC_KEYS } from "@/lib/driverKyc";
 import { InputError, runAction, type FormState } from "@/lib/forms/formState";
+import { hasContactDetails } from "@/lib/preferences";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 /* All writes run as the signed-in user, so row-level security and the guard
@@ -50,7 +51,7 @@ const driverFields = (fd: FormData) =>
     ict_permit_number: () => text(fd, "ict_permit_number", 40),
   });
 
-const vehicleFields = (fd: FormData) =>
+const vehicleBasics = (fd: FormData) =>
   pick(fd, {
     plate: () => text(fd, "plate", 12)?.toUpperCase() ?? null,
     make_model: () => text(fd, "make_model", 60),
@@ -63,6 +64,19 @@ const vehicleFields = (fd: FormData) =>
     marchamo_year: () => int(fd, "marchamo_year", "Marchamo year", 2020, 2100),
   });
 
+const vehicleFields = (fd: FormData): Record<string, string | number | boolean | null> => ({
+  ...vehicleBasics(fd),
+  // Checkboxes send nothing when unticked, so a hidden "features" marker says the form had them.
+  ...(fd.has("features")
+    ? {
+        has_wifi: fd.get("has_wifi") === "on",
+        stroller_space: fd.get("stroller_space") === "on",
+        pet_friendly: fd.get("pet_friendly") === "on",
+        child_seats: int(fd, "child_seats", "Child seats", 0, 6) ?? 0,
+      }
+    : {}),
+});
+
 async function db() {
   const supabase = await createSupabaseServerClient();
   if (!supabase) throw new InputError("Driver sign-up isn't available yet.");
@@ -72,7 +86,7 @@ async function db() {
 function friendly(e: { message?: string }): never {
   // Messages raised by our own database rules are written for people.
   const m = e.message ?? "";
-  if (/^(Upload the|Only an admin|At most 12|Files must|Documents must)/.test(m)) throw new InputError(m);
+  if (/^(Upload the|Only an admin|At most 12|Files must|Documents must|Please keep)/.test(m)) throw new InputError(m);
   throw e;
 }
 
@@ -144,6 +158,24 @@ export async function attachDriverDocument(key: string, path: string, renewed?: 
     if (up.error) friendly(up.error);
     revalidatePath("/driver");
   }, "The file uploaded but we couldn't link it to your application. Please try again.");
+}
+
+/** Bio and English level, shown to travellers once the driver is assigned. */
+export async function saveDriverProfile(_prev: FormState, fd: FormData): Promise<FormState> {
+  return runAction(async () => {
+    const me = await requireUser("/driver");
+    const bio = text(fd, "bio", 600);
+    const level = String(fd.get("english_level") ?? "");
+    if (level !== "fluent" && level !== "basic") throw new InputError("Pick your English level.");
+    if (bio && hasContactDetails(bio)) {
+      throw new InputError("Please keep phone numbers, emails and links out of your bio. Travellers book through PuraVidaWay.");
+    }
+    const supabase = await db();
+    const up = await supabase.from("drivers").update({ bio, english_level: level }).eq("id", me.id).select("id");
+    if (up.error) friendly(up.error);
+    if (!up.data?.length) throw new InputError("We couldn't find your application. Reload the page.");
+    revalidatePath("/driver");
+  }, "Couldn't save your profile. Please try again.");
 }
 
 /* ------------------------------ vehicles -------------------------------- */

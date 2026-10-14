@@ -55,6 +55,8 @@ export interface DriverRecord {
   license_number: string | null;
   license_expiry: string | null;
   criminal_record_date: string | null;
+  bio: string | null;
+  english_level: "fluent" | "basic" | null;
   kyc_status: KycStatus;
   kyc_note: string | null;
   needs_review: boolean;
@@ -75,6 +77,10 @@ export interface VehicleRecord {
   ins_insurance_expiry: string | null;
   dekra_inspection_expiry: string | null;
   marchamo_year: number | null;
+  has_wifi: boolean;
+  child_seats: number;
+  stroller_space: boolean;
+  pet_friendly: boolean;
   documents: Record<string, string>;
   photos: string[];
   status: KycStatus;
@@ -119,6 +125,8 @@ export function missingDriverDetails(d: DriverRecord): string[] {
   if (!d.license_number) out.push("Licence number");
   if (!d.license_expiry) out.push("Licence expiry");
   if (!d.criminal_record_date) out.push("Criminal record certificate date");
+  if (!d.english_level) out.push("Your English level");
+  if (!d.bio || d.bio.trim().length < 40) out.push("A short bio for travellers (at least 40 characters)");
   return out;
 }
 

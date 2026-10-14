@@ -19,7 +19,7 @@ export interface TripRequestInput {
 }
 
 export type TripRequestResult =
-  | { ok: true; refs: string[] }
+  | { ok: true; refs: string[]; tripId: string | null }
   | { ok: false; error: string }
   /** Prices changed since the item was added: the cart shows the new totals and asks again. */
   | { ok: false; error: string; repriced: Record<string, number> };
@@ -33,7 +33,7 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
  */
 export async function submitTripRequest(input: TripRequestInput): Promise<TripRequestResult> {
   try {
-    if (input.website) return { ok: true, refs: [] }; // bot: pretend it worked
+    if (input.website) return { ok: true, refs: [], tripId: null }; // bot: pretend it worked
     const name = String(input.name ?? "").trim();
     const email = String(input.email ?? "").trim().toLowerCase();
     const phone = String(input.phone ?? "").trim();
@@ -92,6 +92,8 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
       scheduled_at: `${date}T12:00:00-06:00`, // date only for now; pickup time is agreed on WhatsApp
       passenger_count: spec.kind === "transfer" ? spec.pax : null,
       flight_or_hotel_notes: spec.kind === "transfer" ? (spec.notes ?? null) : null,
+      preferences: spec.kind === "transfer" && spec.prefs ? spec.prefs : {},
+      driver_notes: spec.kind === "transfer" ? (spec.driverNotes ?? null) : null,
       pricing_mode: spec.kind === "transfer" && spec.pricing === "bid" ? "bid" : "fixed",
       total_price: totalCents / 100,
       currency: "USD",
@@ -111,7 +113,7 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
       console.error("[trip request]", error);
       return { ok: false, error: "We couldn't save your request. Please try again or send it on WhatsApp." };
     }
-    return { ok: true, refs: (data ?? []).map((r) => r.booking_ref as string) };
+    return { ok: true, refs: (data ?? []).map((r) => r.booking_ref as string), tripId };
   } catch (e) {
     console.error("[trip request]", e);
     return { ok: false, error: "We couldn't save your request. Please try again or send it on WhatsApp." };

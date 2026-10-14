@@ -3,6 +3,17 @@
 Every merged change gets one line: `YYYY-MM-DD — <AI or Jorge> — <what changed>`.
 Newest entries first. AIs: read the top of this file before starting work.
 
+- 2026-10-14 — Claude — Ride preferences, driver profiles, trip page (migration 0008). The ride
+  builder asks for the driver's language (English-speaking / Spanish or basic English is fine),
+  Wi-Fi, stroller, child seats (0–4), pets and a message for the driver (phone numbers, emails and
+  links are refused so trips stay on the platform); saved on the booking and shown in the drivers'
+  open-request view and admin dispatch, where each driver + vehicle option shows ✓ or what it
+  doesn't cover. Drivers add a bio and English level; vehicles list Wi-Fi, child seats, stroller
+  space and pets (changes after approval flagged for review). New private trip page
+  `/trip/<trip id>` (linked after sending a request): bookings, status and, once confirmed, the
+  driver's photo, first name, languages, bio, ICT badge, car, plate and car photos. Extras are free
+  for now (§9 #10). 133 database checks.
+
 - 2026-10-14 — Claude — Phase 2d part 1, trip requests: the trip panel now sends the trip online
   (name, email, WhatsApp, notes; spam trap). Cart items carry what was chosen (`spec`), and the
   server re-prices each one from the live catalog before saving (`src/lib/tripRequest.ts`,

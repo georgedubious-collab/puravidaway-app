@@ -31,7 +31,9 @@ export interface TripState {
   onReprice: (prices: Record<string, number>) => void;
   /** Booking references once the trip was sent (the cart is then emptied). */
   sentRefs: string[] | null;
-  onSent: (refs: string[]) => void;
+  /** Private trip page (driver, car photos) once the trip was sent. */
+  sentTripId: string | null;
+  onSent: (refs: string[], tripId: string | null) => void;
   onNewTrip: () => void;
 }
 
@@ -50,7 +52,7 @@ export function TripSummary({ trip }: { trip: TripState }) {
   const [error, setError] = useState<string | null>(null);
   const [website, setWebsite] = useState(""); // spam trap, hidden from people
 
-  if (trip.sentRefs) return <Sent refs={trip.sentRefs} contact={contact} onNewTrip={trip.onNewTrip} />;
+  if (trip.sentRefs) return <Sent refs={trip.sentRefs} tripId={trip.sentTripId} contact={contact} onNewTrip={trip.onNewTrip} />;
 
   const set = (k: keyof TripContact) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     onContact({ ...contact, [k]: e.target.value });
@@ -66,7 +68,7 @@ export function TripSummary({ trip }: { trip: TripState }) {
         website,
       });
       if (res.ok) {
-        trip.onSent(res.refs);
+        trip.onSent(res.refs, res.tripId);
       } else {
         if ("repriced" in res) trip.onReprice(res.repriced);
         setError(res.error);
@@ -215,7 +217,17 @@ export function TripSummary({ trip }: { trip: TripState }) {
   );
 }
 
-function Sent({ refs, contact, onNewTrip }: { refs: string[]; contact: TripContact; onNewTrip: () => void }) {
+function Sent({
+  refs,
+  tripId,
+  contact,
+  onNewTrip,
+}: {
+  refs: string[];
+  tripId: string | null;
+  contact: TripContact;
+  onNewTrip: () => void;
+}) {
   const message = `Hi PuraVidaWay! I just sent my trip request${refs.length ? ` (${refs.join(", ")})` : ""}. My name is ${contact.name}.`;
   return (
     <div className="space-y-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-5" role="status">
@@ -234,6 +246,19 @@ function Sent({ refs, contact, onNewTrip }: { refs: string[]; contact: TripConta
           </p>
           <p className="mt-1 font-mono text-base font-bold text-emerald-950">{refs.join(" · ")}</p>
         </div>
+      )}
+      {tripId && (
+        <a
+          href={`/trip/${tripId}`}
+          className="flex min-h-12 items-center justify-center rounded-xl border-2 border-emerald-700 bg-white font-extrabold text-emerald-800 hover:bg-emerald-50"
+        >
+          Open your trip page
+        </a>
+      )}
+      {tripId && (
+        <p className="text-xs text-emerald-900">
+          Bookmark it: your driver&apos;s profile and car photos appear there once your trip is confirmed.
+        </p>
       )}
       <a
         href={whatsAppLink(message)}
