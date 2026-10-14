@@ -1,35 +1,25 @@
 /**
- * Trip Cart model. Phase 2a keeps it in React state (persisted to
- * localStorage for convenience). Phase 2b moves checkout to the server.
+ * Trip Cart model, kept in React state (persisted to localStorage for
+ * convenience). Sending the trip goes through the server, which re-prices
+ * every item (src/app/trip/actions.ts).
  */
 import { WHATSAPP_NUMBER } from "./catalog";
 import { depositCents, formatUSD } from "./pricing";
+import { parseSpec, type ItemSpec } from "./tripRequest";
 
-export type CartItem =
-  | {
-      kind: "transfer";
-      id: string;
-      title: string;
-      detail: string;
-      date: string;
-      totalCents: number;
-    }
-  | {
-      kind: "day_tour";
-      id: string;
-      title: string;
-      detail: string;
-      date: string;
-      totalCents: number;
-    }
-  | {
-      kind: "expedition";
-      id: string;
-      title: string;
-      detail: string;
-      date: string;
-      totalCents: number;
-    };
+export interface CartItem {
+  kind: "transfer" | "day_tour" | "expedition";
+  id: string;
+  title: string;
+  detail: string;
+  date: string;
+  totalCents: number;
+  /**
+   * What exactly was chosen, so the server can re-price it before saving a
+   * booking. Missing on items saved by older versions of the site.
+   */
+  spec?: ItemSpec;
+}
 
 export type PaymentMode = "full_100" | "deposit_20";
 
@@ -61,6 +51,7 @@ export function parseStoredCart(raw: string): CartItem[] {
       Number.isInteger(o.totalCents) &&
       (o.totalCents as number) >= 0
     ) {
+      const spec = parseSpec(o.spec);
       out.push({
         kind: o.kind as CartItem["kind"],
         id: o.id,
@@ -68,6 +59,7 @@ export function parseStoredCart(raw: string): CartItem[] {
         detail: o.detail,
         date: o.date,
         totalCents: o.totalCents as number,
+        ...(spec && spec.kind === o.kind ? { spec } : {}),
       });
     }
   }

@@ -21,6 +21,7 @@ Either way works; the first needs no installs.
 4. `20261014000004_driver_applications.sql` — driver applications and the document vault (Phase 2c)
 5. `20261014000005_review_fixes.sql` — security fixes from the Phase 2b review
 6. `20261014000006_driver_vehicles.sql` — several vehicles per driver
+7. `20261014000007_trip_requests.sql` — trip requests from the website, dispatch fields
 
 Later files are added as the app grows; each pull request says when there's a new one to run.
 
@@ -34,7 +35,7 @@ Environment Variables** (tick Production and Preview), then redeploy:
 | :--- | :--- |
 | `NEXT_PUBLIC_SUPABASE_URL` | Project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `anon` `public` key |
-| `SUPABASE_SERVICE_ROLE_KEY` | `service_role` key — **secret**, never share or put in the code |
+| `SUPABASE_SERVICE_ROLE_KEY` | the **secret** key (`sb_secret_…`, or the legacy `service_role` key). Never share it or put it in the code; tick **Sensitive** in Vercel. Needed for trip requests from the website. |
 
 (Alternative: Vercel → **Integrations → Supabase** sets these for you.)
 
@@ -63,6 +64,6 @@ Emails → SMTP Settings) with a PuraVidaWay mailbox or a service like Resend. T
 brand the email and add a 6-digit code (`{{ .Token }}`), which the login page already accepts.
 
 ## Checking the security rules
-`npm run test:db` replays the migrations in a throwaway in-memory Postgres and runs 111 checks
+`npm run test:db` replays the migrations in a throwaway in-memory Postgres and runs 121 checks
 (clients can't see each other's bookings, drivers can't approve themselves, nobody but the server
 can record payments, and so on).

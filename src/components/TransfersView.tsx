@@ -8,11 +8,11 @@ import { useCatalog } from "./CatalogContext";
 import { newItemId, whatsAppLink, type CartItem } from "@/lib/cart";
 import { addDays } from "@/lib/dates";
 import { formatDuration, formatUSD, quoteTransfer } from "@/lib/pricing";
+import { MIN_OFFER_USD } from "@/lib/tripRequest";
 
 type PricingMode = "fixed" | "bid";
 
 /** Lowest offer a client may broadcast in bid mode (USD). */
-const MIN_OFFER_USD = 50;
 
 export function TransfersView({
   today,
@@ -114,6 +114,17 @@ export function TransfersView({
           : `${vehicle.name}, ${pax} pax${stopsText}${notes ? ` — ${notes}` : ""}`,
       date,
       totalCents: itemTotalCents,
+      spec: {
+        kind: "transfer",
+        origin,
+        destination,
+        vehicleId: effectiveVehicleId,
+        stopIds: effectiveStopIds,
+        pax,
+        pricing: mode === "bid" ? "bid" : "fixed",
+        offerCents: mode === "bid" ? offerCents : undefined,
+        notes: notes.trim() || undefined,
+      },
     });
   }
 

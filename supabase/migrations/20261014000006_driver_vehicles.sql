@@ -5,7 +5,8 @@
 --   photo, ID front + back, driver's licence, criminal record certificate, ICT permit (optional).
 -- Each vehicle gets its own row with its own documents and photos, and is
 -- approved by the admin separately:
---   INS insurance, Dekra / RTV, Marchamo, registration (optional), photos (at least 2).
+--   INS insurance, Dekra / RTV, Marchamo, registration (tarjeta de circulación),
+--   photos (at least 2, one showing the plate). Required items are checked by the app.
 --
 -- A driver gets trips only while: the driver is approved, the licence is current,
 -- and at least one approved vehicle has current insurance (15-day grace),

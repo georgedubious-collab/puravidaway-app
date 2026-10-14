@@ -259,6 +259,29 @@ await expectRows("visitor sees no bookings", "anon", "select * from public.booki
 await expectBlocked("client cannot change own price", "client", "update public.bookings set total_price = 1", { affected: 0 });
 await expectRows("booking ref generated", "admin", "select * from public.bookings where booking_ref like 'PVW-1000%'", 2);
 
+// --- Trip requests (file 7) -------------------------------------------------------
+await expectOk("server saves a guest trip request", "server", `
+  insert into public.bookings (id, trip_id, service_type, total_price, guest_name, guest_email, guest_phone, client_notes) values
+    ('10000000-0000-0000-0000-000000000009', '40000000-0000-0000-0000-000000000001', 'transfer', 230,
+     'Ana', 'ana@example.com', '+1 555 0100', 'Flight AA123')`);
+await expectRows("visitor cannot see guest requests", "anon", "select * from public.bookings where trip_id is not null", 0);
+await expectRows("other clients cannot see guest requests", "client2", "select * from public.bookings where trip_id is not null", 0);
+await expectBlocked("client cannot create a request directly", "client", `
+  insert into public.bookings (trip_id, service_type, total_price, guest_name) values (gen_random_uuid(), 'transfer', 1, 'x')`);
+await expectBlocked("admin cannot assign another driver's vehicle", "admin", `
+  update public.bookings set assigned_driver_id = '${U.pending}', assigned_vehicle_id = '30000000-0000-0000-0000-000000000001'
+   where id = '10000000-0000-0000-0000-000000000009'`);
+await expectOk("admin assigns driver and vehicle", "admin", `
+  update public.bookings set assigned_driver_id = '${U.driver}', assigned_vehicle_id = '30000000-0000-0000-0000-000000000001',
+     status = 'confirmed' where id = '10000000-0000-0000-0000-000000000009'`);
+await expectOk("admin writes an internal note", "admin", `
+  insert into public.booking_admin_notes (booking_id, notes) values ('10000000-0000-0000-0000-000000000009', 'VIP')`);
+await expectRows("assigned driver cannot read internal notes", "driver", "select * from public.booking_admin_notes", 0);
+await expectRows("assigned driver sees the trip", "driver",
+  "select 1 from public.bookings where id = '10000000-0000-0000-0000-000000000009'", 1);
+await expectRows("drivers' open-request view has no guest details", "admin",
+  "select 1 from information_schema.columns where table_name = 'open_trip_requests' and column_name in ('guest_name','guest_phone','client_notes','admin_notes')", 0);
+
 // --- Bids -----------------------------------------------------------------------------
 await expectOk("approved driver bids on open request", "driver", `
   insert into public.bids (id, booking_id, driver_id, bid_amount) values
