@@ -11,18 +11,18 @@
 | **Repository** | `georgedubious-collab/puravidaway-app` (connected to Vercel; `main` deploys to production) |
 | **Vercel project** | `puravidaway-app` — team "Jorge Li's projects" |
 | **Production URL** | https://puravidaway-app.vercel.app |
-| **Spec last reviewed** | 2026-10-13 |
+| **Spec last reviewed** | 2026-10-14 |
 
 ---
 
 ## 1. What PuraVidaWay is
 
-An all-in-one Costa Rica travel platform by **Costa Rica Travel Planner** that combines four
+An all-in-one Costa Rica travel platform that combines four
 revenue engines in one booking flow and one cart:
 
 1. **Daytrip-style sightseeing transfers.** Private point-to-point transfers where travelers add
    curated 45–120 minute stops (wildlife, volcano, waterfall) along the corridor while the
-   ICT-certified driver stays with the luggage in the locked vehicle.
+   driver stays with the luggage in the locked vehicle.
 2. **GetTransfer-style driver bidding.** Travelers choose instant **Fixed Price** or **Driver
    Bids**: they name an offer in USD and compare bids from verified local drivers.
 3. **1-day private eco-tours** with an optional **Smart En-Route Transfer (+$65)** that turns a
@@ -32,6 +32,10 @@ revenue engines in one booking flow and one cart:
 
 Target market: travelers from the US, Canada and Europe. Sales are high-touch, with WhatsApp as
 the primary conversation channel.
+
+**Competitive benchmark (standing rule):** PuraVidaWay competes with **Daytrip**, **GetTransfer**
+and **Welcome Pickups**. Every pricing, product and UX decision is checked against them — see
+`docs/COMPETITORS.md` for the analysis and the per-PR checklist.
 
 ---
 
@@ -51,27 +55,31 @@ the primary conversation channel.
 
 ---
 
-## 3. Current state of the code (honest status, 2026-10-13)
+## 3. Current state of the code (2026-10-14)
 
-- The repo contains a **single static prototype**: `index.html` (Tailwind via CDN, vanilla JS).
-- **`index.html` is truncated.** The file ends partway through the `SIGHTSEEING_STOPS` array, so
-  every function the UI calls (`switchTab`, `updateTransferRoute`, `setPricingMode`,
-  `toggleCart`, `addTransferToCart`, `copyWhatsAppQuote`, `submitToDispatch`, …) is missing. The
-  live site shows the layout but is not interactive.
-- The prototype has **four tabs inside one page**, including "4. Dispatch & HubSpot Lead Center".
-  The admin view is therefore public. **There is no `admin.html`** (that URL returns 404).
-- Not yet built anywhere: the 100% / 20% deposit checkout modal, the GPS fleet map, the KYC vault,
-  tri-party chat, Supabase, logins, Green Pay.
-- The prototype's **visual design is the reference** for the Next.js rebuild: emerald/amber
-  palette, Plus Jakarta Sans, route configurator bar, stop cards, live route summary, slide-over
-  Trip Cart.
-
----
+- **Next.js 16 (App Router) + TypeScript strict + Tailwind 4**, in `src/`.
+- `src/lib/catalog.ts` — the §5 catalog as typed data (prices in integer cents).
+- `src/lib/pricing.ts` — the §6 pricing engine (season multipliers in basis points, cents math).
+- `src/lib/cart.ts` — Trip Cart model, 100% / 20% deposit rule, WhatsApp deep-link builder.
+- `src/components/` — storefront UI: `Header`, `TransfersView`, `DayToursView`,
+  `ExpeditionsView`, `CartDrawer`, `Toast`, `Storefront` (state + localStorage cart).
+- `legacy/index.html` — the original static prototype, kept as the **design reference**.
+- Not yet built: Supabase, logins, `/admin`, driver portal, Green Pay checkout (the cart's
+  "Pay online" button is disabled), live bidding (bid mode adds a request to the cart for Jorge to
+  handle over WhatsApp), GPS map, chat.
+- Env: `NEXT_PUBLIC_WHATSAPP_NUMBER` (see `.env.example`) must be set in Vercel.
 
 ## 4. Product modules
 
 ### 4.1 Customer storefront (public)
-1. **Transfers & Sightseeing** — origin/destination, date, passengers, Fixed Price vs Driver Bids
+Layout (decided 2026-10-14): a booking **app first**, not a marketing site. The home page opens
+on the trip builder; the trip is a persistent sidebar on desktop and a bottom bar + drawer on
+phones. Marketing lives on separate route/tour landing pages (`/transfers/[slug]`) that rank on
+Google and pre-fill the builder via `?from=<hub>&to=<hub>`. Trust content (driver checks,
+guarantees, real reviews only) lives in `src/lib/trust.ts`.
+
+1. **Transfers & Sightseeing** — exact pick-up/drop-off by map place search (hotel, dock,
+   restaurant, address; see COMPETITORS.md §2d), date, passengers, Fixed Price vs Driver Bids
    toggle, sightseeing stop cards, live route timeline with total duration, flight number or hotel
    field, price breakdown.
 2. **1-Day Private Tours** — region filter, Smart En-Route Transfer upgrade (+$65).
@@ -80,7 +88,7 @@ the primary conversation channel.
    **100% full payment** or **20% deposit** (to lock SINAC permits and drivers). Checkout via
    Green Pay.
 5. **WhatsApp concierge** — context-aware buttons (`route`, `cart`, `general`) that pre-fill the
-   route or cart contents into a WhatsApp message to Costa Rica Travel Planner.
+   route or cart contents into a WhatsApp message to the PuraVidaWay team.
 
 ### 4.2 Admin command center (`/admin`, admin role only — never public)
 1. **Bookings & dispatch** — incoming bookings, assign drivers, status changes.
@@ -270,8 +278,8 @@ jsonb · `sightseeing_stops` jsonb (array of stop IDs + snapshot prices) · `veh
 | Phase | Scope | Status |
 | :--- | :--- | :--- |
 | **1. Prototype** | Static `index.html` design for storefront + admin tab | Done as a design mock, but the JS is truncated and non-functional |
-| **2a. Next.js foundation** | Next.js + TS + Tailwind scaffold; rebuild storefront from the prototype design with catalog data from §5; working cart and WhatsApp buttons | **Next** |
-| **2b. Supabase core** | Schema + RLS from §7, Auth with roles, catalog served from DB, `/admin` behind login, inventory & season pricing manager | Planned |
+| **2a. Next.js foundation** | Next.js + TS + Tailwind scaffold; rebuild storefront from the prototype design with catalog data from §5; working cart and WhatsApp buttons | **Done (PR #2)** |
+| **2b. Supabase core** | Schema + RLS from §7, Auth with roles, catalog served from DB, `/admin` behind login, inventory & season pricing manager | **Next** |
 | **2c. Driver KYC vault** | Driver sign-up, document upload, admin approval, 30-day expiry alerts | Planned |
 | **2d. Checkout** | Green Pay integration, 100% / 20% deposit, payment webhooks, booking confirmation emails | Planned (needs Green Pay credentials) |
 | **3. Bidding & GPS** | Live driver bidding; driver on-duty GPS broadcast to admin Leaflet map | Planned |
@@ -282,12 +290,15 @@ jsonb · `sightseeing_stops` jsonb (array of stop IDs + snapshot prices) · `veh
 
 ## 9. Open decisions
 
-1. **Transfer pricing model.** The original Route-Pricing doc describes *base fee + distance/time
+1. **Transfer pricing model.** Research done (COMPETITORS.md §2b–2d): Daytrip Sedan SJO→La
+   Fortuna $161, GetTransfer Comfort $106; both price by routed distance to the exact point.
+   Recommendation: zone-to-zone price table per vehicle class + per-km surcharge outside zones. The original Route-Pricing doc describes *base fee + distance/time
    × vehicle multiplier* (1.0× / 1.4× / 1.8×). The prototype uses *flat rates per vehicle class*
    ($175–$290) regardless of route, which would make SJO→Manuel Antonio cost the same as
    SJO→Tamarindo. Recommended: a **route × vehicle price table** (each corridor has its own price
    per vehicle class), which matches how Costa Rica transfers are actually quoted.
-2. **Platform commission %** on accepted bids.
+2. **Platform commission %** on accepted bids. Benchmarks: Daytrip keeps ~30%, GetTransfer
+   13–25% (see COMPETITORS.md §1b). Recommendation: flat 12–15%, weekly payouts.
 3. **Bid floor/ceiling** relative to the reference price (e.g. 70%–130%).
 4. **Stop ↔ corridor mapping** (which stops are offered on which routes).
 5. **Lodging tier pricing**: per person or per booking? Same question for day tours.
@@ -312,6 +323,13 @@ Rules for every AI:
 - When a change affects anything in this spec, update the spec in the same PR.
 - Add a dated line to `docs/CHANGELOG.md` for every merged change: `YYYY-MM-DD — <AI> — <what changed>`.
 - Address the founder as **Jorge Li**.
+- **Brand separation (decided 2026-10-14):** PuraVidaWay is a separate public brand. Nothing a
+  customer or driver can see (UI copy, page metadata, WhatsApp messages, emails, legal pages)
+  may name the owner, Costa Rica Travel Planner, La Familia Mágica or Jorge's Daytrip profile.
+  Use "PuraVidaWay" or "our team".
+- **Driver wording:** describe partner drivers as hand-picked, independent local partners who are
+  interviewed, background-checked (criminal and driving records) and submit vehicle information
+  and proof of insurance. Show the ICT permit as a per-driver badge, never as a blanket claim.
 - Reflect real Costa Rican operations: ICT permits, SINAC park permits and timed entries, Sierpe
   boat logistics, Marchamo / Dekra / INS compliance, realistic drive times, WhatsApp-first sales.
 - Never commit secrets. Supabase service-role keys and Green Pay credentials live only in Vercel
