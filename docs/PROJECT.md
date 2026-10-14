@@ -64,6 +64,9 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
 - `src/components/` — storefront UI: `Header`, `TransfersView`, `DayToursView`,
   `ExpeditionsView`, `CartDrawer`, `Toast`, `Storefront` (state + localStorage cart).
 - `legacy/index.html` — the original static prototype, kept as the **design reference**.
+- `supabase/migrations/` — database schema, row-level security and catalog seed (Phase 2b);
+  `supabase/tests/rls.test.mjs` checks the security rules (`npm run test:db`). Setup steps for
+  Jorge: `docs/SETUP-SUPABASE.md`.
 - Not yet built: Supabase, logins, `/admin`, driver portal, Green Pay checkout (the cart's
   "Pay online" button is disabled), live bidding (bid mode adds a request to the cart for Jorge to
   handle over WhatsApp), GPS map, chat.
@@ -255,6 +258,9 @@ jsonb · `sightseeing_stops` jsonb (array of stop IDs + snapshot prices) · `veh
 (`client` | `driver` | `admin`) · `message` text · `sent_at`
 
 ### 7.6 Catalog & pricing tables (new — needed for the admin pricing manager)
+Implemented in `supabase/migrations/`. Catalog ids are short text slugs (`suv`, `tarcoles`)
+matching `src/lib/catalog.ts`; seasons use `season_ranges` (start/end dates) plus a `priority`,
+and `season_for_date(date)` returns the season for a travel date.
 - `sightseeing_stops` — id, name, description, duration_min, price, park_fee_included, corridors, active
 - `vehicle_classes` — id, name, base_rate, max_pax, luggage, badge, active
 - `day_tours` — id, region, name, description, duration_hours, price, en_route_upgrade_price, active
