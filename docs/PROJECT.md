@@ -365,12 +365,22 @@ and `season_for_date(date)` returns the season for a travel date.
     (§11.2). Capacitor was rejected (weak background GPS, App Store risk as "just a website").
 13. **One app or two:** decided (Jorge, 2026-10-14): **two store listings**, "PuraVidaWay" for
     travellers and "PuraVidaWay Partner" for drivers, built from one codebase (§11.1).
-14. **Store publisher.** Which legal entity publishes the apps (needs a D-U-N-S number for Apple).
-    It must not be Jorge personally or Costa Rica Travel Planner, or the store would show that name
-    as the seller (brand separation, §10).
+14. **Store publisher:** plan (Jorge, 2026-10-14): a **new Costa Rican S.A.** for PuraVidaWay
+    (legal name to confirm, ideally "PuraVidaWay S.A."). The same company should hold the D-U-N-S
+    number, Apple and Google accounts, Green Pay merchant account, bank account and domain. It must
+    not be Jorge personally or Costa Rica Travel Planner, or the store would show that name as the
+    seller (brand separation, §10). Check ICT / tax registration needs with the notary.
 15. **Account deletion and data retention.** Both stores require users to be able to delete their
-    account. Decide what happens to past bookings, payments and driver KYC documents (keep for
-    legal/tax records vs erase) before the first store submission.
+    account. Recommended rule (pending Jorge and his accountant):
+    - **Blocked** while the person has an upcoming trip, an unpaid balance or an open dispute
+      (they are told why and how to cancel first).
+    - **Erased:** login, profile, phone, email, saved preferences, push tokens; chat messages
+      are replaced by "deleted user".
+    - **Kept, anonymised:** bookings and payments, as accounting records for as long as Costa Rican
+      tax rules require (period to confirm with the accountant).
+    - **Drivers:** KYC document files are deleted; a minimal record (name, permit number, dates
+      checked and approved) is kept for the same period in case of an insurance or legal claim.
+    - Done within 30 days; a confirmation email is sent. Available in the apps and on the website.
 
 ---
 
@@ -405,7 +415,7 @@ Rules for every AI:
 ## 11. Mobile apps (Phase 5) — plan
 
 > Drafted 2026-10-14. Decided by Jorge the same day: **Expo** and **two apps** (§9 #12–#13).
-> Still open: store publisher and account deletion (§9 #14–#15). Nothing here changes the website.
+> Planned: a new S.A. as publisher (§9 #14). Account deletion rule recommended, pending Jorge (§9 #15). Nothing here changes the website.
 
 ### 11.1 Two apps, two jobs
 

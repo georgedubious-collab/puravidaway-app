@@ -3,6 +3,8 @@
 Every merged change gets one line: `YYYY-MM-DD — <AI or Jorge> — <what changed>`.
 Newest entries first. AIs: read the top of this file before starting work.
 
+- 2026-10-14 — Claude — §9 #14: publisher will be a new Costa Rican S.A. (Jorge's plan). §9 #15:
+  recommended account-deletion and data-retention rule, pending Jorge and his accountant.
 - 2026-10-14 — Claude — Recorded Jorge's decisions: Expo for the mobile apps and two separate apps
   (PuraVidaWay for travellers, PuraVidaWay Partner for drivers). PROJECT.md §2, §9 #12–#13, §11.
 - 2026-10-14 — Claude — Mobile apps plan: new PROJECT.md §11 (driver app first with Expo, then
