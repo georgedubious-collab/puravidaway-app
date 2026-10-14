@@ -5,7 +5,8 @@ Newest entries first. AIs: read the top of this file before starting work.
 
 - 2026-10-14 — Claude — COMPETITORS.md §2b: Daytrip per-vehicle price grid for 12 Costa Rica
   routes (Nov 2026 quote), stop pricing, pricing behaviour (distance from SJO, supply elsewhere),
-  and the finding that Daytrip does not sell Sierpe / Drake Bay / Corcovado.
+  plus SJO→Drake Bay and SJO→Puerto Jiménez (Daytrip sells both; it does not sell the Sierpe
+  boat connection, permits or Corcovado logistics).
 - 2026-10-14 — Claude — COMPETITORS.md §1b: driver economics from real Daytrip statements (~30%
   cut) and GetTransfer's carrier commission tiers (13–25%); corrected the outdated 5% claim.
 - 2026-10-14 — Claude — Added `docs/COMPETITORS.md` (Daytrip, GetTransfer, Welcome Pickups

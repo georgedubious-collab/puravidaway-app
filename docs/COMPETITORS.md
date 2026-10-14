@@ -68,10 +68,15 @@ VAT included, free cancellation up to 24 h, driver waits up to 60 min after the 
 | SJO → Puerto Viejo | 232 km / 4 h | $260 | $281 | $384 | $384 | $352 |
 | La Fortuna → Manuel Antonio | 235 km / 4 h 50 | $291 | $322 | $417 | $417 | $407 |
 | SJO → Tamarindo | 273 km / 4 h 40 | $313 | $338 | $457 | $457 | $421 |
+| SJO → Puerto Jiménez (Corcovado) | ~5 h 35 | $518 | $530 | $582 | $639 | $530 |
+| SJO → Drake Bay (by road) | ~6 h 10 | $398 | $431 | $588 | $588 | $540 |
 
-**Not sold by Daytrip:** any route to **Sierpe, Drake Bay or Corcovado** (no pages exist).
-Puerto Jiménez, Uvita, Dominical, Ojochal, Jacó, Santa Teresa, Nosara, Cahuita and Tortuguero
-are sold.
+**Osa coverage (corrected 2026-10-14):** Daytrip **does** sell Drake Bay and Puerto Jiménez.
+Drake Bay has no landing page (so it doesn't show up in route URLs or Google), but it is bookable
+from the search box as a door-to-door road transfer. Puerto Jiménez has landing pages from SJO,
+Manuel Antonio, Uvita and Quepos. **Not sold:** a Sierpe dock transfer or a boat connection —
+Daytrip only drives you; the Sierpe → Drake boat, SINAC permits and Corcovado logistics are not
+part of their product.
 
 Vehicle classes (Daytrip's definitions):
 - **Sedan Lite** — budget, direct ride only (no stops), driver may not speak English; 1–3 pax, 3
@@ -106,9 +111,10 @@ guided — keep that difference visible.
 ### Implications for PuraVidaWay
 1. Transfer prices must be **per route × vehicle class**, never flat. Our flat $175 is ~$27 high
    on SJO→La Fortuna and ~$160 low on SJO→Tamarindo (vs Sedan).
-2. **Underserved corridors are where Daytrip is expensive or absent:** Southern Pacific
-   (MA→Uvita $317), Osa (Sierpe/Drake: not sold at all), Liberia. Jorge can undercut sharply there
-   or own them outright.
+2. **Underserved corridors are where Daytrip is expensive:** Southern Pacific (MA→Uvita $317),
+   Osa (SJO→Puerto Jiménez $530, SJO→Drake by road $431–588), Liberia. Jorge can undercut there,
+   and win Osa with what Daytrip doesn't offer: the **Sierpe dock + boat to Drake** combo
+   (faster than the ~6 h road), SINAC permits and guided Corcovado.
 3. Match Daytrip's class names and capacities so travellers compare like with like; our "SUV
    1–4 pax" is not their SUV.
 
