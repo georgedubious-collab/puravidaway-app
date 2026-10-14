@@ -4,7 +4,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DriverStandards } from "@/components/trust/DriverStandards";
 import { Reviews } from "@/components/trust/Reviews";
-import { HUBS, SEASONS, SIGHTSEEING_STOPS, VEHICLE_CLASSES, routeMinutes } from "@/lib/catalog";
+import { HUBS, routeMinutes } from "@/lib/catalog";
+import { getCatalog } from "@/lib/catalogSource";
 import { formatDuration, formatUSD } from "@/lib/pricing";
 import { builderHref, ROUTE_PAGES, routePage } from "@/lib/routePages";
 import { GUARANTEES } from "@/lib/trust";
@@ -38,14 +39,15 @@ export default async function RouteLandingPage({
   const destName = HUBS.find((h) => h.id === page.destination)!.name;
   const touches = (hubs?: string[]) =>
     !hubs || hubs.includes(page.origin) || hubs.includes(page.destination);
-  const vehicles = VEHICLE_CLASSES.filter((v) => touches(v.onlyForHubs));
+  const catalog = await getCatalog();
+  const vehicles = catalog.vehicles.filter((v) => touches(v.onlyForHubs));
   const fromCents = Math.min(...vehicles.map((v) => v.baseRateCents));
   const cheapest = vehicles.find((v) => v.baseRateCents === fromCents)!;
-  const stops = SIGHTSEEING_STOPS.filter(
+  const stops = catalog.stops.filter(
     (s) => s.corridors.includes(page.origin) || s.corridors.includes(page.destination),
   );
   const pct = (id: string) => {
-    const season = SEASONS.find((x) => x.id === id);
+    const season = catalog.seasons.find((x) => x.id === id);
     return season ? Math.round((season.multiplierBps - 10000) / 100) : 0;
   };
   const highPct = pct("high");

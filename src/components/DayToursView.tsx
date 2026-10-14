@@ -2,15 +2,12 @@
 
 import { Clock, PlusCircle, ShieldCheck } from "lucide-react";
 import { useState } from "react";
-import {
-  DAY_TOURS,
-  EN_ROUTE_UPGRADE_CENTS,
-  REGION_NAMES,
-  type Region,
-} from "@/lib/catalog";
+import { EN_ROUTE_UPGRADE_CENTS, REGION_NAMES, type Region } from "@/lib/catalog";
+import { seasonForYmd } from "@/lib/catalogModel";
+import { useCatalog } from "./CatalogContext";
 import { addDays } from "@/lib/dates";
 import { newItemId, type CartItem } from "@/lib/cart";
-import { formatUSD, quoteDayTour, seasonForDate } from "@/lib/pricing";
+import { formatUSD, quoteDayTour } from "@/lib/pricing";
 
 export function DayToursView({
   today,
@@ -22,9 +19,14 @@ export function DayToursView({
   const [region, setRegion] = useState<Region | "ALL">("ALL");
   const [date, setDate] = useState(() => addDays(today, 14));
   const [upgrades, setUpgrades] = useState<Record<string, boolean>>({});
-  const season = seasonForDate(new Date(`${date}T12:00:00`));
-
-  const tours = region === "ALL" ? DAY_TOURS : DAY_TOURS.filter((t) => t.region === region);
+  const catalog = useCatalog();
+  const season = seasonForYmd(date, catalog);
+  const all = catalog.dayTours;
+  const tours = region === "ALL" ? all : all.filter((t) => t.region === region);
+  const fromUpgradeCents = Math.min(
+    ...all.map((t) => t.enRouteUpgradeCents ?? EN_ROUTE_UPGRADE_CENTS),
+    EN_ROUTE_UPGRADE_CENTS,
+  );
 
   return (
     <section className="space-y-6">
@@ -35,7 +37,7 @@ export function DayToursView({
           </span>
           <h2 className="text-2xl font-extrabold text-slate-900">1-Day Private Costa Rica Tours</h2>
           <p className="text-xs text-slate-600 mt-1 max-w-xl">
-            Upgrade any tour with a <strong>Smart En-Route Transfer (+{formatUSD(EN_ROUTE_UPGRADE_CENTS)})</strong>:
+            Upgrade any tour with a <strong>Smart En-Route Transfer (from +{formatUSD(fromUpgradeCents)})</strong>:
             get picked up in one town and dropped off at your next hotel.
           </p>
         </div>
@@ -66,7 +68,7 @@ export function DayToursView({
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         {tours.map((t) => {
           const upgrade = Boolean(upgrades[t.id]);
-          const total = quoteDayTour(t.id, upgrade, season);
+          const total = quoteDayTour(t.id, upgrade, season, catalog);
           return (
             <div
               key={t.id}
@@ -95,7 +97,7 @@ export function DayToursView({
                   className="mt-0.5 accent-emerald-600"
                 />
                 <span>
-                  <strong>Smart En-Route Transfer</strong> (+{formatUSD(EN_ROUTE_UPGRADE_CENTS)}) — end
+                  <strong>Smart En-Route Transfer</strong> (+{formatUSD(t.enRouteUpgradeCents ?? EN_ROUTE_UPGRADE_CENTS)}) — end
                   the day at your next hotel instead of returning.
                 </span>
               </label>

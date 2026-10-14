@@ -2,10 +2,11 @@
 
 import { ChevronRight, PlusCircle } from "lucide-react";
 import { useState } from "react";
-import { EXPEDITIONS, LODGING_TIERS } from "@/lib/catalog";
+import { seasonForYmd } from "@/lib/catalogModel";
+import { useCatalog } from "./CatalogContext";
 import { addDays } from "@/lib/dates";
 import { newItemId, type CartItem } from "@/lib/cart";
-import { formatUSD, quoteExpedition, seasonForDate } from "@/lib/pricing";
+import { formatUSD, quoteExpedition } from "@/lib/pricing";
 
 export function ExpeditionsView({
   today,
@@ -16,7 +17,9 @@ export function ExpeditionsView({
 }) {
   const [date, setDate] = useState(() => addDays(today, 30));
   const [tiers, setTiers] = useState<Record<string, string>>({});
-  const season = seasonForDate(new Date(`${date}T12:00:00`));
+  const catalog = useCatalog();
+  const season = seasonForYmd(date, catalog);
+  const tiersList = catalog.lodgingTiers;
 
   return (
     <section className="space-y-6">
@@ -43,10 +46,10 @@ export function ExpeditionsView({
       </div>
 
       <div className="space-y-5">
-        {EXPEDITIONS.map((exp) => {
-          const tierId = tiers[exp.id] ?? "base";
-          const tier = LODGING_TIERS.find((t) => t.id === tierId)!;
-          const total = quoteExpedition(exp.id, tierId, season);
+        {catalog.expeditions.map((exp) => {
+          const tierId = tiers[exp.id] ?? tiersList[0]?.id ?? "base";
+          const tier = tiersList.find((t) => t.id === tierId) ?? tiersList[0];
+          const total = quoteExpedition(exp.id, tier.id, season, catalog);
           return (
             <div
               key={exp.id}
@@ -84,7 +87,7 @@ export function ExpeditionsView({
                   Lodging tier
                 </p>
                 <div className="space-y-1.5">
-                  {LODGING_TIERS.map((t) => (
+                  {tiersList.map((t) => (
                     <label
                       key={t.id}
                       className={`flex items-center justify-between gap-2 text-xs rounded-lg border px-3 py-2 cursor-pointer ${
