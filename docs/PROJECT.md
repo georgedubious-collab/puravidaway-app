@@ -292,6 +292,10 @@ jsonb · `sightseeing_stops` jsonb (array of stop IDs + snapshot prices) · `veh
 | **4. Chat & CRM** | Tri-party chat via Supabase Realtime; HubSpot sync; WhatsApp Business API | Planned |
 | **5. Mobile apps** | Client and Driver apps for App Store / Google Play | Planned |
 
+**Launch checklist (before sending real traffic):** set `NEXT_PUBLIC_WHATSAPP_NUMBER` in Vercel;
+set `NEXT_PUBLIC_SITE_INDEXABLE=true` (pages are `noindex` until then); decide the cancellation
+policy (§9 #7); add real reviews to `src/lib/trust.ts`; connect the custom domain (§9 #8).
+
 ---
 
 ## 9. Open decisions

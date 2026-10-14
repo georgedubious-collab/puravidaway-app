@@ -3,6 +3,9 @@
 Every merged change gets one line: `YYYY-MM-DD — <AI or Jorge> — <what changed>`.
 Newest entries first. AIs: read the top of this file before starting work.
 
+- 2026-10-14 — Claude — Pre-launch no-index: every page sends `robots: noindex, nofollow` until
+  `NEXT_PUBLIC_SITE_INDEXABLE=true` is set in Vercel (PROJECT.md §8 launch checklist).
+
 - 2026-10-14 — Claude — Review fixes for PR #2 (applied on top of the app-first redesign): page
   is server-rendered per request (was a blank loading shell with no SEO content); `today` is
   computed server-side in Costa Rica time and passed down, no `new Date()` in client render;
