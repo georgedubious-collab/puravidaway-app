@@ -1,9 +1,11 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
+import { after } from "next/server";
 import { getCatalog } from "@/lib/catalogSource";
 import { HUBS } from "@/lib/catalog";
 import { todayInCostaRica } from "@/lib/dates";
+import { ADMIN_EMAIL, SITE_URL, sendEmail } from "@/lib/email";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { MAX_TRIP_ITEMS, parseSpec, priceItem, type ItemSpec } from "@/lib/tripRequest";
 
@@ -41,7 +43,7 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
     if (!name || name.length > 80) return { ok: false, error: "Please add your full name." };
     if (!EMAIL.test(email) || email.length > 120) return { ok: false, error: "Please check your email address." };
     if (phone.replace(/\D/g, "").length < 7 || phone.length > 30) {
-      return { ok: false, error: "Please add a WhatsApp number with country code, e.g. +1 555 123 4567." };
+      return { ok: false, error: "Please add a mobile number with country code, e.g. +1 555 123 4567." };
     }
     if (input.mode !== "full_100" && input.mode !== "deposit_20") return { ok: false, error: "Pick how you'd like to pay." };
     const items = Array.isArray(input.items) ? input.items : [];
@@ -113,7 +115,34 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
       console.error("[trip request]", error);
       return { ok: false, error: "We couldn't save your request. Please try again or send it on WhatsApp." };
     }
-    return { ok: true, refs: (data ?? []).map((r) => r.booking_ref as string), tripId };
+    const refs = (data ?? []).map((r) => r.booking_ref as string);
+    const total = priced.reduce((n, p) => n + p.totalCents, 0) / 100;
+    const tripUrl = `${SITE_URL}/trip/${tripId}`;
+    after(async () => {
+      await sendEmail({
+        to: email,
+        subject: `We got your trip request (${refs.join(", ")})`,
+        lines: [
+          `Hi ${name.split(" ")[0]},`,
+          `Thanks for your request! Our team is checking availability and will confirm your pickup times. Nothing has been charged.`,
+          `Your booking reference${refs.length > 1 ? "s" : ""}: ${refs.join(", ")}.`,
+          "Your trip page has your bookings and a chat with our team. Your driver's profile and car photos appear there once confirmed.",
+        ],
+        button: { label: "Open your trip page", url: tripUrl },
+      });
+      if (ADMIN_EMAIL) {
+        await sendEmail({
+          to: ADMIN_EMAIL,
+          subject: `New trip request ${refs.join(", ")} · $${total.toFixed(2)}`,
+          lines: [
+            `${name} (${email}, ${phone}) sent ${refs.length} item${refs.length > 1 ? "s" : ""} worth $${total.toFixed(2)}, ${input.mode === "deposit_20" ? "20% deposit" : "paying in full"}.`,
+            notes ? `Notes: ${notes}` : "",
+          ].filter(Boolean),
+          button: { label: "Open in Bookings", url: `${SITE_URL}/admin/bookings` },
+        });
+      }
+    });
+    return { ok: true, refs, tripId };
   } catch (e) {
     console.error("[trip request]", e);
     return { ok: false, error: "We couldn't save your request. Please try again or send it on WhatsApp." };

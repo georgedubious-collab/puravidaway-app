@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ActionForm } from "@/components/ActionForm";
+import { ChatBox } from "@/components/ChatBox";
 import { requireRole } from "@/lib/auth";
 import { BOOKING_STATUSES, BOOKING_STATUS_LABEL, SERVICE_LABEL, usd, type BookingRow } from "@/lib/bookings";
 import { getCatalog } from "@/lib/catalogSource";
@@ -179,6 +180,15 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
             .
           </p>
         )}
+      </section>
+
+      <section className="rounded-xl border border-slate-200 bg-white p-5">
+        <h2 className="font-extrabold text-slate-900">Trip chat</h2>
+        <p className="mt-1 mb-3 text-sm text-slate-600">
+          With the traveller and, once assigned, the driver. Messages are emailed to them. You can share
+          phone numbers here; travellers and drivers can&apos;t.
+        </p>
+        <ChatBox bookingId={b.id} viewer={{ kind: "staff" }} allowContactDetails />
       </section>
     </div>
   );

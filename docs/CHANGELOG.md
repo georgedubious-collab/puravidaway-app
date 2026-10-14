@@ -3,6 +3,17 @@
 Every merged change gets one line: `YYYY-MM-DD — <AI or Jorge> — <what changed>`.
 Newest entries first. AIs: read the top of this file before starting work.
 
+- 2026-10-14 — Claude — Trip chat (Phase 4, migration 0009). One thread per booking between the
+  traveller (on their private trip page, no account), the assigned driver (new `/driver/trips`
+  and trip detail) and the team (admin booking page). Server actions check the trip link or the
+  sign-in, then read/write with the server key; travellers and drivers can't share phone
+  numbers, emails or links (app + database), the team can. New messages refresh every 8 s and
+  are emailed through Resend (`src/lib/email.ts`) at most once until the recipient reads (or
+  after 30 min). Trip requests now email the traveller a confirmation with the trip-page link and
+  the team a new-request alert. The trip panel now leads with email + chat; WhatsApp is optional.
+  Drivers see the traveller's phone only from the day before the trip, and don't see the price.
+  143 database checks.
+
 - 2026-10-14 — Claude — Ride preferences, driver profiles, trip page (migration 0008). The ride
   builder asks for the driver's language (English-speaking / Spanish or basic English is fine),
   Wi-Fi, stroller, child seats (0–4), pets and a message for the driver (phone numbers, emails and

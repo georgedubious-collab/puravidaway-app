@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { Car, CheckCircle2, Compass, Languages, ShieldCheck } from "lucide-react";
+import { ChatBox } from "@/components/ChatBox";
 import { SERVICE_LABEL, usd, type BookingRow, type BookingStatus } from "@/lib/bookings";
 import { getCatalog } from "@/lib/catalogSource";
 import { ENGLISH_LEVEL_LABEL, prefsSummary } from "@/lib/preferences";
@@ -255,6 +256,21 @@ export default async function TripPage({ params }: { params: Promise<{ tripId: s
                     We&apos;re matching you with a hand-picked local driver. Their profile and car photos will show here.
                   </p>
                 )
+              )}
+
+              {b.status !== "cancelled" && (
+                <div>
+                  <h3 className="mb-2 text-sm font-extrabold text-slate-900">Chat about this {SERVICE_LABEL[b.service_type].toLowerCase()}</h3>
+                  <ChatBox
+                    bookingId={b.id}
+                    viewer={{ kind: "traveller", tripId }}
+                    intro={
+                      showDriver
+                        ? `Questions for ${driver.firstName} or our team? Write here. We'll email you when someone replies.`
+                        : "Questions about this booking? Write here. Our team replies here and we'll email you when we do."
+                    }
+                  />
+                </div>
               )}
             </section>
           );

@@ -303,6 +303,33 @@ await expectOk("server saves preferences with a request", "server", `
 await expectRows("open-request view shows preferences but no contact details", "admin",
   "select 1 from information_schema.columns where table_name = 'open_trip_requests' and column_name in ('preferences','driver_notes')", 2);
 
+// --- Trip chat with guests (file 9) --------------------------------------------------
+await expectOk("server posts a traveller message (no account)", "server", `
+  insert into public.trip_chats (booking_id, sender_id, sender_role, message)
+  values ('10000000-0000-0000-0000-000000000009', null, 'client', 'Hi! We land at 2pm.')`);
+await expectBlocked("only travellers can post without an account", "server", `
+  insert into public.trip_chats (booking_id, sender_id, sender_role, message)
+  values ('10000000-0000-0000-0000-000000000009', null, 'driver', 'x')`);
+await expectBlocked("traveller cannot share a phone number", "server", `
+  insert into public.trip_chats (booking_id, sender_id, sender_role, message)
+  values ('10000000-0000-0000-0000-000000000009', null, 'client', 'text me at 8888 1234')`);
+await expectOk("assigned driver replies", "driver", `
+  insert into public.trip_chats (booking_id, sender_id, sender_role, message)
+  values ('10000000-0000-0000-0000-000000000009', '${U.driver}', 'driver', 'Pura vida! I will be there at 1:45.')`);
+await expectBlocked("driver cannot share an email", "driver", `
+  insert into public.trip_chats (booking_id, sender_id, sender_role, message)
+  values ('10000000-0000-0000-0000-000000000009', '${U.driver}', 'driver', 'mail me: a@b.com')`);
+await expectOk("team can share contact details", "admin", `
+  insert into public.trip_chats (booking_id, sender_id, sender_role, message)
+  values ('10000000-0000-0000-0000-000000000009', '${U.admin}', 'admin', 'Driver phone: +506 8888 1234')`);
+await expectRows("assigned driver reads the trip chat", "driver",
+  "select * from public.trip_chats where booking_id = '10000000-0000-0000-0000-000000000009'", 3);
+await expectRows("other client cannot read it", "client2",
+  "select * from public.trip_chats where booking_id = '10000000-0000-0000-0000-000000000009'", 0);
+await expectRows("read receipts are server-only", "admin", "select * from public.chat_reads", 0);
+await expectBlocked("drivers cannot touch read receipts", "driver",
+  "insert into public.chat_reads (booking_id, party) values ('10000000-0000-0000-0000-000000000009', 'driver')");
+
 // --- Bids -----------------------------------------------------------------------------
 await expectOk("approved driver bids on open request", "driver", `
   insert into public.bids (id, booking_id, driver_id, bid_amount) values
@@ -334,8 +361,8 @@ await expectBlocked("client cannot post as admin", "client", `
 await expectBlocked("stranger cannot post", "client2", `
   insert into public.trip_chats (booking_id, sender_id, sender_role, message)
   values ('10000000-0000-0000-0000-000000000001', '${U.client2}', 'client', 'x')`);
-await expectRows("unassigned driver cannot read chat", "driver", "select * from public.trip_chats", 0);
-await expectRows("admin reads chat", "admin", "select * from public.trip_chats", 1);
+await expectRows("unassigned driver cannot read chat", "driver", "select * from public.trip_chats where booking_id <> '10000000-0000-0000-0000-000000000009'", 0);
+await expectRows("admin reads chat", "admin", "select * from public.trip_chats where booking_id <> '10000000-0000-0000-0000-000000000009'", 1);
 
 // --- Payments -------------------------------------------------------------------------------
 await expectBlocked("client cannot record a payment", "client", `

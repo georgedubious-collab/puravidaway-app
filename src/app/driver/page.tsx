@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { Suspense } from "react";
 import { ActionForm } from "@/components/ActionForm";
 import { requireUser, type Profile } from "@/lib/auth";
@@ -34,6 +33,7 @@ import {
   saveVehicle,
 } from "./actions";
 import { DocumentUpload } from "./DocumentUpload";
+import { DriverHeader } from "./DriverHeader";
 
 export const metadata: Metadata = {
   title: "Drive with PuraVidaWay",
@@ -45,18 +45,7 @@ const input = "min-h-11 w-full rounded-lg border border-slate-300 px-3 text-base
 export default function DriverPage() {
   return (
     <main className="flex-1 bg-slate-50">
-      <header className="bg-emerald-950 text-white">
-        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
-          <Link href="/" className="font-extrabold text-lg">
-            PuraVidaWay <span className="text-amber-400">Drivers</span>
-          </Link>
-          <form action="/auth/signout" method="post">
-            <button type="submit" className="min-h-10 px-3 rounded-lg border border-emerald-700 text-sm text-emerald-100">
-              Sign out
-            </button>
-          </form>
-        </div>
-      </header>
+      <DriverHeader />
       <div className="max-w-3xl mx-auto px-4 py-8">
         <Suspense fallback={<p className="text-sm font-semibold text-slate-500">Loading…</p>}>
           <DriverPortal />
