@@ -251,10 +251,10 @@ await expectOk("server creates bookings", "server", `
     ('10000000-0000-0000-0000-000000000001', '${U.client}', 'transfer', 190, 'pending_bids'),
     ('10000000-0000-0000-0000-000000000002', '${U.client2}', 'transfer', 200, 'confirmed')`);
 await expectRows("client sees own booking only", "client", "select * from public.bookings", 1);
-await expectRows("approved driver sees open request summary", "driver", "select * from public.open_trip_requests", 1);
+await expectRows("approved driver sees open request summary", "driver", "select * from public.open_trip_requests()", 1);
 await expectRows("driver cannot read the full booking row", "driver", "select * from public.bookings", 0);
-await expectRows("pending driver sees no requests", "pending", "select * from public.open_trip_requests", 0);
-await expectRows("client sees no open requests", "client2", "select * from public.open_trip_requests", 0);
+await expectRows("pending driver sees no requests", "pending", "select * from public.open_trip_requests()", 0);
+await expectRows("client sees no open requests", "client2", "select * from public.open_trip_requests()", 0);
 await expectRows("visitor sees no bookings", "anon", "select * from public.bookings", 0);
 await expectBlocked("client cannot change own price", "client", "update public.bookings set total_price = 1", { affected: 0 });
 await expectRows("booking ref generated", "admin", "select * from public.bookings where booking_ref like 'PVW-1000%'", 2);
@@ -282,7 +282,7 @@ await expectRows("assigned driver cannot read internal notes", "driver", "select
 await expectRows("assigned driver sees the trip", "driver",
   "select 1 from public.bookings where id = '10000000-0000-0000-0000-000000000009'", 1);
 await expectRows("drivers' open-request view has no guest details", "admin",
-  "select 1 from information_schema.columns where table_name = 'open_trip_requests' and column_name in ('guest_name','guest_phone','client_notes','admin_notes')", 0);
+  "select 1 from pg_proc where proname = 'open_trip_requests' and pg_get_function_result(oid) ~ '(guest|client_id|client_notes|admin_notes|trip_id|coords)'", 0);
 
 // --- Preferences & profiles (file 8) -----------------------------------------------
 await expectOk("driver writes a bio", "driver",
@@ -303,7 +303,7 @@ await expectOk("server saves preferences with a request", "server", `
   update public.bookings set preferences = '{"language":"english","child_seats":1,"pets":true}', driver_notes = 'We have a small dog'
    where id = '10000000-0000-0000-0000-000000000001'`);
 await expectRows("open-request view shows preferences but no contact details", "admin",
-  "select 1 from information_schema.columns where table_name = 'open_trip_requests' and column_name in ('preferences','driver_notes')", 2);
+  "select 1 from pg_proc where proname = 'open_trip_requests' and pg_get_function_result(oid) ~ 'preferences' and pg_get_function_result(oid) ~ 'driver_notes'", 1);
 
 // --- Trip chat with guests (file 9) --------------------------------------------------
 await expectOk("server posts a traveller message (no account)", "server", `
