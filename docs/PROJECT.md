@@ -307,7 +307,7 @@ and `season_for_date(date)` returns the season for a travel date.
 - **trip_chats:** per booking; travellers post through the server after it checks their trip
   code; drivers and travellers can't send phone numbers, emails or links. `chat_reads`,
   `request_log` and the rate-limit functions are server-only. Approved drivers see **open** requests (`pending_bids`) only through the
-  `open_trip_requests` view: towns, date, vehicle, passengers and price, without the client's id,
+  `open_trip_requests()` function: towns, date, vehicle, passengers and price, without the client's id,
   exact coordinates or flight/hotel notes, until a bid is accepted.
 - **bids:** drivers create and manage their own; the amount can change only while the request is
   open and the driver is still approved (withdrawing is always allowed); the booking's client

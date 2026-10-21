@@ -3,6 +3,11 @@
 Every merged change gets one line: `YYYY-MM-DD — <AI or Jorge> — <what changed>`.
 Newest entries first. AIs: read the top of this file before starting work.
 
+- 2026-10-21 — Claude — Supabase security-advisor fixes (migration 0010): the drivers' open-request
+  list is now the function `open_trip_requests()` (same safe columns) instead of an owner-rights
+  view, and four helper functions get a fixed `search_path`. Migrations can now be applied
+  through the Supabase connection instead of the SQL editor. 168 database checks.
+
 - 2026-10-14 — Claude — Trip chat (Phase 4, migration 0009). One thread per booking between the
   traveller (on their private trip page, no account), the assigned driver (new `/driver/trips`
   and trip detail) and the team (admin booking page). Server actions check the trip link or the
