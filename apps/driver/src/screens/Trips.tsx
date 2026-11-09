@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { FlatList, Pressable, RefreshControl, Text, View } from "react-native";
 import { crDateTime, STATUS_LABEL, usd } from "../format";
 import { C, S } from "../theme";
@@ -15,12 +16,15 @@ export function Trips({
   loading,
   onRefresh,
   onOpen,
+  header,
 }: {
   trips: Trip[];
   names: Names;
   loading: boolean;
   onRefresh: () => void;
   onOpen: (id: string) => void;
+  /** Shown above the list, e.g. the request to share location. */
+  header?: ReactNode;
 }) {
   const active = trips.filter((t) => t.status === "confirmed" || t.status === "in_progress");
   const past = trips.filter((t) => t.status === "completed").reverse();
@@ -31,7 +35,12 @@ export function Trips({
       data={[...active, ...past]}
       keyExtractor={(t) => t.id}
       refreshControl={<RefreshControl refreshing={loading} onRefresh={onRefresh} tintColor={C.emerald} />}
-      ListHeaderComponent={<Text style={S.h1}>Your trips</Text>}
+      ListHeaderComponent={
+        <View style={{ gap: 12 }}>
+          <Text style={S.h1}>Your trips</Text>
+          {header}
+        </View>
+      }
       ListEmptyComponent={<Empty text="No trips yet. Send offers on open jobs; when the team picks you, the trip appears here." />}
       renderItem={({ item }) => (
         <Pressable accessibilityRole="button" onPress={() => onOpen(item.id)} style={[S.card, item.status === "in_progress" ? { borderColor: C.emerald, borderWidth: 2 } : null]}>

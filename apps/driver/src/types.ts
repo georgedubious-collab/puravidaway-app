@@ -62,6 +62,8 @@ export interface DriverInfo {
   home_hub: string | null;
   rating_avg: number | string | null;
   rating_count: number | null;
+  /** Set when the driver agreed to share location around trips. */
+  location_consent_at: string | null;
 }
 
 /** Names of tours and stops, read once from the public catalog tables. */

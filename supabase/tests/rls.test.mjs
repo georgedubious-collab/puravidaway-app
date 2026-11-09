@@ -541,6 +541,33 @@ await expectRows("driver starts the trip", "driver", `select public.driver_set_t
 await expectBlocked("driver cannot start it twice", "driver", `select public.driver_set_trip_status(${J3}, 'in_progress')`);
 await expectBlocked("driver cannot set other statuses", "driver", `select public.driver_set_trip_status(${J3}, 'cancelled')`);
 await expectRows("driver completes the trip", "driver", `select public.driver_set_trip_status(${J3}, 'completed') as ref`, 1);
+// Migration 0028: driver location around trips, with consent.
+await expectRows("no position is stored without consent", "driver", "select public.report_location(9.99, -84.2) as ok", 1);
+await expectRows("nothing stored yet", "admin", "select * from public.driver_locations", 0);
+await expectOk("driver agrees to share location", "driver", "select public.set_location_consent(true)");
+await expectOk("server opens a new trip one hour from now for the driver", "server", `
+  insert into public.bookings (id, client_id, service_type, total_price, status, assigned_driver_id, scheduled_at)
+  values ('10000000-0000-0000-0000-000000000005', '${U.client}', 'transfer', 100, 'confirmed', '${U.driver}', now() + interval '1 hour')`);
+await expectRows("driver has a tracking window", "driver", "select * from public.tracking_window()", 1);
+await expectRows("position accepted inside the window", "driver", "select 1 where public.report_location(9.99, -84.2, 12, 20, 90)", 1);
+await expectRows("team sees the latest position", "admin", "select * from public.driver_locations where lat = 9.99 and booking_id = '10000000-0000-0000-0000-000000000005'", 1);
+await expectRows("a second report replaces the first (no history)", "driver", "select 1 where public.report_location(10.01, -84.3)", 1);
+await expectRows("still one row per driver", "admin", "select * from public.driver_locations", 1);
+await expectRows("driver sees their own position", "driver", "select * from public.driver_locations", 1);
+await expectRows("clients never see driver positions", "client", "select * from public.driver_locations", 0);
+await expectRows("visitors never see driver positions", "anon", "select * from public.driver_locations", 0);
+await expectBlocked("driver cannot write a position directly", "driver",
+  `insert into public.driver_locations (driver_id, lat, lng) values ('${U.driver}', 1, 1)`);
+await expectRows("another driver has no window", "pending", "select * from public.tracking_window()", 0);
+await expectOk("server moves that pickup five hours ahead", "server", "update public.bookings set scheduled_at = now() + interval '5 hours' where id = '10000000-0000-0000-0000-000000000005'");
+await expectRows("outside the window the position is refused", "driver", "select 1 where not public.report_location(9.5, -84.1)", 1);
+await expectRows("and the stored position is erased", "admin", "select * from public.driver_locations", 0);
+await expectOk("server brings the pickup back and the driver reports again", "server", "update public.bookings set scheduled_at = now() + interval '1 hour' where id = '10000000-0000-0000-0000-000000000005'");
+await expectRows("accepted again", "driver", "select 1 where public.report_location(9.99, -84.2)", 1);
+await expectOk("driver withdraws consent", "driver", "select public.set_location_consent(false)");
+await expectRows("withdrawing erases the position", "admin", "select * from public.driver_locations", 0);
+await expectRows("and further positions are refused", "driver", "select 1 where not public.report_location(9.99, -84.2)", 1);
+await expectOk("server cancels the extra trip", "server", "update public.bookings set status = 'cancelled' where id = '10000000-0000-0000-0000-000000000005'");
 // Migration 0026: push tokens for the mobile apps.
 await expectOk("driver registers their phone", "driver", "select public.register_device('ExponentPushToken[aaaaaaaaaaaaaaaaaaaaaa]', 'android', 'driver')");
 await expectRows("driver sees their own token", "driver", "select * from public.device_tokens", 1);
