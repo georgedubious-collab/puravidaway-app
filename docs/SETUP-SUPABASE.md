@@ -33,7 +33,8 @@ Either way works; the first needs no installs.
 14. `20261109000014_stop_entrance.sql` — stop entrance as free / included / paid at the gate;
     marks Tárcoles as a free stop
 15. `20261109000015_nicoya_ferry.sql` — Gulf of Nicoya ferry fares and the Southern Nicoya
-    area factor (Santa Teresa, Montezuma, Paquera)
+    area factor (Santa Teresa, Montezuma, Paquera), colones-per-dollar rate
+16. `20261109000016_price_level.sql` — ride formula numbers on par with Daytrip (run once)
 
 Later files are added as the app grows; each pull request says when there's a new one to run.
 

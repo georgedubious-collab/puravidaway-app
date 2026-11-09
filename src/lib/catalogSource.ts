@@ -3,6 +3,7 @@ import { unstable_cache } from "next/cache";
 import {
   AREA_FACTOR_BPS_DEFAULT,
   AREA_IDS,
+  CRC_PER_USD_DEFAULT,
   FERRY_FARES_DEFAULT,
   CASH_FEE_BPS_DEFAULT,
   isStopEntrance,
@@ -151,6 +152,7 @@ async function loadDatabaseCatalog(): Promise<CatalogData> {
       rideFormula,
       areaFactorBps,
       ferryFares: readFerryFares(settings.data),
+      crcPerUsd: readRate(settings.data),
     };
   }
 }
@@ -162,18 +164,22 @@ function bpsOrNull(v: unknown, min: number, max: number): number | null {
   return Number.isFinite(b) && b >= min && b <= max ? b : null;
 }
 
-/** Ferry fares from pricing_settings (migration 0015), falling back per field to the built-in ones. */
+/** Ferry fares in colones from pricing_settings (migration 0015), falling back per field to the built-in ones. */
 function readFerryFares(row: Record<string, unknown> | null | undefined): FerryFares {
   const pick = (col: string, fallback: number) => {
-    const v = row?.[col];
-    if (v == null || v === "") return fallback;
-    const c = cents(v as number | string);
-    return Number.isFinite(c) && c >= 0 ? c : fallback;
+    const n = Number(row?.[col]);
+    return row?.[col] != null && Number.isFinite(n) && n >= 0 ? Math.round(n) : fallback;
   };
   return {
-    vehicleCents: pick("ferry_vehicle_fare", FERRY_FARES_DEFAULT.vehicleCents),
-    passengerCents: pick("ferry_passenger_fare", FERRY_FARES_DEFAULT.passengerCents),
+    vehicleCrc: pick("ferry_vehicle_fare_crc", FERRY_FARES_DEFAULT.vehicleCrc),
+    passengerCrc: pick("ferry_passenger_fare_crc", FERRY_FARES_DEFAULT.passengerCrc),
   };
+}
+
+/** Colones per dollar from pricing_settings (migration 0015); a wildly wrong value falls back. */
+function readRate(row: Record<string, unknown> | null | undefined): number {
+  const n = Number(row?.crc_per_usd);
+  return row?.crc_per_usd != null && Number.isFinite(n) && n >= 100 && n <= 2000 ? n : CRC_PER_USD_DEFAULT;
 }
 
 /** Formula numbers from pricing_settings, falling back per field to the built-in defaults. */

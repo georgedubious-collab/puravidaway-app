@@ -1,0 +1,1 @@
+- 2026-11-09 — Claude — Price level revised (migration 0016): base $30 + $0.90/km + $10/hour, minimum $120, on par with or a few dollars under Daytrip's lowest prices (was 10–20% below), so drivers earn a proper rate.

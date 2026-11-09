@@ -260,12 +260,13 @@ async function saveAreaFactorsImpl(fd: FormData) {
   done();
 }
 
-/** Gulf of Nicoya ferry fares per crossing, in dollars (migration 0015). */
+/** Gulf of Nicoya ferry fares per crossing in colones, and the colones-per-dollar rate (migration 0015). */
 async function saveFerryFaresImpl(fd: FormData) {
   await requireRole("admin", "/admin/pricing");
   const values = {
-    ferry_vehicle_fare: money(fd, "ferry_vehicle_fare"),
-    ferry_passenger_fare: money(fd, "ferry_passenger_fare"),
+    ferry_vehicle_fare_crc: int(fd, "ferry_vehicle_fare_crc", 0, 500000),
+    ferry_passenger_fare_crc: int(fd, "ferry_passenger_fare_crc", 0, 100000),
+    crc_per_usd: decimal(fd, "crc_per_usd", 100, 2000),
   };
   const supabase = (await createSupabaseServerClient())!;
   const { data, error } = await supabase.from("pricing_settings").upsert({ id: true, ...values }).select("id");

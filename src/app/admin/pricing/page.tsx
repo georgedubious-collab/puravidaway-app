@@ -2,8 +2,10 @@ import {
   AREA_FACTOR_BPS_DEFAULT,
   CASH_FEE_BPS_DEFAULT,
   ENTRANCE_ADMIN_LABEL,
+  CRC_PER_USD_DEFAULT,
   EXTRA_AREAS,
   FERRY_FARES_DEFAULT,
+  crcToCents,
   HUBS,
   REGION_NAMES,
   RIDE_FORMULA_DEFAULT,
@@ -41,7 +43,7 @@ interface Vehicle {
 interface Settings {
   cash_fee_bps: number;
   ride_base_fare?: number; ride_per_km?: number; ride_per_hour?: number; ride_minimum_fare?: number;
-  ferry_vehicle_fare?: number; ferry_passenger_fare?: number;
+  ferry_vehicle_fare_crc?: number; ferry_passenger_fare_crc?: number; crc_per_usd?: number;
 }
 
 /** Example routes shown under the formula so the effect of a change is visible. */
@@ -83,12 +85,14 @@ export default async function PricingPage() {
     minimum: ps.data?.ride_minimum_fare ?? dollars(RIDE_FORMULA_DEFAULT.minimumFareCents),
   };
   // Migration 0015 adds the ferry fares and the Southern Nicoya area.
-  const ferryReady = ps.data?.ferry_vehicle_fare !== undefined;
+  const ferryReady = ps.data?.crc_per_usd !== undefined;
   const extraAreasReady = (hp.data ?? []).some((h) => h.hub_id === "SouthNicoya");
   const ferry = {
-    vehicle: ps.data?.ferry_vehicle_fare ?? FERRY_FARES_DEFAULT.vehicleCents / 100,
-    passenger: ps.data?.ferry_passenger_fare ?? FERRY_FARES_DEFAULT.passengerCents / 100,
+    vehicleCrc: ps.data?.ferry_vehicle_fare_crc ?? FERRY_FARES_DEFAULT.vehicleCrc,
+    passengerCrc: ps.data?.ferry_passenger_fare_crc ?? FERRY_FARES_DEFAULT.passengerCrc,
+    rate: Number(ps.data?.crc_per_usd ?? CRC_PER_USD_DEFAULT),
   };
+  const usd = (crc: number) => formatUSD(crcToCents(crc, ferry.rate));
   const areaBps = { ...AREA_FACTOR_BPS_DEFAULT };
   for (const h of hp.data ?? []) areaBps[h.hub_id] = Math.round(Number(h.area_factor) * 10000);
   const exampleCatalog = {
@@ -288,7 +292,7 @@ export default async function PricingPage() {
 
       <Section
         title="Ferries"
-        note="Gulf of Nicoya car ferries (Puntarenas ↔ Paquera / Playa Naranjo), per crossing. Added on top of the ride price whenever Google's route takes a ferry, for the car with its driver plus each passenger. Not season-adjusted. ₡15,000 ≈ $30 at ₡500 to the dollar."
+        note="Gulf of Nicoya car ferries (Puntarenas ↔ Paquera / Playa Naranjo), per crossing, in colones as the ferry company charges them. Added on top of the ride price whenever Google's route takes a ferry, for the car with its driver plus each passenger, converted to dollars at the exchange rate here and rounded to whole dollars. Not season-adjusted. Check the exchange rate about once a week."
       >
         <Card>
           {!ferryReady && (
@@ -298,9 +302,14 @@ export default async function PricingPage() {
             </p>
           )}
           <AdminForm action={saveFerryFares} className="grid gap-3 sm:grid-cols-6 items-end">
-            <Field l="Car + driver (USD)" className="sm:col-span-2"><input name="ferry_vehicle_fare" inputMode="decimal" defaultValue={ferry.vehicle} className={input} disabled={!ferryReady} /></Field>
-            <Field l="Per passenger (USD)" className="sm:col-span-2"><input name="ferry_passenger_fare" inputMode="decimal" defaultValue={ferry.passenger} className={input} disabled={!ferryReady} /></Field>
+            <Field l="Car + driver (₡ per crossing)" className="sm:col-span-2"><input name="ferry_vehicle_fare_crc" type="number" min={0} step={100} defaultValue={ferry.vehicleCrc} className={input} disabled={!ferryReady} /></Field>
+            <Field l="Per passenger (₡ per crossing)" className="sm:col-span-2"><input name="ferry_passenger_fare_crc" type="number" min={0} step={50} defaultValue={ferry.passengerCrc} className={input} disabled={!ferryReady} /></Field>
+            <Field l="Colones per US dollar" className="sm:col-span-2"><input name="crc_per_usd" inputMode="decimal" defaultValue={ferry.rate} className={input} disabled={!ferryReady} /></Field>
           </AdminForm>
+          <p className="mt-3 text-xs text-slate-600">
+            At ₡{ferry.rate} per dollar: car + driver {usd(ferry.vehicleCrc)}, each passenger {usd(ferry.passengerCrc)}.
+            A crossing with 2 passengers adds {formatUSD(Math.round(crcToCents(ferry.vehicleCrc + 2 * ferry.passengerCrc, ferry.rate) / 100) * 100)}.
+          </p>
         </Card>
       </Section>
 

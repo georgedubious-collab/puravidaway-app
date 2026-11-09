@@ -6,6 +6,7 @@
 import {
   AREA_FACTOR_BPS_DEFAULT,
   CASH_FEE_BPS_DEFAULT,
+  CRC_PER_USD_DEFAULT,
   FERRY_FARES_DEFAULT,
   RIDE_FORMULA_DEFAULT,
   DAY_TOURS,
@@ -49,8 +50,10 @@ export interface CatalogData {
   rideFormula: RideFormula;
   /** Area factor per pickup town, in basis points (10000 = 1.00×). */
   areaFactorBps: Record<AreaId, number>;
-  /** Gulf of Nicoya car ferry, per crossing. */
+  /** Gulf of Nicoya car ferry, per crossing, in colones. */
   ferryFares: FerryFares;
+  /** Colones per US dollar (ferry fares), checked weekly in the admin. */
+  crcPerUsd: number;
 }
 
 /** Season for a travel date: highest-priority range that contains it, else the default season. */
@@ -98,4 +101,5 @@ export const BUILT_IN_CATALOG: CatalogData = {
   rideFormula: RIDE_FORMULA_DEFAULT,
   areaFactorBps: AREA_FACTOR_BPS_DEFAULT,
   ferryFares: FERRY_FARES_DEFAULT,
+  crcPerUsd: CRC_PER_USD_DEFAULT,
 };

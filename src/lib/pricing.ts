@@ -5,7 +5,9 @@
  */
 import {
   AREA_FACTOR_BPS_DEFAULT,
+  CRC_PER_USD_DEFAULT,
   FERRY_FARES_DEFAULT,
+  crcToCents,
   DAY_TOURS,
   EN_ROUTE_UPGRADE_CENTS,
   EXPEDITIONS,
@@ -79,16 +81,19 @@ export function rideCents(
 
 /**
  * Car ferry fares for a ride (Gulf of Nicoya): per crossing, the vehicle with its
- * driver + each passenger. Not season-adjusted. 0 when the route has no ferry.
+ * driver + each passenger, converted from colones at the catalog's exchange rate and
+ * rounded to whole dollars. Not season-adjusted. 0 when the route has no ferry.
  */
 export function ferryCents(
   route: Pick<RideRoute, "ferries"> | null | undefined,
   pax: number,
-  catalog?: Pick<CatalogData, "ferryFares">,
+  catalog?: Pick<CatalogData, "ferryFares" | "crcPerUsd">,
 ): number {
   if (!route?.ferries) return 0;
   const f = catalog?.ferryFares ?? FERRY_FARES_DEFAULT;
-  return route.ferries * (f.vehicleCents + pax * f.passengerCents);
+  const rate = catalog?.crcPerUsd ?? CRC_PER_USD_DEFAULT;
+  const cents = route.ferries * crcToCents(f.vehicleCrc + pax * f.passengerCrc, rate);
+  return Math.round(cents / 100) * 100;
 }
 
 export interface TransferQuoteInput {

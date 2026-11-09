@@ -113,10 +113,11 @@ await expectRows("Tárcoles/Carara corridors updated", "anon",
 await expectRows("Río Celeste no longer on LIR ↔ Tamarindo", "anon",
   "select * from public.sightseeing_stops where id = 'rioceleste' and corridors = array['Arenal','LIR']::text[]", 1);
 // Migration 0015: Southern Nicoya area + ferry fares.
-await expectRows("Southern Nicoya area factor seeded", "anon", "select * from public.hub_pricing where hub_id = 'SouthNicoya' and area_factor = 1.25", 1);
-await expectRows("ferry fares seeded", "anon", "select * from public.pricing_settings where ferry_vehicle_fare = 30 and ferry_passenger_fare = 3", 1);
+await expectRows("Southern Nicoya area factor seeded", "anon", "select * from public.hub_pricing where hub_id = 'SouthNicoya' and area_factor = 1.35", 1);
+await expectRows("ferry fares (colones) and exchange rate seeded", "anon", "select * from public.pricing_settings where ferry_vehicle_fare_crc = 15000 and ferry_passenger_fare_crc = 1500 and crc_per_usd = 452", 1);
+await expectBlocked("absurd exchange rate refused", "admin", "update public.pricing_settings set crc_per_usd = 5");
 await expectBlocked("unknown pricing area refused", "admin", "insert into public.hub_pricing (hub_id, area_factor) values ('Nowhere', 1)");
-await expectBlocked("visitor cannot change ferry fares", "anon", "update public.pricing_settings set ferry_vehicle_fare = 1", { affected: 0 });
+await expectBlocked("visitor cannot change ferry fares", "anon", "update public.pricing_settings set ferry_vehicle_fare_crc = 1", { affected: 0 });
 // Migration 0014: entrance is free / included / gate.
 await expectRows("Tárcoles is a free stop", "anon", "select * from public.sightseeing_stops where id = 'tarcoles' and entrance = 'free'", 1);
 await expectRows("other stops default to paid at the gate", "anon", "select * from public.sightseeing_stops where id <> 'tarcoles' and entrance = 'gate'", 4);
@@ -141,12 +142,13 @@ await expectBlocked("cash fee above 50% is refused", "admin", "update public.pri
 await expectOk("admin resets the cash fee", "admin", "update public.pricing_settings set cash_fee_bps = 1000");
 
 // Ride formula (migration 0013)
-await expectRows("visitor reads the ride formula", "anon", "select * from public.pricing_settings where ride_base_fare = 35 and ride_per_km = 0.70 and ride_per_hour = 12 and ride_minimum_fare = 110", 1);
+// Migration 0016: price level on par with Daytrip.
+await expectRows("visitor reads the ride formula", "anon", "select * from public.pricing_settings where ride_base_fare = 30 and ride_per_km = 0.90 and ride_per_hour = 10 and ride_minimum_fare = 120", 1);
 await expectBlocked("visitor cannot change the ride formula", "anon", "update public.pricing_settings set ride_per_km = 0", { affected: 0 });
 await expectBlocked("client cannot change the ride formula", "client", "update public.pricing_settings set ride_minimum_fare = 1", { affected: 0 });
 await expectOk("admin changes the ride formula", "admin", "update public.pricing_settings set ride_per_km = 0.75");
 await expectBlocked("negative per-km price is refused", "admin", "update public.pricing_settings set ride_per_km = -1");
-await expectOk("admin resets the ride formula", "admin", "update public.pricing_settings set ride_per_km = 0.70");
+await expectOk("admin resets the ride formula", "admin", "update public.pricing_settings set ride_per_km = 0.90");
 await expectRows("visitor reads the 9 town + 1 extra area factors", "anon", "select * from public.hub_pricing", 10);
 await expectRows("Osa pickups cost 15% more", "anon", "select * from public.hub_pricing where hub_id in ('Sierpe','DrakeBay') and area_factor = 1.15", 2);
 await expectBlocked("visitor cannot change an area factor", "anon", "update public.hub_pricing set area_factor = 1", { affected: 0 });
