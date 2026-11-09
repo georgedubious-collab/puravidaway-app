@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Navigation } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
@@ -7,6 +8,7 @@ import { requireUser } from "@/lib/auth";
 import { BOOKING_STATUS_LABEL, SERVICE_LABEL, type BookingRow } from "@/lib/bookings";
 import { getCatalog } from "@/lib/catalogSource";
 import { addDays, formatScheduledAt, scheduledParts, todayInCostaRica } from "@/lib/dates";
+import { googleMapsUrl, navTarget, wazeUrl, type NavTarget } from "@/lib/navigation";
 import { prefsSummary } from "@/lib/preferences";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -60,6 +62,8 @@ async function Trip({ params }: { params: Promise<{ id: string }> }) {
     .map((s) => (s.id === "en_route_upgrade" ? "Smart En-Route Transfer" : (catalog.stops.find((x) => x.id === s.id)?.name ?? s.id)))
     .join(", ");
   const asked = prefsSummary(b.preferences);
+  const pickup = b.service_type === "transfer" ? navTarget(b.origin, b.origin_coords) : null;
+  const dropoff = b.service_type === "transfer" ? navTarget(b.destination, b.destination_coords) : null;
 
   return (
     <div className="space-y-5">
@@ -90,6 +94,19 @@ async function Trip({ params }: { params: Promise<{ id: string }> }) {
         </p>
       </section>
 
+      {(pickup || dropoff) && (
+        <section className="rounded-xl border border-slate-200 bg-white p-5">
+          <h2 className="font-extrabold text-slate-900 flex items-center gap-2">
+            <Navigation className="w-4 h-4 text-emerald-600" aria-hidden /> Navigate
+          </h2>
+          <p className="mt-1 text-xs text-slate-500">Opens the app on your phone with the place filled in.</p>
+          <div className="mt-3 space-y-4">
+            {pickup && <NavRow title="To the pickup" t={pickup} />}
+            {dropoff && <NavRow title="To the drop-off (once your travellers are on board)" t={dropoff} />}
+          </div>
+        </section>
+      )}
+
       <section>
         <h2 className="mb-2 font-extrabold text-slate-900">Chat with the traveller and our team</h2>
         <ChatBox
@@ -98,6 +115,26 @@ async function Trip({ params }: { params: Promise<{ id: string }> }) {
           intro="Introduce yourself and confirm the pickup time. Please keep phone numbers and links out of the chat."
         />
       </section>
+    </div>
+  );
+}
+
+function NavRow({ title, t }: { title: string; t: NavTarget }) {
+  const btn =
+    "inline-flex min-h-11 items-center justify-center rounded-xl px-4 text-sm font-extrabold transition";
+  return (
+    <div>
+      <p className="text-xs font-bold uppercase tracking-wider text-slate-400">{title}</p>
+      <p className="text-sm font-semibold text-slate-900 break-words">{t.label}</p>
+      {t.note && <p className="text-xs text-amber-800">{t.note}</p>}
+      <div className="mt-2 grid grid-cols-2 gap-2">
+        <a href={wazeUrl(t)} target="_blank" rel="noopener noreferrer" className={`${btn} bg-sky-500 text-white hover:bg-sky-400`}>
+          Open in Waze
+        </a>
+        <a href={googleMapsUrl(t)} target="_blank" rel="noopener noreferrer" className={`${btn} border-2 border-emerald-600 text-emerald-700 hover:bg-emerald-50`}>
+          Google Maps
+        </a>
+      </div>
     </div>
   );
 }

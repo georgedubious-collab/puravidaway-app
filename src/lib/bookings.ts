@@ -26,6 +26,9 @@ export interface BookingRow {
   catalog_item_id: string | null;
   origin: string | null;
   destination: string | null;
+  /** Map point of each end (rides booked since 2026-11-09): { lat, lng, place_id, town, route? }. */
+  origin_coords: Record<string, unknown> | null;
+  destination_coords: Record<string, unknown> | null;
   sightseeing_stops: { id: string; price?: number }[];
   vehicle_class: string | null;
   lodging_tier: string | null;
