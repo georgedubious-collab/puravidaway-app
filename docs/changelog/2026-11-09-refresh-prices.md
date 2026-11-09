@@ -1,0 +1,1 @@
+- 2026-11-09 — Claude — The database-migrations Action now refreshes the cached price list after each run (POST /api/revalidate-catalog, secret CATALOG_REVALIDATE_SECRET), so new prices show at once.

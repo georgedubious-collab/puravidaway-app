@@ -76,6 +76,17 @@ insert into supabase_migrations.schema_migrations (version, name) values
 on conflict (version) do nothing;
 ```
 
+4. Optional but recommended, so new prices show at once instead of within the hour: make a
+   random secret of at least 32 characters and save the **same value** twice: in Vercel →
+   Settings → Environment Variables as `CATALOG_REVALIDATE_SECRET` (Production; redeploy), and
+   in GitHub → Settings → Secrets and variables → Actions as `CATALOG_REVALIDATE_SECRET`. After
+   each run the Action calls `/api/revalidate-catalog` with it, which clears the cached price
+   list exactly like pressing Save in `/admin/pricing`.
+
+Changes made directly in the database (SQL editor or this Action) don't clear the site's cached
+price list by themselves; it refreshes within an hour, at once after any Save in
+`/admin/pricing`, or at once via step 4.
+
 From then on, **don't paste migration files into the SQL editor** (they'd run twice). New
 migration files must be written so they're safe to run once in order, with a new, higher
 timestamp than every file before them.

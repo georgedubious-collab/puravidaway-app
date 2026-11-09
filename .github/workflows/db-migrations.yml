@@ -6,6 +6,9 @@
 #   and records each one; a file that fails stops the run and GitHub emails the repo owner.
 # - Needs one repository secret, SUPABASE_DB_URL: the "Session pooler" connection string from
 #   Supabase → Connect, with the database password filled in. Without it the job skips.
+# - Afterwards it refreshes the site's cached price list (POST /api/revalidate-catalog) if the
+#   CATALOG_REVALIDATE_SECRET secret is set (same value as in Vercel); otherwise prices update
+#   within the hour on their own.
 name: Database migrations
 
 on:
@@ -54,3 +57,17 @@ jobs:
       - name: Run new migrations
         if: steps.secret.outputs.ok == 'true'
         run: npx -y supabase@2.122.1 db push --db-url "$SUPABASE_DB_URL"
+
+      - name: Refresh the site's price list
+        if: steps.secret.outputs.ok == 'true'
+        env:
+          CATALOG_REVALIDATE_SECRET: ${{ secrets.CATALOG_REVALIDATE_SECRET }}
+          SITE_URL: ${{ vars.SITE_URL || 'https://puravidaway-app.vercel.app' }}
+        run: |
+          if [ -z "$CATALOG_REVALIDATE_SECRET" ]; then
+            echo "::warning::CATALOG_REVALIDATE_SECRET is not set; prices refresh within the hour. See docs/SETUP-SUPABASE.md (Option C)."
+            exit 0
+          fi
+          curl --fail-with-body -sS -X POST \
+            -H "Authorization: Bearer $CATALOG_REVALIDATE_SECRET" \
+            "$SITE_URL/api/revalidate-catalog"
