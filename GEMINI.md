@@ -4,7 +4,7 @@ Gemini's role in this project is **code review and second opinions**. Claude is 
 builder. Gemini does not push code; it reviews pull requests and flags problems.
 
 ## Before reviewing
-Read `docs/PROJECT.md` (source of truth), the latest `docs/CHANGELOG.md` entries, and
+Read `docs/PROJECT.md` (source of truth), the newest notes in `docs/changelog/` and the latest `docs/CHANGELOG.md` entries, and
 `docs/COMPETITORS.md` (Daytrip / GetTransfer / Welcome Pickups benchmark).
 
 ## What to check in every PR
@@ -24,7 +24,8 @@ Read `docs/PROJECT.md` (source of truth), the latest `docs/CHANGELOG.md` entries
 5. **Mobile-responsiveness** of any UI change.
 6. **Competitive parity.** For UI or pricing changes, check the `docs/COMPETITORS.md` §5 list
    (per-car + per-person price, cancellation window, flight tracking, luggage, driver badges).
-7. **Changelog** line present: `YYYY-MM-DD — <AI> — <what changed>`.
+7. **Changelog** note present as a new file in `docs/changelog/` (`YYYY-MM-DD — <AI> — <what changed>`);
+   feature PRs should not edit the top of `docs/CHANGELOG.md`.
 
 ## Tone
 Concise, specific, actionable. Reference file and line. Say clearly whether an issue is

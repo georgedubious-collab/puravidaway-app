@@ -1,7 +1,8 @@
 # Changelog
 
-Every merged change gets one line: `YYYY-MM-DD — <AI or Jorge> — <what changed>`.
-Newest entries first. AIs: read the top of this file before starting work.
+Archive of changes, newest first. **Since 2026-11-09 new entries start as one file per pull
+request in `docs/changelog/`** (read those first; see its README) and are folded in here every
+few weeks. Format: `YYYY-MM-DD — <AI or Jorge> — <what changed>`.
 
 - 2026-11-08 — Claude — Payment options (migration 0012), replacing the 20% deposit: pay online in
   full (secure payment link sent once the trip is confirmed; online payment isn't live yet), or pay
