@@ -1,0 +1,1 @@
+- 2026-11-09 — Claude — Database migrations now run automatically after a merge to main (GitHub Action `db-migrations.yml`, `supabase db push`); one-time setup in docs/SETUP-SUPABASE.md Option C.

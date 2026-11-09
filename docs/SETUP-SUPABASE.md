@@ -36,9 +36,49 @@ Either way works; the first needs no installs.
     area factor (Santa Teresa, Montezuma, Paquera), colones-per-dollar rate
 16. `20261109000016_price_level.sql` — ride formula numbers on par with Daytrip (run once)
 
-Later files are added as the app grows; each pull request says when there's a new one to run.
+Later files are added as the app grows. Since Option C is set up, they run by themselves
+after a merge; each pull request still lists them.
 
 **Option B — Supabase CLI.** `npx supabase link --project-ref <your ref>` then `npx supabase db push`.
+
+**Option C — automatic on every merge (live project since 2026-11-09).** The GitHub Action
+`.github/workflows/db-migrations.yml` runs `supabase db push` whenever a merge to `main`
+changes `supabase/migrations/`, and can be started by hand (GitHub → Actions → Database
+migrations → Run workflow). It runs only files the database hasn't recorded yet, in order, and
+records each one, so a file never runs twice. If one fails, the run stops and GitHub emails
+you; the site keeps working on its built-in numbers until it's fixed.
+
+One-time setup:
+1. Supabase → **Connect** (top of the project) → **Session pooler** → copy the URI. Replace
+   `[YOUR-PASSWORD]` with the database password (reset it under Project Settings → Database
+   if you don't have it). Use the session pooler: GitHub's machines can't reach the direct address.
+2. GitHub → the repo → **Settings → Secrets and variables → Actions → New repository secret**:
+   name `SUPABASE_DB_URL`, value the URI from step 1.
+3. Before the first run, the database's list of already-run files must match this folder
+   (files pasted into the SQL editor weren't recorded). Run this once in the SQL editor:
+
+```sql
+-- Record 0001–0014 as run (they were pasted by hand) and drop the 4 entries the dashboard
+-- recorded under other names, so `db push` only runs 0015 onwards.
+delete from supabase_migrations.schema_migrations
+ where version not in (select v from (values
+   ('20261014000001'),('20261014000002'),('20261014000003'),('20261014000004'),('20261014000005'),
+   ('20261014000006'),('20261014000007'),('20261014000008'),('20261014000009'),('20261021000010'),
+   ('20261108000011'),('20261108000012'),('20261109000013'),('20261109000014')) t(v));
+insert into supabase_migrations.schema_migrations (version, name) values
+  ('20261014000001','core_schema'),('20261014000002','row_level_security'),
+  ('20261014000003','seed_catalog'),('20261014000004','driver_applications'),
+  ('20261014000005','review_fixes'),('20261014000006','driver_vehicles'),
+  ('20261014000007','trip_requests'),('20261014000008','preferences_profiles'),
+  ('20261014000009','trip_chat'),('20261021000010','advisor_fixes'),
+  ('20261108000011','stop_corridors'),('20261108000012','payment_options'),
+  ('20261109000013','ride_formula'),('20261109000014','stop_entrance')
+on conflict (version) do nothing;
+```
+
+From then on, **don't paste migration files into the SQL editor** (they'd run twice). New
+migration files must be written so they're safe to run once in order, with a new, higher
+timestamp than every file before them.
 
 ## 3. Connect it to Vercel
 Supabase → **Project Settings → API**. Copy three values into Vercel → **Settings →
