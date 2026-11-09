@@ -19,6 +19,7 @@ import { CartDrawer } from "./CartDrawer";
 import { DayToursView } from "./DayToursView";
 import { ExpeditionsView } from "./ExpeditionsView";
 import { Header } from "./Header";
+import { LegalLinks } from "./legal/LegalLinks";
 import { Toast, useToast } from "./Toast";
 import { TransfersView } from "./TransfersView";
 import { TripSummary, type TripContact, type TripState } from "./TripSummary";
@@ -173,6 +174,7 @@ export function Storefront({ today, catalog }: { today: string; catalog: Catalog
               Drive with PuraVidaWay
             </Link>
           </p>
+          <LegalLinks />
           <a
             href={whatsAppLink("Hi PuraVidaWay! I have a question about planning a trip to Costa Rica.")}
             target="_blank"

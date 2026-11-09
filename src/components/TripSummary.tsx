@@ -1,6 +1,7 @@
 "use client";
 
 import { CheckCircle2, MessageCircle, Send, Trash2 } from "lucide-react";
+import Link from "next/link";
 import { useState, useTransition } from "react";
 import { submitTripRequest } from "@/app/trip/actions";
 import {
@@ -198,6 +199,12 @@ export function TripSummary({ trip }: { trip: TripState }) {
         >
           <Send className="w-5 h-5" /> {pending ? "Sending…" : "Send trip request"}
         </button>
+        <p className="text-xs text-slate-500 text-center">
+          By sending this request you agree to our{" "}
+          <Link href="/terms" target="_blank" className="font-semibold text-emerald-700 underline">Terms</Link>,{" "}
+          <Link href="/privacy" target="_blank" className="font-semibold text-emerald-700 underline">Privacy Policy</Link> and{" "}
+          <Link href="/cancellation" target="_blank" className="font-semibold text-emerald-700 underline">Cancellation policy</Link>.
+        </p>
         <p className="text-xs text-slate-500 text-center">
           Nothing is charged now. Our team confirms availability and your pickup times by email and
           in your trip chat, then sends your payment link.
