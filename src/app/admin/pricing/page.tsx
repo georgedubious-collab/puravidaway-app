@@ -58,7 +58,7 @@ const EXAMPLES: [HubId, HubId][] = [
   ["LIR", "Tamarindo"], ["SJO", "Arenal"], ["SJO", "ManuelAntonio"], ["SJO", "Tamarindo"], ["Arenal", "Monteverde"], ["SJO", "Sierpe"],
 ];
 interface Stop { id: string; name: string; description: string; duration_min: number; price: number | null; detour_km?: number; detour_min?: number; tour_price_pp?: number; park_fee_included: boolean; entrance?: string; corridors: string[]; active: boolean }
-interface Tour { id: string; region: Region; name: string; duration_hours: number; price: number; en_route_upgrade_price: number; active: boolean }
+interface Tour { id: string; region: Region; name: string; duration_hours: number; price: number | null; price_pp_solo?: number; price_pp_small?: number; price_pp_group?: number; en_route_upgrade_price: number; active: boolean }
 interface Expedition { id: string; name: string; days: number; nights: number; base_price: number; active: boolean }
 interface Tier { id: string; name: string; surcharge: number; active: boolean }
 interface Season { id: string; name: string; multiplier: number; is_default: boolean }
@@ -296,13 +296,21 @@ export default async function PricingPage() {
         </Card>
       </Section>
 
-      <Section title="1-day tours">
+      <Section
+        title="1-day tours"
+        note="Priced per person (private vehicle, guide, entrances and lunch), with a lower rate for 2–3 travellers and for 4 or more; 7+ pay the 4+ rate. The en-route upgrade is a flat amount per group."
+      >
         {(t.data ?? []).map((x) => (
           <Card key={x.id}>
+            {x.price_pp_solo === undefined && (
+              <p className="mb-3 text-sm text-amber-800">Run migration <code>20261109000022_tour_pricing.sql</code> to price this tour per person.</p>
+            )}
             <AdminForm action={saveDayTour} className="grid gap-3 sm:grid-cols-6 items-end">
               <input type="hidden" name="id" value={x.id} />
               <Field l={`Name · ${REGION_NAMES[x.region] ?? x.region}`} className="sm:col-span-3"><input name="name" defaultValue={x.name} className={input} /></Field>
-              <Field l="Price (USD)"><input name="price" inputMode="decimal" defaultValue={x.price} className={input} /></Field>
+              <Field l="Per person · 1 traveller"><input name="price_pp_solo" inputMode="decimal" defaultValue={x.price_pp_solo ?? 0} className={input} disabled={x.price_pp_solo === undefined} /></Field>
+              <Field l="Per person · 2–3"><input name="price_pp_small" inputMode="decimal" defaultValue={x.price_pp_small ?? 0} className={input} disabled={x.price_pp_solo === undefined} /></Field>
+              <Field l="Per person · 4+"><input name="price_pp_group" inputMode="decimal" defaultValue={x.price_pp_group ?? 0} className={input} disabled={x.price_pp_solo === undefined} /></Field>
               <Field l="En-route upgrade"><input name="en_route_upgrade_price" inputMode="decimal" defaultValue={x.en_route_upgrade_price} className={input} /></Field>
               <Field l="Hours"><input name="duration_hours" inputMode="decimal" defaultValue={x.duration_hours} className={input} /></Field>
               <Live on={x.active} />

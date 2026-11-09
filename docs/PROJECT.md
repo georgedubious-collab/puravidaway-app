@@ -236,14 +236,21 @@ Priced by the ride formula (§6.1) × the class factor; flat base rates retired 
 | `sierpe_combo` | 4x4 transfer + Sierpe river boat | 1.30 + $75 boat | 1–4 | Wet/dry assist | Drake Bay / Corcovado |
 
 ### 5.4 1-day private tours
-| ID | Region | Tour | Length | Price |
-| :--- | :--- | :--- | :--- | :--- |
-| `dt1` | Arenal | Arenal Volcano 1968 Lava Trails, La Fortuna Waterfall & Hot Springs | 8 h | $145 |
-| `dt2` | Manuel Antonio | Manuel Antonio NP private wildlife walk + catamaran snorkel | 7.5 h | $155 |
-| `dt3` | Osa | Sierpe mangrove boat safari & Caño Island snorkeling | 7 h | $165 |
-| `dt4` | Monteverde | Hanging bridges, zipline & night walk | 7 h | $140 |
+Since 2026-11-09 (migration 0022; Jorge: "tours are not just a drive") tours are priced **per
+person, tiered by group size** like his tours on costaricatravelplanner.com (internal reference
+only): private vehicle, guide, entrances and lunch included; 7+ travellers pay the 4+ rate.
+Starting amounts (guesses to confirm; edited at `/admin/pricing`):
 
-Upgrade: **Smart En-Route Transfer** (+$65) — picked up in one town, dropped at the next hotel.
+| ID | Region | Tour | Length | 1 traveller | 2–3 each | 4+ each |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| `dt1` | Arenal | Arenal Volcano 1968 Lava Trails, La Fortuna Waterfall & Hot Springs | 8 h | $350 | $295 | $275 |
+| `dt2` | Manuel Antonio | Manuel Antonio NP private wildlife walk + catamaran snorkel | 7.5 h | $330 | $280 | $260 |
+| `dt3` | Osa | Sierpe mangrove boat safari & Caño Island snorkeling | 7 h | $375 | $300 | $275 |
+| `dt4` | Monteverde | Hanging bridges, zipline & night walk | 7 h | $280 | $230 | $210 |
+
+`day tour = per-person tier(pax) × pax (+ en-route upgrade) × season` (`dayTourCents()` in
+`src/lib/catalog.ts`, `quoteDayTour()`). Upgrade: **Smart En-Route Transfer** (+$65 per group) —
+picked up in one town, dropped at the next hotel.
 
 ### 5.5 Multi-day expeditions
 | ID | Package | Base price | Includes |
@@ -386,7 +393,7 @@ and `season_for_date(date)` returns the season for a travel date.
 - `sightseeing_stops` — id, name, description, duration_min, detour_km, detour_min, tour_price_pp (migration 0021; `price` is retired, the stop price is computed from these), entrance (free | included | gate; replaces park_fee_included, which is kept in step), corridors, active
 - `vehicle_classes` — id, name, price_factor, extra_fee, allows_stops, spanish_speaking_driver,
   max_pax, luggage, badge, only_for_hubs, active (`base_rate` retired 2026-11-09, kept for old data)
-- `day_tours` — id, region, name, description, duration_hours, price, en_route_upgrade_price, active
+- `day_tours` — id, region, name, description, duration_hours, price_pp_solo / price_pp_small / price_pp_group (per person by group size, migration 0022; `price` retired), en_route_upgrade_price, active
 - `expeditions` — id, name, days, nights, base_price, itinerary jsonb, active
 - `lodging_tiers` — id, expedition_id (nullable = applies to all), name, surcharge
 - `seasons` — id, name, multiplier, date ranges
@@ -484,8 +491,10 @@ and `season_for_date(date)` returns the season for a travel date.
    the "both ends" rule with reviewed lists (§5.2), **pending Jorge's confirmation**. If the
    detour cases in §5.2 matter, the next step is listing exact route pairs per stop. With exact
    routing (`docs/PRICING.md` §5) the detour decides it instead of a list.
-5. **Lodging tier pricing**: per person or per booking? Same question for day tours.
-6. **Passenger-based pricing**: do day tours and expeditions price per person?
+5. **Lodging tier pricing**: per person or per booking? Still open for expeditions. **Day tours:
+   decided (Jorge, 2026-11-09): per person**, see §5.4.
+6. **Passenger-based pricing**: **day tours yes, per person with 1 / 2–3 / 4+ tiers (built,
+   migration 0022)**; expeditions still open.
 7. **Cancellation & refund policy:** decided (Jorge, 2026-11-08), published at `/cancellation`.
    Rides (transfers) and 1-day tours: free cancellation up to 24 h before pickup, full refund;
    within 24 h or no-show, no refund. Multi-day expeditions: 30+ days before start, full refund

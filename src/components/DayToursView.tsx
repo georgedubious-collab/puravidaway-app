@@ -2,12 +2,12 @@
 
 import { Clock, PlusCircle, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
-import { EN_ROUTE_UPGRADE_CENTS, REGION_NAMES, type Region } from "@/lib/catalog";
+import { EN_ROUTE_UPGRADE_CENTS, REGION_NAMES, perPersonTierCents, type Region } from "@/lib/catalog";
 import { seasonForYmd } from "@/lib/catalogModel";
 import { useCatalog } from "./CatalogContext";
 import { addDays } from "@/lib/dates";
 import { newItemId, type CartItem } from "@/lib/cart";
-import { formatUSD, quoteDayTour } from "@/lib/pricing";
+import { applyMultiplier, formatUSD, quoteDayTour } from "@/lib/pricing";
 
 export function DayToursView({
   today,
@@ -29,6 +29,8 @@ export function DayToursView({
     if (highlightId) document.getElementById(`tour-${highlightId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [highlightId]);
   const [upgrades, setUpgrades] = useState<Record<string, boolean>>({});
+  // Tours are per person, with a lower rate for 2–3 and for 4+ travellers.
+  const [pax, setPax] = useState(2);
   const catalog = useCatalog();
   const season = seasonForYmd(date, catalog);
   const all = catalog.dayTours;
@@ -64,6 +66,18 @@ export function DayToursView({
               </option>
             ))}
           </select>
+          <select
+            aria-label="Travellers"
+            value={pax}
+            onChange={(e) => setPax(Number(e.target.value))}
+            className="border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold bg-slate-50"
+          >
+            {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+              <option key={n} value={n}>
+                {n} traveller{n > 1 ? "s" : ""}
+              </option>
+            ))}
+          </select>
           <input
             type="date"
             aria-label="Tour date"
@@ -77,7 +91,8 @@ export function DayToursView({
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         {tours.map((t) => {
           const upgrade = Boolean(upgrades[t.id]);
-          const total = quoteDayTour(t.id, upgrade, season, catalog);
+          const total = quoteDayTour(t.id, upgrade, pax, season, catalog);
+          const perPerson = applyMultiplier(perPersonTierCents(t.perPerson, pax), season.multiplierBps);
           return (
             <div
               key={t.id}
@@ -91,7 +106,7 @@ export function DayToursView({
               </span>
               <h3 className="text-base font-extrabold text-slate-900 mt-2 leading-snug">{t.name}</h3>
               <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
-                <Clock className="w-3.5 h-3.5" /> {t.durationHours} hours · private
+                <Clock className="w-3.5 h-3.5" /> {t.durationHours} hours · private · guide, entrances &amp; lunch included
               </p>
               <ul className="text-xs text-slate-600 mt-3 space-y-1">
                 {t.highlights.map((h) => (
@@ -120,6 +135,10 @@ export function DayToursView({
                     {season.multiplierBps !== 10000 ? season.name : "Total"}
                   </p>
                   <p className="text-xl font-extrabold text-emerald-700">{formatUSD(total)}</p>
+                  <p className="text-[11px] font-semibold text-slate-600">
+                    {formatUSD(perPerson)} per person · {pax} traveller{pax > 1 ? "s" : ""}
+                    {pax < 4 ? ` · cheaper per person from 4` : ""}
+                  </p>
                 </div>
                 <button
                   type="button"
@@ -128,10 +147,10 @@ export function DayToursView({
                       kind: "day_tour",
                       id: newItemId(),
                       title: t.name,
-                      detail: `${t.durationHours}h private tour${upgrade ? " + Smart En-Route Transfer" : ""}`,
+                      detail: `${t.durationHours}h private tour, ${pax} traveller${pax > 1 ? "s" : ""}${upgrade ? " + Smart En-Route Transfer" : ""}`,
                       date,
                       totalCents: total,
-                      spec: { kind: "day_tour", tourId: t.id, upgrade },
+                      spec: { kind: "day_tour", tourId: t.id, upgrade, pax },
                     })
                   }
                   className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2.5 rounded-xl text-xs flex items-center gap-1.5 transition"

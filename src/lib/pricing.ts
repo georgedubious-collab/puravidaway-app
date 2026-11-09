@@ -24,6 +24,7 @@ import {
   routeKm,
   routeMinutes,
   stopTotalCents,
+  dayTourCents,
 } from "./catalog";
 import type { CatalogData } from "./catalogModel";
 import type { RideRoute } from "./places";
@@ -159,16 +160,18 @@ export function quoteTransfer(input: TransferQuoteInput): TransferQuote {
   };
 }
 
+/** Day tour for a group: per-person tier × travellers (+ the flat en-route upgrade), then the season. */
 export function quoteDayTour(
   tourId: string,
   enRouteUpgrade: boolean,
+  pax: number,
   season: Season,
   catalog?: CatalogData,
 ): number {
   const tour = (catalog?.dayTours ?? DAY_TOURS).find((t) => t.id === tourId);
   if (!tour) throw new Error(`Unknown day tour: ${tourId}`);
   const upgradeCents = tour.enRouteUpgradeCents ?? EN_ROUTE_UPGRADE_CENTS;
-  const subtotal = tour.priceCents + (enRouteUpgrade ? upgradeCents : 0);
+  const subtotal = dayTourCents(tour, pax) + (enRouteUpgrade ? upgradeCents : 0);
   return applyMultiplier(subtotal, season.multiplierBps);
 }
 

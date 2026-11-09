@@ -4,6 +4,7 @@ import {
   AREA_FACTOR_BPS_DEFAULT,
   AREA_IDS,
   CRC_PER_USD_DEFAULT,
+  DAY_TOURS,
   FERRY_FARES_DEFAULT,
   CASH_FEE_BPS_DEFAULT,
   isStopEntrance,
@@ -130,7 +131,10 @@ async function loadDatabaseCatalog(): Promise<CatalogData> {
         region: t.region as Region,
         name: t.name,
         durationHours: Number(t.duration_hours),
-        priceCents: cents(t.price),
+        perPerson:
+          t.price_pp_solo == null
+            ? (DAY_TOURS.find((b) => b.id === t.id)?.perPerson ?? { soloCents: cents(t.price) || 0, smallCents: cents(t.price) || 0, groupCents: cents(t.price) || 0 })
+            : { soloCents: cents(t.price_pp_solo), smallCents: cents(t.price_pp_small), groupCents: cents(t.price_pp_group) },
         highlights: t.highlights ?? [],
         enRouteUpgradeCents: cents(t.en_route_upgrade_price),
       })),

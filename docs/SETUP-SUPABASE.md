@@ -46,6 +46,8 @@ Either way works; the first needs no installs.
     (sent by the daily Vercel Cron job; needs `CRON_SECRET` in Vercel, see `.env.example`)
 21. `20261109000021_stop_pricing.sql` — stops priced by waiting time ($20/h) + detour + guide fee;
     the flat stop price is retired
+22. `20261109000022_tour_pricing.sql` — day tours per person, tiered by group size (1 / 2–3 / 4+);
+    the flat tour price is retired
 
 Later files are added as the app grows. Since Option C is set up, they run by themselves
 after a merge; each pull request still lists them.

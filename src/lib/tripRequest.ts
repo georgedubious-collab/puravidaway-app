@@ -56,7 +56,13 @@ export type ItemSpec =
       /** Message for the driver (no contact details). */
       driverNotes?: string;
     }
-  | { kind: "day_tour"; tourId: string; upgrade: boolean }
+  | {
+      kind: "day_tour";
+      tourId: string;
+      upgrade: boolean;
+      /** Travellers (per-person pricing). Items saved before 2026-11-09 load as 2. */
+      pax: number;
+    }
   | { kind: "expedition"; expeditionId: string; tierId: string };
 
 /** Start time stored with the booking: the ride's pickup time, or the default for tours / expeditions. */
@@ -115,7 +121,8 @@ export function parseSpec(raw: unknown): ItemSpec | null {
   }
   if (o.kind === "day_tour") {
     if (!str(o.tourId) || typeof o.upgrade !== "boolean") return null;
-    return { kind: "day_tour", tourId: o.tourId as string, upgrade: o.upgrade };
+    if (o.pax !== undefined && (!Number.isInteger(o.pax) || (o.pax as number) < 1 || (o.pax as number) > 60)) return null;
+    return { kind: "day_tour", tourId: o.tourId as string, upgrade: o.upgrade, pax: (o.pax as number | undefined) ?? 2 };
   }
   if (o.kind === "expedition") {
     if (!str(o.expeditionId) || !str(o.tierId)) return null;
@@ -183,7 +190,7 @@ export function priceItem(spec: ItemSpec, date: string, catalog: CatalogData, ro
 
   if (spec.kind === "day_tour") {
     if (!catalog.dayTours.some((t) => t.id === spec.tourId)) throw new Error("That tour is no longer offered.");
-    const total = quoteDayTour(spec.tourId, spec.upgrade, season, catalog);
+    const total = quoteDayTour(spec.tourId, spec.upgrade, spec.pax, season, catalog);
     return { totalCents: total, referenceCents: total, passThroughCents: 0 };
   }
 

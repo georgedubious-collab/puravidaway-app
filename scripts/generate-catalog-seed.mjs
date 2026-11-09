@@ -56,7 +56,8 @@ cat.SIGHTSEEING_STOPS.forEach((s, i) => lines.push(
   `insert into public.sightseeing_stops (id, name, description, duration_min, price, detour_km, detour_min, tour_price_pp, corridors, sort_order) values (${q(s.id)}, ${q(s.name)}, ${q(s.description)}, ${s.durationMin}, 0, ${s.detourKm}, ${s.detourMin}, ${money(s.tourPerPersonCents)}, ${arr(s.corridors)}, ${i}) on conflict (id) do nothing;`));
 lines.push("");
 cat.DAY_TOURS.forEach((t, i) => lines.push(
-  `insert into public.day_tours (id, region, name, highlights, duration_hours, price, en_route_upgrade_price, sort_order) values (${q(t.id)}, ${q(t.region)}, ${q(t.name)}, ${arr(t.highlights)}, ${t.durationHours}, ${money(t.priceCents)}, ${money(cat.EN_ROUTE_UPGRADE_CENTS)}, ${i}) on conflict (id) do nothing;`));
+  // price is retired (20261109000022_tour_pricing.sql): tours are per person, tiered by group size.
+  `insert into public.day_tours (id, region, name, highlights, duration_hours, price, price_pp_solo, price_pp_small, price_pp_group, en_route_upgrade_price, sort_order) values (${q(t.id)}, ${q(t.region)}, ${q(t.name)}, ${arr(t.highlights)}, ${t.durationHours}, 0, ${money(t.perPerson.soloCents)}, ${money(t.perPerson.smallCents)}, ${money(t.perPerson.groupCents)}, ${money(cat.EN_ROUTE_UPGRADE_CENTS)}, ${i}) on conflict (id) do nothing;`));
 lines.push("");
 cat.EXPEDITIONS.forEach((e, i) => lines.push(
   `insert into public.expeditions (id, name, days, nights, base_price, includes, itinerary, sort_order) values (${q(e.id)}, ${q(e.name)}, ${e.days}, ${e.nights}, ${money(e.basePriceCents)}, ${arr(e.includes)}, ${json(e.itinerary)}, ${i}) on conflict (id) do nothing;`));

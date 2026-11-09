@@ -3,7 +3,8 @@
 import { Sparkles, X } from "lucide-react";
 import { EXPEDITION_REGIONS, HUB_REGION, HUBS, REGION_NAMES, type HubId } from "@/lib/catalog";
 import { seasonForYmd, type CatalogData } from "@/lib/catalogModel";
-import { formatUSD, quoteDayTour, quoteExpedition } from "@/lib/pricing";
+import { applyMultiplier, formatUSD, quoteExpedition } from "@/lib/pricing";
+import { perPersonTierCents } from "@/lib/catalog";
 import { useCatalog } from "./CatalogContext";
 
 export interface Suggestion {
@@ -26,7 +27,7 @@ export function suggestionsFor(destination: HubId, date: string, catalog: Catalo
     kind: "day_tour",
     id,
     name: catalog.dayTours.find((t) => t.id === id)!.name,
-    fromCents: quoteDayTour(id, false, season, catalog),
+    fromCents: applyMultiplier(perPersonTierCents(catalog.dayTours.find((t) => t.id === id)!.perPerson, 4), season.multiplierBps),
   });
   const exp = (id: string): Suggestion | null => {
     const tier = catalog.lodgingTiers.find((t) => !t.expeditionId || t.expeditionId === id);
@@ -97,7 +98,7 @@ export function UpsellSuggestion({
               className="w-full min-h-11 rounded-xl border border-amber-200 bg-white px-3 py-2 text-left hover:border-emerald-500"
             >
               <span className="block text-[11px] font-bold uppercase tracking-wider text-emerald-700">
-                {s.kind === "day_tour" ? "1-day tour" : "Expedition"} · from {formatUSD(s.fromCents)}
+                {s.kind === "day_tour" ? `1-day tour · from ${formatUSD(s.fromCents)} per person` : `Expedition · from ${formatUSD(s.fromCents)}`}
               </span>
               <span className="block text-sm font-bold text-slate-900">{s.name}</span>
             </button>
