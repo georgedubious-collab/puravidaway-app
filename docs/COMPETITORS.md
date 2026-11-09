@@ -248,7 +248,7 @@ What the exact point does to price (Daytrip, Sedan, from SJO):
 Status as of 2026-11-08 in brackets.
 
 1. Price display: per car **and** "from $X per person". **[Done: vehicle cards and route pages,
-   "from $X per person (N travellers)" = car ÷ max passengers, rounded up.]**
+   "from $X per person (N travellers)" = car ÷ max passengers (at most 7, like Daytrip's van), rounded up.]**
 1b. Pick-up/drop-off by **map search of any exact place** (hotel, dock, restaurant), with the
     route drawn on a map — not a town dropdown (§2d). **[Open: still hub dropdowns.]**
 2. Every transfer card states: flight tracking, driver waits, luggage allowance, free
