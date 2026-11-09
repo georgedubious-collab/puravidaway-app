@@ -436,49 +436,55 @@ for (const m of ["8888_1234", "8888/1234", "pepe at gmail dot com", "instagram @
 }
 
 // --- Bids -----------------------------------------------------------------------------
-await expectOk("approved driver bids on open request", "driver", `
-  insert into public.bids (id, booking_id, driver_id, bid_amount) values
-  ('20000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', '${U.driver}', 185)`);
-await expectBlocked("pending driver cannot bid", "pending", `
-  insert into public.bids (booking_id, driver_id, bid_amount) values ('10000000-0000-0000-0000-000000000001', '${U.pending}', 150)`);
-await expectBlocked("driver cannot bid on closed booking", "driver", `
-  insert into public.bids (booking_id, driver_id, bid_amount) values ('10000000-0000-0000-0000-000000000002', '${U.driver}', 150)`);
-await expectBlocked("driver cannot accept own bid", "driver",
-  `update public.bids set status = 'accepted' where id = '20000000-0000-0000-0000-000000000001'`);
-await expectOk("driver lowers bid while open", "driver",
-  `update public.bids set bid_amount = 180 where id = '20000000-0000-0000-0000-000000000001'`);
+// Offers go through offer_job(); see the job-board section below for the full flow.
+await expectBlocked("driver cannot offer on a booking that isn't on the board", "driver",
+  `select public.offer_job('10000000-0000-0000-0000-000000000002', '30000000-0000-0000-0000-000000000001', 150)`);
+await expectBlocked("driver cannot mark an offer accepted", "driver",
+  `update public.bids set status = 'accepted' where driver_id = '${U.driver}'`, { affected: 0 });
 await expectOk("server closes the request", "server",
   `update public.bookings set status = 'confirmed' where id = '10000000-0000-0000-0000-000000000001'`);
-await expectBlocked("driver cannot reprice after the request closes", "driver",
-  `update public.bids set bid_amount = 300 where id = '20000000-0000-0000-0000-000000000001'`);
-await expectRows("client sees bids on own booking", "client", "select * from public.bids", 1);
-await expectRows("other client sees no bids", "client2", "select * from public.bids", 0);
-await expectOk("driver withdraws own bid", "driver",
-  `update public.bids set status = 'withdrawn' where id = '20000000-0000-0000-0000-000000000001'`);
+await expectRows("other client sees no offers", "client2", "select * from public.bids", 0);
 
-// --- Job board claims (migration 0017) -------------------------------------------------------
+// --- Job board offers (migration 0017) -------------------------------------------------------
+const V1 = "'30000000-0000-0000-0000-000000000001'";
+const J3 = "'10000000-0000-0000-0000-000000000003'";
 await expectOk("server posts a new ride to the job board", "server", `
   insert into public.bookings (id, client_id, service_type, total_price, driver_payout, platform_fee, status, passenger_count, scheduled_at)
-  values ('10000000-0000-0000-0000-000000000003', '${U.client}', 'transfer', 200, 160, 40, 'pending_bids', 3, now() + interval '3 days')`);
-await expectBlocked("pending driver cannot claim", "pending",
-  "select public.claim_job('10000000-0000-0000-0000-000000000003', '30000000-0000-0000-0000-000000000001')");
-await expectBlocked("driver cannot claim with someone else's vehicle", "driver",
-  "select public.claim_job('10000000-0000-0000-0000-000000000003', '30000000-0000-0000-0000-000000000099')");
-await expectOk("server sets the vehicle's seats", "server",
-  "update public.driver_vehicles set passenger_capacity = 2 where id = '30000000-0000-0000-0000-000000000001'");
-await expectBlocked("too few seats for the group", "driver",
-  "select public.claim_job('10000000-0000-0000-0000-000000000003', '30000000-0000-0000-0000-000000000001')");
-await expectOk("server sets the vehicle's seats", "server",
-  "update public.driver_vehicles set passenger_capacity = 4 where id = '30000000-0000-0000-0000-000000000001'");
-await expectRows("approved driver claims the job", "driver",
-  "select public.claim_job('10000000-0000-0000-0000-000000000003', '30000000-0000-0000-0000-000000000001') as ref", 1);
-await expectRows("claim assigned and confirmed the booking", "admin",
-  `select 1 from public.bookings where id = '10000000-0000-0000-0000-000000000003' and status = 'confirmed' and assigned_driver_id = '${U.driver}' and assigned_vehicle_id = '30000000-0000-0000-0000-000000000001' and claimed_at is not null`, 1);
-await expectBlocked("the same job cannot be claimed twice", "driver",
-  "select public.claim_job('10000000-0000-0000-0000-000000000003', '30000000-0000-0000-0000-000000000001')");
-await expectRows("claimed job left the board", "driver", "select * from public.driver_jobs() where id = '10000000-0000-0000-0000-000000000003'", 0);
-await expectRows("claimed job is in the driver's trips with the payout", "driver",
-  "select * from public.my_trips() where id = '10000000-0000-0000-0000-000000000003' and driver_payout = 160", 1);
+  values (${J3}, '${U.client}', 'transfer', 200, 160, 40, 'pending_bids', 3, now() + interval '3 days')`);
+await expectBlocked("pending driver cannot offer", "pending", `select public.offer_job(${J3}, ${V1}, 160)`);
+await expectBlocked("driver cannot offer with someone else's vehicle", "driver",
+  `select public.offer_job(${J3}, '30000000-0000-0000-0000-000000000099', 160)`);
+await expectOk("server sets the vehicle's seats", "server", `update public.driver_vehicles set passenger_capacity = 2 where id = ${V1}`);
+await expectBlocked("too few seats for the group", "driver", `select public.offer_job(${J3}, ${V1}, 160)`);
+await expectOk("server sets the vehicle's seats", "server", `update public.driver_vehicles set passenger_capacity = 4 where id = ${V1}`);
+await expectBlocked("offer below 70% of the payout refused", "driver", `select public.offer_job(${J3}, ${V1}, 100)`);
+await expectBlocked("offer above 130% of the payout refused", "driver", `select public.offer_job(${J3}, ${V1}, 250)`);
+await expectBlocked("offer note cannot contain a phone number", "driver", `select public.offer_job(${J3}, ${V1}, 160, 'call me 8888-1234')`);
+await expectRows("approved driver sends an offer", "driver", `select public.offer_job(${J3}, ${V1}, 150, 'Already in La Fortuna that day') as ref`, 1);
+await expectRows("driver changes the offer (one per driver per job)", "driver", `select public.offer_job(${J3}, ${V1}, 155) as ref`, 1);
+await expectRows("one offer row, at the new amount", "admin", `select 1 from public.bids where booking_id = ${J3} and driver_id = '${U.driver}' and bid_amount = 155 and status = 'submitted'`, 1);
+await expectRows("driver sees their offer on the job", "driver", `select 1 from public.driver_jobs() where id = ${J3} and my_offer = 155 and my_offer_status = 'submitted'`, 1);
+await expectBlocked("driver cannot insert an offer directly", "driver",
+  `insert into public.bids (booking_id, driver_id, bid_amount) values (${J3}, '${U.driver}', 1)`);
+await expectBlocked("driver cannot edit the amount directly", "driver", `update public.bids set bid_amount = 999 where booking_id = ${J3}`, { affected: 0 });
+await expectRows("client sees no offers", "client", "select * from public.bids", 0);
+await expectBlocked("driver cannot accept an offer", "driver", `select public.accept_offer((select id from public.bids where booking_id = ${J3}))`);
+await expectRows("admin accepts the offer", "admin", `select public.accept_offer((select id from public.bids where booking_id = ${J3})) as ref`, 1);
+await expectRows("accepting assigned, confirmed and set the payout to the offer", "admin",
+  `select 1 from public.bookings where id = ${J3} and status = 'confirmed' and assigned_driver_id = '${U.driver}' and assigned_vehicle_id = ${V1} and driver_payout = 155 and platform_fee = 45 and claimed_at is not null`, 1);
+await expectBlocked("an accepted offer cannot be accepted again", "admin", `select public.accept_offer((select id from public.bids where booking_id = ${J3}))`);
+await expectBlocked("no offers on a booking that left the board", "driver", `select public.offer_job(${J3}, ${V1}, 160)`);
+await expectRows("assigned job left the board", "driver", `select * from public.driver_jobs() where id = ${J3}`, 0);
+await expectRows("assigned job is in the driver's trips with the agreed payout", "driver",
+  `select * from public.my_trips() where id = ${J3} and driver_payout = 155`, 1);
+await expectOk("server posts a second ride", "server", `
+  insert into public.bookings (id, client_id, service_type, total_price, driver_payout, platform_fee, status, passenger_count, scheduled_at)
+  values ('10000000-0000-0000-0000-000000000004', '${U.client}', 'transfer', 100, 80, 20, 'pending_bids', 1, now() + interval '4 days')`);
+await expectRows("driver offers on it", "driver", `select public.offer_job('10000000-0000-0000-0000-000000000004', ${V1}, 80) as ref`, 1);
+await expectOk("driver withdraws the offer", "driver",
+  `update public.bids set status = 'withdrawn' where booking_id = '10000000-0000-0000-0000-000000000004' and driver_id = '${U.driver}'`);
+await expectBlocked("a withdrawn offer cannot be accepted", "admin",
+  `select public.accept_offer((select id from public.bids where booking_id = '10000000-0000-0000-0000-000000000004'))`);
 await expectRows("commission setting seeded", "anon", "select * from public.pricing_settings where driver_commission_bps = 2000", 1);
 await expectBlocked("commission above 50% refused", "admin", "update public.pricing_settings set driver_commission_bps = 9000");
 

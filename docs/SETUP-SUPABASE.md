@@ -36,7 +36,8 @@ Either way works; the first needs no installs.
     area factor (Santa Teresa, Montezuma, Paquera), colones-per-dollar rate
 16. `20261109000016_price_level.sql` — ride formula numbers on par with Daytrip (run once)
 17. `20261109000017_driver_job_board.sql` — driver job board: payout + commission (20%), drivers read
-    jobs and their trips through `driver_jobs()` / `my_trips()` (never the client's price), `claim_job()`
+    jobs and their trips through `driver_jobs()` / `my_trips()` (never the client's price), offers via
+    `offer_job()`, the team accepts with `accept_offer()`
 
 Later files are added as the app grows. Since Option C is set up, they run by themselves
 after a merge; each pull request still lists them.

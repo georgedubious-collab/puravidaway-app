@@ -52,7 +52,7 @@ export interface BookingRow {
   /** Driver payout and platform share (USD), migration 0017. Null on expeditions (arranged by the team). */
   driver_payout?: number | string | null;
   platform_fee?: number | string | null;
-  /** Set when a driver claimed the job from the board. */
+  /** Set when the team accepted a driver's offer from the job board. */
   claimed_at?: string | null;
   created_at: string;
 }
@@ -72,6 +72,23 @@ export interface DriverJob {
   preferences: Partial<import("./preferences").RidePrefs>;
   driver_notes: string | null;
   driver_payout: number | string | null;
+  created_at: string;
+  /** This driver's own offer on the job, if any. */
+  my_offer: number | string | null;
+  my_offer_status: "submitted" | "accepted" | "declined" | "withdrawn" | null;
+  my_offer_id: string | null;
+}
+
+/** A driver's offer on a job-board booking (`bids` table). */
+export interface OfferRow {
+  id: string;
+  booking_id: string;
+  driver_id: string;
+  bid_amount: number | string;
+  vehicle_id: string | null;
+  vehicle_snapshot: { make_model?: string | null; plate?: string | null; seats?: number | null };
+  note: string | null;
+  status: "submitted" | "accepted" | "declined" | "withdrawn";
   created_at: string;
 }
 

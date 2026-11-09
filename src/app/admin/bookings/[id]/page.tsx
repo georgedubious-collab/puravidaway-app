@@ -3,13 +3,13 @@ import { notFound } from "next/navigation";
 import { ActionForm } from "@/components/ActionForm";
 import { ChatBox } from "@/components/ChatBox";
 import { requireRole } from "@/lib/auth";
-import { BOOKING_STATUSES, BOOKING_STATUS_LABEL, SERVICE_LABEL, bookingDue, usd, type BookingRow, type TripContact } from "@/lib/bookings";
+import { BOOKING_STATUSES, BOOKING_STATUS_LABEL, SERVICE_LABEL, bookingDue, usd, type BookingRow, type OfferRow, type TripContact } from "@/lib/bookings";
 import { getCatalog } from "@/lib/catalogSource";
 import { formatScheduledAt, todayInCostaRica } from "@/lib/dates";
 import { canTakeTrips, type DriverRecord, type VehicleRecord } from "@/lib/driverKyc";
 import { prefMismatches, prefsSummary } from "@/lib/preferences";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { updateBooking } from "../actions";
+import { acceptOffer, updateBooking } from "../actions";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 type DriverRow = DriverRecord & { profiles: { full_name: string | null } | null; driver_vehicles: VehicleRecord[] };
@@ -36,6 +36,17 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
   if (!b) notFound();
 
   const { data: note } = await supabase.from("booking_admin_notes").select("notes").eq("booking_id", b.id).maybeSingle();
+  // Drivers' offers from the job board, with who they are and how much work they've had.
+  const { data: offers } = await supabase.from("bids").select("*").eq("booking_id", b.id).order("created_at").returns<OfferRow[]>();
+  const offerDriverIds = [...new Set((offers ?? []).map((o) => o.driver_id))];
+  const [{ data: offerNames }, { data: offerLoad }] = offerDriverIds.length
+    ? await Promise.all([
+        supabase.from("profiles").select("id, full_name").in("id", offerDriverIds),
+        supabase.from("bookings").select("assigned_driver_id, status").in("assigned_driver_id", offerDriverIds).in("status", ["confirmed", "in_progress", "completed"]),
+      ])
+    : [{ data: [] }, { data: [] }];
+  const nameOf = (id: string) => offerNames?.find((p) => p.id === id)?.full_name ?? "Driver";
+  const tripsOf = (id: string) => (offerLoad ?? []).filter((x) => x.assigned_driver_id === id).length;
   const { data: siblings } = b.trip_id
     ? await supabase.from("bookings").select("id, booking_ref, service_type, scheduled_at").eq("trip_id", b.trip_id).neq("id", b.id)
     : { data: [] };
@@ -141,7 +152,7 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
             {b.driver_payout != null && (
               <Item
                 k="Driver payout"
-                v={`${usd(b.driver_payout)} (we keep ${usd(b.platform_fee ?? 0)})${b.claimed_at ? " · claimed from the job board" : ""}`}
+                v={`${usd(b.driver_payout)} (we keep ${usd(b.platform_fee ?? 0)})${b.claimed_at ? " · offer accepted from the job board" : " · suggested"}`}
               />
             )}
             {b.driver_notes && <Item k="Message for driver" v={b.driver_notes} />}
@@ -151,6 +162,45 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
           </dl>
         </section>
       </div>
+
+      {(offers ?? []).length > 0 && (
+        <section className="rounded-xl border border-slate-200 bg-white p-5">
+          <h2 className="font-extrabold text-slate-900">Drivers&apos; offers</h2>
+          <p className="mt-1 text-xs text-slate-500">
+            Suggested payout {b.driver_payout != null ? usd(b.driver_payout) : "—"}. &ldquo;Trips&rdquo; counts the rides each driver has
+            had with us, so you can spread the work. Accepting one assigns the driver, confirms the booking and declines the rest.
+          </p>
+          <ul className="mt-3 divide-y divide-slate-100">
+            {(offers ?? []).map((o) => (
+              <li key={o.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+                <div className="text-sm">
+                  <p className="font-bold text-slate-900">
+                    {nameOf(o.driver_id)} <span className="font-semibold text-slate-500">· {tripsOf(o.driver_id)} trips</span>
+                  </p>
+                  <p className="text-slate-600">
+                    {o.vehicle_snapshot?.make_model ?? "Vehicle"} {o.vehicle_snapshot?.plate ?? ""}
+                    {o.vehicle_snapshot?.seats ? ` · ${o.vehicle_snapshot.seats} seats` : ""} · {o.created_at.slice(0, 10)}
+                  </p>
+                  {o.note && <p className="text-slate-700 italic">&ldquo;{o.note}&rdquo;</p>}
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className={`text-lg font-extrabold ${Number(o.bid_amount) > Number(b.driver_payout ?? 0) ? "text-amber-700" : "text-emerald-700"}`}>
+                    {usd(o.bid_amount)}
+                  </span>
+                  {o.status === "submitted" && b.status === "pending_bids" ? (
+                    <ActionForm action={acceptOffer} submitLabel="Accept" savedLabel="Accepted" className="inline">
+                      <input type="hidden" name="bid_id" value={o.id} />
+                      <input type="hidden" name="booking_id" value={b.id} />
+                    </ActionForm>
+                  ) : (
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500">{o.status}</span>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section className="rounded-xl border border-slate-200 bg-white p-5">
         <h2 className="font-extrabold text-slate-900">Dispatch</h2>
