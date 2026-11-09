@@ -2,6 +2,7 @@ import { ArrowRight, Clock, Compass, Luggage, MapPin, Users } from "lucide-react
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { LegalLinks } from "@/components/legal/LegalLinks";
 import { DriverStandards } from "@/components/trust/DriverStandards";
 import { Reviews } from "@/components/trust/Reviews";
 import { HUBS, routeMinutes } from "@/lib/catalog";
@@ -197,7 +198,10 @@ export default async function RouteLandingPage({
       </main>
 
       <footer className="bg-emerald-950 text-emerald-200 text-sm">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">PuraVidaWay · Costa Rica</div>
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-x-4">
+          <p>PuraVidaWay · Costa Rica</p>
+          <LegalLinks />
+        </div>
       </footer>
     </div>
   );

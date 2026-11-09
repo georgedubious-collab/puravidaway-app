@@ -65,6 +65,10 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
 - `src/lib/cart.ts` — Trip Cart model, payment-option maths, WhatsApp deep-link builder.
 - `src/components/` — storefront UI: `Header`, `TransfersView`, `DayToursView`,
   `ExpeditionsView`, `CartDrawer`, `Toast`, `Storefront` (state + localStorage cart).
+- Legal pages (2026-11-08, **draft pending review by a Costa Rican lawyer**): `/terms`,
+  `/privacy`, `/cancellation`, sharing `src/components/legal/LegalPage.tsx`. The operator's legal
+  name, cédula jurídica and address are a placeholder (`LEGAL_ENTITY_PLACEHOLDER`) until filled
+  in. Footers link to all three; the trip request form says sending it accepts them.
 - `legacy/index.html` — the original static prototype, kept as the **design reference**.
 - Logins: `/login` (email + 6-digit code), `src/proxy.ts` (session refresh on account pages),
   `src/lib/auth.ts` (`requireRole`). `/admin` (dashboard) and `/admin/users` (roles) are live
@@ -94,6 +98,8 @@ on the trip builder; the trip is a persistent sidebar on desktop and a bottom ba
 phones. Marketing lives on separate route/tour landing pages (`/transfers/[slug]`) that rank on
 Google and pre-fill the builder via `?from=<hub>&to=<hub>`. Trust content (driver checks,
 guarantees, real reviews only) lives in `src/lib/trust.ts`.
+Legal pages (`/terms`, `/privacy`, `/cancellation`) are linked from every footer and under the
+"Send trip request" button, so the cancellation policy is visible before anyone pays.
 
 1. **Transfers & Sightseeing** — exact pick-up/drop-off by map place search (hotel, dock,
    restaurant, address; see COMPETITORS.md §2d — *target; Phase 2a ships hub dropdowns*), date,
@@ -341,7 +347,7 @@ and `season_for_date(date)` returns the season for a travel date.
 | **2a. Next.js foundation** | Next.js + TS + Tailwind scaffold; rebuild storefront from the prototype design with catalog data from §5; working cart and WhatsApp buttons | **Done (PR #2)** |
 | **2b. Supabase core** | Schema + RLS from §7, Auth with roles, catalog served from DB, `/admin` behind login, inventory & season pricing manager | **Live** (PRs #7–#9; Supabase connected). Migration 0010 still to be applied on the live database |
 | **2c. Driver KYC vault** | Driver sign-up, document upload, admin approval, 30-day expiry alerts | **Built (PRs #12–#14): `/driver` portal with several vehicles, `/admin/drivers` vault** |
-| **2d. Checkout** | Part 1: trip requests saved online (server re-prices every item, guest name/email/WhatsApp, booking refs) + `/admin/bookings` dispatch (status, driver + vehicle, amount received, internal notes). Part 2: Green Pay, pay in full online or cash + 10% fee (§6.4), webhooks, confirmation emails | **Part 1 built (PR #15)**; part 2 needs Green Pay credentials |
+| **2d. Checkout** | Part 1: trip requests saved online (server re-prices every item, guest name/email/WhatsApp, booking refs) + `/admin/bookings` dispatch (status, driver + vehicle, amount received, internal notes). Part 2: Green Pay, pay in full online or cash + 10% fee (§6.4), webhooks, confirmation emails | **Part 1 built (PR #15)**; part 2 needs Green Pay credentials (cancellation policy decided, §9 #7) |
 | **3. Bidding & GPS** | Live driver bidding; driver on-duty GPS broadcast to admin Leaflet map | Planned |
 | **4. Chat & CRM** | Tri-party trip chat (traveller via private trip link, assigned driver, team) with Resend email notifications; HubSpot sync; SMS / WhatsApp Business API | **Chat built (PR #17)**, polling every 8 s; HubSpot and SMS planned |
 | **5. Mobile apps** | Driver app (GPS, push notifications, camera) first, then Client app, for App Store / Google Play; plan in §11 | Planned — spec drafted; store accounts can be opened now (§11.6) |
@@ -370,7 +376,13 @@ and `season_for_date(date)` returns the season for a travel date.
 4. **Stop ↔ corridor mapping** (which stops are offered on which routes).
 5. **Lodging tier pricing**: per person or per booking? Same question for day tours.
 6. **Passenger-based pricing**: do day tours and expeditions price per person?
-7. **Cancellation & refund policy** for deposits and full payments.
+7. **Cancellation & refund policy:** decided (Jorge, 2026-11-08), published at `/cancellation`.
+   Rides (transfers) and 1-day tours: free cancellation up to 24 h before pickup, full refund;
+   within 24 h or no-show, no refund. Multi-day expeditions: 30+ days before start, full refund
+   minus non-refundable SINAC permits and boat/lodging deposits already paid; 8–29 days, 50%;
+   7 days or less, no refund. Date/time changes free if asked 24 h+ ahead, subject to
+   availability. If we or the driver cancel: full refund. Weather / road / park closures: rebook
+   or refund of the affected service. The cash-booking fee is non-refundable within 24 h.
 8. **Custom domain** for the app (removes the Vercel login wall on previews and looks
    professional).
 9. **Driver edits after approval.** (Expired licence / insurance / Dekra / Marchamo already block trips

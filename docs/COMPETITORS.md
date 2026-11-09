@@ -261,7 +261,9 @@ confirmation, no ratings yet · 7 ❌ upsell after adding a ride → payment & p
    badge, never a blanket claim; see PROJECT.md §10).
 3. Sightseeing stops show duration and whether entrance fees are included.
 4. Bid mode shows the fixed price as reference and warns on unrealistic offers.
-5. Cancellation and refund policy visible before payment.
+5. Cancellation and refund policy visible before payment. *Partly met (2026-11-08): `/cancellation` is linked from
+   the footer and under "Send trip request"; still to do: show the free-cancellation window on
+   each card and next to the pay button.*
 6. Driver profile (photo, vehicle, rating, compliance badges) visible before the trip.
 7. After adding a transfer, suggest a tour or expedition (Welcome-style upsell).
 8. Host/hotel referral links are a planned feature (Phase 4) — keep booking URLs shareable.

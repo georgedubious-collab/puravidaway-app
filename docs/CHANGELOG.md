@@ -3,6 +3,12 @@
 Every merged change gets one line: `YYYY-MM-DD — <AI or Jorge> — <what changed>`.
 Newest entries first. AIs: read the top of this file before starting work.
 
+- 2026-11-08 — Claude — Legal pages (draft, pending lawyer review): `/terms`, `/privacy` and
+  `/cancellation`, with "Last updated" date, a visible draft notice and a placeholder for the
+  operator's legal name, cédula jurídica and address. The privacy policy lists only the data the
+  app really stores. Cancellation rules as decided by Jorge (PROJECT.md §9 #7). Footer links on
+  the home and route pages; consent line under "Send trip request".
+
 - 2026-11-08 — Claude — COMPETITORS.md: corrected Welcome Pickups (it does operate at SJO); new
   §1a local alternatives (shared shuttles ~$64 pp, local private vans, Uber/DiDi, rental cars) and
   where we win; §5 checklist now shows today's status and which PR closes each gap.
