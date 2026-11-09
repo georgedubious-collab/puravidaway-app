@@ -167,7 +167,7 @@ export default async function PricingPage() {
 
       <Section
         title="Area factors"
-        note="A town's factor multiplies rides that start there, where drivers are scarcer and must come from far away (1.15 = +15%). Southern Nicoya's applies when the pickup OR the drop-off is there (ferry queues, the driver crosses back); if both apply, the higher one counts. Lower a factor as local partner drivers join."
+        note="A town's factor multiplies rides that start there, where drivers are scarcer and must come from far away (1.15 = +15%). Southern Nicoya's applies when the pickup OR the drop-off is there and the route takes the Puntarenas ferry (the queue, and the driver crosses back); rides that go around by road, e.g. from Liberia, don't get it. If both a town's and Southern Nicoya's apply, the higher one counts. Lower a factor as local partner drivers join."
       >
         <Card>
           <AdminForm action={saveAreaFactors} className="grid gap-3 grid-cols-2 sm:grid-cols-5 items-end">

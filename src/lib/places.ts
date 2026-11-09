@@ -27,7 +27,7 @@ export interface RidePlace extends LatLng {
   address?: string;
   /** Nearest of our towns: area factor, stops, suggestions. */
   hub: HubId;
-  /** Extra pricing area the place is in, e.g. "SouthNicoya" (its factor applies at either end). */
+  /** Extra pricing area the place is in, e.g. "SouthNicoya" (its factor applies at either end, on ferry routes). */
   area?: ExtraAreaId;
 }
 
@@ -41,7 +41,7 @@ export interface RideRoute {
   totalMinutes: number;
   /** Car ferries on the way (Gulf of Nicoya), each charged at the ferry fares. */
   ferries: number;
-  /** Extra pricing area at either end (set by the server from the places). */
+  /** Extra pricing area at either end, only when the route takes a ferry (set by the server). */
   area?: ExtraAreaId;
 }
 

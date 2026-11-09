@@ -562,8 +562,9 @@ export const RIDE_FORMULA_DEFAULT: RideFormula = {
 
 /**
  * Pricing areas that aren't one of our towns (docs/PRICING.md §4.4). A typed place
- * inside one gets its area factor whether it is the pickup or the drop-off: the
- * driver has to get there and back either way. Shapes are in src/lib/places.ts.
+ * inside one gets its area factor whether it is the pickup or the drop-off, but only
+ * when the route takes the ferry: the factor pays for the queue and the driver's
+ * crossing back. Shapes are in src/lib/places.ts.
  */
 export const EXTRA_AREAS = [
   { id: "SouthNicoya", name: "Southern Nicoya (Santa Teresa, Montezuma, Paquera)" },
@@ -575,7 +576,7 @@ export const AREA_IDS: readonly AreaId[] = [...HUB_IDS, ...EXTRA_AREAS.map((a) =
 
 /**
  * Area factors (basis points): a town's applies to rides that start there (drivers are
- * scarcer in Guanacaste and Osa); an extra area's applies to rides starting or ending in it.
+ * scarcer in Guanacaste and Osa); an extra area's applies to ferry rides starting or ending in it.
  * Southern Nicoya 1.35 (Jorge, 2026-11-09): ferry queues and the driver's crossing back,
  * putting SJO → Santa Teresa a few dollars under Daytrip ($346 vs $356, 2 pax, ferry included).
  */

@@ -58,7 +58,7 @@ export function formatDuration(minutes: number): string {
  * Road km and driving time come from `route` (Google Routes, for typed places)
  * or, between two of our towns, from the tables in catalog.ts. The area factor
  * is the pickup's town (a typed place's nearest town), or an extra area such as
- * Southern Nicoya at either end (route.area), whichever is higher.
+ * Southern Nicoya at either end when the route takes the ferry (route.area), whichever is higher.
  */
 export function rideCents(
   origin: HubId,

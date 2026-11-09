@@ -203,7 +203,9 @@ export async function rideRoute(origin: RidePlace, destination: RidePlace): Prom
   }
   const road = await roadBetween(roadEnd(origin), roadEnd(destination));
   if (road.km > MAX_ROUTE_KM) throw new MapsError("That ride is longer than we quote online. Please message us on WhatsApp.");
-  const area = origin.area ?? destination.area;
+  // Southern Nicoya's factor is for the ferry queue and the crossing back (Jorge, 2026-11-09):
+  // when Google drives around the gulf instead (e.g. from Liberia), no ferry, no factor.
+  const area = road.ferries > 0 ? (origin.area ?? destination.area) : undefined;
   return { ...road, totalMinutes: road.drivingMinutes + boatMinutes(origin, destination), ...(area ? { area } : {}) };
 }
 

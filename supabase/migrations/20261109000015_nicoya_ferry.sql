@@ -5,7 +5,8 @@
 --    per passenger. Converted at crc_per_usd (≈ ₡452, Jorge checks it weekly) when a ride is
 --    priced, and added on top of the ride for every ferry on Google's route (not season-adjusted).
 -- 2. "SouthNicoya" area factor 1.35 (Santa Teresa, Montezuma, Paquera…), applied when the
---    pickup OR the drop-off is there: ferry queues and the driver's crossing back. Puts
+--    pickup OR the drop-off is there AND the route takes the ferry (not from Liberia by road):
+--    ferry queues and the driver's crossing back. Puts
 --    SJO → Santa Teresa a few dollars under Daytrip. Lives in hub_pricing next to the towns.
 --
 -- Run after 0014. Safe to run more than once (never overwrites values edited in /admin).
@@ -28,7 +29,7 @@ alter table public.hub_pricing add constraint hub_pricing_hub_id_check
   check (hub_id in ('SJO','LIR','Arenal','ManuelAntonio','Monteverde','Sierpe','DrakeBay','PuertoViejo','Tamarindo',
                     'SouthNicoya'));
 comment on table public.hub_pricing is
-  'Area factor per town (applies to rides starting there) and per extra area such as SouthNicoya (applies at either end).';
+  'Area factor per town (applies to rides starting there) and per extra area such as SouthNicoya (applies at either end, on ferry routes only).';
 
 insert into public.hub_pricing (hub_id, area_factor) values ('SouthNicoya', 1.35)
 on conflict (hub_id) do nothing;

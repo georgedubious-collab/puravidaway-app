@@ -257,8 +257,8 @@ ride       = round_to_dollar(standard × vehicle factor × area factor)
 transfer   = (ride + Σ selected stop prices) × season multiplier
              + ferries × (car-and-driver fare + passengers × passenger fare)
 ```
-Area factor = the pickup town's, or an extra area's when the pickup OR drop-off is in it
-(Southern Nicoya), whichever is higher. Ferry fares (Gulf of Nicoya, per crossing on Google's
+Area factor = the pickup town's, or an extra area's when the pickup OR drop-off is in it and
+the route takes the ferry (Southern Nicoya), whichever is higher. Ferry fares (Gulf of Nicoya, per crossing on Google's
 route) are added after the season multiplier and never season-adjusted.
 Numbers (Jorge, 2026-11-09, on par with Daytrip's lowest prices): base $30, $0.90/km, $10/hour,
 minimum $120; area factors Guanacaste (LIR, Tamarindo) 1.10, Osa (Sierpe, Drake Bay) 1.15,
