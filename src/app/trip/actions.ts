@@ -5,10 +5,10 @@ import { headers } from "next/headers";
 import { after } from "next/server";
 import { getCatalog } from "@/lib/catalogSource";
 import { HUBS } from "@/lib/catalog";
-import { todayInCostaRica } from "@/lib/dates";
+import { costaRicaTimestamp, formatTime12h, todayInCostaRica } from "@/lib/dates";
 import { ADMIN_EMAIL, SITE_URL, sendEmail } from "@/lib/email";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { MAX_TRIP_ITEMS, parseSpec, priceItem, type ItemSpec } from "@/lib/tripRequest";
+import { MAX_TRIP_ITEMS, itemTime, parseSpec, priceItem, type ItemSpec } from "@/lib/tripRequest";
 
 export interface TripRequestInput {
   items: { id: string; date: string; totalCents: number; spec: unknown }[];
@@ -110,7 +110,8 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
             : [],
       vehicle_class: spec.kind === "transfer" ? spec.vehicleId : null,
       lodging_tier: spec.kind === "expedition" ? spec.tierId : null,
-      scheduled_at: `${date}T12:00:00-06:00`, // date only for now; pickup time is agreed on WhatsApp
+      // Costa Rica time: the ride's pickup time, or the tour / expedition default until the team confirms.
+      scheduled_at: costaRicaTimestamp(date, itemTime(spec)),
       passenger_count: spec.kind === "transfer" ? spec.pax : null,
       flight_or_hotel_notes: spec.kind === "transfer" ? (spec.notes ?? null) : null,
       preferences: spec.kind === "transfer" && spec.prefs ? spec.prefs : {},
@@ -134,6 +135,17 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
     const refs = (data ?? []).map((r) => r.booking_ref as string);
     const total = priced.reduce((n, p) => n + p.totalCents, 0) / 100;
     const tripUrl = `${SITE_URL}/trip/${tripToken}`;
+    // One line per item, e.g. "PVW-10492 · 2026-11-22, 9:00 AM pickup · Ride: SJO Airport → Manuel Antonio".
+    const itemLines = priced.map(({ spec, date }, i) => {
+      const what =
+        spec.kind === "transfer"
+          ? `Ride: ${hubName(spec.origin)} → ${hubName(spec.destination)}`
+          : spec.kind === "day_tour"
+            ? `Day tour: ${catalog.dayTours.find((t) => t.id === spec.tourId)?.name ?? spec.tourId}`
+            : `Expedition: ${catalog.expeditions.find((x) => x.id === spec.expeditionId)?.name ?? spec.expeditionId}`;
+      const when = `${date}, ${formatTime12h(itemTime(spec))} ${spec.kind === "transfer" ? "pickup" : "start (to confirm)"}`;
+      return [refs[i], when, what].filter(Boolean).join(" · ");
+    });
     after(async () => {
       await sendEmail({
         to: email,
@@ -142,7 +154,8 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
           `Hi ${name.split(" ")[0]},`,
           `Thanks for your request! Our team is checking availability and will confirm your pickup times. Nothing has been charged.`,
           `Your booking reference${refs.length > 1 ? "s" : ""}: ${refs.join(", ")}.`,
-          "Your trip page has your bookings and a chat with our team. Your driver's profile and car photos appear there once confirmed.",
+          ...itemLines,
+          "Times are Costa Rica time. Your trip page has your bookings and a chat with our team. Your driver's profile and car photos appear there once confirmed.",
         ],
         button: { label: "Open your trip page", url: tripUrl },
       });
@@ -152,6 +165,7 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
           subject: `New trip request ${refs.join(", ")} · $${total.toFixed(2)}`,
           lines: [
             `${name} (${email}, ${phone}) sent ${refs.length} item${refs.length > 1 ? "s" : ""} worth $${total.toFixed(2)}, ${input.mode === "deposit_20" ? "20% deposit" : "paying in full"}.`,
+            ...itemLines,
             notes ? `Notes: ${notes}` : "",
           ].filter(Boolean),
           button: { label: "Open in Bookings", url: `${SITE_URL}/admin/bookings` },

@@ -65,7 +65,10 @@ export default async function PricingPage() {
         ))}
       </Section>
 
-      <Section title="Sightseeing stops" note="Corridors = which pickup or drop-off towns offer this stop.">
+      <Section
+        title="Sightseeing stops"
+        note="Stops are optional paid extras on the road between two towns. Tick every town the stop sits between: a ride offers it only when BOTH its pickup and drop-off are ticked. Tick just one town for a stop in that town (offered on any ride to or from it). Never offered on the Sierpe ↔ Drake Bay boat."
+      >
         {(s.data ?? []).map((x) => (
           <Card key={x.id}>
             <AdminForm action={saveStop} className="grid gap-3 sm:grid-cols-6 items-end">

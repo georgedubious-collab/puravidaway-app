@@ -107,6 +107,11 @@ await db.exec(`
 // --- Catalog ------------------------------------------------------------------
 await expectRows("visitor reads active vehicles", "anon", "select * from public.vehicle_classes", 4);
 await expectRows("visitor reads stops", "anon", "select * from public.sightseeing_stops", 5);
+// Migration 0011: corridor lists for the "both ends" stop rule.
+await expectRows("Tárcoles/Carara corridors updated", "anon",
+  "select * from public.sightseeing_stops where id in ('tarcoles','carara') and corridors = array['SJO','Monteverde','ManuelAntonio','Sierpe','DrakeBay']::text[]", 2);
+await expectRows("Río Celeste no longer on LIR ↔ Tamarindo", "anon",
+  "select * from public.sightseeing_stops where id = 'rioceleste' and corridors = array['Arenal','LIR']::text[]", 1);
 await expectBlocked("visitor cannot change prices", "anon", "update public.vehicle_classes set base_rate = 1", { affected: 0 });
 await expectBlocked("client cannot change prices", "client", "update public.vehicle_classes set base_rate = 1", { affected: 0 });
 await expectOk("admin changes a price", "admin", "update public.vehicle_classes set base_rate = 180 where id = 'suv'");

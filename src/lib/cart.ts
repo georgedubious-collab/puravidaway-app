@@ -4,6 +4,7 @@
  * every item (src/app/trip/actions.ts).
  */
 import { WHATSAPP_NUMBER } from "./catalog";
+import { formatTime12h } from "./dates";
 import { depositCents, formatUSD } from "./pricing";
 import { parseSpec, type ItemSpec } from "./tripRequest";
 
@@ -93,7 +94,9 @@ export function cartWhatsAppMessage(
     "",
     ...items.map(
       (i, n) =>
-        `${n + 1}. ${i.title}\n   ${i.detail}\n   Date: ${i.date || "TBD"} — ${formatUSD(i.totalCents)}`,
+        `${n + 1}. ${i.title}\n   ${i.detail}\n   Date: ${i.date || "TBD"}${
+          i.spec?.kind === "transfer" ? `, pickup ${formatTime12h(i.spec.pickupTime)} (Costa Rica time)` : ""
+        } — ${formatUSD(i.totalCents)}`,
     ),
     "",
     `Total: ${formatUSD(cartTotalCents(items))}`,

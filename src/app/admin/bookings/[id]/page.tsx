@@ -5,7 +5,7 @@ import { ChatBox } from "@/components/ChatBox";
 import { requireRole } from "@/lib/auth";
 import { BOOKING_STATUSES, BOOKING_STATUS_LABEL, SERVICE_LABEL, usd, type BookingRow, type TripContact } from "@/lib/bookings";
 import { getCatalog } from "@/lib/catalogSource";
-import { todayInCostaRica } from "@/lib/dates";
+import { formatScheduledAt, todayInCostaRica } from "@/lib/dates";
 import { canTakeTrips, type DriverRecord, type VehicleRecord } from "@/lib/driverKyc";
 import { prefMismatches, prefsSummary } from "@/lib/preferences";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -83,7 +83,7 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
           {SERVICE_LABEL[b.service_type]}: {name}
         </h1>
         <p className="text-sm text-slate-600">
-          {b.scheduled_at?.slice(0, 10)} · {BOOKING_STATUS_LABEL[b.status]} · sent {b.created_at.slice(0, 10)}
+          {formatScheduledAt(b.scheduled_at)} · {BOOKING_STATUS_LABEL[b.status]} · sent {b.created_at.slice(0, 10)}
         </p>
       </div>
 
@@ -124,7 +124,7 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
         <section className="rounded-xl border border-slate-200 bg-white p-5">
           <h2 className="font-extrabold text-slate-900">Trip</h2>
           <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
-            <Item k="Date" v={b.scheduled_at?.slice(0, 10)} />
+            <Item k="Pickup (Costa Rica time)" v={formatScheduledAt(b.scheduled_at)} />
             {b.service_type === "transfer" && <Item k="Vehicle class" v={catalog.vehicles.find((v) => v.id === b.vehicle_class)?.name ?? b.vehicle_class} />}
             {b.passenger_count && <Item k="Passengers" v={b.passenger_count} />}
             {stops && <Item k="Stops / extras" v={stops} />}

@@ -7,6 +7,12 @@
  *
  * Re-run only to regenerate the initial seed. After launch, prices are edited
  * in /admin, not here.
+ *
+ * Later catalog changes ship as their own migrations so databases that already
+ * ran this seed get them too, e.g. 20261108000011_stop_corridors.sql (stop
+ * corridors for the "both ends" rule). catalog.ts already holds those values,
+ * so a fresh run of this script writes them into the seed as well; the
+ * committed 0003 file is left as it was applied.
  */
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, writeFileSync } from "node:fs";

@@ -3,6 +3,16 @@
 Every merged change gets one line: `YYYY-MM-DD — <AI or Jorge> — <what changed>`.
 Newest entries first. AIs: read the top of this file before starting work.
 
+- 2026-11-08 — Claude — Ride builder fixes (migration 0011). Drive times for all 36 hub pairs
+  (Daytrip times where known, Drake Bay = road to Sierpe + 75 min boat; a type check makes every
+  pair required). Stops are now "optional extras" offered only when both pickup and drop-off are on
+  the stop's corridor list (one-town stops on any ride to/from that town; none on the Sierpe ↔
+  Drake Bay boat); corridor lists reviewed (Tárcoles/Carara add Monteverde, Río Celeste drops
+  Tamarindo). Pickup time (04:00–22:00, 15 min, default 9:00) in the ride builder, stored in
+  `scheduled_at` (Costa Rica time) and shown in the cart, emails, admin, driver and trip pages
+  (old carts load with 9:00; tours 7:00, expeditions 6:00). Vehicle and stop cards show the
+  season-adjusted price with a "High season +15%" note, matching the total. 170 database checks.
+
 - 2026-11-08 — Claude — Launch prep: the site stays hidden from search engines (noindex +
   `robots.txt` block) until `NEXT_PUBLIC_SITE_INDEXABLE=true`; `robots.txt` then hides the
   private areas and lists `sitemap.xml`. Site address from `NEXT_PUBLIC_SITE_URL`, link previews

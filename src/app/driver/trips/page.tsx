@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { requireUser } from "@/lib/auth";
 import { BOOKING_STATUS_LABEL, SERVICE_LABEL, type BookingRow } from "@/lib/bookings";
 import { getCatalog } from "@/lib/catalogSource";
+import { formatScheduledAt } from "@/lib/dates";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { DriverHeader } from "../DriverHeader";
 
@@ -56,7 +57,7 @@ async function Trips() {
               <Link href={`/driver/trips/${b.id}`} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 hover:bg-slate-50">
                 <span>
                   <span className="block text-xs font-bold text-slate-500">
-                    {b.scheduled_at?.slice(0, 10)} · {SERVICE_LABEL[b.service_type]} · <span className="font-mono">{b.booking_ref}</span>
+                    {formatScheduledAt(b.scheduled_at)} · {SERVICE_LABEL[b.service_type]} · <span className="font-mono">{b.booking_ref}</span>
                   </span>
                   <span className="font-bold text-slate-900">{name(b)}</span>
                 </span>

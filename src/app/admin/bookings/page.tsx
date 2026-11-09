@@ -10,6 +10,7 @@ import {
   type TripContact,
 } from "@/lib/bookings";
 import { getCatalog } from "@/lib/catalogSource";
+import { formatScheduledAt } from "@/lib/dates";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const OPEN: BookingStatus[] = ["pending_payment", "pending_bids", "confirmed", "in_progress"];
@@ -76,7 +77,7 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
                   <li key={b.id}>
                     <Link href={`/admin/bookings/${b.id}`} className="flex flex-wrap items-center justify-between gap-2 py-2 hover:bg-slate-50">
                       <span className="text-sm">
-                        <span className="font-mono font-bold">{b.booking_ref}</span> · {b.scheduled_at?.slice(0, 10)} ·{" "}
+                        <span className="font-mono font-bold">{b.booking_ref}</span> · {formatScheduledAt(b.scheduled_at)} ·{" "}
                         {SERVICE_LABEL[b.service_type]}{" "}
                         {itemName(b)}
                         {b.pricing_mode === "bid" && <span className="ml-1 rounded bg-amber-100 px-1.5 text-xs font-bold">offer</span>}
