@@ -512,6 +512,8 @@ await expectRows("clients see no ratings", "client", "select * from public.drive
 await expectRows("visitors see no ratings", "anon", "select * from public.driver_reviews", 0);
 await expectBlocked("driver cannot rate themselves", "driver",
   `insert into public.driver_reviews (booking_id, driver_id, stars) values ('10000000-0000-0000-0000-000000000004', '${U.driver}', 5)`);
+await expectRows("review reminder column exists (migration 0020)", "admin",
+  "select 1 from information_schema.columns where table_name = 'bookings' and column_name = 'review_reminded_at'", 1);
 await expectOk("admin removes a rating", "admin", `delete from public.driver_reviews where booking_id = ${B9}`);
 await expectRows("totals follow the removal", "admin", `select 1 from public.drivers where id = '${U.driver}' and rating_avg = 4.00 and rating_count = 2`, 1);
 await expectBlocked("commission above 50% refused", "admin", "update public.pricing_settings set driver_commission_bps = 9000");

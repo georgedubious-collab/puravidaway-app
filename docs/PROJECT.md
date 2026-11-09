@@ -388,7 +388,8 @@ and `season_for_date(date)` returns the season for a travel date.
 - `driver_reviews` — id, booking_id (unique), driver_id, trip_id, stars 1–5, comment (no contact details),
   weight (generated: 2 with a comment, 1 without), created_at. Written by the server from the traveller's
   private trip page once the booking is completed; driver reads own, admin all. `bookings.review_requested_at`
-  records the one review-request email.
+  records the review-request email and `review_reminded_at` the single follow-up, sent 3+ days later by the
+  daily Vercel Cron job `/api/cron/review-reminders` (`vercel.json`, 09:00 Costa Rica, protected by `CRON_SECRET`).
 - `hub_pricing` — hub_id (one of the 9 hubs, or an extra pricing area: `SouthNicoya`), area_factor
   (0.50–2.00), updated_at. Public read, admin write. Loaded as `areaFactorBps`.
 - `payments` — id, booking_id, provider (`greenpay`), provider_ref, amount, type (`deposit` | `balance` | `full`), status, raw_payload jsonb, created_at

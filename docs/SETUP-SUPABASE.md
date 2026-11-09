@@ -42,6 +42,8 @@ Either way works; the first needs no installs.
     offers and spotting return trips
 19. `20261109000019_driver_reviews.sql` — travellers' driver ratings (`driver_reviews`, weighted totals on
     `drivers`), review-request tracking on bookings
+20. `20261109000020_review_reminder.sql` — tracks the one follow-up "please rate your driver" email
+    (sent by the daily Vercel Cron job; needs `CRON_SECRET` in Vercel, see `.env.example`)
 
 Later files are added as the app grows. Since Option C is set up, they run by themselves
 after a merge; each pull request still lists them.
