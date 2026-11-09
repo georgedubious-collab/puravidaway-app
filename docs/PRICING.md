@@ -56,6 +56,30 @@ Every quote saved on a booking keeps a snapshot: both pins, km, drive time and t
 version. A later price change never alters a booked trip, and the admin can see exactly how a
 price was made.
 
+### 3.1 How it's built (step 3) and the Google setup
+
+- The pickup / drop-off boxes list our 9 towns at once; typing 3+ letters adds Google
+  suggestions in Costa Rica. Our server calls Google (`/api/places/suggest`, `/lookup`, `/route`);
+  the key never reaches the browser.
+- A typed place is linked to its **nearest town** (straight line) for the area factor, stops and
+  suggestions. Places within 15 km of Drake Bay count as Drake Bay: the car drives to the Sierpe
+  dock and the boat time is added.
+- Between two of our towns the price still comes from the built-in km / time tables (no Google
+  cost, same prices as the route pages). As soon as one end is a typed place, the price uses
+  Google's road km and driving time.
+- When a trip is sent, the server looks each place up again by its Google id (never trusting
+  coordinates from the browser), gets the route and re-prices. Place lookups and routes are
+  cached for 30 days, so the re-check and repeat searches cost nothing.
+- Each booking keeps the place name, address, map point and the route used for the price
+  (`bookings.origin_coords.route`).
+- Costs: only "Essentials" fields are requested; about 1.5 US cents per quote after Google's free
+  monthly allowance (~5,000 quotes / month free, checked 2026-11-09).
+
+Google Cloud setup (done by Jorge 2026-11-09, project "PuraVidaWay"): enable **Places API (New)**
+and **Routes API**; one API key restricted to those two APIs (no application restriction, it is
+only used by our server); daily quota caps (~2,000 Places, ~1,000 Routes requests); a $10/month
+budget alert; the key in Vercel as `GOOGLE_MAPS_API_KEY` (Production + Preview) and in `.env.local`.
+
 ## 4. The price formula (recommended)
 
 ### 4.1 Base formula
@@ -180,7 +204,7 @@ it moves to the driver side.
 | :--- | :--- | :--- |
 | 1 ✅ | **Built 2026-11-09** (migration 0013). **Formula in the database** with the current town list: per-km, per-hour, minimum, vehicle factors, area factors, editable at `/admin/pricing`. Each town pair gets its km and hours from a table we fill once. This fixes the flat price **without any map service** | Approve the starting numbers in §4.2 |
 | 2 ✅ | **Built 2026-11-09 with step 1.** **Economy class** (Spanish-speaking driver, 0.90×) | Confirm the factor |
-| 3 | **Place search + route** (Google): type any place, see map + drive time, price from real km/hours. Prices are re-checked on the server when the trip is sent, as today | Google Cloud account with billing + API key (setup guide in the PR) |
+| 3 ✅ | **Built 2026-11-09.** **Place search + route** (Google): type any place, see drive time + km and a Google Maps link, price from real km/hours. Prices are re-checked on the server when the trip is sent, as today. See §3.1 | Google Cloud account with billing + API key ✅ |
 | 4 | **Special places**: airports, Sierpe dock / Drake boat, 4x4-only areas, Paquera ferry | List of 4x4-only areas and boat fares |
 | 5 | **Stops priced as wait + detour**; park-fee note on cards | Hourly wait rate, which stops are guided |
 | 6 | **Zone prices** for the busiest pairs (optional) | Prices for those pairs |

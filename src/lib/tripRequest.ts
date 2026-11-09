@@ -12,6 +12,7 @@ import {
   isValidPickupTime,
   isValidYmd,
 } from "./dates";
+import { cleanPlaceLabel, isGooglePlaceId, type RideRoute } from "./places";
 import { hasContactDetails, parsePrefs, type RidePrefs } from "./preferences";
 import { quoteDayTour, quoteExpedition, quoteTransfer } from "./pricing";
 
@@ -19,11 +20,25 @@ export const MIN_OFFER_USD = 50;
 export const MAX_OFFER_USD = 5000;
 export const MAX_TRIP_ITEMS = 10;
 
+/** A typed pickup / drop-off (Google place id + what the traveller saw). */
+export interface SpecPlace {
+  id: string;
+  label: string;
+}
+
 export type ItemSpec =
   | {
       kind: "transfer";
+      /** Our town, or the nearest town to a typed place (area factor, stops). */
       origin: HubId;
       destination: HubId;
+      /**
+       * Typed places (docs/PRICING.md step 3). When either is set the price uses
+       * Google's road route between them; the server looks the places up again
+       * by id and never trusts coordinates from the browser.
+       */
+      originPlace?: SpecPlace;
+      destinationPlace?: SpecPlace;
       vehicleId: string;
       stopIds: string[];
       pax: number;
@@ -53,6 +68,15 @@ export function itemTime(spec: ItemSpec): string {
 const HUB_IDS = new Set<string>(HUBS.map((h) => h.id));
 const str = (v: unknown, max = 60) => typeof v === "string" && v.length > 0 && v.length <= max;
 
+/** undefined = not given, null = malformed. */
+function parseSpecPlace(v: unknown): SpecPlace | undefined | null {
+  if (v === undefined) return undefined;
+  if (!v || typeof v !== "object") return null;
+  const o = v as Record<string, unknown>;
+  const label = cleanPlaceLabel(o.label);
+  return isGooglePlaceId(o.id) && label ? { id: o.id, label } : null;
+}
+
 /** Validate untrusted input (browser storage or a request). Returns null if malformed. */
 export function parseSpec(raw: unknown): ItemSpec | null {
   if (!raw || typeof raw !== "object") return null;
@@ -69,10 +93,15 @@ export function parseSpec(raw: unknown): ItemSpec | null {
     const prefs = o.prefs === undefined ? undefined : parsePrefs(o.prefs);
     if (prefs === null) return null;
     if (o.driverNotes !== undefined && (typeof o.driverNotes !== "string" || o.driverNotes.length > 500)) return null;
+    const originPlace = parseSpecPlace(o.originPlace);
+    const destinationPlace = parseSpecPlace(o.destinationPlace);
+    if (originPlace === null || destinationPlace === null) return null;
     return {
       kind: "transfer",
       origin: o.origin as HubId,
       destination: o.destination as HubId,
+      ...(originPlace ? { originPlace } : {}),
+      ...(destinationPlace ? { destinationPlace } : {}),
       vehicleId: o.vehicleId as string,
       stopIds: o.stopIds as string[],
       pax: o.pax as number,
@@ -104,13 +133,20 @@ export interface PricedItem {
 /**
  * Price one item from the catalog for its travel date. Throws a readable
  * Error when the item can't be booked as specified (e.g. vehicle switched off).
+ * Rides with a typed place need `route`, looked up on the server
+ * (src/lib/googleMaps.ts, resolveTransfer).
  */
-export function priceItem(spec: ItemSpec, date: string, catalog: CatalogData): PricedItem {
+export function priceItem(spec: ItemSpec, date: string, catalog: CatalogData, route?: RideRoute | null): PricedItem {
   if (!isValidYmd(date)) throw new Error("A travel date is missing.");
   const season = seasonForYmd(date, catalog);
 
   if (spec.kind === "transfer") {
-    if (spec.origin === spec.destination) throw new Error("Pickup and drop-off are the same place.");
+    const typed = Boolean(spec.originPlace || spec.destinationPlace);
+    if (typed && !route) throw new Error("We couldn't check the road distance for this ride. Please try again.");
+    if (!typed && spec.origin === spec.destination) throw new Error("Pickup and drop-off are the same place.");
+    if (spec.originPlace && spec.originPlace.id === spec.destinationPlace?.id) {
+      throw new Error("Pickup and drop-off are the same place.");
+    }
     if (spec.driverNotes && hasContactDetails(spec.driverNotes)) {
       throw new Error("Please keep phone numbers, emails and links out of the message for your driver. Our team shares contact details once your driver is confirmed.");
     }
@@ -132,7 +168,7 @@ export function priceItem(spec: ItemSpec, date: string, catalog: CatalogData): P
         throw new Error("One of the stops is no longer offered on this route.");
       }
     }
-    const quote = quoteTransfer({ ...spec, season, catalog });
+    const quote = quoteTransfer({ ...spec, season, catalog, route: typed ? route : null });
     if (spec.pricing === "bid") {
       const offer = spec.offerCents ?? 0;
       if (offer < MIN_OFFER_USD * 100 || offer > MAX_OFFER_USD * 100) {

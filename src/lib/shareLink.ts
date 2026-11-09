@@ -5,19 +5,26 @@
  * same ride. Only route choices go in the URL: never names, contact details,
  * flight numbers, notes or offers.
  *
+ * A typed place (hotel, dock, address) is shared as its Google place id, the
+ * name the traveller saw and its map point:
+ *   ?from=ChIJJ9uN…&fromName=Arenas+Del+Mar…&fromAt=9.39838,-84.16080
+ * The map point only places it in the right town on screen; the price is always
+ * worked out from the place id on the server.
+ *
  * Everything read back is checked against the catalog; anything unknown is
  * ignored and the builder falls back to its defaults. The older ?from=&to=
  * links from route pages keep working.
  */
 import { HUBS, type HubId } from "./catalog";
+import { cleanPlaceLabel, hubPlace, inCostaRica, isGooglePlaceId, isHubPlace, nearestHub, type RidePlace } from "./places";
 import type { CatalogData } from "./catalogModel";
 import { isValidPickupTime, isValidYmd } from "./dates";
 
 export const MAX_SHARED_PAX = 10;
 
 export interface RideLinkState {
-  origin: HubId;
-  destination: HubId;
+  origin: RidePlace;
+  destination: RidePlace;
   date: string;
   pickupTime: string;
   pax: number;
@@ -32,9 +39,8 @@ export function parseRideLink(
   today: string,
 ): Partial<RideLinkState> {
   const out: Partial<RideLinkState> = {};
-  const hub = (v: string | null) => (HUBS.some((h) => h.id === v) ? (v as HubId) : undefined);
-  const from = hub(params.get("from"));
-  const to = hub(params.get("to"));
+  const from = readPlace(params, "from");
+  const to = readPlace(params, "to");
   if (from) out.origin = from;
   if (to) out.destination = to;
 
@@ -58,11 +64,34 @@ export function parseRideLink(
   return out;
 }
 
+function readPlace(params: { get(name: string): string | null }, key: "from" | "to"): RidePlace | undefined {
+  const v = params.get(key);
+  if (HUBS.some((h) => h.id === v)) return hubPlace(v as HubId);
+  if (!isGooglePlaceId(v)) return undefined;
+  const label = cleanPlaceLabel(params.get(`${key}Name`));
+  const [lat, lng] = (params.get(`${key}At`) ?? "").split(",").map(Number);
+  const point = { lat, lng };
+  if (!label || !Number.isFinite(lat) || !Number.isFinite(lng) || !inCostaRica(point)) return undefined;
+  return { id: v, label, ...point, hub: nearestHub(point) };
+}
+
+function writePlace(q: URLSearchParams, key: "from" | "to", p: RidePlace) {
+  if (isHubPlace(p)) {
+    q.set(key, p.hub);
+    q.delete(`${key}Name`);
+    q.delete(`${key}At`);
+  } else {
+    q.set(key, p.id);
+    q.set(`${key}Name`, p.label);
+    q.set(`${key}At`, `${p.lat.toFixed(5)},${p.lng.toFixed(5)}`);
+  }
+}
+
 /** The query string for a ride (without "?"). Other parameters on the page are kept. */
 export function rideLinkQuery(state: RideLinkState, current: string): string {
   const q = new URLSearchParams(current);
-  q.set("from", state.origin);
-  q.set("to", state.destination);
+  writePlace(q, "from", state.origin);
+  writePlace(q, "to", state.destination);
   q.set("date", state.date);
   q.set("time", state.pickupTime);
   q.set("pax", String(state.pax));

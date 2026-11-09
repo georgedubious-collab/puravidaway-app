@@ -22,6 +22,7 @@ import {
   routeMinutes,
 } from "./catalog";
 import type { CatalogData } from "./catalogModel";
+import type { RideRoute } from "./places";
 
 export function applyMultiplier(cents: number, multiplierBps: number): number {
   return Math.round((cents * multiplierBps) / 10000);
@@ -50,20 +51,24 @@ export function formatDuration(minutes: number): string {
  *   standard = max(minimum fare, base + per km × road km + per hour × driving hours)
  *   ride     = standard × vehicle factor × area factor (pickup town) + vehicle extra fee
  * Rounded to whole dollars so prices read like real quotes ($146, not $145.83).
+ *
+ * Road km and driving time come from `route` (Google Routes, for typed places)
+ * or, between two of our towns, from the tables in catalog.ts. The area factor
+ * is the pickup's town (a typed place's nearest town).
  */
 export function rideCents(
   origin: HubId,
   destination: HubId,
   vehicle: Pick<VehicleClass, "priceFactorBps" | "extraFeeCents">,
   catalog?: Pick<CatalogData, "rideFormula" | "areaFactorBps">,
+  route?: RideRoute | null,
 ): number {
-  if (origin === destination) return 0;
+  if (!route && origin === destination) return 0;
   const f: RideFormula = catalog?.rideFormula ?? RIDE_FORMULA_DEFAULT;
   const areaBps = (catalog?.areaFactorBps ?? AREA_FACTOR_BPS_DEFAULT)[origin] ?? 10000;
-  const formula =
-    f.baseFareCents +
-    f.perKmCents * routeKm(origin, destination) +
-    (f.perHourCents * routeDrivingMinutes(origin, destination)) / 60;
+  const km = route ? route.km : routeKm(origin, destination);
+  const drivingMinutes = route ? route.drivingMinutes : routeDrivingMinutes(origin, destination);
+  const formula = f.baseFareCents + f.perKmCents * km + (f.perHourCents * drivingMinutes) / 60;
   const standard = Math.max(f.minimumFareCents, formula);
   const scaled = (standard * vehicle.priceFactorBps * areaBps) / 1e8;
   return Math.round(scaled / 100) * 100 + vehicle.extraFeeCents;
@@ -77,6 +82,8 @@ export interface TransferQuoteInput {
   season: Season;
   /** In bid mode the accepted bid replaces the ride price. */
   acceptedBidCents?: number;
+  /** Google road route when an end is a typed place (see rideCents). */
+  route?: RideRoute | null;
   /** Live catalog (from the database). Defaults to the built-in catalog. */
   catalog?: CatalogData;
 }
@@ -100,12 +107,12 @@ export function quoteTransfer(input: TransferQuoteInput): TransferQuote {
     .map((id) => (input.catalog?.stops ?? SIGHTSEEING_STOPS).find((s) => s.id === id))
     .filter((s): s is NonNullable<typeof s> => Boolean(s));
 
-  const baseCents = input.acceptedBidCents ?? rideCents(input.origin, input.destination, vehicle, input.catalog);
+  const baseCents = input.acceptedBidCents ?? rideCents(input.origin, input.destination, vehicle, input.catalog, input.route);
   const stopsCents = stops.reduce((sum, s) => sum + s.priceCents, 0);
   const subtotalCents = baseCents + stopsCents;
   const totalCents = applyMultiplier(subtotalCents, input.season.multiplierBps);
 
-  const driveMinutes = routeMinutes(input.origin, input.destination);
+  const driveMinutes = input.route ? input.route.totalMinutes : routeMinutes(input.origin, input.destination);
   const stopsMinutes = stops.reduce((sum, s) => sum + s.durationMin, 0);
 
   return {

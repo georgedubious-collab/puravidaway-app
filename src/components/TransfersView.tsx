@@ -1,10 +1,12 @@
 "use client";
 
-import { Camera, Car, Check, Gavel, Languages, Link2, MapPin, MessageCircle, PlusCircle, Ticket, Users } from "lucide-react";
+import { Camera, Car, Check, ExternalLink, Gavel, Languages, Link2, MapPin, MessageCircle, PlusCircle, Ticket, Users } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AIRPORT_HUBS, ENTRANCE_LABEL, HUBS, stopFitsRoute, type HubId } from "@/lib/catalog";
+import { AIRPORT_HUBS, ENTRANCE_LABEL, stopFitsRoute } from "@/lib/catalog";
 import { seasonForYmd } from "@/lib/catalogModel";
 import { useCatalog } from "./CatalogContext";
+import { PlaceInput } from "./PlaceInput";
+import { hubPlace, isHubPlace, mapsDirectionsUrl, needsRoute, type RidePlace, type RideRoute } from "@/lib/places";
 import { newItemId, whatsAppLink, type CartItem } from "@/lib/cart";
 import { DEFAULT_PICKUP_TIME, PICKUP_TIMES, addDays, formatTime12h } from "@/lib/dates";
 import { applyMultiplier, formatDuration, formatUSD, perPersonCents, perPersonShare, quoteTransfer, rideCents } from "@/lib/pricing";
@@ -31,8 +33,11 @@ export function TransfersView({
   /** "While you're there" suggestions after a ride is added, shown under the add button. */
   suggestion?: React.ReactNode;
 }) {
-  const [origin, setOrigin] = useState<HubId>(initial.origin ?? "SJO");
-  const [destination, setDestination] = useState<HubId>(initial.destination ?? "ManuelAntonio");
+  const [originPlace, setOriginPlace] = useState<RidePlace>(initial.origin ?? hubPlace("SJO"));
+  const [destPlace, setDestPlace] = useState<RidePlace>(initial.destination ?? hubPlace("ManuelAntonio"));
+  // Our town for each end (a typed place's nearest town): area factor, stops, vehicles.
+  const origin = originPlace.hub;
+  const destination = destPlace.hub;
   const [date, setDate] = useState(() => initial.date ?? addDays(today, 14));
   const [pickupTime, setPickupTime] = useState(initial.pickupTime ?? DEFAULT_PICKUP_TIME);
   const [pax, setPax] = useState(initial.pax ?? 2);
@@ -45,6 +50,35 @@ export function TransfersView({
   const [driverNotes, setDriverNotes] = useState("");
   const driverNotesBlocked = hasContactDetails(driverNotes);
   const [offer, setOffer] = useState("165");
+
+  // Typed places are priced from Google's road route (fetched through our server).
+  const typed = needsRoute(originPlace, destPlace);
+  const samePlace = typed ? originPlace.id === destPlace.id : origin === destination;
+  const routeKey = typed && !samePlace ? `${originPlace.id}>${destPlace.id}` : "";
+  const [routeState, setRouteState] = useState<{ key: string; route?: RideRoute; error?: string }>({ key: "" });
+  useEffect(() => {
+    if (!routeKey) return;
+    const ctrl = new AbortController();
+    const q = new URLSearchParams({ from: originPlace.id, to: destPlace.id });
+    fetch(`/api/places/route?${q}`, { signal: ctrl.signal })
+      .then((res) => res.json() as Promise<{ route?: RideRoute; error?: string }>)
+      .then((d) =>
+        setRouteState(
+          d.route
+            ? { key: routeKey, route: d.route }
+            : { key: routeKey, error: d.error ?? "We couldn't work out this route. Please try again." },
+        ),
+      )
+      .catch(() => {
+        if (!ctrl.signal.aborted) setRouteState({ key: routeKey, error: "We couldn't work out this route. Please try again." });
+      });
+    return () => ctrl.abort();
+  }, [routeKey, originPlace.id, destPlace.id]);
+  const route = routeKey && routeState.key === routeKey ? (routeState.route ?? null) : null;
+  const routeError = routeKey && routeState.key === routeKey ? routeState.error : undefined;
+  const routeLoading = Boolean(routeKey) && routeState.key !== routeKey;
+  // Prices can be shown: two of our towns, or the road route has arrived.
+  const priceReady = !samePlace && (!typed || route !== null);
 
   const catalog = useCatalog();
   const season = useMemo(() => seasonForYmd(date, catalog), [date, catalog]);
@@ -97,7 +131,7 @@ export function TransfersView({
     }
     const t = window.setTimeout(() => {
       const q = rideLinkQuery(
-        { origin, destination, date, pickupTime, pax, vehicleId: effectiveVehicleId, stopIds: stopsKey ? stopsKey.split(",") : [] },
+        { origin: originPlace, destination: destPlace, date, pickupTime, pax, vehicleId: effectiveVehicleId, stopIds: stopsKey ? stopsKey.split(",") : [] },
         window.location.search,
       );
       if (`?${q}` !== window.location.search) {
@@ -105,12 +139,12 @@ export function TransfersView({
       }
     }, 400);
     return () => window.clearTimeout(t);
-  }, [origin, destination, date, pickupTime, pax, effectiveVehicleId, stopsKey]);
+  }, [originPlace, destPlace, date, pickupTime, pax, effectiveVehicleId, stopsKey]);
 
   async function copyLink() {
     try {
       const q = rideLinkQuery(
-        { origin, destination, date, pickupTime, pax, vehicleId: effectiveVehicleId, stopIds: effectiveStopIds },
+        { origin: originPlace, destination: destPlace, date, pickupTime, pax, vehicleId: effectiveVehicleId, stopIds: effectiveStopIds },
         window.location.search,
       );
       await navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}?${q}`);
@@ -130,8 +164,9 @@ export function TransfersView({
         stopIds: effectiveStopIds,
         season,
         catalog,
+        route,
       }),
-    [origin, destination, effectiveVehicleId, effectiveStopIds, season, catalog],
+    [origin, destination, effectiveVehicleId, effectiveStopIds, season, catalog, route],
   );
 
   // Bid mode: the client's own offer (whole USD) replaces the fixed price.
@@ -141,18 +176,19 @@ export function TransfersView({
   const offerIsLow = offerValid && offerCents < quote.totalCents * 0.7;
   const itemTotalCents = mode === "bid" ? offerCents : quote.totalCents;
 
-  const originName = HUBS.find((h) => h.id === origin)!.name;
-  const destName = HUBS.find((h) => h.id === destination)!.name;
+  const originName = originPlace.label;
+  const destName = destPlace.label;
   const vehicle = catalog.vehicles.find((v) => v.id === effectiveVehicleId)!;
   const selectedStops = catalog.stops.filter((s) => effectiveStopIds.includes(s.id));
-  const sameHub = origin === destination;
+  const cantAdd = !priceReady || noVehicleFits || (mode === "bid" && !offerValid) || driverNotesBlocked;
+  const price = (cents: number) => (priceReady ? formatUSD(cents) : "…");
 
   function toggleStop(id: string) {
     setStopIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   }
 
   function addToCart() {
-    if (sameHub || noVehicleFits || (mode === "bid" && !offerValid) || driverNotesBlocked) return;
+    if (cantAdd) return;
     const stopsText = selectedStops.length
       ? ` + ${selectedStops.length} stop${selectedStops.length > 1 ? "s" : ""} (${selectedStops.map((s) => s.name).join(", ")})`
       : "";
@@ -171,6 +207,8 @@ export function TransfersView({
         kind: "transfer",
         origin,
         destination,
+        ...(isHubPlace(originPlace) ? {} : { originPlace: { id: originPlace.id, label: originPlace.label } }),
+        ...(isHubPlace(destPlace) ? {} : { destinationPlace: { id: destPlace.id, label: destPlace.label } }),
         vehicleId: effectiveVehicleId,
         stopIds: effectiveStopIds,
         pax,
@@ -189,8 +227,10 @@ export function TransfersView({
       selectedStops.length ? ` with stops at ${selectedStops.map((s) => s.name).join(", ")}` : ""
     }. ${
       mode === "bid" && offerValid
-        ? `I'd like to offer ${formatUSD(offerCents)} for the ride${selectedStops.length ? " including the stops" : ""} (fixed price shows ${formatUSD(quote.totalCents)}).`
-        : `Quoted ${formatUSD(quote.totalCents)}.`
+        ? `I'd like to offer ${formatUSD(offerCents)} for the ride${selectedStops.length ? " including the stops" : ""} (fixed price shows ${price(quote.totalCents)}).`
+        : priceReady
+          ? `Quoted ${formatUSD(quote.totalCents)}.`
+          : ""
     } Can you confirm availability?`,
   );
 
@@ -212,32 +252,8 @@ export function TransfersView({
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-6 bg-white/10 backdrop-blur-md p-4 rounded-xl border border-white/15">
-          <Field label="Origin pickup">
-            <select
-              value={origin}
-              onChange={(e) => setOrigin(e.target.value as HubId)}
-              className="w-full bg-white text-slate-900 rounded-lg px-3 py-2.5 text-sm font-semibold"
-            >
-              {HUBS.map((h) => (
-                <option key={h.id} value={h.id}>
-                  {h.name}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Destination drop-off">
-            <select
-              value={destination}
-              onChange={(e) => setDestination(e.target.value as HubId)}
-              className="w-full bg-white text-slate-900 rounded-lg px-3 py-2.5 text-sm font-semibold"
-            >
-              {HUBS.map((h) => (
-                <option key={h.id} value={h.id}>
-                  {h.name}
-                </option>
-              ))}
-            </select>
-          </Field>
+          <PlaceInput label="Pickup" value={originPlace} onChange={setOriginPlace} />
+          <PlaceInput label="Drop-off" value={destPlace} onChange={setDestPlace} />
           <Field label="Travel date">
             <input
               type="date"
@@ -298,9 +314,19 @@ export function TransfersView({
             </div>
           </Field>
         </div>
-        {sameHub && (
+        {samePlace && (
           <p className="mt-3 text-xs font-semibold text-amber-300">
-            Pick a different destination to see prices.
+            Pick a different drop-off to see prices.
+          </p>
+        )}
+        {routeLoading && (
+          <p className="mt-3 text-xs font-semibold text-emerald-100" aria-live="polite">
+            Checking the road distance…
+          </p>
+        )}
+        {routeError && (
+          <p role="alert" className="mt-3 text-xs font-semibold text-amber-300">
+            {routeError}
           </p>
         )}
       </div>
@@ -391,11 +417,11 @@ export function TransfersView({
                         <Users className="w-3.5 h-3.5" /> Up to {v.maxPax} · {v.luggage}
                       </p>
                       <p className="text-lg font-extrabold text-emerald-700 mt-2">
-                        {formatUSD(seasonal(rideCents(origin, destination, v, catalog)))}{" "}
+                        {price(seasonal(rideCents(origin, destination, v, catalog, route)))}{" "}
                         <span className="text-xs font-bold text-slate-500">per car</span>
                       </p>
                       <p className="text-xs font-semibold text-slate-600">
-                        from {formatUSD(perPersonCents(seasonal(rideCents(origin, destination, v, catalog)), v.maxPax))} per person ({perPersonShare(v.maxPax)} travellers)
+                        from {price(perPersonCents(seasonal(rideCents(origin, destination, v, catalog, route)), v.maxPax))} per person ({perPersonShare(v.maxPax)} travellers)
                       </p>
                       {seasonPct !== 0 && (
                         <p className="text-[11px] font-bold text-amber-700">
@@ -407,7 +433,8 @@ export function TransfersView({
                   );
                 })}
               </div>
-              <RidePromises airport={AIRPORT_HUBS.includes(origin)} />
+              {/* Airport extras only for our airport pickups (typed airports come in build step 4). */}
+              <RidePromises airport={isHubPlace(originPlace) && AIRPORT_HUBS.includes(origin)} />
             </Card>
           ) : (
             <div className="bg-white rounded-2xl p-5 shadow-sm border-2 border-amber-400">
@@ -418,7 +445,7 @@ export function TransfersView({
                 <Gavel className="w-5 h-5 text-amber-600" /> Name your offer, compare driver bids
               </h2>
               <p className="text-xs text-slate-500 mt-1">
-                Reference fixed price for this route: {formatUSD(quote.totalCents)}. Hand-picked
+                Reference fixed price for this route: {price(quote.totalCents)}. Hand-picked
                 local partner drivers will bid on your request.
               </p>
               <div className="flex flex-wrap items-center gap-2 mt-4">
@@ -543,7 +570,7 @@ export function TransfersView({
             <h3 className="font-extrabold text-base text-slate-900 border-b border-slate-100 pb-3 flex items-center justify-between">
               <span>Live route summary</span>
               <span className="text-xs bg-slate-100 text-slate-700 px-2.5 py-1 rounded-full font-bold">
-                {formatDuration(quote.totalMinutes)}
+                {priceReady ? formatDuration(quote.totalMinutes) : "…"}
               </span>
             </h3>
 
@@ -560,9 +587,25 @@ export function TransfersView({
               <TimelineRow label="Drop-off" text={destName} />
             </ol>
             <p className="text-[11px] text-slate-500 -mt-2 mb-3">
-              Driving: {formatDuration(quote.driveMinutes)} · Stops:{" "}
-              {formatDuration(quote.stopsMinutes)}
+              {priceReady ? (
+                <>
+                  Driving: {formatDuration(quote.driveMinutes)}
+                  {route ? ` · ${Math.round(route.km)} km` : ""} · Stops: {formatDuration(quote.stopsMinutes)}
+                </>
+              ) : (
+                "Choose your pickup and drop-off to see the drive time."
+              )}
             </p>
+            {route && (
+              <a
+                href={mapsDirectionsUrl(originPlace, destPlace)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="-mt-1 mb-3 inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 underline"
+              >
+                See the route on Google Maps <ExternalLink className="w-3 h-3" aria-hidden />
+              </a>
+            )}
 
             <input
               type="text"
@@ -575,7 +618,7 @@ export function TransfersView({
             <div className="mt-4 bg-slate-50 p-3.5 rounded-xl space-y-1.5 text-xs">
               {mode === "bid" ? (
                 <>
-                  <Row label="Fixed price (reference)" value={formatUSD(quote.totalCents)} />
+                  <Row label="Fixed price (reference)" value={price(quote.totalCents)} />
                   <div className="flex justify-between text-sm font-extrabold text-slate-900 pt-2 border-t border-slate-200">
                     <span>Your offer</span>
                     <span className="text-amber-600 text-lg">
@@ -586,11 +629,11 @@ export function TransfersView({
               ) : (
                 <>
                   {/* Same season-adjusted prices as the cards; stops take the remainder so the rows always add up. */}
-                  <Row label={vehicle.name} value={formatUSD(seasonal(quote.baseCents))} />
+                  <Row label={vehicle.name} value={price(seasonal(quote.baseCents))} />
                   {quote.stopsCents > 0 && (
                     <Row
                       label="Stops (optional extras)"
-                      value={`+${formatUSD(quote.totalCents - seasonal(quote.baseCents))}`}
+                      value={`+${price(quote.totalCents - seasonal(quote.baseCents))}`}
                       green
                     />
                   )}
@@ -602,7 +645,7 @@ export function TransfersView({
                   )}
                   <div className="flex justify-between text-sm font-extrabold text-slate-900 pt-2 border-t border-slate-200">
                     <span>Total private ride</span>
-                    <span className="text-emerald-700 text-lg">{formatUSD(quote.totalCents)}</span>
+                    <span className="text-emerald-700 text-lg">{price(quote.totalCents)}</span>
                   </div>
                 </>
               )}
@@ -617,7 +660,7 @@ export function TransfersView({
             <button
               type="button"
               onClick={addToCart}
-              disabled={sameHub || noVehicleFits || (mode === "bid" && !offerValid) || driverNotesBlocked}
+              disabled={cantAdd}
               className="w-full mt-4 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-extrabold py-3 rounded-xl shadow-md text-sm flex items-center justify-center gap-2 transition"
             >
               <PlusCircle className="w-4 h-4" />
