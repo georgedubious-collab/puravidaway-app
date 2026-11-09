@@ -7,6 +7,7 @@ import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { registerForPush, unregisterPush } from "./src/push";
 import { LocationCard } from "./src/screens/LocationCard";
 import { stopTracking, syncTracking, type TrackingState } from "./src/tracking";
+import { Documents } from "./src/screens/Documents";
 import { Earnings } from "./src/screens/Earnings";
 import { Jobs } from "./src/screens/Jobs";
 import { Profile } from "./src/screens/Profile";
@@ -64,6 +65,7 @@ function Home({ session }: { session: Session }) {
   const [names, setNames] = useState<Names>({ tours: {}, stops: {} });
   const [loading, setLoading] = useState(false);
   const [tracking, setTracking] = useState<TrackingState | null>(null);
+  const [docsOpen, setDocsOpen] = useState(false);
   const userId = session.user.id;
 
   const loadDriver = useCallback(async () => {
@@ -86,20 +88,24 @@ function Home({ session }: { session: Session }) {
     await loadDriver();
   }, [loadDriver]);
 
+  const loadVehicles = useCallback(async () => {
+    const v = await supabase.from("driver_vehicles").select("id, make_model, plate, passenger_capacity, status").eq("driver_id", userId).order("created_at");
+    setVehicles((v.data as Vehicle[] | null) ?? []);
+  }, [userId]);
+
   useEffect(() => {
+    void loadVehicles();
     void (async () => {
-      const [v, tours, stops] = await Promise.all([
-        supabase.from("driver_vehicles").select("id, make_model, plate, passenger_capacity, status").eq("driver_id", userId).order("created_at"),
+      const [tours, stops] = await Promise.all([
         supabase.from("day_tours").select("id, name"),
         supabase.from("sightseeing_stops").select("id, name"),
       ]);
-      setVehicles((v.data as Vehicle[] | null) ?? []);
       const toMap = (rows: { id: string; name: string }[] | null) => Object.fromEntries((rows ?? []).map((r) => [r.id, r.name]));
       setNames({ tours: toMap(tours.data as { id: string; name: string }[] | null), stops: toMap(stops.data as { id: string; name: string }[] | null) });
     })();
     void loadTrips();
     void registerForPush();
-  }, [userId, loadTrips]);
+  }, [userId, loadTrips, loadVehicles]);
 
   // A tapped notification opens the job or the trip it is about.
   useEffect(() => {
@@ -149,9 +155,19 @@ function Home({ session }: { session: Session }) {
           />
         ) : tab === "earnings" ? (
           <Earnings trips={trips} names={names} loading={loading} onRefresh={loadTrips} />
+        ) : docsOpen ? (
+          <Documents
+            userId={userId}
+            onBack={() => setDocsOpen(false)}
+            onChanged={() => {
+              void loadVehicles();
+              void loadDriver();
+            }}
+          />
         ) : (
           <Profile
             email={session.user.email ?? ""}
+            onDocuments={() => setDocsOpen(true)}
             driver={driver}
             vehicles={vehicles}
             onSignOut={signOut}
@@ -168,6 +184,7 @@ function Home({ session }: { session: Session }) {
               accessibilityState={{ selected: tab === t.id }}
               onPress={() => {
                 setTab(t.id);
+                setDocsOpen(false);
                 if (t.id !== "trips") setTripId(null);
                 if (t.id === "trips" || t.id === "earnings") void loadTrips();
               }}

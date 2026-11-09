@@ -20,7 +20,10 @@ Vercel ignores this folder, and the website's checks don't run on it.
   The database refuses positions outside that window (`report_location()`), and the app's
   background task then stops itself. Only the latest position is kept.
 
-Not yet in the app: uploading documents and vehicle photos (done on the website).
+- **Documents and vehicles:** personal details, a photo of each document straight from the
+  camera (or the gallery), vehicles with their documents and photos, and renewals with the new
+  date. Files go to the driver's private storage folder; `/api/v1/driver/documents` links them
+  with the website's checks. PDFs and starting a new application are still website-only.
 
 Store review notes: Google Play needs a background-location declaration with a short video, and
 Apple asks why "Always" location is needed. The reason in both cases: the team coordinates

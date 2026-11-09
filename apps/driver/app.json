@@ -37,6 +37,14 @@
           "isIosBackgroundLocationEnabled": true,
           "isAndroidBackgroundLocationEnabled": true
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Costa Rica Private Transfers uses the camera to photograph your documents and vehicles for verification.",
+          "photosPermission": "Costa Rica Private Transfers lets you choose photos of your documents and vehicles for verification.",
+          "microphonePermission": false
+        }
       ]
     ],
     "extra": {
