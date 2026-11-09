@@ -19,6 +19,9 @@ export function DriverHeader() {
             <Link href="/driver/trips" className="px-3 py-2.5 rounded-lg text-emerald-100 hover:bg-emerald-800/60">
               Your trips
             </Link>
+            <Link href="/driver/earnings" className="px-3 py-2.5 rounded-lg text-emerald-100 hover:bg-emerald-800/60">
+              Earnings
+            </Link>
           </nav>
         </div>
         <form action="/auth/signout" method="post">

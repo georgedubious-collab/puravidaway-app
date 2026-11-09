@@ -52,6 +52,8 @@ Either way works; the first needs no installs.
     `bookings.company_costs`, deducted before the driver's share
 24. `20261109000024_driver_trip_status.sql` — drivers start / complete their own trips
     (`driver_set_trip_status()`, `bookings.started_at` / `completed_at`)
+25. `20261109000025_driver_settlements.sql` — weekly settlements: `bookings.driver_settled_at`,
+    `my_trips()` returns `cash_to_collect` for cash trips
 
 Later files are added as the app grows. Since Option C is set up, they run by themselves
 after a merge; each pull request still lists them.

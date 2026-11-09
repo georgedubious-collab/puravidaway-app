@@ -118,6 +118,9 @@ async function Trip({ params, searchParams }: { params: Promise<{ id: string }>;
       <section className="rounded-xl border border-slate-200 bg-white p-5">
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
           {b.driver_payout != null && <Item k="Your payout" v={usd(b.driver_payout)} />}
+          {b.cash_to_collect != null && Number(b.cash_to_collect) > 0 && (
+            <Item k="Collect in cash" v={`${usd(b.cash_to_collect)} from the traveller (you keep your payout; the rest is settled weekly)`} />
+          )}
           <Item k="Traveller" v={(guest?.guest_name ?? "").split(" ")[0] || "—"} />
           <Item k="WhatsApp / phone" v={showPhone ? guest?.guest_phone : "Shown the day before the trip"} />
           {b.passenger_count && <Item k="Passengers" v={b.passenger_count} />}

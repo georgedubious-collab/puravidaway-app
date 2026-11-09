@@ -1,0 +1,1 @@
+- 2026-11-09 — Claude — Driver settlements (migration 0025): /admin/payouts lists completed unsettled trips per driver with the net to pay or receive and "Mark settled"; drivers get /driver/earnings and see how much cash to collect on cash trips.

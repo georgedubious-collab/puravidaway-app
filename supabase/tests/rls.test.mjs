@@ -541,6 +541,13 @@ await expectRows("driver starts the trip", "driver", `select public.driver_set_t
 await expectBlocked("driver cannot start it twice", "driver", `select public.driver_set_trip_status(${J3}, 'in_progress')`);
 await expectBlocked("driver cannot set other statuses", "driver", `select public.driver_set_trip_status(${J3}, 'cancelled')`);
 await expectRows("driver completes the trip", "driver", `select public.driver_set_trip_status(${J3}, 'completed') as ref`, 1);
+// Migration 0025: settlements.
+await expectOk("server makes the completed trip a cash trip", "server", `update public.bookings set payment_mode = 'cash_driver', cash_fee = 20 where id = ${J3}`);
+await expectRows("driver sees how much cash to collect (price + fee)", "driver", `select 1 from public.my_trips() where id = ${J3} and cash_to_collect = 220`, 1);
+await expectRows("online trips show no cash to collect", "driver", `select 1 from public.my_trips() where id <> ${J3} and cash_to_collect is not null and payment_mode <> 'cash_driver'`, 0);
+await expectBlocked("driver cannot mark their own trip settled", "driver", `update public.bookings set driver_settled_at = now() where id = ${J3}`, { affected: 0 });
+await expectOk("admin settles the trip", "admin", `update public.bookings set driver_settled_at = now() where id = ${J3}`);
+await expectRows("driver sees it settled", "driver", `select 1 from public.my_trips() where id = ${J3} and driver_settled_at is not null`, 1);
 await expectRows("trip is completed with both times recorded", "admin", `select 1 from public.bookings where id = ${J3} and status = 'completed' and started_at is not null and completed_at is not null`, 1);
 await expectBlocked("commission above 50% refused", "admin", "update public.pricing_settings set driver_commission_bps = 9000");
 
