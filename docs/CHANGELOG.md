@@ -9,7 +9,7 @@ Newest entries first. AIs: read the top of this file before starting work.
   (Open Graph/X card + branded preview image), custom 404/error pages with a WhatsApp help link,
   Vercel Web Analytics, and eight new route landing pages (SJO → La Fortuna, Monteverde,
   Tamarindo, Puerto Viejo, Sierpe; LIR → Tamarindo; La Fortuna → Monteverde, Manuel Antonio)
-  whose "Other rides" links now go to landing pages where they exist.
+  whose "Other rides" links now go to landing pages where they exist. Privacy policy now mentions the cookie-free Vercel visit statistics.
 
 - 2026-11-08 — Claude — Legal pages (draft, pending lawyer review): `/terms`, `/privacy` and
   `/cancellation`, with "Last updated" date, a visible draft notice and a placeholder for the

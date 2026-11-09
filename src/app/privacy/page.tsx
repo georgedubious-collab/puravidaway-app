@@ -67,6 +67,11 @@ export default function PrivacyPage() {
             security and troubleshooting.
           </li>
           <li>
+            <strong>Visit statistics:</strong> we use Vercel Web Analytics to count page views, which
+            pages are popular, and the visitor’s country and device type. It doesn’t use cookies and
+            doesn’t identify you or follow you to other websites.
+          </li>
+          <li>
             <strong>On your device:</strong> the site saves your trip-in-progress in your browser’s
             local storage so it isn’t lost if you reload the page. It stays on your device and you can
             clear it at any time. We don’t use advertising or tracking cookies.
