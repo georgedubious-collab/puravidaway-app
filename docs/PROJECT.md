@@ -3,7 +3,7 @@
 > **This is the single source of truth for PuraVidaWay.** It merges and replaces
 > `Architecture.md`, `Database-Schema.md`, `Route-Pricing.md` and the Gemini-drafted
 > master spec (October 2026). If code and this document disagree, fix one of them in
-> the same pull request and log it in `docs/CHANGELOG.md`.
+> the same pull request and log it in a changelog note (`docs/changelog/`).
 
 | | |
 | :--- | :--- |
@@ -477,13 +477,16 @@ and `season_for_date(date)` returns the season for a travel date.
 | :--- | :--- |
 | **Claude** | Primary builder: writes code, migrations and docs. Works on branches and opens pull requests. |
 | **Gemini** | Reviewer: Gemini Code Assist reviews every pull request on GitHub (rules in `.gemini/styleguide.md`). Gemini does not push code. |
-| **Grok** | Research and second opinions; reads `docs/PROJECT.md` and `docs/CHANGELOG.md` for context. |
+| **Grok** | Research and second opinions; reads `docs/PROJECT.md`, `docs/changelog/` and `docs/CHANGELOG.md` for context. |
 
 Rules for every AI:
-- Read `docs/PROJECT.md` and the latest entries in `docs/CHANGELOG.md` before starting.
+- Read `docs/PROJECT.md`, the notes in `docs/changelog/` and the latest entries in `docs/CHANGELOG.md`
+  before starting.
 - Never push directly to `main`. Branch → pull request → Vercel preview → review → Jorge merges.
 - When a change affects anything in this spec, update the spec in the same PR.
-- Add a dated line to `docs/CHANGELOG.md` for every merged change: `YYYY-MM-DD — <AI> — <what changed>`.
+- Add a dated changelog note for every change as its own file in `docs/changelog/`
+  (`YYYY-MM-DD — <AI> — <what changed>`); they are folded into `docs/CHANGELOG.md` in a separate
+  PR (see `docs/changelog/README.md`).
 - Address the founder as **Jorge Li**.
 - **Brand separation (decided 2026-10-14):** PuraVidaWay is a separate public brand. Nothing a
   customer or driver can see (UI copy, page metadata, WhatsApp messages, emails, legal pages)

@@ -2,7 +2,8 @@
 
 ## First, read
 - `docs/PROJECT.md` — the single source of truth (product, stack, schema, pricing, roadmap).
-- `docs/CHANGELOG.md` — latest entries, to see what changed since your training of this repo.
+- `docs/changelog/` (newest notes, one file per PR) and the top of `docs/CHANGELOG.md` — to see what
+  changed since your training of this repo.
 - `docs/COMPETITORS.md` — Daytrip, GetTransfer and Welcome Pickups are the benchmark for every
   decision. Run its §5 checklist on any UI or pricing change.
 
@@ -15,7 +16,10 @@ plainly, avoid jargon, and never assume a dev-team workflow (no "ask your backen
   Branch → pull request → Vercel preview → Gemini Code Assist review → Jorge merges.
 - Keep PRs small and focused; one concern per PR.
 - If a change affects anything stated in `docs/PROJECT.md`, update that doc in the same PR.
-- Add a line to `docs/CHANGELOG.md` in every PR: `YYYY-MM-DD — Claude — <what changed>`.
+- Add a changelog note in every PR as its **own new file** `docs/changelog/YYYY-MM-DD-<topic>.md`
+  containing `- YYYY-MM-DD — Claude — <what changed>`. Don't edit the top of `docs/CHANGELOG.md`
+  in feature PRs (it caused merge conflicts); notes are folded into it in a separate PR
+  (`docs/changelog/README.md`).
 - Open decisions live in `docs/PROJECT.md` §9. Don't silently decide them; ask Jorge or flag
   the assumption in the PR description.
 
