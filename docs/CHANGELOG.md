@@ -4,6 +4,31 @@ Archive of changes, newest first. **Since 2026-11-09 new entries start as one fi
 request in `docs/changelog/`** (read those first; see its README) and are folded in here every
 few weeks. Format: `YYYY-MM-DD — <AI or Jorge> — <what changed>`.
 
+- 2026-11-09 — Claude — The database-migrations Action now refreshes the cached price list after each run (POST /api/revalidate-catalog, secret CATALOG_REVALIDATE_SECRET), so new prices show at once.
+- 2026-11-09 — Claude — Database migrations now run automatically after a merge to main (GitHub Action `db-migrations.yml`, `supabase db push`); one-time setup in docs/SETUP-SUPABASE.md Option C.
+- 2026-11-09 — Claude — Driver trip page: "Open in Waze" / "Google Maps" buttons for the pickup and the drop-off (exact map point for rides booked since place search; town or text for older ones; Drake Bay goes to the Sierpe dock).
+- 2026-11-09 — Claude — Price level revised (migration 0016): base $30 + $0.90/km + $10/hour, minimum $120, on par with or a few dollars under Daytrip's lowest prices (was 10–20% below), so drivers earn a proper rate.
+- 2026-11-09 — Claude — Pricing step 4a (migration 0015): Southern Nicoya area factor 1.35 at either end on ferry routes only; Puntarenas ferry fares per crossing kept in colones (car + driver, per passenger) and converted at an admin-editable exchange rate (₡452, checked weekly), shown as their own line.
+- 2026-11-09 — Claude — Pricing step 3: pickup / drop-off search for any hotel, dock or address (Google Places), priced from Google road km + driving time, re-checked on the server; privacy page lists Google Maps.
+- 2026-11-09 — Claude — Stop entrance is now free / included / paid at the gate (migration 0014); Tárcoles shows "Free stop, no entrance fee".
+- 2026-11-09 — Claude — Pricing step 1 (docs/PRICING.md §7, migration 0013): rides are priced by
+  formula instead of a flat rate per vehicle: max($110, $35 + $0.70/km + $12/driving hour) ×
+  vehicle factor × pickup-town area factor (+ $75 boat on the Sierpe combo), rounded to whole
+  dollars, then stops and season. Road-km table for all 36 town pairs next to the drive times.
+  New Economy Sedan (×0.90, Spanish-speaking driver, direct ride: no stops, enforced on the
+  server) and Standard Sedan (×1.00, new default); SUV 1.20, 4x4 1.30, Van 1.35. `/admin/pricing`
+  edits the formula (with a live example table), area factors and vehicle factors. If 0013 isn't
+  run yet the site uses the same numbers built in. 202 database checks.
+- 2026-11-09 — Claude — Recorded Jorge's pricing decisions (PRICING.md §8, PROJECT.md §6.3, §9 #1,
+  #3, #10): formula pricing 10–20% below Daytrip with the §4.2 starting numbers, Economy class 10%
+  cheaper, Google Maps Platform for place search and routes, fixed prices for travellers with
+  drivers claiming jobs ("name your price" becomes "request a custom quote"). Park-fee display and
+  area factors start as defaults; platform commission still open.
+- 2026-11-09 — Claude — Changelog notes are now one small file per pull request in
+  `docs/changelog/` (see its README), folded into `docs/CHANGELOG.md` every few weeks. Stops the
+  merge conflicts that happened on almost every merge. CLAUDE.md, GEMINI.md and PROJECT.md §10
+  updated.
+
 - 2026-11-08 — Claude — Competitor gaps (COMPETITORS.md §5). Vehicle cards and route pages show the
   price per car **and** "from $X per person (N travellers)" (car price ÷ the class's max
   passengers, rounded up to whole dollars). "Every ride includes" list from one place

@@ -1,1 +1,0 @@
-- 2026-11-09 — Claude — Pricing step 3: pickup / drop-off search for any hotel, dock or address (Google Places), priced from Google road km + driving time, re-checked on the server; privacy page lists Google Maps.

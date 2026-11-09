@@ -1,1 +1,0 @@
-- 2026-11-09 — Claude — Driver trip page: "Open in Waze" / "Google Maps" buttons for the pickup and the drop-off (exact map point for rides booked since place search; town or text for older ones; Drake Bay goes to the Sierpe dock).
