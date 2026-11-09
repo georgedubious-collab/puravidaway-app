@@ -1,0 +1,33 @@
+# Every 5 minutes: ask the site to check whether drivers will reach their pickups on time
+# (live traffic) and alert the team if one would be more than 20 minutes late, or isn't
+# sharing location close to the pickup. See src/lib/eta.ts.
+# Needs the repository secret CRON_SECRET (same value as in Vercel). GitHub's schedule can
+# run a few minutes late; the driver app also triggers the same check while it's reporting.
+name: Driver ETA check
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: eta-check
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Check upcoming pickups
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          SITE_URL: ${{ vars.SITE_URL || 'https://puravidaway-app.vercel.app' }}
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "::warning::CRON_SECRET is not set in GitHub, so the ETA check did not run."
+            exit 0
+          fi
+          curl --fail-with-body -sS --max-time 60 -H "Authorization: Bearer $CRON_SECRET" "$SITE_URL/api/cron/eta"

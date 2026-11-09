@@ -47,7 +47,7 @@ export function LocationCard({
         <Text style={S.h2}>Share your location during trips</Text>
         <Text style={S.text}>
           To coordinate pickups and keep travellers informed, the app shares this phone&apos;s location with our team from 3 hours before each
-          pickup until you complete the trip, also when the app is closed.
+          pickup (or from the moment you tap &quot;I&apos;m on my way&quot;) until you end the trip, also when the app is closed.
         </Text>
         <Text style={S.muted}>
           Nothing is shared at any other time. We keep only your latest position, not a history, and only our team sees it. You can stop
@@ -63,7 +63,7 @@ export function LocationCard({
     <Card>
       <Text style={S.h2}>Location sharing</Text>
       {state?.kind === "on" ? (
-        <Text style={{ color: C.emerald, fontWeight: "700" }}>On now for trip {state.bookingRef}. It stops when you complete the trip.</Text>
+        <Text style={{ color: C.emerald, fontWeight: "700" }}>On now for trip {state.bookingRef}. It stops when you end the trip.</Text>
       ) : state?.reason === "no-permission" ? (
         <>
           <Text style={{ color: C.amber, fontWeight: "700" }}>
@@ -72,7 +72,7 @@ export function LocationCard({
           <Btn label="Open phone settings" alt onPress={() => void Linking.openSettings()} />
         </>
       ) : (
-        <Text style={S.muted}>Off right now. It turns on by itself 3 hours before your next pickup.</Text>
+        <Text style={S.muted}>Off right now. It turns on by itself 3 hours before your next pickup, or when you tap &quot;I&apos;m on my way&quot;.</Text>
       )}
       <Btn label="Stop sharing my location" alt onPress={withdraw} busy={busy} />
       <Text style={S.muted}>Our team needs location during trips, so drivers who stop sharing may not be assigned rides.</Text>

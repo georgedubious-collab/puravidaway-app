@@ -73,6 +73,8 @@ async function Trip({ params, searchParams }: { params: Promise<{ id: string }>;
     .map((s) => (s.id === "en_route_upgrade" ? "Smart En-Route Transfer" : (catalog.stops.find((x) => x.id === s.id)?.name ?? s.id)))
     .join(", ");
   const asked = prefsSummary(b.preferences);
+  // I'm on my way → Client picked up → Trip ended.
+  const nextStep: keyof typeof STEP = b.status === "in_progress" ? "completed" : b.en_route_at ? "in_progress" : "en_route";
   const pickup = b.service_type === "transfer" ? navTarget(b.origin, b.origin_coords) : null;
   const dropoff = b.service_type === "transfer" ? navTarget(b.destination, b.destination_coords) : null;
 
@@ -88,23 +90,15 @@ async function Trip({ params, searchParams }: { params: Promise<{ id: string }>;
       )}
       {(b.status === "confirmed" || b.status === "in_progress") && (
         <section className="rounded-xl border-2 border-emerald-600 bg-white p-5">
-          <h2 className="font-extrabold text-slate-900">
-            {b.status === "confirmed" ? "When your travellers are on board" : "When you've dropped your travellers off"}
-          </h2>
-          <p className="mt-1 text-xs text-slate-500">
-            {b.status === "confirmed"
-              ? "Tap this as you set off (available from 3 hours before the pickup time)."
-              : "Tap this at the drop-off. The traveller is then asked to rate the trip, and your payout is recorded."}
-          </p>
-          <ActionForm
-            action={setTripStatus}
-            submitLabel={b.status === "confirmed" ? "Start trip" : "Complete trip"}
-            savedLabel="Done"
-            className="mt-3"
-          >
+          <h2 className="font-extrabold text-slate-900">{STEP[nextStep].title}</h2>
+          <p className="mt-1 text-xs text-slate-500">{STEP[nextStep].help}</p>
+          <ActionForm action={setTripStatus} submitLabel={STEP[nextStep].button} savedLabel="Done" className="mt-3">
             <input type="hidden" name="booking_id" value={b.id} />
-            <input type="hidden" name="step" value={b.status === "confirmed" ? "in_progress" : "completed"} />
+            <input type="hidden" name="step" value={nextStep} />
           </ActionForm>
+          {nextStep === "in_progress" && (
+            <p className="mt-2 text-xs font-semibold text-emerald-700">You&apos;re on your way. Our team can see your progress in the app.</p>
+          )}
         </section>
       )}
       <div>
@@ -159,6 +153,24 @@ async function Trip({ params, searchParams }: { params: Promise<{ id: string }>;
     </div>
   );
 }
+
+const STEP = {
+  en_route: {
+    title: "Heading to the pickup?",
+    help: "Tap when you set off (from 6 hours before the pickup time). The traveller is told you're on the way and our team follows your arrival.",
+    button: "I'm on my way",
+  },
+  in_progress: {
+    title: "When your travellers are on board",
+    help: "Tap at the pickup, once everyone is in the car.",
+    button: "Client picked up",
+  },
+  completed: {
+    title: "When you've dropped your travellers off",
+    help: "Tap at the drop-off. Location sharing stops, the traveller is asked to rate the trip, and your payout is recorded.",
+    button: "Trip ended",
+  },
+} as const;
 
 function NavRow({ title, t }: { title: string; t: NavTarget }) {
   const btn =

@@ -14,6 +14,8 @@ interface Row {
   destination: string | null;
   scheduled_at: string | null;
   assigned_driver_id: string;
+  en_route_at?: string | null;
+  late_alert_at?: string | null;
 }
 interface Loc {
   driver_id: string;
@@ -23,6 +25,8 @@ interface Loc {
   speed_mps: number | null;
   booking_id: string | null;
   recorded_at: string;
+  eta_at?: string | null;
+  late_min?: number | null;
 }
 
 const HOUR = 3600000;
@@ -45,7 +49,7 @@ export default async function LivePage() {
   const now = nowMs();
   const { data: rows } = await supabase
     .from("bookings")
-    .select("id, booking_ref, status, service_type, origin, destination, scheduled_at, assigned_driver_id")
+    .select("*")
     .in("status", ["confirmed", "in_progress"])
     .not("assigned_driver_id", "is", null)
     .order("scheduled_at")
@@ -53,12 +57,12 @@ export default async function LivePage() {
   const active = (rows ?? []).filter((b) => {
     if (b.status === "in_progress") return true;
     const t = b.scheduled_at ? new Date(b.scheduled_at).getTime() : 0;
-    return t <= now + 3 * HOUR && t >= now - 12 * HOUR;
+    return (t <= now + 3 * HOUR || Boolean(b.en_route_at)) && t >= now - 12 * HOUR;
   });
   const driverIds = [...new Set(active.map((b) => b.assigned_driver_id))];
   const [locs, names] = driverIds.length
     ? await Promise.all([
-        supabase.from("driver_locations").select("driver_id, lat, lng, accuracy_m, speed_mps, booking_id, recorded_at").in("driver_id", driverIds),
+        supabase.from("driver_locations").select("*").in("driver_id", driverIds),
         supabase.from("profiles").select("id, full_name, phone").in("id", driverIds),
       ])
     : [{ data: [] as Loc[], error: null }, { data: [] as { id: string; full_name: string | null; phone: string | null }[] }];
@@ -69,8 +73,10 @@ export default async function LivePage() {
       <div>
         <h1 className="text-2xl font-extrabold text-slate-900">Live trips</h1>
         <p className="mt-1 text-sm text-slate-600">
-          Trips on the road, and confirmed trips with a pickup in the next 3 hours. Drivers share their location through the
-          driver app from 3 hours before pickup until they complete the trip. This page updates by itself.
+          Trips on the road, and confirmed trips with a pickup in the next 3 hours or a driver already on the way. Drivers
+          share their location through the driver app until they end the trip. Before the pickup, the arrival time is
+          estimated with live traffic, and you get an email if a driver would be more than 20 minutes late. This page
+          updates by itself.
         </p>
       </div>
       {locs.error && (
@@ -100,6 +106,18 @@ export default async function LivePage() {
                 <Link href={`/admin/drivers/${b.assigned_driver_id}`} className="font-bold underline">{who?.full_name ?? "Driver"}</Link>
                 {who?.phone ? ` · ${who.phone}` : ""}
               </p>
+              {b.status === "confirmed" && (
+                <p className={`mt-1 inline-block rounded px-1.5 text-xs font-bold ${b.en_route_at ? "bg-emerald-100 text-emerald-900" : "bg-slate-100 text-slate-600"}`}>
+                  {b.en_route_at ? "On the way to the pickup" : "Has not set off yet"}
+                </p>
+              )}
+              {loc && b.status === "confirmed" && loc.eta_at && loc.late_min != null && (
+                <p className={`mt-2 text-sm font-extrabold ${loc.late_min > 20 ? "text-red-700" : loc.late_min > 5 ? "text-amber-700" : "text-emerald-700"}`}>
+                  Arrives about {formatScheduledAt(loc.eta_at).split(" · ").pop()} with current traffic:{" "}
+                  {loc.late_min > 0 ? `${loc.late_min} min late` : loc.late_min < 0 ? `${-loc.late_min} min early` : "on time"}
+                  {b.late_alert_at ? " · alert sent" : ""}
+                </p>
+              )}
               {loc ? (
                 <>
                   <p className={`mt-2 text-sm font-bold ${stale ? "text-amber-700" : "text-emerald-700"}`}>
