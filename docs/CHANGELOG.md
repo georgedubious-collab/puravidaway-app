@@ -3,6 +3,18 @@
 Every merged change gets one line: `YYYY-MM-DD — <AI or Jorge> — <what changed>`.
 Newest entries first. AIs: read the top of this file before starting work.
 
+- 2026-11-08 — Claude — Docs brought up to date: PROJECT.md §3 now matches what is built
+  (logins, admin, driver portal, trip requests, chat) and what isn't (online payment, bidding,
+  GPS, `/account`); icons are lucide-react; seasons live in the database; duplicate trip-chat RLS
+  rule merged; §4.4 explains travellers use the private trip page. Recorded Jorge's payment
+  decision (§6.4): pay online in full or pay the driver in cash + 10% cash booking fee, no 20%
+  deposit (code change follows in its own PR). Brought in the mobile-apps plan from the unmerged
+  Oct 14 branch (§2, §8, §9 #12–#15, §11: Expo, two apps, new S.A. as publisher, account
+  deletion rule). `.env.example` gains the email and site settings; SETUP-SUPABASE.md gains
+  "keep the project awake" and an advisor check. **Correction:** the 2026-10-21 entry below said
+  migration 0010 was applied; on 2026-11-08 the live database still had the old view, so it has
+  to be run in the SQL editor.
+
 - 2026-11-08 — Claude — Security update: Next.js and eslint-config-next 16.4.0 → 16.4.5. Fixes
   the critical `npm audit` finding (GHSA-2464-fhr4-w9xw remote code execution via SVG image
   optimization, GHSA-673q-mjm6-r5xr remote code execution in `use cache`, GHSA-p3m5-59mp-jv5r

@@ -11,7 +11,7 @@
 | **Repository** | `georgedubious-collab/puravidaway-app` (connected to Vercel; `main` deploys to production) |
 | **Vercel project** | `puravidaway-app` — team "Jorge Li's projects" |
 | **Production URL** | https://puravidaway-app.vercel.app |
-| **Spec last reviewed** | 2026-10-14 |
+| **Spec last reviewed** | 2026-11-08 |
 
 ---
 
@@ -44,25 +44,25 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
 | Layer | Choice |
 | :--- | :--- |
 | Framework | **Next.js (App Router) + React + TypeScript (strict)** |
-| Styling | Tailwind CSS; Font Awesome icons; Plus Jakarta Sans |
+| Styling | Tailwind CSS; lucide-react icons; Plus Jakarta Sans |
 | Hosting / CI | Vercel, deployed from GitHub. Every PR gets a preview URL; merging to `main` deploys production |
 | Database / Auth / Files | Supabase — PostgreSQL, Auth (roles: `client`, `driver`, `admin`), Storage, Realtime |
 | Payments | Green Pay S.A. (Costa Rica), called server-side only |
 | Maps | Leaflet + OpenStreetMap (admin fleet map) |
 | CRM | HubSpot (lead pipeline sync, Phase 4) |
 | Messaging | WhatsApp deep links now; WhatsApp Business API in Phase 4 |
-| Mobile (Phase 5) | Client and Driver apps via Capacitor or React Native, reusing the web codebase where possible |
+| Mobile (Phase 5) | **Expo (React Native + TypeScript)** (decided 2026-10-14). Two apps: driver app first, then client app, sharing the pricing code with the website. Full plan in §11 |
 
 ---
 
-## 3. Current state of the code (2026-10-14)
+## 3. Current state of the code (2026-11-08)
 
 - **Next.js 16 (App Router) + TypeScript strict + Tailwind 4**, in `src/`.
 - `src/lib/catalog.ts` — the §5 catalog as typed data (prices in integer cents). Since Phase 2b this is the
   **built-in fallback**: the live catalog comes from Supabase via `getCatalog()`
   (`src/lib/catalogSource.ts`) and is edited at `/admin/pricing`.
 - `src/lib/pricing.ts` — the §6 pricing engine (season multipliers in basis points, cents math).
-- `src/lib/cart.ts` — Trip Cart model, 100% / 20% deposit rule, WhatsApp deep-link builder.
+- `src/lib/cart.ts` — Trip Cart model, payment-option maths, WhatsApp deep-link builder.
 - `src/components/` — storefront UI: `Header`, `TransfersView`, `DayToursView`,
   `ExpeditionsView`, `CartDrawer`, `Toast`, `Storefront` (state + localStorage cart).
 - `legacy/index.html` — the original static prototype, kept as the **design reference**.
@@ -72,15 +72,19 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
 - `supabase/migrations/` — database schema, row-level security and catalog seed (Phase 2b);
   `supabase/tests/rls.test.mjs` checks the security rules (`npm run test:db`). Setup steps for
   Jorge: `docs/SETUP-SUPABASE.md`.
-- Not yet built: Supabase, logins, `/admin`, driver portal, Green Pay checkout (the cart's
-  "Pay online" button is disabled), live bidding (bid mode adds a request to the cart for Jorge to
-  handle over WhatsApp), GPS map, chat.
+- Built and connected to Supabase: logins, `/admin` (dashboard, users, pricing, drivers,
+  bookings), `/driver` portal (KYC vault, vehicles, assigned trips), trip requests saved online,
+  private trip page `/trip/<code>`, tri-party trip chat with Resend email notifications.
+- Not yet built: online payment (Green Pay, §6.4), live bidding (bid mode saves a request with the
+  traveller's offer; the team handles it), GPS fleet map, `/account` for signed-in travellers
+  (travellers use their private trip page instead), map place search for exact pick-up points.
 - Env: `NEXT_PUBLIC_WHATSAPP_NUMBER` (see `.env.example`) **must be set in Vercel before
   launch**; until then WhatsApp buttons open a placeholder number and the build logs a warning.
 - Rendered per request (`connection()` in `page.tsx`): full HTML for search engines; "today" is
   computed server-side in `America/Costa_Rica`.
-- Season rule in code: peak = Dec 20–Jan 5 + Semana Santa (Palm Sunday → Easter); high = Dec–Apr;
-  else green. Moves to the `seasons` table in Phase 2b.
+- Seasons: peak = Dec 20–Jan 5 + Semana Santa (Palm Sunday → Easter); high = Dec–Apr; else green.
+  Live from the `seasons` / `season_ranges` tables (edited at `/admin/pricing`); the same rule is
+  the built-in fallback in code.
 
 ## 4. Product modules
 
@@ -98,8 +102,9 @@ guarantees, real reviews only) lives in `src/lib/trust.ts`.
    field, price breakdown.
 2. **1-Day Private Tours** — region filter, Smart En-Route Transfer upgrade (+$65).
 3. **Multi-Day Expeditions** — lodging tier selector, day-by-day itinerary.
-4. **Trip Cart & checkout** — combines transfers, stops, day tours and expeditions. Payment choice:
-   **100% full payment** or **20% deposit** (to lock SINAC permits and drivers). Checkout via
+4. **Trip Cart & checkout** — combines transfers, stops, day tours and expeditions. Payment choice
+   (decided 2026-11-08, §6.4): **pay online in full** or **pay the driver in cash + 10% cash
+   booking fee**. Checkout via
    Green Pay.
 5. **WhatsApp concierge** — context-aware buttons (`route`, `cart`, `general`) that pre-fill the
    route or cart contents into a WhatsApp message to the PuraVidaWay team.
@@ -121,7 +126,10 @@ guarantees, real reviews only) lives in `src/lib/trust.ts`.
 KYC document upload, view open booking requests, submit and manage bids, assigned trips,
 on-duty toggle (Phase 3), trip chat (Phase 4).
 
-### 4.4 Client account (`/account`, client role)
+### 4.4 Client account (`/account`, client role) — not built yet
+Today travellers don't need an account: each trip request gets a private trip page
+(`/trip/<code>`, linked in the confirmation email) with bookings, status, driver and chat.
+`/account` is planned for repeat travellers; `src/proxy.ts` already keeps its session fresh.
 Bookings, payment status and balance due, trip chat (Phase 4).
 
 ---
@@ -209,9 +217,17 @@ Multipliers live in the database and are edited from the admin pricing manager.
 5. PuraVidaWay keeps a **platform commission** (% of the accepted bid), collected through Green Pay.
 
 ### 6.4 Payments
-- `full_100`: charge 100% at checkout.
-- `deposit_20`: charge 20% at checkout; the balance is due before the trip. Store
-  `total_price` and `amount_paid`; balance = difference.
+**Decided (Jorge, 2026-11-08): two options, no 20% deposit.**
+- **Pay online in full** (`full_100`). Until Green Pay is connected, the team sends a payment
+  link after confirming the trip; the site must not say "pay now" before that works.
+- **Pay cash to the driver** on the day (`cash_driver`), plus a **cash booking fee of 10% of the
+  ride price** (admin-editable, stored in the database like every other price). The fee covers
+  no-show risk and the platform's margin on cash rides.
+- Assumption to confirm: cash is offered for rides and day tours only; **expeditions are paid
+  online** because SINAC permits, boats and lodges are prepaid.
+- Store `total_price` and `amount_paid`; balance = difference.
+- Replaces the earlier 100% / 20% deposit rule (`deposit_20`), which the code still uses until
+  the payment-options PR lands.
 - Green Pay calls and webhook verification happen **only on the server** (Next.js route handlers).
   Card data never touches our servers or database.
 
@@ -304,15 +320,14 @@ and `season_for_date(date)` returns the season for a travel date.
 - **bookings:** clients see their own; the assigned driver sees their assigned bookings (so
   nothing private may live on the booking row); admins see all. Traveller contact details and
   the private trip-page code live in **`trips`**, readable only by admins and the server.
-- **trip_chats:** per booking; travellers post through the server after it checks their trip
-  code; drivers and travellers can't send phone numbers, emails or links. `chat_reads`,
+- **trip_chats:** per booking; readable and writable only by the booking's client, assigned
+  driver and admins. Travellers post through the server after it checks their trip code; drivers and travellers can't send phone numbers, emails or links. `chat_reads`,
   `request_log` and the rate-limit functions are server-only. Approved drivers see **open** requests (`pending_bids`) only through the
   `open_trip_requests()` function: towns, date, vehicle, passengers and price, without the client's id,
   exact coordinates or flight/hotel notes, until a bid is accepted.
 - **bids:** drivers create and manage their own; the amount can change only while the request is
   open and the driver is still approved (withdrawing is always allowed); the booking's client
   reads bids on their booking; admins see all.
-- **trip_chats:** readable and writable only by the booking's client, assigned driver and admins.
 - **catalog tables:** public read for active items; admin write.
 - **payments:** written only by the server (service role); clients read their own; admins read all.
 
@@ -324,12 +339,12 @@ and `season_for_date(date)` returns the season for a travel date.
 | :--- | :--- | :--- |
 | **1. Prototype** | Static `index.html` design for storefront + admin tab | Done as a design mock, but the JS is truncated and non-functional |
 | **2a. Next.js foundation** | Next.js + TS + Tailwind scaffold; rebuild storefront from the prototype design with catalog data from §5; working cart and WhatsApp buttons | **Done (PR #2)** |
-| **2b. Supabase core** | Schema + RLS from §7, Auth with roles, catalog served from DB, `/admin` behind login, inventory & season pricing manager | **Built (PRs #7–#9); live once Supabase is set up** |
+| **2b. Supabase core** | Schema + RLS from §7, Auth with roles, catalog served from DB, `/admin` behind login, inventory & season pricing manager | **Live** (PRs #7–#9; Supabase connected). Migration 0010 still to be applied on the live database |
 | **2c. Driver KYC vault** | Driver sign-up, document upload, admin approval, 30-day expiry alerts | **Built (PRs #12–#14): `/driver` portal with several vehicles, `/admin/drivers` vault** |
-| **2d. Checkout** | Part 1: trip requests saved online (server re-prices every item, guest name/email/WhatsApp, booking refs) + `/admin/bookings` dispatch (status, driver + vehicle, amount received, internal notes). Part 2: Green Pay, 100% / 20% deposit, webhooks, confirmation emails | **Part 1 built (PR #15)**; part 2 needs Green Pay credentials and the cancellation policy (§9 #7) |
+| **2d. Checkout** | Part 1: trip requests saved online (server re-prices every item, guest name/email/WhatsApp, booking refs) + `/admin/bookings` dispatch (status, driver + vehicle, amount received, internal notes). Part 2: Green Pay, pay in full online or cash + 10% fee (§6.4), webhooks, confirmation emails | **Part 1 built (PR #15)**; part 2 needs Green Pay credentials |
 | **3. Bidding & GPS** | Live driver bidding; driver on-duty GPS broadcast to admin Leaflet map | Planned |
 | **4. Chat & CRM** | Tri-party trip chat (traveller via private trip link, assigned driver, team) with Resend email notifications; HubSpot sync; SMS / WhatsApp Business API | **Chat built (PR #17)**, polling every 8 s; HubSpot and SMS planned |
-| **5. Mobile apps** | Client and Driver apps for App Store / Google Play | Planned |
+| **5. Mobile apps** | Driver app (GPS, push notifications, camera) first, then Client app, for App Store / Google Play; plan in §11 | Planned — spec drafted; store accounts can be opened now (§11.6) |
 
 ---
 
@@ -361,6 +376,26 @@ and `season_for_date(date)` returns the season for a travel date.
     is cheaper.
 11. **In-app chat vs WhatsApp:** decided (Jorge, 2026-10-14): in-app trip chat with email
     notifications through Resend is the main channel; WhatsApp stays as an option. SMS later.
+12. **Mobile framework:** decided (Jorge, 2026-10-14): **Expo (React Native)** for both apps
+    (§11.2). Capacitor was rejected (weak background GPS, App Store risk as "just a website").
+13. **One app or two:** decided (Jorge, 2026-10-14): **two store listings**, "PuraVidaWay" for
+    travellers and "PuraVidaWay Partner" for drivers, built from one codebase (§11.1).
+14. **Store publisher:** plan (Jorge, 2026-10-14): a **new Costa Rican S.A.** for PuraVidaWay
+    (legal name to confirm, ideally "PuraVidaWay S.A."). The same company should hold the D-U-N-S
+    number, Apple and Google accounts, Green Pay merchant account, bank account and domain. It must
+    not be Jorge personally or Costa Rica Travel Planner, or the store would show that name as the
+    seller (brand separation, §10). Check ICT / tax registration needs with the notary.
+15. **Account deletion and data retention.** Both stores require users to be able to delete their
+    account. Recommended rule (pending Jorge and his accountant):
+    - **Blocked** while the person has an upcoming trip, an unpaid balance or an open dispute
+      (they are told why and how to cancel first).
+    - **Erased:** login, profile, phone, email, saved preferences, push tokens; chat messages
+      are replaced by "deleted user".
+    - **Kept, anonymised:** bookings and payments, as accounting records for as long as Costa Rican
+      tax rules require (period to confirm with the accountant).
+    - **Drivers:** KYC document files are deleted; a minimal record (name, permit number, dates
+      checked and approved) is kept for the same period in case of an insurance or legal claim.
+    - Done within 30 days; a confirmation email is sent. Available in the apps and on the website.
 
 ---
 
@@ -389,3 +424,111 @@ Rules for every AI:
   boat logistics, Marchamo / Dekra / INS compliance, realistic drive times, WhatsApp-first sales.
 - Never commit secrets. Supabase service-role keys and Green Pay credentials live only in Vercel
   environment variables.
+
+---
+
+## 11. Mobile apps (Phase 5) — plan
+
+> Drafted 2026-10-14. Decided by Jorge the same day: **Expo** and **two apps** (§9 #12–#13).
+> Planned: a new S.A. as publisher (§9 #14). Account deletion rule recommended, pending Jorge (§9 #15). Nothing here changes the website.
+
+### 11.1 Two apps, two jobs
+
+| | **PuraVidaWay Partner** (driver app) | **PuraVidaWay** (client app) |
+| :--- | :--- | :--- |
+| Users | Approved partner drivers (`driver` role) | Travellers (`client` role and guests with a trip link) |
+| Why an app at all | Things the website can't do reliably: **background GPS** while on duty (§4.2 #5), **push notifications** for new requests, bids and chat, **camera** for KYC documents and vehicle photos | **Push notifications** (driver assigned, pickup reminder, new chat message) and being findable in the stores |
+| Priority | **First.** The bidding and GPS features of Phase 3 need it | **Second.** Booking already works well on the mobile website |
+| First version | Email-code login · KYC documents and vehicles · open requests and bids (Phase 3) · assigned trips with exact pin and Waze / Google Maps link · on-duty toggle · trip chat | Email-code login · my trips, driver and vehicle · balance due (opens web checkout) · trip chat · WhatsApp button |
+
+Booking a new trip stays on the website at first; the client app links to it. Rebuilding the
+full trip builder natively comes later, only if store traffic justifies it.
+
+Two listings rather than one: travellers and drivers are different audiences, and a driver
+login screen inside the traveller app confuses both users and App Store reviewers. Both apps
+come from one codebase.
+
+### 11.2 Framework: Expo (decided 2026-10-14)
+
+**Expo** (React Native + TypeScript, the same language as the website):
+- Background location, push notifications and camera are standard, well-supported modules.
+- **EAS Build** compiles the iOS app in the cloud, so no Mac is needed.
+- **EAS Update** ships small fixes to installed apps without waiting for store review.
+
+Not chosen:
+- **Capacitor wrapping the website.** The website is rendered on the server for each request,
+  so a wrapper would just load the live site. Apple regularly rejects apps that are mostly a
+  website (guideline 4.2), and background GPS is weaker. Kept as a fallback for the client
+  app only.
+- **Lovable or other no-code builders.** They produce web apps, not store apps, and they work
+  outside the branch → PR → Gemini review → Jorge merges workflow (§10).
+
+### 11.3 Code layout
+
+This repo becomes a small monorepo (npm workspaces):
+- `src/` — the website, unchanged, still deployed by Vercel.
+- `packages/core/` — the plain-TypeScript business logic moved out of `src/lib/`
+  (`pricing.ts`, `catalogModel.ts`, `tripRequest.ts`, `dates.ts`, `preferences.ts`, cart math).
+  Website and apps import the same code, so a quote is identical everywhere.
+- `apps/driver/` and `apps/client/` — the two Expo apps.
+
+The move to `packages/core/` is its own PR with **no behaviour change**, checked on the Vercel
+preview before any app code is written. Vercel must keep building only the website.
+
+### 11.4 How the apps talk to the backend
+
+- **Supabase directly** for reading and writing the user's own data, with the public (anon) key
+  and the user's session. The row-level security rules in §7.7 already protect every table.
+  The service-role key never goes into an app.
+- **New API routes for the rest.** Today the website uses Next.js server actions
+  (`src/app/*/actions.ts`), which apps cannot call. Anything the server must do (re-price a
+  trip request, write a booking, send and read trip chat, bid rules, Green Pay) gets a versioned route handler under
+  `/api/v1/…`, sharing its logic with the server action. The server always re-prices; a price
+  shown in an app is display only.
+- **Login:** the same email + 6-digit code as the website. If Google sign-in is ever added to
+  the apps, Apple requires Sign in with Apple as well.
+- **Push notifications:** new table `device_tokens` (`user_id`, `token`, `platform`
+  `ios|android`, `app` `driver|client`, `updated_at`; RLS: own rows only). The server sends
+  through the Expo push service on new request, bid accepted, driver assigned, new chat
+  message and pickup reminder. Email via Resend stays as the backup channel.
+- **Chat:** chat goes through the server today (travellers use a private trip link, not an
+  account). Push notifications replace most of the 8-second polling in the apps; moving signed-in
+  users to Supabase Realtime is optional and needs its own security review.
+- **GPS:** only while the driver is **on duty**; updates `last_lat`, `last_lng`,
+  `last_seen_at` every 30–60 s or ~200 m, and stops when off duty. The app explains why it
+  needs location before asking; Google Play also requires a background-location declaration
+  with a short video.
+
+### 11.5 Payments inside the apps
+
+Transfers and tours are real-world services used outside the app, so Apple and Google do
+**not** require their in-app purchase systems (no 15–30% store fee). The apps open the same
+Green Pay checkout as the website in an in-app browser. Card data never touches the app, our
+server or the database (§6.4).
+
+### 11.6 Store accounts and requirements (Jorge's to-do)
+
+These take weeks, so they can start before any app code:
+1. **Legal entity and D-U-N-S number** for the publisher (§9 #14). Apple needs D-U-N-S for an
+   organization account; it is free but can take a couple of weeks.
+2. **Apple Developer Program**, organization account — US$99/year.
+3. **Google Play Console**, organization account — US$25 once. (New personal accounts must run
+   a two-week closed test with outside testers before publishing; verify the current rule.)
+4. **Public privacy policy and terms pages** on the website — both stores require the link.
+5. **Account deletion** inside the apps, plus a web link (§9 #15).
+6. **Privacy forms**: Apple's privacy labels and Google's Data safety form (contact details,
+   location for drivers, photos/documents for KYC).
+7. **Reviewer test logins**: a demo traveller and a demo approved driver with sample trips, so
+   store reviewers can get past the login screen.
+8. Store names, icons and screenshots say **PuraVidaWay** only (brand separation, §10).
+
+### 11.7 Order of work
+
+1. This plan (docs only).
+2. Jorge: decide §9 #14–#15 and start the accounts in §11.6.
+3. PR: move shared logic to `packages/core/` (no behaviour change).
+4. PR: `/api/v1` routes (including chat), `device_tokens` table + push sender.
+5. PR: driver app MVP → TestFlight and Google Play internal testing with Jorge and 1–2 partner
+   drivers.
+6. Phase 3 (live bidding, GPS fleet map) ships through the driver app.
+7. Client app, then store submission of both.

@@ -83,6 +83,18 @@ Every later admin or driver is promoted from inside `/admin`; this SQL step is o
 
 Without `RESEND_API_KEY` the app works the same; emails are simply not sent.
 
+## 7. Keep the project awake
+Free Supabase projects **pause after about 7 days without visits** (it happened in Oct–Nov 2026):
+logins, `/admin`, trip requests and chat stop working until someone clicks **Restore** in the
+Supabase dashboard (5–15 minutes). Before launch, move the project to the **Pro plan**
+(about US$25/month, never pauses, daily backups). Until then, open the site and `/admin` at
+least once a week.
+
+## 8. Check the database matches the code
+After running a new migration, open Supabase → **Advisors → Security Advisor**. It should show no
+red "ERROR" items. If it lists "Security Definer View: open_trip_requests", file 10 hasn't been
+run yet.
+
 ## Checking the security rules
 `npm run test:db` replays the migrations in a throwaway in-memory Postgres and runs 168 checks
 (clients can't see each other's bookings, drivers can't approve themselves, nobody but the server
