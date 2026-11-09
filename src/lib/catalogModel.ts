@@ -26,6 +26,7 @@ import {
   type SightseeingStop,
   type VehicleClass,
 } from "./catalog";
+import { DRIVER_COMMISSION_BPS_DEFAULT } from "./payout";
 import { easterSunday } from "./pricing";
 
 export interface SeasonRange {
@@ -54,6 +55,8 @@ export interface CatalogData {
   ferryFares: FerryFares;
   /** Colones per US dollar (ferry fares), checked weekly in the admin. */
   crcPerUsd: number;
+  /** Platform share of a ride / day tour, basis points (2000 = 20%). */
+  driverCommissionBps: number;
 }
 
 /** Season for a travel date: highest-priority range that contains it, else the default season. */
@@ -102,4 +105,5 @@ export const BUILT_IN_CATALOG: CatalogData = {
   areaFactorBps: AREA_FACTOR_BPS_DEFAULT,
   ferryFares: FERRY_FARES_DEFAULT,
   crcPerUsd: CRC_PER_USD_DEFAULT,
+  driverCommissionBps: DRIVER_COMMISSION_BPS_DEFAULT,
 };

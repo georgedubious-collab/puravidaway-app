@@ -353,7 +353,8 @@ expedition) · `origin` text (place name + address) · `origin_coords` jsonb (`l
 `place_id`, `town`, and `route` = the Google road km / minutes the price was made from, null
 between two of our towns) · `destination` text · `destination_coords` jsonb (same, without route) · `sightseeing_stops` jsonb (array of stop IDs + snapshot prices) · `vehicle_class` ·
 `lodging_tier` · `scheduled_at` timestamptz · `passenger_count` int · `flight_or_hotel_notes` ·
-`pricing_mode` (`fixed` | `bid`) · `total_price` numeric · `currency` (`USD` | `CRC`) ·
+`pricing_mode` (`fixed` | `bid`) · `total_price` numeric · `driver_payout` / `platform_fee` numeric
+(migration 0017; null on expeditions) · `claimed_at` (set when claimed from the job board) · `currency` (`USD` | `CRC`) ·
 `amount_paid` numeric · `payment_mode` (`full_100` | `cash_driver`; `deposit_20` on old rows
 only) · `cash_fee` numeric(10,2) (cash booking fee snapshot, 0 unless `cash_driver`) · `assigned_driver_id` →
 `drivers.id` (nullable) · `status` (`pending_payment` | `pending_bids` | `confirmed` |
@@ -432,7 +433,7 @@ and `season_for_date(date)` returns the season for a travel date.
 | **2b. Supabase core** | Schema + RLS from §7, Auth with roles, catalog served from DB, `/admin` behind login, inventory & season pricing manager | **Live** (PRs #7–#9; Supabase connected). All migrations through 0016 applied; since 2026-11-09 new ones run automatically after a merge (`.github/workflows/db-migrations.yml`) |
 | **2c. Driver KYC vault** | Driver sign-up, document upload, admin approval, 30-day expiry alerts | **Built (PRs #12–#14): `/driver` portal with several vehicles, `/admin/drivers` vault** |
 | **2d. Checkout** | Part 1: trip requests saved online (server re-prices every item, guest name/email/WhatsApp, booking refs) + `/admin/bookings` dispatch (status, driver + vehicle, amount received, internal notes). Part 2: Green Pay (online in full; cash to the driver + 10% fee is built, 2026-11-08), webhooks, confirmation emails | **Part 1 built (PR #15)**; payment options built; Green Pay needs credentials |
-| **3. Bidding & GPS** | Live driver bidding; driver on-duty GPS broadcast to admin Leaflet map | Planned |
+| **3. Job board & GPS** | Driver job board with fixed payouts (replaces public bidding); driver on-duty GPS broadcast to admin Leaflet map | **Job board built 2026-11-09** (`/driver/jobs`, migration 0017): the team posts a booking as "Open for drivers", the first qualified driver to claim it is assigned and the booking confirmed; drivers see their payout, never the client's price. GPS planned |
 | **4. Chat & CRM** | Tri-party trip chat (traveller via private trip link, assigned driver, team) with Resend email notifications; HubSpot sync; SMS / WhatsApp Business API | **Chat built (PR #17)**, polling every 8 s; HubSpot and SMS planned |
 | **5. Mobile apps** | Driver app (GPS, push notifications, camera) first, then Client app, for App Store / Google Play; plan in §11 | Planned — spec drafted; store accounts can be opened now (§11.6) |
 
@@ -454,8 +455,10 @@ and `season_for_date(date)` returns the season for a travel date.
    Daytrip's lowest prices (revised from 10–20% below the same day, so drivers earn a proper
    rate; numbers in `docs/PRICING.md` §8), using Google Maps Platform. Build order in
    `docs/PRICING.md` §7.
-2. **Platform commission %** on accepted bids. Benchmarks: Daytrip keeps ~30%, GetTransfer
-   13–25% (see COMPETITORS.md §1b). Recommendation: flat 12–15%, weekly payouts.
+2. **Platform commission %.** Benchmarks: Daytrip keeps ~30% (Jorge sees ~40% of the gross on
+   his own Daytrip rides), GetTransfer 13–25% (see COMPETITORS.md §1b). **Decided (Jorge,
+   2026-11-09): 20%** of the price after pass-through costs (ferry tickets go to the driver in
+   full); drivers see only their payout. Built in migration 0017; editable at `/admin/pricing`.
 3. **Bid floor/ceiling** relative to the reference price (e.g. 70%–130%).
    **Recommendation 2026-11-08 (`docs/PRICING.md` §6):** travellers always get a fixed price;
    drivers claim jobs at a fixed payout behind the scenes; "name your price" becomes "request a

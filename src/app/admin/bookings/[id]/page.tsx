@@ -138,6 +138,12 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
             {b.lodging_tier && <Item k="Lodging" v={catalog.lodgingTiers.find((t) => t.id === b.lodging_tier)?.name ?? b.lodging_tier} />}
             {b.flight_or_hotel_notes && <Item k="Ride notes" v={b.flight_or_hotel_notes} />}
             {prefsSummary(b.preferences).length > 0 && <Item k="Asked for" v={prefsSummary(b.preferences).join(", ")} />}
+            {b.driver_payout != null && (
+              <Item
+                k="Driver payout"
+                v={`${usd(b.driver_payout)} (we keep ${usd(b.platform_fee ?? 0)})${b.claimed_at ? " · claimed from the job board" : ""}`}
+              />
+            )}
             {b.driver_notes && <Item k="Message for driver" v={b.driver_notes} />}
             <Item k="Price" v={`${usd(b.total_price)}${b.pricing_mode === "bid" ? " (client's offer)" : ""}`} />
             <Item k="Payment" v={paymentText} />

@@ -1,7 +1,7 @@
 /** Booking statuses as stored in the database, with the words the team sees. */
 export const BOOKING_STATUSES = [
   ["pending_payment", "New request · waiting for payment"],
-  ["pending_bids", "Collecting driver offers"],
+  ["pending_bids", "Open for drivers (job board)"],
   ["confirmed", "Confirmed"],
   ["in_progress", "On the road"],
   ["completed", "Completed"],
@@ -49,8 +49,40 @@ export interface BookingRow {
   client_notes: string | null;
   preferences: Partial<import("./preferences").RidePrefs>;
   driver_notes: string | null;
+  /** Driver payout and platform share (USD), migration 0017. Null on expeditions (arranged by the team). */
+  driver_payout?: number | string | null;
+  platform_fee?: number | string | null;
+  /** Set when a driver claimed the job from the board. */
+  claimed_at?: string | null;
   created_at: string;
 }
+
+/** One open job as drivers see it (`driver_jobs()`): town-level route, payout, never the client's price. */
+export interface DriverJob {
+  id: string;
+  booking_ref: string;
+  service_type: string;
+  catalog_item_id: string | null;
+  origin_town: string | null;
+  destination_town: string | null;
+  sightseeing_stops: { id: string }[];
+  vehicle_class: string | null;
+  scheduled_at: string;
+  passenger_count: number | null;
+  preferences: Partial<import("./preferences").RidePrefs>;
+  driver_notes: string | null;
+  driver_payout: number | string | null;
+  created_at: string;
+}
+
+/** One of the driver's own trips (`my_trips()`): everything needed to drive it, without the client's price. */
+export type DriverTrip = Pick<
+  BookingRow,
+  | "id" | "booking_ref" | "trip_id" | "service_type" | "catalog_item_id" | "origin" | "destination"
+  | "origin_coords" | "destination_coords" | "sightseeing_stops" | "vehicle_class" | "scheduled_at"
+  | "passenger_count" | "flight_or_hotel_notes" | "preferences" | "driver_notes" | "status"
+  | "payment_mode" | "cash_fee" | "assigned_vehicle_id" | "created_at"
+> & { driver_payout: number | string | null; claimed_at: string | null };
 
 export function usd(n: number | string): string {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(Number(n));

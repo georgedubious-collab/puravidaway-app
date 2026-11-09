@@ -13,6 +13,9 @@ export function DriverHeader() {
             <Link href="/driver" className="px-3 py-2.5 rounded-lg text-emerald-100 hover:bg-emerald-800/60">
               Profile &amp; documents
             </Link>
+            <Link href="/driver/jobs" className="px-3 py-2.5 rounded-lg text-emerald-100 hover:bg-emerald-800/60">
+              Open jobs
+            </Link>
             <Link href="/driver/trips" className="px-3 py-2.5 rounded-lg text-emerald-100 hover:bg-emerald-800/60">
               Your trips
             </Link>

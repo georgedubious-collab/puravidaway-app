@@ -16,6 +16,7 @@ import {
   type RideFormula,
 } from "./catalog";
 import { BUILT_IN_CATALOG, type CatalogData } from "./catalogModel";
+import { DRIVER_COMMISSION_BPS_DEFAULT } from "./payout";
 import { createSupabasePublicClient } from "./supabase/server";
 
 export const CATALOG_TAG = "catalog";
@@ -153,6 +154,7 @@ async function loadDatabaseCatalog(): Promise<CatalogData> {
       areaFactorBps,
       ferryFares: readFerryFares(settings.data),
       crcPerUsd: readRate(settings.data),
+      driverCommissionBps: bpsOrNull(settings.data?.driver_commission_bps == null ? null : Number(settings.data.driver_commission_bps) / 10000, 0, 5000) ?? DRIVER_COMMISSION_BPS_DEFAULT,
     };
   }
 }

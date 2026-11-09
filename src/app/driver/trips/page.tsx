@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { requireUser } from "@/lib/auth";
-import { BOOKING_STATUS_LABEL, SERVICE_LABEL, type BookingRow } from "@/lib/bookings";
+import { BOOKING_STATUS_LABEL, SERVICE_LABEL, usd, type DriverTrip } from "@/lib/bookings";
 import { getCatalog } from "@/lib/catalogSource";
 import { formatScheduledAt } from "@/lib/dates";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -26,18 +26,15 @@ export default function DriverTripsPage() {
 async function Trips() {
   const me = await requireUser("/driver/trips");
   const supabase = (await createSupabaseServerClient())!;
+  // my_trips(): the driver's assigned trips without the client's price (migration 0017).
   const [{ data, error }, catalog] = await Promise.all([
-    supabase
-      .from("bookings")
-      .select("*")
-      .eq("assigned_driver_id", me.id)
-      .order("scheduled_at", { ascending: true })
-      .returns<BookingRow[]>(),
+    supabase.rpc("my_trips").then((r) => r as { data: DriverTrip[] | null; error: { message: string } | null }),
     getCatalog(),
   ]);
+  void me;
   if (error) return <p className="font-semibold text-red-700">Couldn&apos;t load your trips. Please reload.</p>;
   const trips = data ?? [];
-  const name = (b: BookingRow) =>
+  const name = (b: DriverTrip) =>
     b.service_type === "transfer"
       ? `${b.origin} → ${b.destination}`
       : ([...catalog.dayTours, ...catalog.expeditions].find((x) => x.id === b.catalog_item_id)?.name ?? "Trip");
@@ -47,8 +44,8 @@ async function Trips() {
       <h1 className="text-2xl font-extrabold text-slate-900">Your trips</h1>
       {trips.length === 0 ? (
         <p className="text-sm text-slate-600">
-          No trips assigned yet. When our team assigns you a ride, it appears here with the
-          traveller&apos;s requests and a chat.
+          No trips yet. Claim one on <Link href="/driver/jobs" className="font-bold text-emerald-700 underline">Open jobs</Link>, or
+          wait for our team to assign you a ride; it appears here with the traveller&apos;s requests and a chat.
         </p>
       ) : (
         <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white">
@@ -61,7 +58,10 @@ async function Trips() {
                   </span>
                   <span className="font-bold text-slate-900">{name(b)}</span>
                 </span>
-                <span className="text-sm font-semibold text-slate-600">{BOOKING_STATUS_LABEL[b.status]}</span>
+                <span className="text-sm font-semibold text-slate-600">
+                  {b.driver_payout != null && <span className="mr-2 font-extrabold text-emerald-700">{usd(b.driver_payout)}</span>}
+                  {BOOKING_STATUS_LABEL[b.status]}
+                </span>
               </Link>
             </li>
           ))}
