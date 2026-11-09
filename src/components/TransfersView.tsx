@@ -2,12 +2,12 @@
 
 import { Camera, Car, Gavel, Languages, MapPin, MessageCircle, PlusCircle, Users } from "lucide-react";
 import { useMemo, useState } from "react";
-import { HUBS, type HubId } from "@/lib/catalog";
+import { HUBS, stopFitsRoute, type HubId } from "@/lib/catalog";
 import { seasonForYmd } from "@/lib/catalogModel";
 import { useCatalog } from "./CatalogContext";
 import { newItemId, whatsAppLink, type CartItem } from "@/lib/cart";
-import { addDays } from "@/lib/dates";
-import { formatDuration, formatUSD, quoteTransfer } from "@/lib/pricing";
+import { DEFAULT_PICKUP_TIME, PICKUP_TIMES, addDays, formatTime12h } from "@/lib/dates";
+import { applyMultiplier, formatDuration, formatUSD, quoteTransfer } from "@/lib/pricing";
 import { MIN_OFFER_USD } from "@/lib/tripRequest";
 import { DEFAULT_PREFS, LANGUAGE_LABEL, hasContactDetails, prefsSummary, type DriverLanguage, type RidePrefs } from "@/lib/preferences";
 
@@ -31,6 +31,7 @@ export function TransfersView({
   const [origin, setOrigin] = useState<HubId>(initialOrigin);
   const [destination, setDestination] = useState<HubId>(initialDestination);
   const [date, setDate] = useState(() => addDays(today, 14));
+  const [pickupTime, setPickupTime] = useState(DEFAULT_PICKUP_TIME);
   const [pax, setPax] = useState(2);
   const [mode, setMode] = useState<PricingMode>("fixed");
   const [vehicleId, setVehicleId] = useState("suv");
@@ -43,12 +44,13 @@ export function TransfersView({
 
   const catalog = useCatalog();
   const season = useMemo(() => seasonForYmd(date, catalog), [date, catalog]);
+  // Cards show prices for the chosen date, so they add up to the total below.
+  const seasonal = (cents: number) => applyMultiplier(cents, season.multiplierBps);
+  const seasonPct = Math.round((season.multiplierBps - 10000) / 100);
 
+  // A stop is offered only when it sits on the road between pickup and drop-off.
   const availableStops = useMemo(
-    () =>
-      catalog.stops.filter(
-        (s) => s.corridors.includes(origin) || s.corridors.includes(destination),
-      ),
+    () => catalog.stops.filter((s) => stopFitsRoute(s, origin, destination)),
     [catalog, origin, destination],
   );
 
@@ -126,6 +128,7 @@ export function TransfersView({
         vehicleId: effectiveVehicleId,
         stopIds: effectiveStopIds,
         pax,
+        pickupTime,
         pricing: mode === "bid" ? "bid" : "fixed",
         offerCents: mode === "bid" ? offerCents : undefined,
         notes: notes.trim() || undefined,
@@ -136,7 +139,7 @@ export function TransfersView({
   }
 
   const routeWhatsApp = whatsAppLink(
-    `Hi PuraVidaWay! I'm looking at a private transfer ${originName} → ${destName} on ${date} for ${pax} passengers${
+    `Hi PuraVidaWay! I'm looking at a private transfer ${originName} → ${destName} on ${date} at ${formatTime12h(pickupTime)} (Costa Rica time) for ${pax} passengers${
       selectedStops.length ? ` with stops at ${selectedStops.map((s) => s.name).join(", ")}` : ""
     }. ${
       mode === "bid" && offerValid
@@ -162,7 +165,7 @@ export function TransfersView({
           </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mt-6 bg-white/10 backdrop-blur-md p-4 rounded-xl border border-white/15">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-6 bg-white/10 backdrop-blur-md p-4 rounded-xl border border-white/15">
           <Field label="Origin pickup">
             <select
               value={origin}
@@ -196,6 +199,23 @@ export function TransfersView({
               onChange={(e) => setDate(e.target.value)}
               className="w-full bg-white text-slate-900 rounded-lg px-3 py-2.5 text-sm font-semibold"
             />
+          </Field>
+          <Field label="Pickup time (Costa Rica time)">
+            <select
+              value={pickupTime}
+              onChange={(e) => setPickupTime(e.target.value)}
+              aria-describedby="pickup-time-hint"
+              className="w-full bg-white text-slate-900 rounded-lg px-3 py-2.5 text-sm font-semibold"
+            >
+              {PICKUP_TIMES.map((t) => (
+                <option key={t} value={t}>
+                  {formatTime12h(t)}
+                </option>
+              ))}
+            </select>
+            <span id="pickup-time-hint" className="block mt-1 text-[11px] text-emerald-100">
+              For airport pickups, enter your flight&apos;s landing time.
+            </span>
           </Field>
           <Field label="Passengers">
             <select
@@ -246,11 +266,11 @@ export function TransfersView({
             <div className="flex items-start justify-between gap-3 mb-3">
               <div>
                 <h2 className="font-extrabold text-base text-slate-900 flex items-center gap-2">
-                  <Camera className="w-5 h-5 text-emerald-600" /> Optional sightseeing stops along
-                  your route
+                  <Camera className="w-5 h-5 text-emerald-600" /> Add a stop (optional extra)
                 </h2>
                 <p className="text-xs text-slate-500">
-                  Your driver waits with your luggage in a locked vehicle while you explore.
+                  Paid extras on the road between your pickup and drop-off. Your driver waits with
+                  your luggage in a locked vehicle while you explore.
                 </p>
               </div>
               <span className="text-xs font-bold bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full whitespace-nowrap">
@@ -258,7 +278,7 @@ export function TransfersView({
               </span>
             </div>
             {availableStops.length === 0 ? (
-              <p className="text-sm text-slate-500">No curated stops on this corridor yet.</p>
+              <p className="text-sm text-slate-500">No stops on this route yet. Ask us on WhatsApp if you have one in mind.</p>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {availableStops.map((s) => {
@@ -275,15 +295,10 @@ export function TransfersView({
                           : "border-slate-200 hover:border-emerald-300 bg-white"
                       }`}
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="text-sm font-extrabold text-slate-900">{s.name}</p>
-                        <span className="text-sm font-extrabold text-emerald-700 whitespace-nowrap">
-                          +{formatUSD(s.priceCents)}
-                        </span>
-                      </div>
+                      <p className="text-sm font-extrabold text-slate-900">{s.name}</p>
                       <p className="text-xs text-slate-500 mt-1">{s.description}</p>
-                      <p className="text-[11px] font-bold text-slate-600 mt-2">
-                        {formatDuration(s.durationMin)} stop
+                      <p className="text-xs font-extrabold text-emerald-700 mt-2">
+                        +{formatUSD(seasonal(s.priceCents))} · adds {formatDuration(s.durationMin)}
                       </p>
                     </button>
                   );
@@ -321,8 +336,14 @@ export function TransfersView({
                         <Users className="w-3.5 h-3.5" /> Up to {v.maxPax} · {v.luggage}
                       </p>
                       <p className="text-lg font-extrabold text-emerald-700 mt-2">
-                        {formatUSD(v.baseRateCents)}
+                        {formatUSD(seasonal(v.baseRateCents))}
                       </p>
+                      {seasonPct !== 0 && (
+                        <p className="text-[11px] font-bold text-amber-700">
+                          {season.name} {seasonPct > 0 ? "+" : "−"}
+                          {Math.abs(seasonPct)}%
+                        </p>
+                      )}
                     </button>
                   );
                 })}
@@ -460,7 +481,7 @@ export function TransfersView({
             </h3>
 
             <ol className="my-4 space-y-3 text-xs">
-              <TimelineRow label="Pickup" text={originName} />
+              <TimelineRow label={`Pickup · ${date} · ${formatTime12h(pickupTime)}`} text={originName} />
               {selectedStops.map((s) => (
                 <TimelineRow
                   key={s.id}
@@ -497,13 +518,20 @@ export function TransfersView({
                 </>
               ) : (
                 <>
-                  <Row label={vehicle.name} value={formatUSD(quote.baseCents)} />
-                  <Row label="Sightseeing stops" value={`+${formatUSD(quote.stopsCents)}`} green />
-                  {quote.seasonMultiplierBps !== 10000 && (
+                  {/* Same season-adjusted prices as the cards; stops take the remainder so the rows always add up. */}
+                  <Row label={vehicle.name} value={formatUSD(seasonal(quote.baseCents))} />
+                  {quote.stopsCents > 0 && (
                     <Row
-                      label={`${season.name} ×${(quote.seasonMultiplierBps / 10000).toFixed(2)}`}
-                      value={`+${formatUSD(quote.totalCents - quote.subtotalCents)}`}
+                      label="Stops (optional extras)"
+                      value={`+${formatUSD(quote.totalCents - seasonal(quote.baseCents))}`}
+                      green
                     />
+                  )}
+                  {seasonPct !== 0 && (
+                    <p className="text-[11px] text-slate-500">
+                      Prices include {season.name} {seasonPct > 0 ? "+" : "−"}
+                      {Math.abs(seasonPct)}%.
+                    </p>
                   )}
                   <div className="flex justify-between text-sm font-extrabold text-slate-900 pt-2 border-t border-slate-200">
                     <span>Total private ride</span>

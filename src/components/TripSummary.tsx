@@ -12,6 +12,7 @@ import {
   type CartItem,
   type PaymentMode,
 } from "@/lib/cart";
+import { DEFAULT_PICKUP_TIME, formatTime12h } from "@/lib/dates";
 import { formatUSD } from "@/lib/pricing";
 
 export interface TripContact {
@@ -48,7 +49,7 @@ export function TripSummary({ trip }: { trip: TripState }) {
   const { items, onRemove, mode, onMode, contact, onContact } = trip;
   const total = cartTotalCents(items);
   const dueNow = amountDueNowCents(total, mode);
-  const legs = [...items].sort((a, b) => (a.date || "9999").localeCompare(b.date || "9999"));
+  const legs = [...items].sort((a, b) => legKey(a).localeCompare(legKey(b)));
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [website, setWebsite] = useState(""); // spam trap, hidden from people
@@ -92,7 +93,10 @@ export function TripSummary({ trip }: { trip: TripState }) {
             >
               <div className="min-w-0">
                 <p className="text-xs font-bold text-slate-500">
-                  {formatLegDate(item.date)} · {KIND_LABEL[item.kind]}
+                  {formatLegDate(item.date)}
+                  {item.kind === "transfer" && ` · ${formatTime12h(item.spec?.kind === "transfer" ? item.spec.pickupTime : DEFAULT_PICKUP_TIME)}`}
+                  {" · "}
+                  {KIND_LABEL[item.kind]}
                 </p>
                 <p className="text-sm font-extrabold text-slate-900">{item.title}</p>
                 <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{item.detail}</p>
@@ -287,6 +291,11 @@ const KIND_LABEL: Record<CartItem["kind"], string> = {
   day_tour: "Day tour",
   expedition: "Expedition",
 };
+
+/** Date order, then pickup time for rides on the same day. */
+function legKey(i: CartItem): string {
+  return `${i.date || "9999"} ${i.spec?.kind === "transfer" ? i.spec.pickupTime : ""}`;
+}
 
 function formatLegDate(iso: string): string {
   if (!iso) return "Date to confirm";

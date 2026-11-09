@@ -98,6 +98,11 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
   (`@vercel/analytics`) is in the root layout and must be enabled in the Vercel dashboard.
 - Rendered per request (`connection()` in `page.tsx`): full HTML for search engines; "today" is
   computed server-side in `America/Costa_Rica`.
+- Ride builder (2026-11-08): pickup time picker (Costa Rica time, 04:00–22:00 in 15 min, default
+  9:00) saved in `bookings.scheduled_at` (UTC−6); day tours default to 7:00 and expeditions to
+  6:00 until confirmed. Dates and times are shown in Costa Rica time everywhere
+  (`formatScheduledAt()` in `src/lib/dates.ts`). Vehicle and stop cards show season-adjusted
+  prices for the chosen date.
 - Seasons: peak = Dec 20–Jan 5 + Semana Santa (Palm Sunday → Easter); high = Dec–Apr; else green.
   Live from the `seasons` / `season_ranges` tables (edited at `/admin/pricing`); the same rule is
   the built-in fallback in code.
@@ -171,8 +176,15 @@ Puerto Viejo (Caribbean) · Tamarindo / Guanacaste
 | `sloth` | La Fortuna Sloth & Wildlife Sanctuary Trail | 75 min | +$48 |
 
 Notes:
-- Each stop belongs to one or more corridors; only show stops that sit on (or near) the selected
-  route. The corridor mapping still needs to be defined (see §9).
+- Stops are **optional paid extras** ("Add a stop (optional extra)", each card "+$X · adds N min",
+  season-adjusted). Each stop lists the hubs it sits between (`sightseeing_stops.corridors`,
+  edited at `/admin/pricing`). **Rule (built 2026-11-08, pending Jorge's confirmation, §9 #4):** a
+  stop is offered only when **both** pickup and drop-off are on its list; a stop with a single hub
+  is in that town and is offered on any ride to or from it; no stops on the Sierpe ↔ Drake Bay
+  boat (`stopFitsRoute()` in `src/lib/catalog.ts`). Current lists (migration 0011): Tárcoles &
+  Carara — SJO, Monteverde, Manuel Antonio, Sierpe, Drake Bay; Poás — SJO, Arenal; Río Celeste —
+  Arenal, LIR; Sloth trail — Arenal. Known gap of a flat list: Tárcoles/Carara also show on
+  Manuel Antonio ↔ Sierpe/Drake Bay and SJO ↔ Monteverde, which need a detour.
 - Park entrance fees: decide per stop whether they are bundled in the stop price or billed
   separately, and say so on the card.
 - **Poás + Doka at 120 min is tight.** Poás requires advance timed-entry tickets, and adding Doka
@@ -252,7 +264,9 @@ Multipliers live in the database and are edited from the admin pricing manager.
 ### 6.5 Driving-time realism
 Durations must reflect real Costa Rican conditions (mountain roads, single-lane highways,
 rainy-season delays). Route durations are stored per corridor, not computed as straight-line
-distance.
+distance: `ROUTE_MINUTES` in `src/lib/catalog.ts` has door-to-door times for all 36 hub pairs
+(a type check fails the build if one is missing; Drake Bay = road to Sierpe + 75 min boat).
+Pending Jorge's confirmation.
 
 ---
 
@@ -385,7 +399,10 @@ and `season_for_date(date)` returns the season for a travel date.
    **Recommendation 2026-11-08 (`docs/PRICING.md` §6):** travellers always get a fixed price;
    drivers claim jobs at a fixed payout behind the scenes; "name your price" becomes "request a
    custom quote" for groups, charters and unusual routes. Pending Jorge.
-4. **Stop ↔ corridor mapping** (which stops are offered on which routes).
+4. **Stop ↔ corridor mapping** (which stops are offered on which routes). Built 2026-11-08 as
+   the "both ends" rule with reviewed lists (§5.2), **pending Jorge's confirmation**. If the
+   detour cases in §5.2 matter, the next step is listing exact route pairs per stop. With exact
+   routing (`docs/PRICING.md` §5) the detour decides it instead of a list.
 5. **Lodging tier pricing**: per person or per booking? Same question for day tours.
 6. **Passenger-based pricing**: do day tours and expeditions price per person?
 7. **Cancellation & refund policy:** decided (Jorge, 2026-11-08), published at `/cancellation`.

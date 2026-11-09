@@ -25,6 +25,7 @@ Either way works; the first needs no installs.
 8. `20261014000008_preferences_profiles.sql` — ride preferences, driver bios, vehicle features
 9. `20261014000009_trip_chat.sql` — trip chat, server-only traveller contacts, abuse limits
 10. `20261021000010_advisor_fixes.sql` — Supabase security-advisor fixes
+11. `20261108000011_stop_corridors.sql` — sightseeing stop corridors for the "both ends" rule
 
 Later files are added as the app grows; each pull request says when there's a new one to run.
 

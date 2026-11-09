@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import { LegalLinks } from "@/components/legal/LegalLinks";
 import { DriverStandards } from "@/components/trust/DriverStandards";
 import { Reviews } from "@/components/trust/Reviews";
-import { HUBS, routeMinutes } from "@/lib/catalog";
+import { HUBS, routeMinutes, stopFitsRoute } from "@/lib/catalog";
 import { getCatalog } from "@/lib/catalogSource";
 import { applyMultiplier, formatDuration, formatUSD } from "@/lib/pricing";
 import { builderHref, relatedHref, ROUTE_PAGES, routePage } from "@/lib/routePages";
@@ -70,9 +70,7 @@ export default async function RouteLandingPage({
   const cheapest = vehicles.reduce((a, b) => (b.baseRateCents < a.baseRateCents ? b : a));
   const defaultSeason = catalog.seasons.find((x) => x.isDefault);
   const fromCents = applyMultiplier(cheapest.baseRateCents, defaultSeason?.multiplierBps ?? 10000);
-  const stops = catalog.stops.filter(
-    (s) => s.corridors.includes(page.origin) || s.corridors.includes(page.destination),
-  );
+  const stops = catalog.stops.filter((s) => stopFitsRoute(s, page.origin, page.destination));
   const pct = (id: string) => {
     const season = catalog.seasons.find((x) => x.id === id);
     return season ? Math.round((season.multiplierBps - 10000) / 100) : 0;

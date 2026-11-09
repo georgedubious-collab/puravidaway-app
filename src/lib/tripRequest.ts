@@ -3,9 +3,15 @@
  * re-price it from the catalog before saving a booking. Shared by the
  * browser (building items) and the server (checking them).
  */
-import { HUBS, type HubId } from "./catalog";
+import { HUBS, stopFitsRoute, type HubId } from "./catalog";
 import { seasonForYmd, type CatalogData } from "./catalogModel";
-import { isValidYmd } from "./dates";
+import {
+  DEFAULT_EXPEDITION_TIME,
+  DEFAULT_PICKUP_TIME,
+  DEFAULT_TOUR_TIME,
+  isValidPickupTime,
+  isValidYmd,
+} from "./dates";
 import { hasContactDetails, parsePrefs, type RidePrefs } from "./preferences";
 import { quoteDayTour, quoteExpedition, quoteTransfer } from "./pricing";
 
@@ -21,6 +27,11 @@ export type ItemSpec =
       vehicleId: string;
       stopIds: string[];
       pax: number;
+      /**
+       * Pickup time, Costa Rica time, "HH:MM" (04:00–22:00, quarter hours).
+       * Items saved before this field existed load with DEFAULT_PICKUP_TIME.
+       */
+      pickupTime: string;
       /** "bid": the traveller's own offer replaces the fixed price. */
       pricing: "fixed" | "bid";
       offerCents?: number;
@@ -32,6 +43,12 @@ export type ItemSpec =
     }
   | { kind: "day_tour"; tourId: string; upgrade: boolean }
   | { kind: "expedition"; expeditionId: string; tierId: string };
+
+/** Start time stored with the booking: the ride's pickup time, or the default for tours / expeditions. */
+export function itemTime(spec: ItemSpec): string {
+  if (spec.kind === "transfer") return spec.pickupTime;
+  return spec.kind === "day_tour" ? DEFAULT_TOUR_TIME : DEFAULT_EXPEDITION_TIME;
+}
 
 const HUB_IDS = new Set<string>(HUBS.map((h) => h.id));
 const str = (v: unknown, max = 60) => typeof v === "string" && v.length > 0 && v.length <= max;
@@ -45,6 +62,7 @@ export function parseSpec(raw: unknown): ItemSpec | null {
     if (!str(o.vehicleId)) return null;
     if (!Array.isArray(o.stopIds) || o.stopIds.length > 10 || !o.stopIds.every((s) => str(s))) return null;
     if (!Number.isInteger(o.pax) || (o.pax as number) < 1 || (o.pax as number) > 60) return null;
+    if (o.pickupTime !== undefined && !isValidPickupTime(o.pickupTime)) return null;
     if (o.pricing !== "fixed" && o.pricing !== "bid") return null;
     if (o.pricing === "bid" && (!Number.isInteger(o.offerCents) || (o.offerCents as number) <= 0)) return null;
     if (o.notes !== undefined && (typeof o.notes !== "string" || o.notes.length > 500)) return null;
@@ -58,6 +76,7 @@ export function parseSpec(raw: unknown): ItemSpec | null {
       vehicleId: o.vehicleId as string,
       stopIds: o.stopIds as string[],
       pax: o.pax as number,
+      pickupTime: (o.pickupTime as string | undefined) ?? DEFAULT_PICKUP_TIME,
       pricing: o.pricing,
       offerCents: o.pricing === "bid" ? (o.offerCents as number) : undefined,
       notes: (o.notes as string | undefined) || undefined,
@@ -103,7 +122,7 @@ export function priceItem(spec: ItemSpec, date: string, catalog: CatalogData): P
     }
     for (const id of spec.stopIds) {
       const stop = catalog.stops.find((s) => s.id === id);
-      if (!stop || !(stop.corridors.includes(spec.origin) || stop.corridors.includes(spec.destination))) {
+      if (!stop || !stopFitsRoute(stop, spec.origin, spec.destination)) {
         throw new Error("One of the stops is no longer offered on this route.");
       }
     }

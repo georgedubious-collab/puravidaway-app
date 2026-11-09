@@ -6,7 +6,7 @@ import { ChatBox } from "@/components/ChatBox";
 import { requireUser } from "@/lib/auth";
 import { BOOKING_STATUS_LABEL, SERVICE_LABEL, type BookingRow } from "@/lib/bookings";
 import { getCatalog } from "@/lib/catalogSource";
-import { addDays, todayInCostaRica } from "@/lib/dates";
+import { addDays, formatScheduledAt, scheduledParts, todayInCostaRica } from "@/lib/dates";
 import { prefsSummary } from "@/lib/preferences";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -48,7 +48,8 @@ async function Trip({ params }: { params: Promise<{ id: string }> }) {
       ? await admin.from("trips").select("guest_name, guest_phone").eq("id", b.trip_id).maybeSingle()
       : { data: null };
 
-  const date = b.scheduled_at?.slice(0, 10) ?? "";
+  // Costa Rica date of the pickup (scheduled_at comes back in UTC).
+  const date = scheduledParts(b.scheduled_at)?.ymd ?? "";
   // The traveller's phone shows from the day before the trip, for the pickup itself.
   const showPhone = Boolean(date) && todayInCostaRica() >= addDays(date, -1);
   const name =
@@ -69,7 +70,7 @@ async function Trip({ params }: { params: Promise<{ id: string }> }) {
         <p className="font-mono text-sm font-bold text-slate-500">{b.booking_ref}</p>
         <h1 className="text-2xl font-extrabold text-slate-900">{name}</h1>
         <p className="text-sm text-slate-600">
-          {date} · {SERVICE_LABEL[b.service_type]} · {BOOKING_STATUS_LABEL[b.status]}
+          {formatScheduledAt(b.scheduled_at)} · {SERVICE_LABEL[b.service_type]} · {BOOKING_STATUS_LABEL[b.status]}
         </p>
       </div>
 
@@ -84,7 +85,9 @@ async function Trip({ params }: { params: Promise<{ id: string }> }) {
           {b.flight_or_hotel_notes && <Item k="Flight / hotel" v={b.flight_or_hotel_notes} />}
           {b.driver_notes && <Item k="Message for you" v={b.driver_notes} />}
         </dl>
-        <p className="mt-3 text-xs text-slate-500">Pickup time and place are confirmed in the chat below.</p>
+        <p className="mt-3 text-xs text-slate-500">
+          Times are Costa Rica time. The exact pickup place (and any time change) is confirmed in the chat below.
+        </p>
       </section>
 
       <section>

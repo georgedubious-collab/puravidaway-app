@@ -6,6 +6,7 @@ import { Car, CheckCircle2, Compass, Languages, ShieldCheck } from "lucide-react
 import { ChatBox } from "@/components/ChatBox";
 import { SERVICE_LABEL, TRIP_TOKEN, usd, type BookingRow, type BookingStatus } from "@/lib/bookings";
 import { getCatalog } from "@/lib/catalogSource";
+import { formatScheduledAt } from "@/lib/dates";
 import { ENGLISH_LEVEL_LABEL, prefsSummary } from "@/lib/preferences";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -186,7 +187,7 @@ export default async function TripPage({ params }: { params: Promise<{ token: st
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
                   <p className="text-xs font-bold text-slate-500">
-                    {b.scheduled_at?.slice(0, 10)} · {SERVICE_LABEL[b.service_type]} ·{" "}
+                    {formatScheduledAt(b.scheduled_at)} · {SERVICE_LABEL[b.service_type]} ·{" "}
                     <span className="font-mono">{b.booking_ref}</span>
                   </p>
                   <h2 className="text-lg font-extrabold text-slate-900">{itemName(b)}</h2>
