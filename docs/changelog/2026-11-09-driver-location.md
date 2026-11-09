@@ -1,0 +1,1 @@
+- 2026-11-09 — Claude — Driver location sharing (migration 0028): the driver app asks for consent, then shares the phone's position from 3 hours before a pickup until the trip is completed, including in the background; the database refuses positions outside that window and keeps only the latest one; new admin page /admin/live shows active trips on a map; privacy policy updated.

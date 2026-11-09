@@ -5,6 +5,8 @@ import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { registerForPush, unregisterPush } from "./src/push";
+import { LocationCard } from "./src/screens/LocationCard";
+import { stopTracking, syncTracking, type TrackingState } from "./src/tracking";
 import { Earnings } from "./src/screens/Earnings";
 import { Jobs } from "./src/screens/Jobs";
 import { Profile } from "./src/screens/Profile";
@@ -61,24 +63,36 @@ function Home({ session }: { session: Session }) {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [names, setNames] = useState<Names>({ tours: {}, stops: {} });
   const [loading, setLoading] = useState(false);
+  const [tracking, setTracking] = useState<TrackingState | null>(null);
   const userId = session.user.id;
+
+  const loadDriver = useCallback(async () => {
+    const { data } = await supabase
+      .from("drivers")
+      .select("kyc_status, home_hub, rating_avg, rating_count, location_consent_at")
+      .eq("id", userId)
+      .maybeSingle();
+    const d = (data as DriverInfo | null) ?? null;
+    setDriver(d);
+    // Location sharing follows the driver's trips: on inside the trip window, off outside it.
+    setTracking(await syncTracking(Boolean(d?.location_consent_at)));
+  }, [userId]);
 
   const loadTrips = useCallback(async () => {
     setLoading(true);
     const { data } = await supabase.rpc("my_trips");
     setLoading(false);
     setTrips((data as Trip[] | null) ?? []);
-  }, []);
+    await loadDriver();
+  }, [loadDriver]);
 
   useEffect(() => {
     void (async () => {
-      const [d, v, tours, stops] = await Promise.all([
-        supabase.from("drivers").select("kyc_status, home_hub, rating_avg, rating_count").eq("id", userId).maybeSingle(),
+      const [v, tours, stops] = await Promise.all([
         supabase.from("driver_vehicles").select("id, make_model, plate, passenger_capacity, status").eq("driver_id", userId).order("created_at"),
         supabase.from("day_tours").select("id, name"),
         supabase.from("sightseeing_stops").select("id, name"),
       ]);
-      setDriver((d.data as DriverInfo | null) ?? null);
       setVehicles((v.data as Vehicle[] | null) ?? []);
       const toMap = (rows: { id: string; name: string }[] | null) => Object.fromEntries((rows ?? []).map((r) => [r.id, r.name]));
       setNames({ tours: toMap(tours.data as { id: string; name: string }[] | null), stops: toMap(stops.data as { id: string; name: string }[] | null) });
@@ -105,6 +119,7 @@ function Home({ session }: { session: Session }) {
   }, [loadTrips]);
 
   async function signOut() {
+    await stopTracking();
     await unregisterPush();
     await supabase.auth.signOut();
   }
@@ -124,11 +139,24 @@ function Home({ session }: { session: Session }) {
         ) : tab === "jobs" ? (
           <Jobs driver={driver} vehicles={vehicles} names={names} trips={trips} focusId={focusJob} />
         ) : tab === "trips" ? (
-          <Trips trips={trips} names={names} loading={loading} onRefresh={loadTrips} onOpen={setTripId} />
+          <Trips
+            trips={trips}
+            names={names}
+            loading={loading}
+            onRefresh={loadTrips}
+            onOpen={setTripId}
+            header={driver && !driver.location_consent_at ? <LocationCard consented={false} state={tracking} onChanged={loadDriver} /> : undefined}
+          />
         ) : tab === "earnings" ? (
           <Earnings trips={trips} names={names} loading={loading} onRefresh={loadTrips} />
         ) : (
-          <Profile email={session.user.email ?? ""} driver={driver} vehicles={vehicles} onSignOut={signOut} />
+          <Profile
+            email={session.user.email ?? ""}
+            driver={driver}
+            vehicles={vehicles}
+            onSignOut={signOut}
+            location={driver ? <LocationCard consented={Boolean(driver.location_consent_at)} state={tracking} onChanged={loadDriver} /> : undefined}
+          />
         )}
       </View>
       <SafeAreaView edges={["bottom"]} style={{ backgroundColor: "#fff", borderTopWidth: 1, borderTopColor: C.border }}>

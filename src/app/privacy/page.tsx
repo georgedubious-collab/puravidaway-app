@@ -104,6 +104,13 @@ export default function PrivacyPage() {
             their numbers and expiry dates.
           </li>
           <li>Your profile text, English level, bids, assigned trips and chat messages.</li>
+          <li>
+            <strong>Location during trips (driver app):</strong> if you agree in the app, your phone
+            shares its location with our team from 3 hours before a pickup until you complete the
+            trip, including when the app is in the background. Nothing is shared outside that
+            window. We keep only your latest position, not a history; only our team sees it; and you
+            can stop sharing in the app at any time.
+          </li>
         </ul>
         <p>
           KYC documents and numbers are stored in a private storage area that only you and our admin

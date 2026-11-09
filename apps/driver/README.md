@@ -15,8 +15,17 @@ Vercel ignores this folder, and the website's checks don't run on it.
 - **Profile:** approval status, rating, vehicles, sign out.
 - **Push notifications:** new open jobs and accepted offers.
 
-Not yet in the app: uploading documents and vehicle photos (done on the website), and GPS
-while on duty.
+- **Location sharing:** with the driver's agreement, the phone shares its position from 3 hours
+  before a pickup until the trip is completed (also in the background), shown on `/admin/live`.
+  The database refuses positions outside that window (`report_location()`), and the app's
+  background task then stops itself. Only the latest position is kept.
+
+Not yet in the app: uploading documents and vehicle photos (done on the website).
+
+Store review notes: Google Play needs a background-location declaration with a short video, and
+Apple asks why "Always" location is needed. The reason in both cases: the team coordinates
+pickups and follows active trips; sharing is limited to the trip window and stated in the app
+before the permission prompt.
 
 ## How it talks to the backend
 - Reads go straight to Supabase as the signed-in driver (`driver_jobs()`, `my_trips()`,

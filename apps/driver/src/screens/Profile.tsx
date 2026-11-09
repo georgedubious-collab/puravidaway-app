@@ -1,4 +1,5 @@
 import * as Linking from "expo-linking";
+import type { ReactNode } from "react";
 import { ScrollView, Text } from "react-native";
 import { SITE_URL } from "../config";
 import { townName } from "../format";
@@ -19,11 +20,14 @@ export function Profile({
   driver,
   vehicles,
   onSignOut,
+  location,
 }: {
   email: string;
   driver: DriverInfo | null;
   vehicles: Vehicle[];
   onSignOut: () => void;
+  /** The location-sharing card. */
+  location?: ReactNode;
 }) {
   return (
     <ScrollView style={S.screen} contentContainerStyle={S.pad}>
@@ -38,6 +42,7 @@ export function Profile({
         />
         <Text style={S.muted}>Better-rated drivers are offered more trips. A rating with a written comment counts double.</Text>
       </Card>
+      {location}
       <Card>
         <Text style={S.h2}>Vehicles</Text>
         {vehicles.length === 0 ? <Text style={S.muted}>No vehicles yet.</Text> : null}

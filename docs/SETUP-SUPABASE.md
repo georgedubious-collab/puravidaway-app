@@ -56,6 +56,9 @@ Either way works; the first needs no installs.
     `my_trips()` returns `cash_to_collect` for cash trips
 26. `20261109000026_device_tokens.sql` — push tokens for the mobile apps (`device_tokens`,
     `register_device()`)
+27. `20261109000027_booking_ref_prefix.sql` — new booking references start with `CRPT-`
+28. `20261109000028_driver_location.sql` — driver location around trips with consent
+    (`driver_locations`, `tracking_window()`, `report_location()`, `set_location_consent()`)
 
 Later files are added as the app grows. Since Option C is set up, they run by themselves
 after a merge; each pull request still lists them.

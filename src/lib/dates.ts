@@ -89,3 +89,8 @@ export function formatScheduledAt(iso: string | null | undefined): string {
   const p = scheduledParts(iso);
   return p ? `${p.ymd} · ${formatTime12h(p.time)}` : "";
 }
+
+/** The current time in milliseconds, for server pages that compare against "now" on each request. */
+export function nowMs(): number {
+  return Date.now();
+}
