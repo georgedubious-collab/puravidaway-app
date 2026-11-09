@@ -253,6 +253,10 @@ transfer_price = vehicle_base_rate (or route rate, see §9)
 Multipliers live in the database and are edited from the admin pricing manager.
 
 ### 6.3 Driver bidding (marketplace)
+> **Changing (Jorge, 2026-11-09):** travellers will always get a fixed price, and drivers
+> claim jobs at a fixed payout behind the scenes; public bidding becomes "request a custom
+> quote" (`docs/PRICING.md` §6). The steps below describe what is built today.
+
 1. Client enters route, date, passengers and stops; the system shows a **reference price**
    (the fixed price from §6.1).
 2. Client can broadcast their own offer.
@@ -413,13 +417,17 @@ and `season_for_date(date)` returns the season for a travel date.
    **Analysis 2026-11-08: `docs/PRICING.md`.** Recommended: exact place search + real road
    distance/time (Google Places + Routes) priced by a formula (base + per km + per hour, minimum
    fare) × vehicle factor × area factor × season, with optional fixed zone prices for the busiest
-   pairs. Pending Jorge's approval of the starting numbers.
+   pairs. **Decided (Jorge, 2026-11-09):** this model, priced 10–20% below Daytrip with the
+   starting numbers in `docs/PRICING.md` §4.2, using Google Maps Platform. Build order in
+   `docs/PRICING.md` §7.
 2. **Platform commission %** on accepted bids. Benchmarks: Daytrip keeps ~30%, GetTransfer
    13–25% (see COMPETITORS.md §1b). Recommendation: flat 12–15%, weekly payouts.
 3. **Bid floor/ceiling** relative to the reference price (e.g. 70%–130%).
    **Recommendation 2026-11-08 (`docs/PRICING.md` §6):** travellers always get a fixed price;
    drivers claim jobs at a fixed payout behind the scenes; "name your price" becomes "request a
-   custom quote" for groups, charters and unusual routes. Pending Jorge.
+   custom quote" for groups, charters and unusual routes. **Decided (Jorge, 2026-11-09).** A
+   bid floor/ceiling only matters for custom quotes and drivers' offers; set it when that is
+   built.
 4. **Stop ↔ corridor mapping** (which stops are offered on which routes). Built 2026-11-08 as
    the "both ends" rule with reviewed lists (§5.2), **pending Jorge's confirmation**. If the
    detour cases in §5.2 matter, the next step is listing exact route pairs per stop. With exact
@@ -445,6 +453,7 @@ and `season_for_date(date)` returns the season for a travel date.
     is cheaper.
     **Jorge 2026-11-08:** no blanket "English-speaking" promise; add a cheaper **Economy** class
     with a Spanish-speaking driver (like Daytrip's Sedan Lite), see `docs/PRICING.md` §4.3.
+    **Decided 2026-11-09: Economy is 10% cheaper than Standard.**
     Child seats stay free on request.
 11. **In-app chat vs WhatsApp:** decided (Jorge, 2026-10-14): in-app trip chat with email
     notifications through Resend is the main channel; WhatsApp stays as an option. SMS later.

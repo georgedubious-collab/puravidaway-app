@@ -186,12 +186,19 @@ it moves to the driver side.
 | 6 | **Zone prices** for the busiest pairs (optional) | Prices for those pairs |
 | 7 | **Driver job board** with fixed payouts (replaces public bidding) + "custom quote" | Commission % (§9 #2) |
 
-## 8. Decisions for Jorge
+## 8. Decisions
 
-1. Approve the formula and the starting numbers (§4.2), or tell me where you'd rather be
-   versus Daytrip (e.g. 10% below everywhere).
-2. Economy class factor (0.90 suggested).
-3. Google Maps Platform for place search and routes (recommended) vs Mapbox.
-4. Bidding: fixed price for travellers, with drivers claiming jobs behind the scenes (§6)?
-5. Park entrance fees: shown as "pay at the gate" (recommended) or included in the stop price?
-6. Area factors for the Southern Pacific / Osa and Liberia.
+**Decided by Jorge, 2026-11-09:**
+1. **Price level: 10–20% below Daytrip.** Starting numbers as in §4.2 (base $35 + $0.70/km +
+   $12/hour, minimum $110), editable at `/admin/pricing`.
+2. **Economy class: 10% cheaper** than Standard (factor 0.90).
+3. **Google Maps Platform** (Places + Routes) for place search and road distance/time.
+4. **Fixed prices for travellers; drivers claim jobs** at a fixed payout behind the scenes;
+   "name your price" becomes "request a custom quote" (§6).
+
+**Starting defaults, not yet confirmed (editable in the admin, change any time):**
+5. Park entrance fees are shown as "paid at the gate, ~$X" unless a stop is marked as included.
+6. Area factors: Southern Pacific / Osa 1.15, Liberia 1.10, everywhere else 1.00.
+
+**Still open:** platform commission % (PROJECT.md §9 #2; 12–15% recommended), needed for the
+driver job board (build step 7).
