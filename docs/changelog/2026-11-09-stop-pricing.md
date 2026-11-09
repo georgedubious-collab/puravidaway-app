@@ -1,0 +1,1 @@
+- 2026-11-09 — Claude — Pricing step 5 (migration 0021): sightseeing stops are priced from minutes at the stop × $20/h waiting + detour km/minutes at the ride rates + guide fee, rounded to whole dollars (Tárcoles $15, Carara $33, Poás $68, Río Celeste $62, sloth trail $25); waiting rate, detours and guide fees edited at /admin/pricing.

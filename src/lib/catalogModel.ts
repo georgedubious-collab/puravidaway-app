@@ -9,6 +9,7 @@ import {
   CRC_PER_USD_DEFAULT,
   FERRY_FARES_DEFAULT,
   RIDE_FORMULA_DEFAULT,
+  WAIT_PER_HOUR_CENTS_DEFAULT,
   DAY_TOURS,
   EN_ROUTE_UPGRADE_CENTS,
   EXPEDITIONS,
@@ -57,6 +58,8 @@ export interface CatalogData {
   crcPerUsd: number;
   /** Platform share of a ride / day tour, basis points (2000 = 20%). */
   driverCommissionBps: number;
+  /** USD cents per hour of waiting at a stop. */
+  waitPerHourCents: number;
 }
 
 /** Season for a travel date: highest-priority range that contains it, else the default season. */
@@ -106,4 +109,5 @@ export const BUILT_IN_CATALOG: CatalogData = {
   ferryFares: FERRY_FARES_DEFAULT,
   crcPerUsd: CRC_PER_USD_DEFAULT,
   driverCommissionBps: DRIVER_COMMISSION_BPS_DEFAULT,
+  waitPerHourCents: WAIT_PER_HOUR_CENTS_DEFAULT,
 };

@@ -44,6 +44,8 @@ Either way works; the first needs no installs.
     `drivers`), review-request tracking on bookings
 20. `20261109000020_review_reminder.sql` — tracks the one follow-up "please rate your driver" email
     (sent by the daily Vercel Cron job; needs `CRON_SECRET` in Vercel, see `.env.example`)
+21. `20261109000021_stop_pricing.sql` — stops priced by waiting time ($20/h) + detour + guide fee;
+    the flat stop price is retired
 
 Later files are added as the app grows. Since Option C is set up, they run by themselves
 after a merge; each pull request still lists them.

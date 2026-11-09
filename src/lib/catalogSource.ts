@@ -8,7 +8,10 @@ import {
   CASH_FEE_BPS_DEFAULT,
   isStopEntrance,
   RIDE_FORMULA_DEFAULT,
+  SIGHTSEEING_STOPS,
   VEHICLE_CLASSES,
+  WAIT_PER_HOUR_CENTS_DEFAULT,
+  stopPriceCents,
   type AreaId,
   type FerryFares,
   type HubId,
@@ -73,6 +76,8 @@ async function loadDatabaseCatalog(): Promise<CatalogData> {
     // built-in formula and factors so prices stay sensible (never the retired flat rate).
     if (hubPricing.error) console.warn("[PuraVidaWay] hub_pricing unavailable, using built-in area factors:", hubPricing.error.message);
     const rideFormula = readRideFormula(settings.data);
+    const waitRaw = settings.data?.wait_per_hour;
+    const waitPerHourCents = waitRaw == null ? WAIT_PER_HOUR_CENTS_DEFAULT : Math.max(0, cents(waitRaw as number | string)) || WAIT_PER_HOUR_CENTS_DEFAULT;
     const areaFactorBps = { ...AREA_FACTOR_BPS_DEFAULT };
     for (const h of hubPricing.data ?? []) {
       const f = bpsOrNull(h.area_factor, 5000, 20000);
@@ -100,16 +105,26 @@ async function loadDatabaseCatalog(): Promise<CatalogData> {
         badge: v.badge,
         onlyForHubs: v.only_for_hubs?.length ? (v.only_for_hubs as HubId[]) : undefined,
       })),
-      stops: (stops.data ?? []).map((s) => ({
+      stops: (stops.data ?? []).map((s) => {
+        // Before migration 0021 there are no detour columns: keep the old flat price.
+        const legacy = s.detour_km === undefined;
+        const inputs = {
+          durationMin: s.duration_min,
+          detourKm: Number(s.detour_km ?? SIGHTSEEING_STOPS.find((b) => b.id === s.id)?.detourKm ?? 0),
+          detourMin: Number(s.detour_min ?? SIGHTSEEING_STOPS.find((b) => b.id === s.id)?.detourMin ?? 0),
+          guideFeeCents: cents(s.guide_fee ?? 0),
+        };
+        return {
         id: s.id,
         name: s.name,
         description: s.description,
-        durationMin: s.duration_min,
-        priceCents: cents(s.price),
+        ...inputs,
+        priceCents: legacy ? cents(s.price) : stopPriceCents(inputs, rideFormula, waitPerHourCents),
         corridors: s.corridors as HubId[],
         // Before migration 0014 there is only the old yes/no park_fee_included.
         entrance: isStopEntrance(s.entrance) ? s.entrance : s.park_fee_included ? "included" : "gate",
-      })),
+        };
+      }),
       dayTours: (tours.data ?? []).map((t) => ({
         id: t.id,
         region: t.region as Region,
@@ -154,6 +169,7 @@ async function loadDatabaseCatalog(): Promise<CatalogData> {
       areaFactorBps,
       ferryFares: readFerryFares(settings.data),
       crcPerUsd: readRate(settings.data),
+      waitPerHourCents,
       driverCommissionBps: bpsOrNull(settings.data?.driver_commission_bps == null ? null : Number(settings.data.driver_commission_bps) / 10000, 0, 5000) ?? DRIVER_COMMISSION_BPS_DEFAULT,
     };
   }

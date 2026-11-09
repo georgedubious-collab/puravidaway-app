@@ -192,13 +192,18 @@ Monteverde Cloud Forest · Sierpe Boat Dock (Osa) · Drake Bay (via Sierpe boat)
 Puerto Viejo (Caribbean) · Tamarindo / Guanacaste
 
 ### 5.2 Sightseeing stops
-| ID | Name | Duration | Price |
-| :--- | :--- | :--- | :--- |
-| `tarcoles` | Tárcoles Crocodile Bridge | 45 min | +$25 |
-| `carara` | Carara National Park Scarlet Macaw Walk | 90 min | +$55 |
-| `poas` | Poás Volcano Crater & Doka Coffee Estate | 120 min | +$68 |
-| `rioceleste` | Río Celeste Waterfall Hike (Tenorio Volcano NP) | 120 min | +$65 |
-| `sloth` | La Fortuna Sloth & Wildlife Sanctuary Trail | 75 min | +$48 |
+Since 2026-11-09 (pricing build step 5, migration 0021) a stop's price is **computed**, not typed:
+`minutes at the stop × waiting rate ($20/h) + detour km × per-km + detour minutes × per-hour + guide fee`,
+rounded to whole dollars (`stopPriceCents()` in `src/lib/catalog.ts`; rates at `/admin/pricing`).
+Park entrance is separate. At today's rates:
+
+| ID | Name | At the stop | Detour (there and back) | Price |
+| :--- | :--- | :--- | :--- | :--- |
+| `tarcoles` | Tárcoles Crocodile Bridge | 45 min | on the way | +$15 |
+| `carara` | Carara National Park Scarlet Macaw Walk | 90 min | 2 km / 5 min | +$33 |
+| `poas` | Poás Volcano Crater & Doka Coffee Estate | 120 min | 24 km / 40 min | +$68 |
+| `rioceleste` | Río Celeste Waterfall Hike (Tenorio Volcano NP) | 120 min | 18 km / 35 min | +$62 |
+| `sloth` | La Fortuna Sloth & Wildlife Sanctuary Trail | 75 min | in town | +$25 |
 
 Notes:
 - Stops are **optional paid extras** ("Add a stop (optional extra)", each card "+$X · adds N min",
@@ -255,6 +260,7 @@ Decide whether tier prices are per person or per booking (see §9).
 standard   = max(minimum fare, base + per km × road km + per hour × driving hours)
 ride       = round_to_dollar(standard × vehicle factor × area factor)
              + vehicle extra fee
+stop       = round_to_dollar(minutes at stop × wait rate/60 + detour km × per km + detour min × per hour/60 + guide fee)
 transfer   = (ride + Σ selected stop prices) × season multiplier
              + ferries × (car-and-driver fare + passengers × passenger fare)
 ```
@@ -373,7 +379,7 @@ only) · `cash_fee` numeric(10,2) (cash booking fee snapshot, 0 unless `cash_dri
 Implemented in `supabase/migrations/`. Catalog ids are short text slugs (`suv`, `tarcoles`)
 matching `src/lib/catalog.ts`; seasons use `season_ranges` (start/end dates) plus a `priority`,
 and `season_for_date(date)` returns the season for a travel date.
-- `sightseeing_stops` — id, name, description, duration_min, price, entrance (free | included | gate; replaces park_fee_included, which is kept in step), corridors, active
+- `sightseeing_stops` — id, name, description, duration_min, detour_km, detour_min, guide_fee (migration 0021; `price` is retired, the stop price is computed from these), entrance (free | included | gate; replaces park_fee_included, which is kept in step), corridors, active
 - `vehicle_classes` — id, name, price_factor, extra_fee, allows_stops, spanish_speaking_driver,
   max_pax, luggage, badge, only_for_hubs, active (`base_rate` retired 2026-11-09, kept for old data)
 - `day_tours` — id, region, name, description, duration_hours, price, en_route_upgrade_price, active
@@ -383,7 +389,7 @@ and `season_for_date(date)` returns the season for a travel date.
 - `pricing_settings` — a single row (`id` = true): `cash_fee_bps` int (default 1000 = 10%, 0–5000),
   ride formula `ride_base_fare`, `ride_per_km`, `ride_per_hour`, `ride_minimum_fare` (USD),
   ferry fares `ferry_vehicle_fare_crc`, `ferry_passenger_fare_crc` (colones per crossing) and
-  `crc_per_usd` (migration 0015), `updated_at`. Public read, admin write. Loaded by `getCatalog()`
+  `crc_per_usd` (migration 0015), `driver_commission_bps` (0017), `wait_per_hour` (USD/h at a stop, 0021), `updated_at`. Public read, admin write. Loaded by `getCatalog()`
   as `cashFeeBps` / `rideFormula` / `ferryFares` / `crcPerUsd`.
 - `driver_reviews` — id, booking_id (unique), driver_id, trip_id, stars 1–5, comment (no contact details),
   weight (generated: 2 with a comment, 1 without), created_at. Written by the server from the traveller's

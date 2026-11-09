@@ -185,7 +185,17 @@ export function stopFitsRoute(stop: { corridors: readonly string[] }, from: HubI
 export interface SightseeingStop {
   id: string;
   name: string;
+  /** Time spent at the stop (the driver waits), minutes. */
   durationMin: number;
+  /** Extra road km / minutes the stop adds to the ride, there and back (0 when it's on the way). */
+  detourKm: number;
+  detourMin: number;
+  /** Added when the stop includes a guide. */
+  guideFeeCents: number;
+  /**
+   * The stop's price in cents, computed by stopPriceCents() from the three inputs
+   * above and the live rates (never typed by hand since 2026-11-09).
+   */
   priceCents: number;
   description: string;
   /**
@@ -231,12 +241,14 @@ export function isStopEntrance(v: unknown): v is StopEntrance {
  * - Río Celeste: Bijagua, on the Arenal ↔ Liberia road (Route 4 / 6).
  * - Sloth trail: in La Fortuna itself, so any ride to or from Arenal.
  */
-export const SIGHTSEEING_STOPS: SightseeingStop[] = [
+const STOPS_WITHOUT_PRICE: Omit<SightseeingStop, "priceCents">[] = [
   {
     id: "tarcoles",
     name: "Tárcoles Crocodile Bridge",
     durationMin: 45,
-    priceCents: 2500,
+    detourKm: 0,
+    detourMin: 0,
+    guideFeeCents: 0,
     description:
       "Watch 15-ft American crocodiles from the famous bridge while your driver stays with the bags.",
     corridors: ["SJO", "Monteverde", "ManuelAntonio", "Sierpe", "DrakeBay"],
@@ -246,7 +258,9 @@ export const SIGHTSEEING_STOPS: SightseeingStop[] = [
     id: "carara",
     name: "Carara National Park Scarlet Macaw Walk",
     durationMin: 90,
-    priceCents: 5500,
+    detourKm: 2,
+    detourMin: 5,
+    guideFeeCents: 0,
     description:
       "Guided trail walk through transitional rainforest full of wild scarlet macaws.",
     corridors: ["SJO", "Monteverde", "ManuelAntonio", "Sierpe", "DrakeBay"],
@@ -256,7 +270,9 @@ export const SIGHTSEEING_STOPS: SightseeingStop[] = [
     id: "poas",
     name: "Poás Volcano Crater & Doka Coffee Estate",
     durationMin: 120,
-    priceCents: 6800,
+    detourKm: 24,
+    detourMin: 40,
+    guideFeeCents: 0,
     description:
       "Peer into an active turquoise crater lake, then sample highland Arabica coffee. Timed-entry tickets required.",
     corridors: ["SJO", "Arenal"],
@@ -266,7 +282,9 @@ export const SIGHTSEEING_STOPS: SightseeingStop[] = [
     id: "rioceleste",
     name: "Río Celeste Waterfall Hike",
     durationMin: 120,
-    priceCents: 6500,
+    detourKm: 18,
+    detourMin: 35,
+    guideFeeCents: 0,
     description:
       "Hike to the sky-blue river inside Tenorio Volcano National Park.",
     corridors: ["Arenal", "LIR"],
@@ -276,7 +294,9 @@ export const SIGHTSEEING_STOPS: SightseeingStop[] = [
     id: "sloth",
     name: "La Fortuna Sloth & Wildlife Sanctuary Trail",
     durationMin: 75,
-    priceCents: 4800,
+    detourKm: 0,
+    detourMin: 0,
+    guideFeeCents: 0,
     description:
       "Spot two- and three-toed sloths on a guided boardwalk trail near La Fortuna.",
     corridors: ["Arenal"],
@@ -559,6 +579,30 @@ export const RIDE_FORMULA_DEFAULT: RideFormula = {
   perHourCents: 1000,
   minimumFareCents: 12000,
 };
+
+/** USD per hour the driver waits at a stop (Jorge, 2026-11-09: $20). Live value: pricing_settings.wait_per_hour. */
+export const WAIT_PER_HOUR_CENTS_DEFAULT = 2000;
+
+/**
+ * Price of a sightseeing stop (docs/PRICING.md §5, built 2026-11-09):
+ *   waiting time × wait rate + detour km × per-km + detour minutes × per-hour + guide fee,
+ * rounded to whole dollars. Park entrance is separate (free / included / paid at the gate).
+ */
+export function stopPriceCents(
+  stop: Pick<SightseeingStop, "durationMin" | "detourKm" | "detourMin" | "guideFeeCents">,
+  formula: Pick<RideFormula, "perKmCents" | "perHourCents"> = RIDE_FORMULA_DEFAULT,
+  waitPerHourCents: number = WAIT_PER_HOUR_CENTS_DEFAULT,
+): number {
+  const raw =
+    (waitPerHourCents * stop.durationMin) / 60 +
+    formula.perKmCents * stop.detourKm +
+    (formula.perHourCents * stop.detourMin) / 60 +
+    stop.guideFeeCents;
+  return Math.round(raw / 100) * 100;
+}
+
+/** Built-in stops with their prices at the default rates (the live catalog recomputes them). */
+export const SIGHTSEEING_STOPS: SightseeingStop[] = STOPS_WITHOUT_PRICE.map((s) => ({ ...s, priceCents: stopPriceCents(s) }));
 
 /**
  * Pricing areas that aren't one of our towns (docs/PRICING.md §4.4). A typed place

@@ -10,6 +10,8 @@ import {
   REGION_NAMES,
   RIDE_FORMULA_DEFAULT,
   STOP_ENTRANCES,
+  WAIT_PER_HOUR_CENTS_DEFAULT,
+  stopPriceCents,
   type AreaId,
   type HubId,
   type Region,
@@ -28,6 +30,7 @@ import {
   saveLodgingTier,
   saveAreaFactors,
   saveDriverCommission,
+  saveWaitRate,
   saveFerryFares,
   savePaymentSettings,
   saveRideFormula,
@@ -47,13 +50,14 @@ interface Settings {
   ride_base_fare?: number; ride_per_km?: number; ride_per_hour?: number; ride_minimum_fare?: number;
   ferry_vehicle_fare_crc?: number; ferry_passenger_fare_crc?: number; crc_per_usd?: number;
   driver_commission_bps?: number;
+  wait_per_hour?: number;
 }
 
 /** Example routes shown under the formula so the effect of a change is visible. */
 const EXAMPLES: [HubId, HubId][] = [
   ["LIR", "Tamarindo"], ["SJO", "Arenal"], ["SJO", "ManuelAntonio"], ["SJO", "Tamarindo"], ["Arenal", "Monteverde"], ["SJO", "Sierpe"],
 ];
-interface Stop { id: string; name: string; description: string; duration_min: number; price: number; park_fee_included: boolean; entrance?: string; corridors: string[]; active: boolean }
+interface Stop { id: string; name: string; description: string; duration_min: number; price: number | null; detour_km?: number; detour_min?: number; guide_fee?: number; park_fee_included: boolean; entrance?: string; corridors: string[]; active: boolean }
 interface Tour { id: string; region: Region; name: string; duration_hours: number; price: number; en_route_upgrade_price: number; active: boolean }
 interface Expedition { id: string; name: string; days: number; nights: number; base_price: number; active: boolean }
 interface Tier { id: string; name: string; surcharge: number; active: boolean }
@@ -91,6 +95,17 @@ export default async function PricingPage() {
   const ferryReady = ps.data?.crc_per_usd !== undefined;
   const extraAreasReady = (hp.data ?? []).some((h) => h.hub_id === "SouthNicoya");
   const commissionBps = ps.data?.driver_commission_bps ?? DRIVER_COMMISSION_BPS_DEFAULT;
+  // Migration 0021: stops priced from waiting time + detour.
+  const stopsReady = ps.data?.wait_per_hour !== undefined;
+  const waitPerHour = Number(ps.data?.wait_per_hour ?? WAIT_PER_HOUR_CENTS_DEFAULT / 100);
+  const stopPrice = (x: Stop) =>
+    stopsReady
+      ? stopPriceCents(
+          { durationMin: x.duration_min, detourKm: Number(x.detour_km ?? 0), detourMin: Number(x.detour_min ?? 0), guideFeeCents: Math.round(Number(x.guide_fee ?? 0) * 100) },
+          exampleCatalog.rideFormula,
+          Math.round(waitPerHour * 100),
+        )
+      : Math.round(Number(x.price ?? 0) * 100);
   const commissionReady = ps.data?.driver_commission_bps !== undefined;
   const ferry = {
     vehicleCrc: ps.data?.ferry_vehicle_fare_crc ?? FERRY_FARES_DEFAULT.vehicleCrc,
@@ -216,15 +231,32 @@ export default async function PricingPage() {
 
       <Section
         title="Sightseeing stops"
-        note="Stops are optional paid extras on the road between two towns. Tick every town the stop sits between: a ride offers it only when BOTH its pickup and drop-off are ticked. Tick just one town for a stop in that town (offered on any ride to or from it). Never offered on the Sierpe ↔ Drake Bay boat."
+        note="Stops are optional paid extras on the road between two towns. Price = minutes at the stop × the waiting rate + detour km and minutes at the ride formula's rates + guide fee, rounded to whole dollars (park entrance is separate). Tick every town the stop sits between: a ride offers it only when BOTH its pickup and drop-off are ticked. Tick just one town for a stop in that town. Never offered on the Sierpe ↔ Drake Bay boat."
       >
+        <Card>
+          {!stopsReady && (
+            <p className="mb-3 text-sm text-amber-800">
+              Run migration <code>20261109000021_stop_pricing.sql</code> to price stops by waiting time and detour. Until then
+              each stop keeps its flat price.
+            </p>
+          )}
+          <AdminForm action={saveWaitRate} className="grid gap-3 sm:grid-cols-6 items-end">
+            <Field l="Waiting rate (USD per hour at a stop)" className="sm:col-span-2">
+              <input name="wait_per_hour" inputMode="decimal" defaultValue={waitPerHour} className={input} disabled={!stopsReady} />
+            </Field>
+          </AdminForm>
+          <p className="mt-2 text-xs text-slate-600">The driver gets their usual share of it (80% at today&apos;s commission).</p>
+        </Card>
         {(s.data ?? []).map((x) => (
           <Card key={x.id}>
             <AdminForm action={saveStop} className="grid gap-3 sm:grid-cols-6 items-end">
               <input type="hidden" name="id" value={x.id} />
               <Field l="Name" className="sm:col-span-3"><input name="name" defaultValue={x.name} className={input} /></Field>
-              <Field l="Price (USD)"><input name="price" inputMode="decimal" defaultValue={x.price} className={input} /></Field>
-              <Field l="Minutes"><input name="duration_min" type="number" min={5} defaultValue={x.duration_min} className={input} /></Field>
+              <Field l="Minutes at the stop"><input name="duration_min" type="number" min={5} defaultValue={x.duration_min} className={input} /></Field>
+              <Field l="Detour km (there and back)"><input name="detour_km" inputMode="decimal" defaultValue={x.detour_km ?? 0} className={input} disabled={!stopsReady} /></Field>
+              <Field l="Detour minutes"><input name="detour_min" type="number" min={0} defaultValue={x.detour_min ?? 0} className={input} disabled={!stopsReady} /></Field>
+              <Field l="Guide fee (USD)"><input name="guide_fee" inputMode="decimal" defaultValue={x.guide_fee ?? 0} className={input} disabled={!stopsReady} /></Field>
+              <Field l="Price (computed)"><p className="min-h-10 flex items-center font-extrabold text-emerald-700">{formatUSD(stopPrice(x))}</p></Field>
               {x.entrance === undefined ? (
                 // Before migration 0014: the old yes/no switch.
                 <label className="flex items-center gap-2 text-sm min-h-10">
@@ -249,8 +281,10 @@ export default async function PricingPage() {
           <h3 className="font-extrabold text-slate-900 mb-3">Add a stop</h3>
           <AdminForm action={addStop} submitLabel="Add stop (hidden until you tick Live)" className="grid gap-3 sm:grid-cols-6 items-end">
             <Field l="Name" className="sm:col-span-3"><input name="name" required className={input} /></Field>
-            <Field l="Price (USD)"><input name="price" inputMode="decimal" required className={input} /></Field>
-            <Field l="Minutes"><input name="duration_min" type="number" min={5} required className={input} /></Field>
+            <Field l="Minutes at the stop"><input name="duration_min" type="number" min={5} required className={input} /></Field>
+            <Field l="Detour km (there and back)"><input name="detour_km" inputMode="decimal" defaultValue={0} className={input} disabled={!stopsReady} /></Field>
+            <Field l="Detour minutes"><input name="detour_min" type="number" min={0} defaultValue={0} className={input} disabled={!stopsReady} /></Field>
+            <Field l="Guide fee (USD)"><input name="guide_fee" inputMode="decimal" defaultValue={0} className={input} disabled={!stopsReady} /></Field>
             <Field l="Description" className="sm:col-span-6"><input name="description" className={input} /></Field>
             <Corridors selected={[]} />
           </AdminForm>

@@ -107,12 +107,22 @@ function entrance(fd: FormData): Record<string, unknown> {
   return { entrance: v, park_fee_included: v === "included" };
 }
 
+/** Detour and guide inputs (migration 0021); absent from the form before the migration runs. */
+function stopPricing(fd: FormData): Record<string, number> {
+  if (!fd.has("detour_km")) return {};
+  return {
+    detour_km: decimal(fd, "detour_km", 0, 500),
+    detour_min: int(fd, "detour_min", 0, 600),
+    guide_fee: money(fd, "guide_fee"),
+  };
+}
+
 async function saveStopImpl(fd: FormData) {
   await save("sightseeing_stops", fd, {
     name: text(fd, "name"),
     description: text(fd, "description", { required: false, max: 600 }),
     duration_min: int(fd, "duration_min", 5, 600),
-    price: money(fd, "price"),
+    ...stopPricing(fd),
     ...entrance(fd),
     corridors: hubs(fd),
     active: checked(fd, "active"),
@@ -136,7 +146,8 @@ async function addStopImpl(fd: FormData) {
     name,
     description: text(fd, "description", { required: false, max: 600 }),
     duration_min: int(fd, "duration_min", 5, 600),
-    price: money(fd, "price"),
+    price: 0,
+    ...stopPricing(fd),
     corridors: hubs(fd),
     sort_order: 100,
     active: false, // new stops start hidden so they can be checked before going live
@@ -258,6 +269,23 @@ async function saveAreaFactorsImpl(fd: FormData) {
   if (error) throw new Error(error.message);
   if ((data?.length ?? 0) !== rows.length) throw new InputError("Nothing was saved. Reload the page and try again.");
   done();
+}
+
+/** Waiting rate at stops, USD per hour (migration 0021). */
+async function saveWaitRateImpl(fd: FormData) {
+  await requireRole("admin", "/admin/pricing");
+  const supabase = (await createSupabaseServerClient())!;
+  const { data, error } = await supabase
+    .from("pricing_settings")
+    .upsert({ id: true, wait_per_hour: money(fd, "wait_per_hour") })
+    .select("id");
+  if (error) throw new Error(error.message);
+  if (!data?.length) throw new InputError("Nothing was saved. Reload the page and try again.");
+  done();
+}
+
+export async function saveWaitRate(_prev: FormState, fd: FormData): Promise<FormState> {
+  return run(() => saveWaitRateImpl(fd));
 }
 
 /** Platform commission on rides / day tours, entered as a percent (20 = 20%), stored as basis points. */
