@@ -6,6 +6,7 @@
 import {
   AREA_FACTOR_BPS_DEFAULT,
   CASH_FEE_BPS_DEFAULT,
+  FERRY_FARES_DEFAULT,
   RIDE_FORMULA_DEFAULT,
   DAY_TOURS,
   EN_ROUTE_UPGRADE_CENTS,
@@ -14,8 +15,9 @@ import {
   SEASONS,
   SIGHTSEEING_STOPS,
   VEHICLE_CLASSES,
+  type AreaId,
   type DayTour,
-  type HubId,
+  type FerryFares,
   type RideFormula,
   type Expedition,
   type LodgingTier,
@@ -46,7 +48,9 @@ export interface CatalogData {
   /** Ride price formula for the Standard class (docs/PRICING.md §4). */
   rideFormula: RideFormula;
   /** Area factor per pickup town, in basis points (10000 = 1.00×). */
-  areaFactorBps: Record<HubId, number>;
+  areaFactorBps: Record<AreaId, number>;
+  /** Gulf of Nicoya car ferry, per crossing. */
+  ferryFares: FerryFares;
 }
 
 /** Season for a travel date: highest-priority range that contains it, else the default season. */
@@ -93,4 +97,5 @@ export const BUILT_IN_CATALOG: CatalogData = {
   cashFeeBps: CASH_FEE_BPS_DEFAULT,
   rideFormula: RIDE_FORMULA_DEFAULT,
   areaFactorBps: AREA_FACTOR_BPS_DEFAULT,
+  ferryFares: FERRY_FARES_DEFAULT,
 };

@@ -11,7 +11,7 @@
  * coordinates from the browser: it looks them up again by place id
  * (src/lib/googleMaps.ts) before pricing a trip.
  */
-import { DRAKE_BOAT_MINUTES, HUB_IDS, HUBS, type HubId } from "./catalog";
+import { DRAKE_BOAT_MINUTES, HUB_IDS, HUBS, type ExtraAreaId, type HubId } from "./catalog";
 
 export interface LatLng {
   lat: number;
@@ -27,6 +27,8 @@ export interface RidePlace extends LatLng {
   address?: string;
   /** Nearest of our towns: area factor, stops, suggestions. */
   hub: HubId;
+  /** Extra pricing area the place is in, e.g. "SouthNicoya" (its factor applies at either end). */
+  area?: ExtraAreaId;
 }
 
 /** Road distance and time for a ride between typed places (Google Routes). */
@@ -37,6 +39,10 @@ export interface RideRoute {
   drivingMinutes: number;
   /** Door to door, including the Sierpe–Drake Bay boat. */
   totalMinutes: number;
+  /** Car ferries on the way (Gulf of Nicoya), each charged at the ferry fares. */
+  ferries: number;
+  /** Extra pricing area at either end (set by the server from the places). */
+  area?: ExtraAreaId;
 }
 
 /**
@@ -58,6 +64,20 @@ export const HUB_POINTS: Record<HubId, LatLng> = {
 
 /** Places this close to Drake Bay are reached by boat from Sierpe (there is no sensible road for our cars). */
 export const DRAKE_BOAT_AREA_KM = 15;
+
+/**
+ * Southern Nicoya: the tip of the peninsula reached by the Puntarenas ferries
+ * (Paquera, Playa Naranjo, Tambor, Montezuma, Cabuya, Santa Teresa, Mal País,
+ * Manzanillo, Playa Coyote). A simple box: east of -84.88 is Puntarenas city,
+ * west of -85.35 / north of 10.02 is the Nosara–Sámara–Nicoya road side.
+ */
+const SOUTH_NICOYA = { minLat: 9.55, maxLat: 10.02, minLng: -85.35, maxLng: -84.88 };
+
+/** Extra pricing area for a map point (none for most of the country). */
+export function areaOf(p: LatLng): ExtraAreaId | undefined {
+  const b = SOUTH_NICOYA;
+  return p.lat >= b.minLat && p.lat <= b.maxLat && p.lng >= b.minLng && p.lng <= b.maxLng ? "SouthNicoya" : undefined;
+}
 
 /** Rough box around Costa Rica: a typed place outside it is refused. */
 const CR_BOUNDS = { minLat: 7.9, maxLat: 11.3, minLng: -86.1, maxLng: -82.4 };
@@ -110,6 +130,9 @@ export function straightKm(a: LatLng, b: LatLng): number {
 /** The hub a typed place belongs to: Drake Bay only inside the boat area, otherwise the closest hub. */
 export function nearestHub(p: LatLng): HubId {
   if (straightKm(p, HUB_POINTS.DrakeBay) <= DRAKE_BOAT_AREA_KM) return "DrakeBay";
+  // Across the gulf from Monteverde in a straight line, but a Guanacaste beach area:
+  // no Route 34 stops, Guanacaste suggestions.
+  if (areaOf(p) === "SouthNicoya") return "Tamarindo";
   let best: HubId = "SJO";
   let bestKm = Infinity;
   for (const id of HUB_IDS) {

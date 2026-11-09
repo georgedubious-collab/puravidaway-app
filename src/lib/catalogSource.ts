@@ -2,11 +2,14 @@ import "server-only";
 import { unstable_cache } from "next/cache";
 import {
   AREA_FACTOR_BPS_DEFAULT,
+  AREA_IDS,
+  FERRY_FARES_DEFAULT,
   CASH_FEE_BPS_DEFAULT,
-  HUB_IDS,
   isStopEntrance,
   RIDE_FORMULA_DEFAULT,
   VEHICLE_CLASSES,
+  type AreaId,
+  type FerryFares,
   type HubId,
   type Region,
   type RideFormula,
@@ -39,7 +42,7 @@ export async function getCatalog(): Promise<CatalogData> {
 }
 
 /** Only successful database reads are cached (a thrown error is never stored). */
-const cachedDatabaseCatalog = unstable_cache(loadDatabaseCatalog, ["catalog-v5"], {
+const cachedDatabaseCatalog = unstable_cache(loadDatabaseCatalog, ["catalog-v6"], {
   tags: [CATALOG_TAG],
   revalidate: 3600,
 });
@@ -71,7 +74,8 @@ async function loadDatabaseCatalog(): Promise<CatalogData> {
     const areaFactorBps = { ...AREA_FACTOR_BPS_DEFAULT };
     for (const h of hubPricing.data ?? []) {
       const f = bpsOrNull(h.area_factor, 5000, 20000);
-      if (f !== null && (HUB_IDS as readonly string[]).includes(h.hub_id)) areaFactorBps[h.hub_id as HubId] = f;
+      // hub_pricing holds our towns and, since migration 0015, extra areas like SouthNicoya.
+      if (f !== null && (AREA_IDS as readonly string[]).includes(h.hub_id)) areaFactorBps[h.hub_id as AreaId] = f;
     }
 
     return {
@@ -146,6 +150,7 @@ async function loadDatabaseCatalog(): Promise<CatalogData> {
       cashFeeBps: Number.isInteger(feeBps) && feeBps >= 0 && feeBps <= 5000 ? feeBps : CASH_FEE_BPS_DEFAULT,
       rideFormula,
       areaFactorBps,
+      ferryFares: readFerryFares(settings.data),
     };
   }
 }
@@ -155,6 +160,20 @@ function bpsOrNull(v: unknown, min: number, max: number): number | null {
   if (v == null || v === "") return null;
   const b = bps(v as number | string);
   return Number.isFinite(b) && b >= min && b <= max ? b : null;
+}
+
+/** Ferry fares from pricing_settings (migration 0015), falling back per field to the built-in ones. */
+function readFerryFares(row: Record<string, unknown> | null | undefined): FerryFares {
+  const pick = (col: string, fallback: number) => {
+    const v = row?.[col];
+    if (v == null || v === "") return fallback;
+    const c = cents(v as number | string);
+    return Number.isFinite(c) && c >= 0 ? c : fallback;
+  };
+  return {
+    vehicleCents: pick("ferry_vehicle_fare", FERRY_FARES_DEFAULT.vehicleCents),
+    passengerCents: pick("ferry_passenger_fare", FERRY_FARES_DEFAULT.passengerCents),
+  };
 }
 
 /** Formula numbers from pricing_settings, falling back per field to the built-in defaults. */

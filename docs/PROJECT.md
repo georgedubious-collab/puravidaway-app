@@ -252,12 +252,17 @@ Decide whether tier prices are per person or per booking (see §9).
 ### 6.1 Fixed-price transfers (built 2026-11-09, `docs/PRICING.md` §4)
 ```
 standard   = max(minimum fare, base + per km × road km + per hour × driving hours)
-ride       = round_to_dollar(standard × vehicle factor × area factor of the pickup town)
+ride       = round_to_dollar(standard × vehicle factor × area factor)
              + vehicle extra fee
 transfer   = (ride + Σ selected stop prices) × season multiplier
+             + ferries × (car-and-driver fare + passengers × passenger fare)
 ```
+Area factor = the pickup town's, or an extra area's when the pickup OR drop-off is in it
+(Southern Nicoya), whichever is higher. Ferry fares (Gulf of Nicoya, per crossing on Google's
+route) are added after the season multiplier and never season-adjusted.
 Starting numbers: base $35, $0.70/km, $12/hour, minimum $110; area factors Guanacaste
-(LIR, Tamarindo) 1.10, Osa (Sierpe, Drake Bay) 1.15, elsewhere 1.00. All edited at
+(LIR, Tamarindo) 1.10, Osa (Sierpe, Drake Bay) 1.15, Southern Nicoya 1.25, elsewhere 1.00;
+ferry $30 car + driver and $3 per passenger per crossing (≈ ₡15,000 / ₡1,500). All edited at
 `/admin/pricing`. Road km and drive times per town pair are in `src/lib/catalog.ts`
 (`ROUTE_KM`, `ROUTE_MINUTES`); the Drake Bay boat (75 min) is excluded from driving hours.
 `rideCents()` in `src/lib/pricing.ts` is the one implementation used by the ride builder,
@@ -375,9 +380,11 @@ and `season_for_date(date)` returns the season for a travel date.
 - `seasons` — id, name, multiplier, date ranges
 - `pricing_settings` — a single row (`id` = true): `cash_fee_bps` int (default 1000 = 10%, 0–5000),
   ride formula `ride_base_fare`, `ride_per_km`, `ride_per_hour`, `ride_minimum_fare` (USD),
-  `updated_at`. Public read, admin write. Loaded by `getCatalog()` as `cashFeeBps` / `rideFormula`.
-- `hub_pricing` — hub_id (one of the 9 hubs), area_factor (0.50–2.00), updated_at. Public read,
-  admin write. Loaded as `areaFactorBps`.
+  ferry fares `ferry_vehicle_fare`, `ferry_passenger_fare` (USD per crossing, migration 0015),
+  `updated_at`. Public read, admin write. Loaded by `getCatalog()` as `cashFeeBps` / `rideFormula` /
+  `ferryFares`.
+- `hub_pricing` — hub_id (one of the 9 hubs, or an extra pricing area: `SouthNicoya`), area_factor
+  (0.50–2.00), updated_at. Public read, admin write. Loaded as `areaFactorBps`.
 - `payments` — id, booking_id, provider (`greenpay`), provider_ref, amount, type (`deposit` | `balance` | `full`), status, raw_payload jsonb, created_at
 
 ### 7.7 Row Level Security

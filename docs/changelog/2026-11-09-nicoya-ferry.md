@@ -1,0 +1,1 @@
+- 2026-11-09 — Claude — Pricing step 4a (migration 0015): Southern Nicoya area factor 1.25 at either end, Puntarenas ferry fares per crossing (car + driver, per passenger) shown as their own line; both editable at /admin/pricing.

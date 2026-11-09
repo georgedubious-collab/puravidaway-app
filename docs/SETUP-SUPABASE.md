@@ -32,6 +32,8 @@ Either way works; the first needs no installs.
     fare), vehicle factors incl. the new Economy and Standard sedans, area factors per town
 14. `20261109000014_stop_entrance.sql` — stop entrance as free / included / paid at the gate;
     marks Tárcoles as a free stop
+15. `20261109000015_nicoya_ferry.sql` — Gulf of Nicoya ferry fares and the Southern Nicoya
+    area factor (Santa Teresa, Montezuma, Paquera)
 
 Later files are added as the app grows; each pull request says when there's a new one to run.
 

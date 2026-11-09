@@ -5,6 +5,7 @@
  */
 import {
   AREA_FACTOR_BPS_DEFAULT,
+  FERRY_FARES_DEFAULT,
   DAY_TOURS,
   EN_ROUTE_UPGRADE_CENTS,
   EXPEDITIONS,
@@ -54,7 +55,8 @@ export function formatDuration(minutes: number): string {
  *
  * Road km and driving time come from `route` (Google Routes, for typed places)
  * or, between two of our towns, from the tables in catalog.ts. The area factor
- * is the pickup's town (a typed place's nearest town).
+ * is the pickup's town (a typed place's nearest town), or an extra area such as
+ * Southern Nicoya at either end (route.area), whichever is higher.
  */
 export function rideCents(
   origin: HubId,
@@ -65,13 +67,28 @@ export function rideCents(
 ): number {
   if (!route && origin === destination) return 0;
   const f: RideFormula = catalog?.rideFormula ?? RIDE_FORMULA_DEFAULT;
-  const areaBps = (catalog?.areaFactorBps ?? AREA_FACTOR_BPS_DEFAULT)[origin] ?? 10000;
+  const areas = catalog?.areaFactorBps ?? AREA_FACTOR_BPS_DEFAULT;
+  const areaBps = Math.max(areas[origin] ?? 10000, route?.area ? (areas[route.area] ?? 10000) : 0);
   const km = route ? route.km : routeKm(origin, destination);
   const drivingMinutes = route ? route.drivingMinutes : routeDrivingMinutes(origin, destination);
   const formula = f.baseFareCents + f.perKmCents * km + (f.perHourCents * drivingMinutes) / 60;
   const standard = Math.max(f.minimumFareCents, formula);
   const scaled = (standard * vehicle.priceFactorBps * areaBps) / 1e8;
   return Math.round(scaled / 100) * 100 + vehicle.extraFeeCents;
+}
+
+/**
+ * Car ferry fares for a ride (Gulf of Nicoya): per crossing, the vehicle with its
+ * driver + each passenger. Not season-adjusted. 0 when the route has no ferry.
+ */
+export function ferryCents(
+  route: Pick<RideRoute, "ferries"> | null | undefined,
+  pax: number,
+  catalog?: Pick<CatalogData, "ferryFares">,
+): number {
+  if (!route?.ferries) return 0;
+  const f = catalog?.ferryFares ?? FERRY_FARES_DEFAULT;
+  return route.ferries * (f.vehicleCents + pax * f.passengerCents);
 }
 
 export interface TransferQuoteInput {
@@ -84,6 +101,8 @@ export interface TransferQuoteInput {
   acceptedBidCents?: number;
   /** Google road route when an end is a typed place (see rideCents). */
   route?: RideRoute | null;
+  /** Travellers, for ferry passenger fares (defaults to 1). */
+  pax?: number;
   /** Live catalog (from the database). Defaults to the built-in catalog. */
   catalog?: CatalogData;
 }
@@ -91,7 +110,10 @@ export interface TransferQuoteInput {
 export interface TransferQuote {
   baseCents: number;
   stopsCents: number;
+  /** Ride + stops, before the season multiplier and ferries. */
   subtotalCents: number;
+  /** Car ferry fares, added after the season multiplier. */
+  ferryCents: number;
   seasonMultiplierBps: number;
   totalCents: number;
   driveMinutes: number;
@@ -110,7 +132,9 @@ export function quoteTransfer(input: TransferQuoteInput): TransferQuote {
   const baseCents = input.acceptedBidCents ?? rideCents(input.origin, input.destination, vehicle, input.catalog, input.route);
   const stopsCents = stops.reduce((sum, s) => sum + s.priceCents, 0);
   const subtotalCents = baseCents + stopsCents;
-  const totalCents = applyMultiplier(subtotalCents, input.season.multiplierBps);
+  // In bid mode the traveller's offer covers everything, ferries included.
+  const ferry = input.acceptedBidCents === undefined ? ferryCents(input.route, input.pax ?? 1, input.catalog) : 0;
+  const totalCents = applyMultiplier(subtotalCents, input.season.multiplierBps) + ferry;
 
   const driveMinutes = input.route ? input.route.totalMinutes : routeMinutes(input.origin, input.destination);
   const stopsMinutes = stops.reduce((sum, s) => sum + s.durationMin, 0);
@@ -119,6 +143,7 @@ export function quoteTransfer(input: TransferQuoteInput): TransferQuote {
     baseCents,
     stopsCents,
     subtotalCents,
+    ferryCents: ferry,
     seasonMultiplierBps: input.season.multiplierBps,
     totalCents,
     driveMinutes,

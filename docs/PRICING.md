@@ -205,7 +205,8 @@ it moves to the driver side.
 | 1 ✅ | **Built 2026-11-09** (migration 0013). **Formula in the database** with the current town list: per-km, per-hour, minimum, vehicle factors, area factors, editable at `/admin/pricing`. Each town pair gets its km and hours from a table we fill once. This fixes the flat price **without any map service** | Approve the starting numbers in §4.2 |
 | 2 ✅ | **Built 2026-11-09 with step 1.** **Economy class** (Spanish-speaking driver, 0.90×) | Confirm the factor |
 | 3 ✅ | **Built 2026-11-09.** **Place search + route** (Google): type any place, see drive time + km and a Google Maps link, price from real km/hours. Prices are re-checked on the server when the trip is sent, as today. See §3.1 | Google Cloud account with billing + API key ✅ |
-| 4 | **Special places**: airports, Sierpe dock / Drake boat, 4x4-only areas, Paquera ferry | List of 4x4-only areas and boat fares |
+| 4a ✅ | **Built 2026-11-09** (migration 0015). **Southern Nicoya + ferries**: places on the peninsula tip (Santa Teresa, Montezuma, Paquera…) get a 1.25 area factor at either end; Puntarenas ferry crossings on Google's route add the car + driver fare and a per-passenger fare, shown as their own line. SJO → Santa Teresa (2 pax) Standard ≈ $298 vs Daytrip $356 | Ferry fares ✅ |
+| 4b | **Special places**: typed airports (flight extras), Sierpe dock / Drake boat fares, 4x4-only areas | List of 4x4-only areas; Drake boat fares (private boat and per seat) |
 | 5 | **Stops priced as wait + detour**; park-fee note on cards | Hourly wait rate, which stops are guided |
 | 6 | **Zone prices** for the busiest pairs (optional) | Prices for those pairs |
 | 7 | **Driver job board** with fixed payouts (replaces public bidding) + "custom quote" | Commission % (§9 #2) |
@@ -223,7 +224,12 @@ it moves to the driver side.
 **Starting defaults, not yet confirmed (editable in the admin, change any time):**
 5. Park entrance fees are shown as "paid at the gate, ~$X" unless a stop is marked as included
    or free (no ticket, e.g. Tárcoles; migration 0014).
-6. Area factors: Southern Pacific / Osa 1.15, Liberia 1.10, everywhere else 1.00.
+6. Area factors: Southern Pacific / Osa 1.15, Liberia 1.10, Southern Nicoya 1.25 (applies at
+   either end; drivers queue for the ferry and cross back), everywhere else 1.00.
+7. Ferry fares (Jorge, 2026-11-09): Puntarenas ↔ Paquera / Playa Naranjo about ₡15,000 per
+   crossing for the car with its driver and ₡1,500 per passenger, entered as $30 / $3. Charged
+   per crossing on Google's route, on top of the ride, not season-adjusted. Drake Bay boat fares
+   still unknown (today's combo adds a flat $75).
 
 **Still open:** platform commission % (PROJECT.md §9 #2; 12–15% recommended), needed for the
 driver job board (build step 7).

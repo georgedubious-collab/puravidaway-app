@@ -554,8 +554,26 @@ export const RIDE_FORMULA_DEFAULT: RideFormula = {
   minimumFareCents: 11000,
 };
 
-/** Area factor of the pickup town (basis points): drivers are scarcer in Guanacaste and Osa. */
-export const AREA_FACTOR_BPS_DEFAULT: Record<HubId, number> = {
+/**
+ * Pricing areas that aren't one of our towns (docs/PRICING.md §4.4). A typed place
+ * inside one gets its area factor whether it is the pickup or the drop-off: the
+ * driver has to get there and back either way. Shapes are in src/lib/places.ts.
+ */
+export const EXTRA_AREAS = [
+  { id: "SouthNicoya", name: "Southern Nicoya (Santa Teresa, Montezuma, Paquera)" },
+] as const;
+
+export type ExtraAreaId = (typeof EXTRA_AREAS)[number]["id"];
+export type AreaId = HubId | ExtraAreaId;
+export const AREA_IDS: readonly AreaId[] = [...HUB_IDS, ...EXTRA_AREAS.map((a) => a.id)];
+
+/**
+ * Area factors (basis points): a town's applies to rides that start there (drivers are
+ * scarcer in Guanacaste and Osa); an extra area's applies to rides starting or ending in it.
+ * Southern Nicoya 1.25 (Jorge, 2026-11-09): ferry queues and the driver's crossing back,
+ * keeping SJO → Santa Teresa ~15% below Daytrip.
+ */
+export const AREA_FACTOR_BPS_DEFAULT: Record<AreaId, number> = {
   SJO: 10000,
   LIR: 11000,
   Arenal: 10000,
@@ -565,7 +583,21 @@ export const AREA_FACTOR_BPS_DEFAULT: Record<HubId, number> = {
   DrakeBay: 11500,
   PuertoViejo: 10000,
   Tamarindo: 11000,
+  SouthNicoya: 12500,
 };
+
+/**
+ * Car ferries across the Gulf of Nicoya (Puntarenas ↔ Paquera / Playa Naranjo), per
+ * crossing: about ₡15,000 for the vehicle with its driver and ₡1,500 per passenger
+ * (Jorge, 2026-11-09), in USD at ~₡500 to the dollar. Added on top of the ride price
+ * (no season multiplier) for every ferry on Google's route. Edited at /admin/pricing.
+ */
+export interface FerryFares {
+  vehicleCents: number;
+  passengerCents: number;
+}
+
+export const FERRY_FARES_DEFAULT: FerryFares = { vehicleCents: 3000, passengerCents: 300 };
 
 /**
  * WhatsApp number for the concierge buttons (digits only, with country code).

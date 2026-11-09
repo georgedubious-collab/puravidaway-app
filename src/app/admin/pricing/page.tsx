@@ -2,10 +2,13 @@ import {
   AREA_FACTOR_BPS_DEFAULT,
   CASH_FEE_BPS_DEFAULT,
   ENTRANCE_ADMIN_LABEL,
+  EXTRA_AREAS,
+  FERRY_FARES_DEFAULT,
   HUBS,
   REGION_NAMES,
   RIDE_FORMULA_DEFAULT,
   STOP_ENTRANCES,
+  type AreaId,
   type HubId,
   type Region,
 } from "@/lib/catalog";
@@ -21,6 +24,7 @@ import {
   saveExpedition,
   saveLodgingTier,
   saveAreaFactors,
+  saveFerryFares,
   savePaymentSettings,
   saveRideFormula,
   saveSeason,
@@ -37,6 +41,7 @@ interface Vehicle {
 interface Settings {
   cash_fee_bps: number;
   ride_base_fare?: number; ride_per_km?: number; ride_per_hour?: number; ride_minimum_fare?: number;
+  ferry_vehicle_fare?: number; ferry_passenger_fare?: number;
 }
 
 /** Example routes shown under the formula so the effect of a change is visible. */
@@ -65,7 +70,7 @@ export default async function PricingPage() {
     db.from("seasons").select("*").order("priority").returns<Season[]>(),
     db.from("season_ranges").select("*").order("starts_on").returns<Range[]>(),
     db.from("pricing_settings").select("*").maybeSingle<Settings>(),
-    db.from("hub_pricing").select("hub_id, area_factor").returns<{ hub_id: HubId; area_factor: number }[]>(),
+    db.from("hub_pricing").select("hub_id, area_factor").returns<{ hub_id: AreaId; area_factor: number }[]>(),
   ]);
   const cashFeeBps = ps.data?.cash_fee_bps ?? CASH_FEE_BPS_DEFAULT;
   // Migration 0013 adds the formula columns and hub_pricing.
@@ -76,6 +81,13 @@ export default async function PricingPage() {
     perKm: ps.data?.ride_per_km ?? dollars(RIDE_FORMULA_DEFAULT.perKmCents),
     perHour: ps.data?.ride_per_hour ?? dollars(RIDE_FORMULA_DEFAULT.perHourCents),
     minimum: ps.data?.ride_minimum_fare ?? dollars(RIDE_FORMULA_DEFAULT.minimumFareCents),
+  };
+  // Migration 0015 adds the ferry fares and the Southern Nicoya area.
+  const ferryReady = ps.data?.ferry_vehicle_fare !== undefined;
+  const extraAreasReady = (hp.data ?? []).some((h) => h.hub_id === "SouthNicoya");
+  const ferry = {
+    vehicle: ps.data?.ferry_vehicle_fare ?? FERRY_FARES_DEFAULT.vehicleCents / 100,
+    passenger: ps.data?.ferry_passenger_fare ?? FERRY_FARES_DEFAULT.passengerCents / 100,
   };
   const areaBps = { ...AREA_FACTOR_BPS_DEFAULT };
   for (const h of hp.data ?? []) areaBps[h.hub_id] = Math.round(Number(h.area_factor) * 10000);
@@ -151,13 +163,19 @@ export default async function PricingPage() {
 
       <Section
         title="Area factors"
-        note="Multiplies rides that start in each town, where drivers are scarcer and must come from far away (1.15 = +15%). Lower a factor as local partner drivers join."
+        note="A town's factor multiplies rides that start there, where drivers are scarcer and must come from far away (1.15 = +15%). Southern Nicoya's applies when the pickup OR the drop-off is there (ferry queues, the driver crosses back); if both apply, the higher one counts. Lower a factor as local partner drivers join."
       >
         <Card>
           <AdminForm action={saveAreaFactors} className="grid gap-3 grid-cols-2 sm:grid-cols-5 items-end">
             {HUBS.map((h) => (
               <Field key={h.id} l={h.name}>
                 <input name={`area_${h.id}`} inputMode="decimal" defaultValue={areaBps[h.id] / 10000} className={input} disabled={!formulaReady} />
+              </Field>
+            ))}
+            {EXTRA_AREAS.map((a) => (
+              <Field key={a.id} l={a.name}>
+                {/* Only sent once migration 0015 has added the area (the database refuses it before). */}
+                <input name={`area_${a.id}`} inputMode="decimal" defaultValue={areaBps[a.id] / 10000} className={input} disabled={!extraAreasReady} />
               </Field>
             ))}
           </AdminForm>
@@ -266,6 +284,24 @@ export default async function PricingPage() {
             </AdminForm>
           </Card>
         ))}
+      </Section>
+
+      <Section
+        title="Ferries"
+        note="Gulf of Nicoya car ferries (Puntarenas ↔ Paquera / Playa Naranjo), per crossing. Added on top of the ride price whenever Google's route takes a ferry, for the car with its driver plus each passenger. Not season-adjusted. ₡15,000 ≈ $30 at ₡500 to the dollar."
+      >
+        <Card>
+          {!ferryReady && (
+            <p className="mb-3 text-sm text-amber-800">
+              Run migration <code>20261109000015_nicoya_ferry.sql</code> in the Supabase SQL editor to edit the ferry
+              fares and the Southern Nicoya factor. Until then the site uses the numbers shown.
+            </p>
+          )}
+          <AdminForm action={saveFerryFares} className="grid gap-3 sm:grid-cols-6 items-end">
+            <Field l="Car + driver (USD)" className="sm:col-span-2"><input name="ferry_vehicle_fare" inputMode="decimal" defaultValue={ferry.vehicle} className={input} disabled={!ferryReady} /></Field>
+            <Field l="Per passenger (USD)" className="sm:col-span-2"><input name="ferry_passenger_fare" inputMode="decimal" defaultValue={ferry.passenger} className={input} disabled={!ferryReady} /></Field>
+          </AdminForm>
+        </Card>
       </Section>
 
       <Section
