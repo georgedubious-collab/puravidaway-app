@@ -112,6 +112,11 @@ await expectRows("Tárcoles/Carara corridors updated", "anon",
   "select * from public.sightseeing_stops where id in ('tarcoles','carara') and corridors = array['SJO','Monteverde','ManuelAntonio','Sierpe','DrakeBay']::text[]", 2);
 await expectRows("Río Celeste no longer on LIR ↔ Tamarindo", "anon",
   "select * from public.sightseeing_stops where id = 'rioceleste' and corridors = array['Arenal','LIR']::text[]", 1);
+// Migration 0014: entrance is free / included / gate.
+await expectRows("Tárcoles is a free stop", "anon", "select * from public.sightseeing_stops where id = 'tarcoles' and entrance = 'free'", 1);
+await expectRows("other stops default to paid at the gate", "anon", "select * from public.sightseeing_stops where id <> 'tarcoles' and entrance = 'gate'", 4);
+await expectBlocked("entrance only takes the three choices", "admin", "update public.sightseeing_stops set entrance = 'maybe' where id = 'carara'");
+await expectOk("admin marks an entrance as included", "admin", "update public.sightseeing_stops set entrance = 'included' where id = 'carara'");
 await expectBlocked("visitor cannot change prices", "anon", "update public.vehicle_classes set base_rate = 1", { affected: 0 });
 await expectBlocked("client cannot change prices", "client", "update public.vehicle_classes set base_rate = 1", { affected: 0 });
 await expectOk("admin changes a price", "admin", "update public.vehicle_classes set base_rate = 180 where id = 'suv'");

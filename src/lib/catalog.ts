@@ -194,11 +194,31 @@ export interface SightseeingStop {
    */
   corridors: HubId[];
   /**
-   * Is the park / attraction entrance included in the stop price?
-   * sightseeing_stops.park_fee_included, ticked in /admin/pricing ("Park fee included").
-   * Built-in values match the seed (all false) until the team confirms each stop.
+   * Entrance at this stop (sightseeing_stops.entrance, chosen in /admin/pricing):
+   * free (no ticket, e.g. a roadside bridge), included in our stop price, or paid at the gate.
    */
-  parkFeeIncluded: boolean;
+  entrance: StopEntrance;
+}
+
+export type StopEntrance = "free" | "included" | "gate";
+export const STOP_ENTRANCES: StopEntrance[] = ["free", "included", "gate"];
+
+/** Customer-facing wording on stop cards. */
+export const ENTRANCE_LABEL: Record<StopEntrance, string> = {
+  free: "Free stop, no entrance fee",
+  included: "Park entrance included",
+  gate: "Park entrance paid at the gate",
+};
+
+/** Admin dropdown wording. */
+export const ENTRANCE_ADMIN_LABEL: Record<StopEntrance, string> = {
+  free: "Free, no ticket needed",
+  included: "Included in our stop price",
+  gate: "Customer pays at the gate",
+};
+
+export function isStopEntrance(v: unknown): v is StopEntrance {
+  return typeof v === "string" && (STOP_ENTRANCES as string[]).includes(v);
 }
 
 /**
@@ -220,7 +240,7 @@ export const SIGHTSEEING_STOPS: SightseeingStop[] = [
     description:
       "Watch 15-ft American crocodiles from the famous bridge while your driver stays with the bags.",
     corridors: ["SJO", "Monteverde", "ManuelAntonio", "Sierpe", "DrakeBay"],
-    parkFeeIncluded: false,
+    entrance: "free",
   },
   {
     id: "carara",
@@ -230,7 +250,7 @@ export const SIGHTSEEING_STOPS: SightseeingStop[] = [
     description:
       "Guided trail walk through transitional rainforest full of wild scarlet macaws.",
     corridors: ["SJO", "Monteverde", "ManuelAntonio", "Sierpe", "DrakeBay"],
-    parkFeeIncluded: false,
+    entrance: "gate",
   },
   {
     id: "poas",
@@ -240,7 +260,7 @@ export const SIGHTSEEING_STOPS: SightseeingStop[] = [
     description:
       "Peer into an active turquoise crater lake, then sample highland Arabica coffee. Timed-entry tickets required.",
     corridors: ["SJO", "Arenal"],
-    parkFeeIncluded: false,
+    entrance: "gate",
   },
   {
     id: "rioceleste",
@@ -250,7 +270,7 @@ export const SIGHTSEEING_STOPS: SightseeingStop[] = [
     description:
       "Hike to the sky-blue river inside Tenorio Volcano National Park.",
     corridors: ["Arenal", "LIR"],
-    parkFeeIncluded: false,
+    entrance: "gate",
   },
   {
     id: "sloth",
@@ -260,7 +280,7 @@ export const SIGHTSEEING_STOPS: SightseeingStop[] = [
     description:
       "Spot two- and three-toed sloths on a guided boardwalk trail near La Fortuna.",
     corridors: ["Arenal"],
-    parkFeeIncluded: false,
+    entrance: "gate",
   },
 ];
 

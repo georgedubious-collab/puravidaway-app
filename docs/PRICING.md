@@ -197,7 +197,8 @@ it moves to the driver side.
    "name your price" becomes "request a custom quote" (§6).
 
 **Starting defaults, not yet confirmed (editable in the admin, change any time):**
-5. Park entrance fees are shown as "paid at the gate, ~$X" unless a stop is marked as included.
+5. Park entrance fees are shown as "paid at the gate, ~$X" unless a stop is marked as included
+   or free (no ticket, e.g. Tárcoles; migration 0014).
 6. Area factors: Southern Pacific / Osa 1.15, Liberia 1.10, everywhere else 1.00.
 
 **Still open:** platform commission % (PROJECT.md §9 #2; 12–15% recommended), needed for the

@@ -1,0 +1,1 @@
+- 2026-11-09 — Claude — Stop entrance is now free / included / paid at the gate (migration 0014); Tárcoles shows "Free stop, no entrance fee".

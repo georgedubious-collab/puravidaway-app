@@ -257,8 +257,8 @@ Status as of 2026-11-08 in brackets.
    pickups, 60 min free waiting, child seats free on request, free cancellation up to 24 h;
    luggage on each vehicle card.]** The driver's language is a per-ride request, **not** a
    blanket promise: a cheaper Spanish-speaking Economy class is planned.
-3. Sightseeing stops show duration and whether entrance fees are included. **[Done: from
-   `park_fee_included`, edited in /admin/pricing.]**
+3. Sightseeing stops show duration and whether entrance fees are included. **[Done: free /
+   included / paid at the gate (`entrance`), edited in /admin/pricing.]**
 4. Bid mode shows the fixed price as reference and warns on unrealistic offers. **[Done.]**
 5. Cancellation and refund policy visible before payment. **[Done: `/cancellation` page live,
    linked from the footer, under "Send trip request" and in the trip panel's guarantees; the
