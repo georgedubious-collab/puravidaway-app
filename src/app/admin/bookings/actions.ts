@@ -7,6 +7,7 @@ import { BOOKING_STATUSES, usd } from "@/lib/bookings";
 import { formatScheduledAt } from "@/lib/dates";
 import { SITE_URL, sendEmail } from "@/lib/email";
 import { notifyDriversOfJobs } from "@/lib/jobAlerts";
+import { requestDriverReview } from "@/lib/reviewRequest";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { InputError, runAction, type FormState } from "@/lib/forms/formState";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -132,27 +133,8 @@ export async function updateBooking(_prev: FormState, fd: FormData): Promise<For
     }
 
     // Trip just completed: ask the traveller to rate the driver (once per booking).
-    if (status === "completed" && before && before.status !== "completed" && !before.review_requested_at && before.trip_id && driverId) {
-      const [{ data: trip }, { data: who }] = await Promise.all([
-        supabase.from("trips").select("guest_name, guest_email, access_token").eq("id", before.trip_id).maybeSingle(),
-        supabase.from("profiles").select("full_name").eq("id", driverId).maybeSingle(),
-      ]);
-      if (trip?.guest_email) {
-        await supabase.from("bookings").update({ review_requested_at: new Date().toISOString() }).eq("id", id);
-        const first = (who?.full_name ?? "your driver").split(" ")[0];
-        const what = before.service_type === "transfer" ? `ride ${before.origin ?? ""} → ${before.destination ?? ""}` : "trip";
-        after(async () => {
-          await sendEmail({
-            to: trip.guest_email!,
-            subject: `How was your ${before.service_type === "transfer" ? "ride" : "trip"} with ${first}? (${before.booking_ref})`,
-            lines: [
-              `Hi ${(trip.guest_name ?? "").split(" ")[0] || "there"},`,
-              `We hope you enjoyed your ${what}. Could you take a moment to rate ${first}? It takes 10 seconds, and a few words help even more: our best-rated drivers get more trips.`,
-            ],
-            button: { label: `Rate ${first}`, url: `${SITE_URL}/trip/${trip.access_token}` },
-          });
-        });
-      }
+    if (status === "completed" && before && before.status !== "completed") {
+      after(() => requestDriverReview(id));
     }
     const n = await supabase
       .from("booking_admin_notes")

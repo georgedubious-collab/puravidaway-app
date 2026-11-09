@@ -50,6 +50,8 @@ Either way works; the first needs no installs.
     the flat tour price is retired
 23. `20261109000023_tour_costs.sql` — company-paid tour costs per person (`day_tours.cost_pp`) and
     `bookings.company_costs`, deducted before the driver's share
+24. `20261109000024_driver_trip_status.sql` — drivers start / complete their own trips
+    (`driver_set_trip_status()`, `bookings.started_at` / `completed_at`)
 
 Later files are added as the app grows. Since Option C is set up, they run by themselves
 after a merge; each pull request still lists them.

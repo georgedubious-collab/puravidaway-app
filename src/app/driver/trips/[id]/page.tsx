@@ -3,7 +3,9 @@ import { Navigation } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
+import { ActionForm } from "@/components/ActionForm";
 import { ChatBox } from "@/components/ChatBox";
+import { setTripStatus } from "../actions";
 import { requireUser } from "@/lib/auth";
 import { BOOKING_STATUS_LABEL, SERVICE_LABEL, usd, type DriverTrip } from "@/lib/bookings";
 import { getCatalog } from "@/lib/catalogSource";
@@ -83,6 +85,27 @@ async function Trip({ params, searchParams }: { params: Promise<{ id: string }>;
         <p role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-900">
           This ride is yours. Introduce yourself in the chat below and confirm the pickup time.
         </p>
+      )}
+      {(b.status === "confirmed" || b.status === "in_progress") && (
+        <section className="rounded-xl border-2 border-emerald-600 bg-white p-5">
+          <h2 className="font-extrabold text-slate-900">
+            {b.status === "confirmed" ? "When your travellers are on board" : "When you've dropped your travellers off"}
+          </h2>
+          <p className="mt-1 text-xs text-slate-500">
+            {b.status === "confirmed"
+              ? "Tap this as you set off (available from 3 hours before the pickup time)."
+              : "Tap this at the drop-off. The traveller is then asked to rate the trip, and your payout is recorded."}
+          </p>
+          <ActionForm
+            action={setTripStatus}
+            submitLabel={b.status === "confirmed" ? "Start trip" : "Complete trip"}
+            savedLabel="Done"
+            className="mt-3"
+          >
+            <input type="hidden" name="booking_id" value={b.id} />
+            <input type="hidden" name="step" value={b.status === "confirmed" ? "in_progress" : "completed"} />
+          </ActionForm>
+        </section>
       )}
       <div>
         <p className="font-mono text-sm font-bold text-slate-500">{b.booking_ref}</p>
