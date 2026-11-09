@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { Car, CheckCircle2, Compass, Languages, ShieldCheck } from "lucide-react";
 import { ChatBox } from "@/components/ChatBox";
+import { RateDriver } from "@/components/RateDriver";
+import { rateDriver } from "./actions";
 import { SERVICE_LABEL, TRIP_TOKEN, bookingDue, usd, type BookingRow, type BookingStatus } from "@/lib/bookings";
 import { getCatalog } from "@/lib/catalogSource";
 import { formatScheduledAt } from "@/lib/dates";
@@ -66,6 +68,12 @@ export default async function TripPage({ params }: { params: Promise<{ token: st
     .returns<BookingRow[]>();
   if (!bookings?.length) notFound();
   const catalog = await getCatalog();
+  // Ratings already given (one per booking).
+  const { data: reviews } = await db
+    .from("driver_reviews")
+    .select("booking_id, stars")
+    .in("booking_id", bookings.map((b) => b.id));
+  const ratingOf = (id: string) => (reviews as { booking_id: string; stars: number }[] | null)?.find((r) => r.booking_id === id)?.stars;
 
   // Driver + car cards for confirmed bookings only.
   const assigned = bookings.filter(
@@ -262,6 +270,16 @@ export default async function TripPage({ params }: { params: Promise<{ token: st
                   <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-600">
                     We&apos;re matching you with a hand-picked local driver. Their profile and car photos will show here.
                   </p>
+                )
+              )}
+
+              {b.status === "completed" && driver && (
+                ratingOf(b.id) ? (
+                  <p className="rounded-xl bg-emerald-50 p-3 text-sm font-semibold text-emerald-900">
+                    You rated {driver.firstName} {ratingOf(b.id)} star{ratingOf(b.id) === 1 ? "" : "s"}. Thank you!
+                  </p>
+                ) : (
+                  <RateDriver action={rateDriver} token={token} bookingId={b.id} driverFirstName={driver.firstName} />
                 )
               )}
 

@@ -491,6 +491,29 @@ await expectOk("driver sets their home town", "driver", `update public.drivers s
 await expectRows("home town change does not send the driver back to review", "admin",
   `select 1 from public.drivers where id = '${U.driver}' and home_hub = 'Arenal' and not needs_review`, 1);
 await expectBlocked("unknown home town refused", "driver", `update public.drivers set home_hub = 'Paris' where id = '${U.driver}'`);
+
+// Migration 0019: travellers rate drivers; a comment counts double.
+const B9 = "'10000000-0000-0000-0000-000000000009'";
+await expectOk("server completes the trip", "server", `update public.bookings set status = 'completed' where id = ${B9}`);
+await expectOk("server saves a stars-only rating", "server",
+  `insert into public.driver_reviews (booking_id, driver_id, stars) values (${B9}, '${U.driver}', 5)`);
+await expectRows("stars-only rating counts once", "admin", `select 1 from public.drivers where id = '${U.driver}' and rating_avg = 5.00 and rating_count = 1`, 1);
+await expectBlocked("one rating per booking", "server", `insert into public.driver_reviews (booking_id, driver_id, stars) values (${B9}, '${U.driver}', 4)`);
+await expectOk("server saves a rating with a comment on another trip", "server",
+  `insert into public.driver_reviews (booking_id, driver_id, stars, comment) values ('10000000-0000-0000-0000-000000000003', '${U.driver}', 4, 'Punctual and careful on the mountain roads')`);
+await expectRows("a comment counts double: (5×1 + 4×2) / 3 = 4.33 from 3", "admin",
+  `select 1 from public.drivers where id = '${U.driver}' and rating_avg = 4.33 and rating_count = 3`, 1);
+await expectBlocked("review comment cannot carry a phone number", "server",
+  `insert into public.driver_reviews (booking_id, driver_id, stars, comment) values ('10000000-0000-0000-0000-000000000004', '${U.driver}', 5, 'call me 8888-1234')`);
+await expectBlocked("stars must be 1–5", "server", `insert into public.driver_reviews (booking_id, driver_id, stars) values ('10000000-0000-0000-0000-000000000004', '${U.driver}', 6)`);
+await expectRows("driver reads their own ratings", "driver", "select * from public.driver_reviews", 2);
+await expectRows("another driver sees none", "pending", "select * from public.driver_reviews", 0);
+await expectRows("clients see no ratings", "client", "select * from public.driver_reviews", 0);
+await expectRows("visitors see no ratings", "anon", "select * from public.driver_reviews", 0);
+await expectBlocked("driver cannot rate themselves", "driver",
+  `insert into public.driver_reviews (booking_id, driver_id, stars) values ('10000000-0000-0000-0000-000000000004', '${U.driver}', 5)`);
+await expectOk("admin removes a rating", "admin", `delete from public.driver_reviews where booking_id = ${B9}`);
+await expectRows("totals follow the removal", "admin", `select 1 from public.drivers where id = '${U.driver}' and rating_avg = 4.00 and rating_count = 2`, 1);
 await expectBlocked("commission above 50% refused", "admin", "update public.pricing_settings set driver_commission_bps = 9000");
 
 // --- Trip chat --------------------------------------------------------------------------

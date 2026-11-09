@@ -94,9 +94,25 @@ export function nearHome(homeHub: string | null | undefined, job: JobLike): bool
   return Boolean(homeHub) && homeHub === job.origin_town;
 }
 
-/** Lower sorts first: return match, then based nearby, then fewer trips, then cheaper. */
-export function offerRank(o: { match: ReturnMatch | null; home: boolean; trips: number; amount: number }): number[] {
-  return [o.match ? 0 : o.home ? 1 : 2, o.trips, o.amount];
+/**
+ * Rating used for ranking: the weighted average rounded to half stars, so 4.8 and
+ * 4.9 tie and smaller things decide. A driver with no ratings yet counts as 4.0
+ * (provisional): below our proven 4.5–5 star drivers, above anyone rated poorly.
+ */
+export const PROVISIONAL_RATING = 4;
+export function ratingBand(avg: number | string | null | undefined, count: number | null | undefined): number {
+  const n = Number(avg);
+  if (!count || !Number.isFinite(n)) return PROVISIONAL_RATING;
+  return Math.round(n * 2) / 2;
+}
+
+/**
+ * Lower sorts first (Jorge, 2026-11-09): a same-day return trip first; then the
+ * better-rated driver (our best drivers get more trips); then a driver based
+ * near the pickup; then the lower offer; then fewer trips with us.
+ */
+export function offerRank(o: { match: ReturnMatch | null; home: boolean; trips: number; amount: number; rating?: number }): number[] {
+  return [o.match ? 0 : 1, -(o.rating ?? PROVISIONAL_RATING), o.home ? 0 : 1, o.amount, o.trips];
 }
 
 export function compareRanks(a: number[], b: number[]): number {

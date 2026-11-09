@@ -77,7 +77,48 @@ async function DriverPortal() {
     const { data } = await supabase.storage.from("driver-kyc-docs").createSignedUrls(photoPaths, 600);
     for (const s of data ?? []) if (s.path && s.signedUrl) thumbs[s.path] = s.signedUrl;
   }
-  return <Application me={me} d={d.data} vehicles={vehicles} thumbs={thumbs} />;
+  const { data: reviews } = await supabase
+    .from("driver_reviews")
+    .select("id, stars, comment, created_at")
+    .eq("driver_id", me.id)
+    .order("created_at", { ascending: false })
+    .limit(20)
+    .returns<{ id: string; stars: number; comment: string | null; created_at: string }[]>();
+  return (
+    <>
+      <Application me={me} d={d.data} vehicles={vehicles} thumbs={thumbs} />
+      {d.data.kyc_status === "approved" && <YourRating d={d.data} reviews={reviews ?? []} />}
+    </>
+  );
+}
+
+/** The driver's rating from travellers: weighted average (a review with a comment counts double). */
+function YourRating({ d, reviews }: { d: DriverRecord; reviews: { id: string; stars: number; comment: string | null; created_at: string }[] }) {
+  return (
+    <div className="mt-6">
+      <Card>
+        <h2 className="text-lg font-extrabold text-slate-900">
+          Your rating{d.rating_count ? `: ★ ${Number(d.rating_avg).toFixed(1)} from ${d.rating_count} ratings` : ""}
+        </h2>
+        <p className="mt-1 text-sm text-slate-600">
+          Travellers rate you after each trip. Better-rated drivers are offered more trips. A rating with a written
+          comment counts double, so great service that people write about pays off twice.
+        </p>
+        {reviews.length > 0 && (
+          <ul className="mt-3 space-y-2 text-sm">
+            {reviews.map((r) => (
+              <li key={r.id} className="rounded-lg bg-slate-50 p-3">
+                <span className="font-bold text-amber-500">{"★".repeat(r.stars)}</span>
+                <span className="text-slate-300">{"★".repeat(5 - r.stars)}</span>{" "}
+                <span className="text-xs text-slate-500">{r.created_at.slice(0, 10)}</span>
+                {r.comment && <p className="mt-1 italic text-slate-700">&ldquo;{r.comment}&rdquo;</p>}
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+    </div>
+  );
 }
 
 /* ------------------------------------------------------------------------- */

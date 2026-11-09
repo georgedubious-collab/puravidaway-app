@@ -40,6 +40,8 @@ Either way works; the first needs no installs.
     `offer_job()`, the team accepts with `accept_offer()`
 18. `20261109000018_driver_home_base.sql` — where each driver is based (`drivers.home_hub`), for ranking
     offers and spotting return trips
+19. `20261109000019_driver_reviews.sql` — travellers' driver ratings (`driver_reviews`, weighted totals on
+    `drivers`), review-request tracking on bookings
 
 Later files are added as the app grows. Since Option C is set up, they run by themselves
 after a merge; each pull request still lists them.

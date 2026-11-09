@@ -10,7 +10,7 @@ import { canTakeTrips, type DriverRecord, type VehicleRecord } from "@/lib/drive
 import { prefMismatches, prefsSummary } from "@/lib/preferences";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { LiveRefresh } from "@/components/LiveRefresh";
-import { compareRanks, nearHome, offerRank, returnMatch, townName, townOf, type ReturnMatch, type TripLike } from "@/lib/matching";
+import { compareRanks, nearHome, offerRank, ratingBand, returnMatch, townName, townOf, type ReturnMatch, type TripLike } from "@/lib/matching";
 import { acceptOffer, updateBooking } from "../actions";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -45,7 +45,7 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
   const [{ data: offerNames }, { data: offerHomes }, { data: offerLoad }] = offerDriverIds.length
     ? await Promise.all([
         supabase.from("profiles").select("id, full_name").in("id", offerDriverIds),
-        supabase.from("drivers").select("id, home_hub").in("id", offerDriverIds),
+        supabase.from("drivers").select("id, home_hub, rating_avg, rating_count").in("id", offerDriverIds),
         supabase
           .from("bookings")
           .select("id, assigned_driver_id, status, scheduled_at, origin, destination, origin_coords, destination_coords, sightseeing_stops, booking_ref")
@@ -55,7 +55,13 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
       ])
     : [{ data: [] }, { data: [] }, { data: [] as Load[] }];
   const nameOf = (id: string) => offerNames?.find((p) => p.id === id)?.full_name ?? "Driver";
-  const homeOf = (id: string) => (offerHomes as { id: string; home_hub: string | null }[] | null)?.find((d) => d.id === id)?.home_hub ?? null;
+  type DriverBits = { id: string; home_hub: string | null; rating_avg: number | string | null; rating_count: number | null };
+  const bitsOf = (id: string) => (offerHomes as DriverBits[] | null)?.find((d) => d.id === id);
+  const homeOf = (id: string) => bitsOf(id)?.home_hub ?? null;
+  const ratingText = (id: string) => {
+    const d = bitsOf(id);
+    return d?.rating_count ? `★ ${Number(d.rating_avg).toFixed(1)} (${d.rating_count})` : "★ new driver";
+  };
   const tripsOf = (id: string) => (offerLoad ?? []).filter((x) => x.assigned_driver_id === id);
   // Rank offers: return-trip match first, then drivers based nearby, then fewer trips, then cheaper.
   const job = {
@@ -68,7 +74,9 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
       const mine = tripsOf(o.driver_id);
       const match = b.scheduled_at ? returnMatch(job, mine.filter((t) => t.id !== b.id)) : null;
       const home = nearHome(homeOf(o.driver_id), job);
-      return { o, match, home, trips: mine.length, rank: offerRank({ match, home, trips: mine.length, amount: Number(o.bid_amount) }) };
+      const bits = bitsOf(o.driver_id);
+      const rating = ratingBand(bits?.rating_avg, bits?.rating_count);
+      return { o, match, home, trips: mine.length, rank: offerRank({ match, home, trips: mine.length, amount: Number(o.bid_amount), rating }) };
     })
     .sort((x, y) => compareRanks(x.rank, y.rank));
   const matchText = (m: ReturnMatch) =>
@@ -197,8 +205,8 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
           <h2 className="font-extrabold text-slate-900">Drivers&apos; offers</h2>
           <p className="mt-1 text-xs text-slate-500">
             Suggested payout {b.driver_payout != null ? usd(b.driver_payout) : "—"}. Sorted for you: a driver with a return trip
-            first, then drivers based nearby, then fewer trips with us, then the lower offer. Accepting one assigns the driver,
-            confirms the booking and declines the rest. New offers appear by themselves.
+            first, then the better rating (new drivers count as 4.0), then drivers based nearby, then the lower offer, then fewer
+            trips with us. Accepting one assigns the driver, confirms the booking and declines the rest. New offers appear by themselves.
           </p>
           <ul className="mt-3 divide-y divide-slate-100">
             {ranked.map(({ o, match, home, trips }) => (
@@ -207,7 +215,7 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
                   <p className="font-bold text-slate-900">
                     {nameOf(o.driver_id)}{" "}
                     <span className="font-semibold text-slate-500">
-                      · {trips} trip{trips === 1 ? "" : "s"}{homeOf(o.driver_id) ? ` · based in ${townName(homeOf(o.driver_id))}` : ""}
+                      · {ratingText(o.driver_id)} · {trips} trip{trips === 1 ? "" : "s"}{homeOf(o.driver_id) ? ` · based in ${townName(homeOf(o.driver_id))}` : ""}
                     </span>
                   </p>
                   {match && (

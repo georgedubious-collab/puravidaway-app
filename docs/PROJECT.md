@@ -328,7 +328,7 @@ check-constraints (or Postgres enums) for status fields. **RLS is enabled on eve
 `email` · `created_at`
 
 ### 7.2 `drivers` (the person) and `driver_vehicles` (KYC & fleet vault)
-**`drivers`:** `id` uuid PK → `profiles.id` · `home_hub` (town / area the driver is based in, migration 0018) · `cedula_number` · `ict_permit_number` ·
+**`drivers`:** `id` uuid PK → `profiles.id` · `home_hub` (town / area the driver is based in, migration 0018) · `rating_avg` numeric(3,2) / `rating_count` (weighted, kept by trigger from `driver_reviews`, migration 0019) · `cedula_number` · `ict_permit_number` ·
 `license_number` · `license_expiry` date · `criminal_record_date` date · `kyc_status` (`pending` |
 `approved` | `rejected` | `suspended`) · `kyc_note` · `needs_review` · `submitted_at` ·
 `reviewed_at` · `reviewed_by` · `documents` jsonb (`driver_photo`, `id_front`, `id_back`,
@@ -385,6 +385,10 @@ and `season_for_date(date)` returns the season for a travel date.
   ferry fares `ferry_vehicle_fare_crc`, `ferry_passenger_fare_crc` (colones per crossing) and
   `crc_per_usd` (migration 0015), `updated_at`. Public read, admin write. Loaded by `getCatalog()`
   as `cashFeeBps` / `rideFormula` / `ferryFares` / `crcPerUsd`.
+- `driver_reviews` — id, booking_id (unique), driver_id, trip_id, stars 1–5, comment (no contact details),
+  weight (generated: 2 with a comment, 1 without), created_at. Written by the server from the traveller's
+  private trip page once the booking is completed; driver reads own, admin all. `bookings.review_requested_at`
+  records the one review-request email.
 - `hub_pricing` — hub_id (one of the 9 hubs, or an extra pricing area: `SouthNicoya`), area_factor
   (0.50–2.00), updated_at. Public read, admin write. Loaded as `areaFactorBps`.
 - `payments` — id, booking_id, provider (`greenpay`), provider_ref, amount, type (`deposit` | `balance` | `full`), status, raw_payload jsonb, created_at
@@ -433,7 +437,7 @@ and `season_for_date(date)` returns the season for a travel date.
 | **2b. Supabase core** | Schema + RLS from §7, Auth with roles, catalog served from DB, `/admin` behind login, inventory & season pricing manager | **Live** (PRs #7–#9; Supabase connected). All migrations through 0016 applied; since 2026-11-09 new ones run automatically after a merge (`.github/workflows/db-migrations.yml`) |
 | **2c. Driver KYC vault** | Driver sign-up, document upload, admin approval, 30-day expiry alerts | **Built (PRs #12–#14): `/driver` portal with several vehicles, `/admin/drivers` vault** |
 | **2d. Checkout** | Part 1: trip requests saved online (server re-prices every item, guest name/email/WhatsApp, booking refs) + `/admin/bookings` dispatch (status, driver + vehicle, amount received, internal notes). Part 2: Green Pay (online in full; cash to the driver + 10% fee is built, 2026-11-08), webhooks, confirmation emails | **Part 1 built (PR #15)**; payment options built; Green Pay needs credentials |
-| **3. Job board & GPS** | Driver job board with fixed payouts (replaces public bidding); driver on-duty GPS broadcast to admin Leaflet map | **Job board built 2026-11-09** (`/driver/jobs`, migration 0017): the team posts a booking as "Open for drivers", drivers send offers (suggested payout or 70–130% of it), the team accepts one on the booking page, where offers are ranked (same-day return trip first, then drivers based near the pickup — `drivers.home_hub`, migration 0018 — then fewer trips, then price; `src/lib/matching.ts`) and refresh live; drivers never see the client's price. Drivers see "Return trip" / "Starts in your area" badges on the job board. Push notifications come with the driver app (Phase 5); email today. GPS planned |
+| **3. Job board & GPS** | Driver job board with fixed payouts (replaces public bidding); driver on-duty GPS broadcast to admin Leaflet map | **Job board built 2026-11-09** (`/driver/jobs`, migration 0017): the team posts a booking as "Open for drivers", drivers send offers (suggested payout or 70–130% of it), the team accepts one on the booking page, where offers are ranked (same-day return trip first, then the driver's rating — travellers are emailed to rate 1–5 stars from their trip page when a trip is marked completed, a comment counts double, `driver_reviews` + `drivers.rating_avg/rating_count`, migration 0019 — then drivers based near the pickup — `drivers.home_hub`, migration 0018 — then price, then fewer trips; `src/lib/matching.ts`) and refresh live; drivers never see the client's price. Drivers see "Return trip" / "Starts in your area" badges on the job board. Push notifications come with the driver app (Phase 5); email today. GPS planned |
 | **4. Chat & CRM** | Tri-party trip chat (traveller via private trip link, assigned driver, team) with Resend email notifications; HubSpot sync; SMS / WhatsApp Business API | **Chat built (PR #17)**, polling every 8 s; HubSpot and SMS planned |
 | **5. Mobile apps** | Driver app (GPS, push notifications, camera) first, then Client app, for App Store / Google Play; plan in §11 | Planned — spec drafted; store accounts can be opened now (§11.6) |
 

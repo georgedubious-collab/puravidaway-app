@@ -40,6 +40,7 @@ export default async function DriverDetail({ params }: { params: Promise<{ id: s
     .maybeSingle<Row>();
   if (error) return <p className="font-semibold text-red-700">Couldn&apos;t load this driver: {error.message}</p>;
   if (!d) notFound();
+  const { data: reviews } = await supabase.from("driver_reviews").select("id, stars, comment, created_at").eq("driver_id", d.id).order("created_at", { ascending: false }).limit(50).returns<{ id: string; stars: number; comment: string | null; created_at: string }[]>();
   const { data: vehicleRows } = await supabase
     .from("driver_vehicles")
     .select("*")
@@ -117,6 +118,22 @@ export default async function DriverDetail({ params }: { params: Promise<{ id: s
           <p className="mt-3 text-xs text-slate-500">Check each one against the document before approving.</p>
           <h3 className="mt-4 text-sm font-extrabold text-slate-900">Bio shown to travellers</h3>
           <p className="mt-1 whitespace-pre-line text-sm text-slate-700">{d.bio || "—"}</p>
+          <h3 className="mt-4 text-sm font-extrabold text-slate-900">
+            Travellers&apos; ratings{d.rating_count ? ` · ★ ${Number(d.rating_avg).toFixed(2)} from ${d.rating_count} weighted ratings` : ""}
+          </h3>
+          {(reviews ?? []).length === 0 ? (
+            <p className="mt-1 text-sm text-slate-500">No ratings yet. Travellers are asked to rate after each completed trip; a rating with a comment counts double.</p>
+          ) : (
+            <ul className="mt-1 space-y-1.5 text-sm">
+              {(reviews ?? []).map((r) => (
+                <li key={r.id} className="text-slate-700">
+                  <span className="font-bold text-amber-600">{"★".repeat(r.stars)}</span>
+                  <span className="text-slate-400">{"★".repeat(5 - r.stars)}</span> <span className="text-xs text-slate-500">{r.created_at.slice(0, 10)}</span>
+                  {r.comment && <span className="block italic">&ldquo;{r.comment}&rdquo;</span>}
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
 
         <section className="rounded-xl border border-slate-200 bg-white p-5">
