@@ -78,7 +78,8 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
   `supabase/tests/rls.test.mjs` checks the security rules (`npm run test:db`). Setup steps for
   Jorge: `docs/SETUP-SUPABASE.md`.
 - Built and connected to Supabase: logins, `/admin` (dashboard, users, pricing, drivers,
-  bookings), `/driver` portal (KYC vault, vehicles, assigned trips), trip requests saved online,
+  bookings), `/driver` portal (KYC vault, vehicles, assigned trips with "Open in Waze" / "Google Maps"
+  buttons for the pickup and drop-off, `src/lib/navigation.ts`; Drake Bay ends go to the Sierpe dock), trip requests saved online,
   private trip page `/trip/<code>`, tri-party trip chat with Resend email notifications.
 - Not yet built: online payment (Green Pay, §6.4), live bidding (bid mode saves a request with the
   traveller's offer; the team handles it), GPS fleet map, `/account` for signed-in travellers
