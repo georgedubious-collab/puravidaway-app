@@ -1,7 +1,7 @@
 import "server-only";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
-import { createSupabaseServerClient } from "./supabase/server";
+import { bearerToken, createSupabaseServerClient } from "./supabase/server";
 
 export type Role = "client" | "driver" | "admin";
 
@@ -19,9 +19,11 @@ export async function getCurrentProfile(): Promise<Profile | null> {
   await connection();
   const supabase = await createSupabaseServerClient();
   if (!supabase) return null;
+  // Mobile apps send their session as a bearer token; Supabase verifies it.
+  const token = await bearerToken();
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = token ? await supabase.auth.getUser(token) : await supabase.auth.getUser();
   if (!user) return null;
   const { data } = await supabase
     .from("profiles")
