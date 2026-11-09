@@ -1,0 +1,1 @@
+- 2026-11-09 — Claude — "Driver bids" works end to end: rides sent with an offer of 70%+ of the fixed price are posted to the drivers' job board automatically (lower offers wait for the team); approved drivers are emailed each new open job (no client price); accepting an offer emails the traveller that the ride is confirmed; storefront wording updated.

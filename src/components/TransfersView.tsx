@@ -485,8 +485,9 @@ export function TransfersView({
                 </p>
               )}
               <p className="text-xs text-slate-500 mt-3 bg-slate-50 rounded-lg p-3">
-                Live bidding goes online in Phase 3. For now, add this request to your cart and
-                our team will collect driver offers for you over WhatsApp.
+                Add this request to your trip and send it. Your offer goes to our approved partner
+                drivers, our team confirms the best match, and you get an email with your
+                driver&apos;s profile and car. Nothing is charged until then.
               </p>
             </div>
           )}

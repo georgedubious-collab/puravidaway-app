@@ -10,10 +10,14 @@ import { ADMIN_EMAIL, SITE_URL, sendEmail } from "@/lib/email";
 import { stopTotalCents } from "@/lib/catalog";
 import { resolveTransfer } from "@/lib/googleMaps";
 import type { RidePlace, RideRoute } from "@/lib/places";
+import { notifyDriversOfJobs } from "@/lib/jobAlerts";
 import { hasDriverPayout, splitPayout } from "@/lib/payout";
 import { cashFeeCents, formatBpsPercent } from "@/lib/pricing";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { MAX_TRIP_ITEMS, itemTime, parseSpec, priceItem, type ItemSpec } from "@/lib/tripRequest";
+
+/** A traveller's offer at or above this share of the fixed price is posted to drivers automatically. */
+const BOARD_MIN_SHARE = 0.7;
 
 export interface TripRequestInput {
   items: { id: string; date: string; totalCents: number; spec: unknown }[];
@@ -171,19 +175,26 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
       currency: "USD",
       payment_mode: itemPaymentMode(spec.kind, mode),
       cash_fee: feeFor(spec, totalCents) / 100,
-      status: "pending_payment",
+      // "Driver bids" rides with a realistic offer (70%+ of the fixed price) go straight to the
+      // drivers' job board; lower offers wait for the team to look first.
+      status:
+        spec.kind === "transfer" && spec.pricing === "bid" && totalCents >= referenceCents * BOARD_MIN_SHARE
+          ? "pending_bids"
+          : "pending_payment",
       client_notes:
         [notes, spec.kind === "transfer" && spec.pricing === "bid" ? `Offer; fixed price was $${(referenceCents / 100).toFixed(2)}` : ""]
           .filter(Boolean)
           .join(" · ") || null,
     }));
 
-    const { data, error } = await db.from("bookings").insert(rows).select("booking_ref");
+    const { data, error } = await db.from("bookings").insert(rows).select("id, booking_ref, status");
     if (error) {
       console.error("[trip request]", error);
       return { ok: false, error: "We couldn't save your request. Please try again or send it on WhatsApp." };
     }
     const refs = (data ?? []).map((r) => r.booking_ref as string);
+    const onBoard = (data ?? []).filter((r) => r.status === "pending_bids").map((r) => r.id as string);
+    if (onBoard.length) after(() => notifyDriversOfJobs(onBoard));
     const feeTotalCents = priced.reduce((n, p) => n + feeFor(p.spec, p.totalCents), 0);
     const tripCents = priced.reduce((n, p) => n + p.totalCents, 0) + feeTotalCents;
     const total = tripCents / 100;
