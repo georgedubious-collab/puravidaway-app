@@ -206,12 +206,16 @@ Notes:
   makes it two separate visits. Consider splitting it into two stops or extending the time.
 
 ### 5.3 Vehicle classes
-| ID | Class | Base rate | Pax | Luggage | Use case |
+Priced by the ride formula (§6.1) × the class factor; flat base rates retired 2026-11-09.
+
+| ID | Class | Factor | Pax | Luggage | Use case |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| `suv` | Standard Comfort SUV | $175 | 1–4 | 4 suitcases | Most popular |
-| `4x4` | Executive 4x4 (Prado / Fortuner) | $215 | 1–4 | 4 suitcases | Osa / Monteverde roads |
-| `van` | Private Toyota HiAce / Hyundai Staria | $245 | 1–10 | 10 suitcases | Families & groups |
-| `sierpe_combo` | 4x4 transfer + Sierpe river boat | $290 | 1–4 | Wet/dry assist | Drake Bay / Corcovado |
+| `economy` | Economy Sedan | 0.90 | 1–3 | 3 suitcases | Spanish-speaking driver, direct ride (no stops) |
+| `sedan` | Standard Sedan | 1.00 | 1–3 | 3 suitcases | Best value; default choice |
+| `suv` | Standard Comfort SUV | 1.20 | 1–4 | 4 suitcases | Most popular |
+| `4x4` | Executive 4x4 (Prado / Fortuner) | 1.30 | 1–4 | 4 suitcases | Osa / Monteverde roads |
+| `van` | Private Toyota HiAce / Hyundai Staria | 1.35 | 1–10 | 10 suitcases | Families & groups |
+| `sierpe_combo` | 4x4 transfer + Sierpe river boat | 1.30 + $75 boat | 1–4 | Wet/dry assist | Drake Bay / Corcovado |
 
 ### 5.4 1-day private tours
 | ID | Region | Tour | Length | Price |
@@ -236,12 +240,19 @@ Decide whether tier prices are per person or per booking (see §9).
 
 ## 6. Pricing logic
 
-### 6.1 Fixed-price transfers
+### 6.1 Fixed-price transfers (built 2026-11-09, `docs/PRICING.md` §4)
 ```
-transfer_price = vehicle_base_rate (or route rate, see §9)
-               + Σ selected stop prices
-               × season_multiplier
+standard   = max(minimum fare, base + per km × road km + per hour × driving hours)
+ride       = round_to_dollar(standard × vehicle factor × area factor of the pickup town)
+             + vehicle extra fee
+transfer   = (ride + Σ selected stop prices) × season multiplier
 ```
+Starting numbers: base $35, $0.70/km, $12/hour, minimum $110; area factors Guanacaste
+(LIR, Tamarindo) 1.10, Osa (Sierpe, Drake Bay) 1.15, elsewhere 1.00. All edited at
+`/admin/pricing`. Road km and drive times per town pair are in `src/lib/catalog.ts`
+(`ROUTE_KM`, `ROUTE_MINUTES`); the Drake Bay boat (75 min) is excluded from driving hours.
+`rideCents()` in `src/lib/pricing.ts` is the one implementation used by the ride builder,
+route pages, the bid reference price and the server re-check.
 
 ### 6.2 Season multipliers
 | Season | Multiplier |
@@ -346,13 +357,17 @@ Implemented in `supabase/migrations/`. Catalog ids are short text slugs (`suv`, 
 matching `src/lib/catalog.ts`; seasons use `season_ranges` (start/end dates) plus a `priority`,
 and `season_for_date(date)` returns the season for a travel date.
 - `sightseeing_stops` — id, name, description, duration_min, price, park_fee_included, corridors, active
-- `vehicle_classes` — id, name, base_rate, max_pax, luggage, badge, active
+- `vehicle_classes` — id, name, price_factor, extra_fee, allows_stops, spanish_speaking_driver,
+  max_pax, luggage, badge, only_for_hubs, active (`base_rate` retired 2026-11-09, kept for old data)
 - `day_tours` — id, region, name, description, duration_hours, price, en_route_upgrade_price, active
 - `expeditions` — id, name, days, nights, base_price, itinerary jsonb, active
 - `lodging_tiers` — id, expedition_id (nullable = applies to all), name, surcharge
 - `seasons` — id, name, multiplier, date ranges
 - `pricing_settings` — a single row (`id` = true): `cash_fee_bps` int (default 1000 = 10%, 0–5000),
-  `updated_at`. Public read, admin write. Loaded by `getCatalog()` as `cashFeeBps`.
+  ride formula `ride_base_fare`, `ride_per_km`, `ride_per_hour`, `ride_minimum_fare` (USD),
+  `updated_at`. Public read, admin write. Loaded by `getCatalog()` as `cashFeeBps` / `rideFormula`.
+- `hub_pricing` — hub_id (one of the 9 hubs), area_factor (0.50–2.00), updated_at. Public read,
+  admin write. Loaded as `areaFactorBps`.
 - `payments` — id, booking_id, provider (`greenpay`), provider_ref, amount, type (`deposit` | `balance` | `full`), status, raw_payload jsonb, created_at
 
 ### 7.7 Row Level Security
@@ -385,7 +400,7 @@ and `season_for_date(date)` returns the season for a travel date.
 - **bids:** drivers create and manage their own; the amount can change only while the request is
   open and the driver is still approved (withdrawing is always allowed); the booking's client
   reads bids on their booking; admins see all.
-- **catalog tables:** public read for active items; admin write. **pricing_settings** (cash fee): public read, admin write.
+- **catalog tables:** public read for active items; admin write. **pricing_settings** (cash fee, ride formula) and **hub_pricing** (area factors): public read, admin write.
 - **payments:** written only by the server (service role); clients read their own; admins read all.
 
 ---

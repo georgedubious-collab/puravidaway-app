@@ -178,8 +178,8 @@ it moves to the driver side.
 
 | # | What | Needs from Jorge |
 | :--- | :--- | :--- |
-| 1 | **Formula in the database** with the current town list: per-km, per-hour, minimum, vehicle factors, area factors, editable at `/admin/pricing`. Each town pair gets its km and hours from a table we fill once. This fixes the flat price **without any map service** | Approve the starting numbers in §4.2 |
-| 2 | **Economy class** (Spanish-speaking driver, 0.90×) | Confirm the factor |
+| 1 ✅ | **Built 2026-11-09** (migration 0013). **Formula in the database** with the current town list: per-km, per-hour, minimum, vehicle factors, area factors, editable at `/admin/pricing`. Each town pair gets its km and hours from a table we fill once. This fixes the flat price **without any map service** | Approve the starting numbers in §4.2 |
+| 2 ✅ | **Built 2026-11-09 with step 1.** **Economy class** (Spanish-speaking driver, 0.90×) | Confirm the factor |
 | 3 | **Place search + route** (Google): type any place, see map + drive time, price from real km/hours. Prices are re-checked on the server when the trip is sent, as today | Google Cloud account with billing + API key (setup guide in the PR) |
 | 4 | **Special places**: airports, Sierpe dock / Drake boat, 4x4-only areas, Paquera ferry | List of 4x4-only areas and boat fares |
 | 5 | **Stops priced as wait + detour**; park-fee note on cards | Hourly wait rate, which stops are guided |

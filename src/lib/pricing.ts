@@ -4,15 +4,21 @@
  * Rounding: half-up to the nearest cent, applied once at the end.
  */
 import {
+  AREA_FACTOR_BPS_DEFAULT,
   DAY_TOURS,
   EN_ROUTE_UPGRADE_CENTS,
   EXPEDITIONS,
   LODGING_TIERS,
+  RIDE_FORMULA_DEFAULT,
   SEASONS,
   SIGHTSEEING_STOPS,
   VEHICLE_CLASSES,
   type HubId,
+  type RideFormula,
   type Season,
+  type VehicleClass,
+  routeDrivingMinutes,
+  routeKm,
   routeMinutes,
 } from "./catalog";
 import type { CatalogData } from "./catalogModel";
@@ -38,13 +44,38 @@ export function formatDuration(minutes: number): string {
   return `${h} hr ${m} min`;
 }
 
+/**
+ * Price of the ride itself (no stops, no season) for one vehicle class —
+ * docs/PRICING.md §4:
+ *   standard = max(minimum fare, base + per km × road km + per hour × driving hours)
+ *   ride     = standard × vehicle factor × area factor (pickup town) + vehicle extra fee
+ * Rounded to whole dollars so prices read like real quotes ($146, not $145.83).
+ */
+export function rideCents(
+  origin: HubId,
+  destination: HubId,
+  vehicle: Pick<VehicleClass, "priceFactorBps" | "extraFeeCents">,
+  catalog?: Pick<CatalogData, "rideFormula" | "areaFactorBps">,
+): number {
+  if (origin === destination) return 0;
+  const f: RideFormula = catalog?.rideFormula ?? RIDE_FORMULA_DEFAULT;
+  const areaBps = (catalog?.areaFactorBps ?? AREA_FACTOR_BPS_DEFAULT)[origin] ?? 10000;
+  const formula =
+    f.baseFareCents +
+    f.perKmCents * routeKm(origin, destination) +
+    (f.perHourCents * routeDrivingMinutes(origin, destination)) / 60;
+  const standard = Math.max(f.minimumFareCents, formula);
+  const scaled = (standard * vehicle.priceFactorBps * areaBps) / 1e8;
+  return Math.round(scaled / 100) * 100 + vehicle.extraFeeCents;
+}
+
 export interface TransferQuoteInput {
   origin: HubId;
   destination: HubId;
   vehicleId: string;
   stopIds: string[];
   season: Season;
-  /** In bid mode the accepted bid replaces the vehicle base rate. */
+  /** In bid mode the accepted bid replaces the ride price. */
   acceptedBidCents?: number;
   /** Live catalog (from the database). Defaults to the built-in catalog. */
   catalog?: CatalogData;
@@ -69,7 +100,7 @@ export function quoteTransfer(input: TransferQuoteInput): TransferQuote {
     .map((id) => (input.catalog?.stops ?? SIGHTSEEING_STOPS).find((s) => s.id === id))
     .filter((s): s is NonNullable<typeof s> => Boolean(s));
 
-  const baseCents = input.acceptedBidCents ?? vehicle.baseRateCents;
+  const baseCents = input.acceptedBidCents ?? rideCents(input.origin, input.destination, vehicle, input.catalog);
   const stopsCents = stops.reduce((sum, s) => sum + s.priceCents, 0);
   const subtotalCents = baseCents + stopsCents;
   const totalCents = applyMultiplier(subtotalCents, input.season.multiplierBps);

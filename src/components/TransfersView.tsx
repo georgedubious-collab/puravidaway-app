@@ -7,7 +7,7 @@ import { seasonForYmd } from "@/lib/catalogModel";
 import { useCatalog } from "./CatalogContext";
 import { newItemId, whatsAppLink, type CartItem } from "@/lib/cart";
 import { DEFAULT_PICKUP_TIME, PICKUP_TIMES, addDays, formatTime12h } from "@/lib/dates";
-import { applyMultiplier, formatDuration, formatUSD, perPersonCents, perPersonShare, quoteTransfer } from "@/lib/pricing";
+import { applyMultiplier, formatDuration, formatUSD, perPersonCents, perPersonShare, quoteTransfer, rideCents } from "@/lib/pricing";
 import { MAX_SHARED_PAX, rideLinkQuery, type RideLinkState } from "@/lib/shareLink";
 import { MIN_OFFER_USD } from "@/lib/tripRequest";
 import { ridePromises } from "@/lib/trust";
@@ -37,7 +37,7 @@ export function TransfersView({
   const [pickupTime, setPickupTime] = useState(initial.pickupTime ?? DEFAULT_PICKUP_TIME);
   const [pax, setPax] = useState(initial.pax ?? 2);
   const [mode, setMode] = useState<PricingMode>("fixed");
-  const [vehicleId, setVehicleId] = useState(initial.vehicleId ?? "suv");
+  const [vehicleId, setVehicleId] = useState(initial.vehicleId ?? "sedan");
   const [stopIds, setStopIds] = useState<string[]>(initial.stopIds ?? []);
   const [copied, setCopied] = useState(false);
   const [notes, setNotes] = useState("");
@@ -77,7 +77,15 @@ export function TransfersView({
   const effectiveVehicleId = availableVehicles.some((v) => v.id === vehicleId)
     ? vehicleId
     : (availableVehicles[0]?.id ?? catalog.vehicles[0].id);
-  const effectiveStopIds = stopIds.filter((id) => availableStops.some((s) => s.id === id));
+  const selectedVehicle = catalog.vehicles.find((v) => v.id === effectiveVehicleId);
+  // Economy is a direct ride: no stops, and the driver speaks Spanish (basic English at most).
+  const stopsAllowed = selectedVehicle?.allowsStops ?? true;
+  const spanishDriver = selectedVehicle?.spanishSpeakingDriver ?? false;
+  const effectiveStopIds = useMemo(
+    () => (stopsAllowed ? stopIds.filter((id) => availableStops.some((s) => s.id === id)) : []),
+    [stopsAllowed, stopIds, availableStops],
+  );
+  const effectivePrefs: RidePrefs = spanishDriver ? { ...prefs, language: "spanish_ok" } : prefs;
   const stopsKey = effectiveStopIds.join(",");
 
   // Shareable link: mirror the ride choices in the address bar (debounced), never personal details.
@@ -156,7 +164,7 @@ export function TransfersView({
         (mode === "bid"
           ? `Driver bid request — your offer covers the ride${selectedStops.length ? " + stops" : ""} (fixed price would be ${formatUSD(quote.totalCents)}), ${pax} pax${stopsText}${notes ? ` — ${notes}` : ""}`
           : `${vehicle.name}, ${pax} pax${stopsText}${notes ? ` — ${notes}` : ""}`
-        ) + (prefsSummary(prefs).length ? ` · ${prefsSummary(prefs).join(", ")}` : ""),
+        ) + (prefsSummary(effectivePrefs).length ? ` · ${prefsSummary(effectivePrefs).join(", ")}` : ""),
       date,
       totalCents: itemTotalCents,
       spec: {
@@ -170,7 +178,7 @@ export function TransfersView({
         pricing: mode === "bid" ? "bid" : "fixed",
         offerCents: mode === "bid" ? offerCents : undefined,
         notes: notes.trim() || undefined,
-        prefs,
+        prefs: effectivePrefs,
         driverNotes: driverNotes.trim() || undefined,
       },
     });
@@ -315,7 +323,12 @@ export function TransfersView({
                 {effectiveStopIds.length} added
               </span>
             </div>
-            {availableStops.length === 0 ? (
+            {!stopsAllowed ? (
+              <p className="text-sm text-slate-600 rounded-xl bg-slate-50 border border-slate-200 p-3">
+                {selectedVehicle?.name ?? "This vehicle"} is a direct ride without stops. Choose another
+                vehicle below to add sightseeing stops.
+              </p>
+            ) : availableStops.length === 0 ? (
               <p className="text-sm text-slate-500">No stops on this route yet. Ask us on WhatsApp if you have one in mind.</p>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -378,11 +391,11 @@ export function TransfersView({
                         <Users className="w-3.5 h-3.5" /> Up to {v.maxPax} · {v.luggage}
                       </p>
                       <p className="text-lg font-extrabold text-emerald-700 mt-2">
-                        {formatUSD(seasonal(v.baseRateCents))}{" "}
+                        {formatUSD(seasonal(rideCents(origin, destination, v, catalog)))}{" "}
                         <span className="text-xs font-bold text-slate-500">per car</span>
                       </p>
                       <p className="text-xs font-semibold text-slate-600">
-                        from {formatUSD(perPersonCents(seasonal(v.baseRateCents), v.maxPax))} per person ({perPersonShare(v.maxPax)} travellers)
+                        from {formatUSD(perPersonCents(seasonal(rideCents(origin, destination, v, catalog)), v.maxPax))} per person ({perPersonShare(v.maxPax)} travellers)
                       </p>
                       {seasonPct !== 0 && (
                         <p className="text-[11px] font-bold text-amber-700">
@@ -450,19 +463,26 @@ export function TransfersView({
                   <label
                     key={l}
                     className={`flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border-2 px-3 text-sm font-bold ${
-                      prefs.language === l ? "border-emerald-600 bg-emerald-50" : "border-slate-200"
-                    }`}
+                      effectivePrefs.language === l ? "border-emerald-600 bg-emerald-50" : "border-slate-200"
+                    } ${spanishDriver && l === "english" ? "opacity-50 cursor-not-allowed" : ""}`}
                   >
                     <input
                       type="radio"
                       name="driver-language"
-                      checked={prefs.language === l}
+                      checked={effectivePrefs.language === l}
+                      disabled={spanishDriver && l === "english"}
                       onChange={() => setPrefs({ ...prefs, language: l })}
                     />
                     {LANGUAGE_LABEL[l]}
                   </label>
                 ))}
               </div>
+              {spanishDriver && (
+                <p className="mt-2 text-xs text-slate-500">
+                  {selectedVehicle?.name} has a Spanish-speaking driver. For an English-speaking driver,
+                  choose the Standard Sedan or another vehicle.
+                </p>
+              )}
             </fieldset>
             <fieldset className="mt-4">
               <legend className="text-xs font-bold text-slate-600 mb-2">Extras (free, subject to availability)</legend>
