@@ -14,8 +14,19 @@
 | Payment | Card online or **cash to driver after the trip** | Card in advance on offer acceptance | Card online | Card via Green Pay: **100% or 20% deposit**; WhatsApp-assisted booking |
 | Cancellation | **Free up to 24 h before pickup** | Varies by carrier; refunds reported slow | Not prominent | To decide (PROJECT.md §9 #7) — must be at least as clear as Daytrip's |
 | Trust signals | 10,000+ drivers, 130+ countries; Tripadvisor 5.0 (5k+ reviews), Trustpilot 4.6; flight tracking; driver waits if delayed | Carrier ratings, vehicle photos, reviews; AI checks on photos and unresponsive drivers | Vetted English-speaking "Welcomers", meet-and-greet with name sign, flight tracking | **Owner-operated, no-handoff**: Jorge personally drives or vouches for every partner; ICT / INS / Dekra / Marchamo compliance visible per driver |
-| Scale | Global | 150–180 countries, ~1M passengers in 2025 | 374+ destinations; not in the US; Costa Rica unconfirmed | One country, deep: Costa Rica-specific logistics (Sierpe boats, SINAC permits, 4x4 roads) |
+| Scale | Global | 150–180 countries, ~1M passengers in 2025 | 374+ destinations; not in the US; **operates at SJO** (confirmed 2026-11-08) | One country, deep: Costa Rica-specific logistics (Sierpe boats, SINAC permits, 4x4 roads) |
 | Distribution | Direct + travel agents | Direct | Direct + **hotels and short-term-rental hosts** via referral links/widgets | Direct + WhatsApp; hotel/Airbnb host referral program is an open opportunity |
+
+## 1a. Local alternatives travellers also compare (added 2026-11-08)
+
+The three platforms above aren't the only option a traveller sees. In Costa Rica they also weigh:
+
+| Option | What it is | Price signal | Where we win |
+| :--- | :--- | :--- | :--- |
+| **Shared shuttles** (Interbus and similar) | Fixed departure times, door-to-door hotel pickups, shared van | SJO → La Fortuna ≈ **$64 per person** one way (aggregators, 2026 — re-check on interbusonline.com) | For 3+ people our private car costs about the same per person (§2b: a $146 car ÷ 3 = ~$49 each), leaves when they want, makes stops and doesn't do 5 hotel pickups. **Show the per-person price** to make this obvious (checklist #1) |
+| **Local private shuttle companies** | Small operators selling private vans by email / WhatsApp | e.g. La Fortuna → San José private van **$225 + 13% tax**, 1–8 pax (twoweeksincostarica.com, 2026) | Instant online price, vetted drivers with documents checked, one cart for rides + tours + expeditions |
+| **Uber / DiDi** | Ride-hailing, legal grey area; a dedicated orange-taxi option at SJO appeared in June 2026 (Tico Times) | Cheapest in the Central Valley; unreliable or unavailable outside it | Intercity, luggage, rural roads, guaranteed pickup. Don't compete on short city rides |
+| **Rental car** | Most common choice for independent travellers | ~$40–90 a day + insurance, plus parking and stress on mountain roads | Sell the "no driving on Route 32 in the rain" message and the stops a local driver knows |
 
 ## 1b. Driver economics (what drivers actually keep)
 
@@ -227,12 +238,20 @@ What the exact point does to price (Daytrip, Sedan, from SJO):
   line; clear refund rule.
 - **Daytrip / Welcome: generic drivers, not guides.** Our drivers are naturalist-level guides;
   stops are guided, not just a drop-off.
-- **Welcome Pickups is airport-only** and may not operate in Costa Rica at all.
+- **Welcome Pickups is airport-only.** It does operate at SJO (flat airport-taxi prices, English-speaking drivers, ~45 min free waiting, mostly San José / Jacó), but doesn't do long intercity routes, stops or tours.
 - **None of them handle Costa Rica's hard logistics**: Sierpe boat connections to Drake Bay,
   SINAC Corcovado permits, 4x4-only roads to Monteverde, Poás timed entry. That is our moat.
 - **None sell multi-day expeditions.** Tab 3 has no direct competitor among the three.
 
 ## 5. Product requirements that follow (checklist for every PR)
+
+Status on 2026-11-08 (✅ met · 🟡 partly · ❌ not yet → the PR that addresses it):
+1 ❌ per-person price → payment & promises PR · 1b ❌ map search → PRICING.md build step 3 ·
+2 ❌ card promises (Jorge confirmed: flight tracking, 60 min free waiting, child seats free;
+no blanket "English-speaking") → payment & promises PR · 3 🟡 entrance fee not shown → PRICING.md §5 ·
+4 ✅ (bidding to be reworked, PRICING.md §6) · 5 🟡 → legal pages PR · 6 🟡 profile only after
+confirmation, no ratings yet · 7 ❌ upsell after adding a ride → payment & promises PR ·
+8 🟡 only from/to in shared links → payment & promises PR.
 
 1. Price display: per car **and** "from $X per person".
 1b. Pick-up/drop-off by **map search of any exact place** (hotel, dock, restaurant), with the
@@ -248,6 +267,12 @@ What the exact point does to price (Daytrip, Sedan, from SJO):
 8. Host/hotel referral links are a planned feature (Phase 4) — keep booking URLs shareable.
 
 ## Sources
+
+- Interbus itineraries: https://book.interbusonline.com/apps/book/interbus-itineraries.php
+- Interbus one-way seat via aggregator: https://www.geckoroutes.com/costa-rica/san-jose-to-la-fortuna/
+- Local private van price list: https://www.twoweeksincostarica.com/costa-rica-shuttle-price-list/
+- Welcome Pickups at SJO: https://www.welcomepickups.com/?p=254422 ; test review: https://www.travelarbitrage.net/en/blog/costa-rica-airport-transfer-couple-off-season-2026
+- Uber taxi option at SJO (June 2026): https://ticotimes.net/2026/06/18/costa-rica-airport-travelers-now-have-a-new-uber-taxi-option
 
 - Daytrip agent FAQ: https://agents.daytrip.com/daytrip-for-travel-agents-frequently-asked-questions
 - Daytrip SJO→La Fortuna: https://daytrip.com/en/transfers/san-jose-international-airport-cr/la-fortuna-cr
