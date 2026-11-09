@@ -22,7 +22,19 @@
       "predictiveBackGestureEnabled": false
     },
     "plugins": [
-      ["expo-notifications", { "color": "#059669", "defaultChannel": "jobs" }]
-    ]
+      [
+        "expo-notifications",
+        {
+          "color": "#059669",
+          "defaultChannel": "jobs"
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "4cae122a-da6d-4df1-94e5-eece38a63447"
+      }
+    },
+    "owner": "costa-rica-private-transfers"
   }
 }
