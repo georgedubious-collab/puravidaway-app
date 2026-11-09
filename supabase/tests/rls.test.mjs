@@ -530,6 +530,18 @@ await expectRows("review reminder column exists (migration 0020)", "admin",
   "select 1 from information_schema.columns where table_name = 'bookings' and column_name = 'review_reminded_at'", 1);
 await expectOk("admin removes a rating", "admin", `delete from public.driver_reviews where booking_id = ${B9}`);
 await expectRows("totals follow the removal", "admin", `select 1 from public.drivers where id = '${U.driver}' and rating_avg = 4.00 and rating_count = 2`, 1);
+
+// Migration 0024: drivers start and complete their own trips.
+await expectBlocked("driver cannot start a trip days ahead", "driver", `select public.driver_set_trip_status(${J3}, 'in_progress')`);
+await expectOk("server moves the pickup to one hour from now", "server", `update public.bookings set scheduled_at = now() + interval '1 hour' where id = ${J3}`);
+await expectBlocked("driver cannot complete a trip that hasn't started", "driver", `select public.driver_set_trip_status(${J3}, 'completed')`);
+await expectBlocked("another driver cannot start it", "pending", `select public.driver_set_trip_status(${J3}, 'in_progress')`);
+await expectBlocked("a client cannot start it", "client", `select public.driver_set_trip_status(${J3}, 'in_progress')`);
+await expectRows("driver starts the trip", "driver", `select public.driver_set_trip_status(${J3}, 'in_progress') as ref`, 1);
+await expectBlocked("driver cannot start it twice", "driver", `select public.driver_set_trip_status(${J3}, 'in_progress')`);
+await expectBlocked("driver cannot set other statuses", "driver", `select public.driver_set_trip_status(${J3}, 'cancelled')`);
+await expectRows("driver completes the trip", "driver", `select public.driver_set_trip_status(${J3}, 'completed') as ref`, 1);
+await expectRows("trip is completed with both times recorded", "admin", `select 1 from public.bookings where id = ${J3} and status = 'completed' and started_at is not null and completed_at is not null`, 1);
 await expectBlocked("commission above 50% refused", "admin", "update public.pricing_settings set driver_commission_bps = 9000");
 
 // --- Trip chat --------------------------------------------------------------------------

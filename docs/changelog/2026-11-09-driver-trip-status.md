@@ -1,0 +1,1 @@
+- 2026-11-09 — Claude — Drivers mark their own trips started and completed from the trip page (migration 0024, `driver_set_trip_status()`); completing a trip asks the traveller for a rating immediately and emails the team.
