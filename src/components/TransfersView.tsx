@@ -2,11 +2,11 @@
 
 import { Camera, Car, Check, ExternalLink, Gavel, Languages, Link2, MapPin, MessageCircle, PlusCircle, Ticket, Users } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AIRPORT_HUBS, ENTRANCE_LABEL, stopFitsRoute, stopTotalCents } from "@/lib/catalog";
+import { ENTRANCE_LABEL, stopFitsRoute, stopTotalCents } from "@/lib/catalog";
 import { seasonForYmd } from "@/lib/catalogModel";
 import { useCatalog } from "./CatalogContext";
 import { PlaceInput } from "./PlaceInput";
-import { hubPlace, isHubPlace, mapsDirectionsUrl, needsRoute, type RidePlace, type RideRoute } from "@/lib/places";
+import { hubPlace, isAirportPickup, isHubPlace, mapsDirectionsUrl, needsRoute, type RidePlace, type RideRoute } from "@/lib/places";
 import { newItemId, whatsAppLink, type CartItem } from "@/lib/cart";
 import { DEFAULT_PICKUP_TIME, PICKUP_TIMES, addDays, formatTime12h } from "@/lib/dates";
 import { applyMultiplier, ferryCents, formatDuration, formatUSD, perPersonCents, perPersonShare, quoteTransfer, rideCents } from "@/lib/pricing";
@@ -177,6 +177,8 @@ export function TransfersView({
   const offerIsLow = offerValid && offerCents < quote.totalCents * 0.7;
   const itemTotalCents = mode === "bid" ? offerCents : quote.totalCents;
 
+  // SJO / LIR pickups, picked from the list or typed: flight tracking and free waiting apply.
+  const airportPickup = isAirportPickup(originPlace);
   const originName = originPlace.label;
   const destName = destPlace.label;
   const vehicle = catalog.vehicles.find((v) => v.id === effectiveVehicleId)!;
@@ -446,8 +448,7 @@ export function TransfersView({
                   );
                 })}
               </div>
-              {/* Airport extras only for our airport pickups (typed airports come in build step 4). */}
-              <RidePromises airport={isHubPlace(originPlace) && AIRPORT_HUBS.includes(origin)} />
+              <RidePromises airport={airportPickup} />
             </Card>
           ) : (
             <div className="bg-white rounded-2xl p-5 shadow-sm border-2 border-amber-400">
@@ -626,7 +627,8 @@ export function TransfersView({
               type="text"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Flight # or hotel name (e.g. AA 1234 / Arenas del Mar)"
+              placeholder={airportPickup ? "Flight number (e.g. AA 1234), so we can track it" : "Flight # or hotel name (e.g. AA 1234 / Arenas del Mar)"}
+              aria-label={airportPickup ? "Flight number" : "Flight number or hotel name"}
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-emerald-600"
             />
 
