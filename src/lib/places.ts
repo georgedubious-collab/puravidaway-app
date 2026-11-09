@@ -29,6 +29,8 @@ export interface RidePlace extends LatLng {
   hub: HubId;
   /** Extra pricing area the place is in, e.g. "SouthNicoya" (its factor applies at either end, on ferry routes). */
   area?: ExtraAreaId;
+  /** A typed place that is the SJO or LIR airport itself (Google's place type), not a hotel nearby. */
+  airport?: boolean;
 }
 
 /** Road distance and time for a ride between typed places (Google Routes). */
@@ -146,19 +148,23 @@ export function nearestHub(p: LatLng): HubId {
   return best;
 }
 
-/** Typed places this close to SJO or LIR airport count as an airport pickup (terminals, car-rental lots, airport hotels aside). */
-export const AIRPORT_RADIUS_KM = 1.5;
+/** How far from the SJO / LIR terminal a place Google lists as an airport may be (terminals, gates, arrivals hall). */
+export const AIRPORT_RADIUS_KM = 2.5;
+
+export function isNearMainAirport(p: LatLng): boolean {
+  return straightKm(p, HUB_POINTS.SJO) <= AIRPORT_RADIUS_KM || straightKm(p, HUB_POINTS.LIR) <= AIRPORT_RADIUS_KM;
+}
 
 /**
  * Is this pickup at one of the two international airports? True for our SJO / LIR
- * towns and for any typed place within AIRPORT_RADIUS_KM of the terminal, so a
- * traveller who types "Juan Santamaría International Airport" gets the same flight
- * tracking and waiting promises as one who picks "SJO Airport" from the list.
+ * towns and for a typed place that Google itself lists as an airport there
+ * (`airport`, set by the server). Distance alone is not enough: the hotels and
+ * car-rental offices next to the terminals are ordinary pickups with no flight to track.
  */
-export function isAirportPickup(p: Pick<RidePlace, "id" | "lat" | "lng">): boolean {
+export function isAirportPickup(p: Pick<RidePlace, "id" | "airport">): boolean {
   const hub = hubOfPlaceId(p.id);
   if (hub) return hub === "SJO" || hub === "LIR";
-  return straightKm(p, HUB_POINTS.SJO) <= AIRPORT_RADIUS_KM || straightKm(p, HUB_POINTS.LIR) <= AIRPORT_RADIUS_KM;
+  return p.airport === true;
 }
 
 /** Where the car actually goes: places in Drake Bay are reached from the Sierpe dock. */

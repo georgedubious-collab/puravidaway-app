@@ -8,6 +8,7 @@ import {
   hubOfPlaceId,
   hubPlace,
   inCostaRica,
+  isNearMainAirport,
   isGooglePlaceId,
   nearestHub,
   needsRoute,
@@ -97,23 +98,31 @@ export async function suggestPlaces(input: string, sessionToken: string): Promis
 
 interface GooglePlace extends LatLng {
   address: string;
+  /** Google lists the place itself as an airport (not a hotel or car rental next to one). */
+  airport: boolean;
 }
 
 async function fetchPlace(id: string, sessionToken?: string): Promise<GooglePlace> {
   const q = sessionToken ? `?sessionToken=${encodeURIComponent(sessionToken)}` : "";
   const data = await google(`https://places.googleapis.com/v1/places/${encodeURIComponent(id)}${q}`, {
-    fieldMask: "id,formattedAddress,location",
+    fieldMask: "id,formattedAddress,location,types",
   });
   const loc = data.location as { latitude?: number; longitude?: number } | undefined;
   if (typeof loc?.latitude !== "number" || typeof loc?.longitude !== "number") {
     throw new MapsError("We couldn't find that place on the map. Please pick another.");
   }
-  return { lat: loc.latitude, lng: loc.longitude, address: String(data.formattedAddress ?? "") };
+  const types = Array.isArray(data.types) ? (data.types as unknown[]) : [];
+  return {
+    lat: loc.latitude,
+    lng: loc.longitude,
+    address: String(data.formattedAddress ?? ""),
+    airport: types.includes("airport") || types.includes("international_airport"),
+  };
 }
 
 /** A typed place's map point, cached. The session token (if any) closes the search session for billing. */
 function lookupPlace(id: string, sessionToken?: string): Promise<GooglePlace> {
-  return unstable_cache(() => fetchPlace(id, sessionToken), ["gmaps-place-v1", id], { revalidate: CACHE_SECONDS })();
+  return unstable_cache(() => fetchPlace(id, sessionToken), ["gmaps-place-v2", id], { revalidate: CACHE_SECONDS })();
 }
 
 /**
@@ -136,6 +145,8 @@ export async function resolvePlace(id: string, label?: string, sessionToken?: st
     lng: g.lng,
     hub: nearestHub(g),
     ...(area ? { area } : {}),
+    // Only SJO and LIR get the airport promises (flight tracking, free waiting).
+    ...(g.airport && isNearMainAirport(g) ? { airport: true } : {}),
   };
 }
 
