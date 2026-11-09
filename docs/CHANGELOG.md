@@ -3,6 +3,12 @@
 Every merged change gets one line: `YYYY-MM-DD — <AI or Jorge> — <what changed>`.
 Newest entries first. AIs: read the top of this file before starting work.
 
+- 2026-11-08 — Claude — New `docs/PRICING.md`: ride pricing analysis and recommendation. Exact
+  place search + road distance/time, a per-km + per-hour formula with minimum fare, vehicle and
+  area factors (incl. a new Economy class with a Spanish-speaking driver), stops priced as wait +
+  detour, and fixed prices for travellers with drivers claiming jobs instead of public bidding.
+  Linked from PROJECT.md §9 #1, #3 and #10. Nothing built yet.
+
 - 2026-11-08 — Claude — Docs brought up to date: PROJECT.md §3 now matches what is built
   (logins, admin, driver portal, trip requests, chat) and what isn't (online payment, bidding,
   GPS, `/account`); icons are lucide-react; seasons live in the database; duplicate trip-chat RLS
