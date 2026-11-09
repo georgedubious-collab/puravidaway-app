@@ -255,6 +255,12 @@ it moves to the driver side.
    to whole dollars, not season-adjusted. Drake Bay boat fares still unknown (today's combo adds
    a flat $75).
 
+8a. **Tours: the driver gets 80% of the net** (Jorge, 2026-11-09). The company pays the lunch,
+   park tickets and activities, so they come off first: payout = (price − ferries − company-paid
+   costs) × 80% + ferries. Day tours have "Our costs per person" (`day_tours.cost_pp`, migration
+   0023; starting guesses Arenal $95, Manuel Antonio $110, Sierpe & Caño $140, Monteverde $125,
+   to confirm). On ride stops the per-person tour part is treated as company-paid in full, so
+   the driver earns on driving and waiting. Each booking records `company_costs`.
 8. **Platform commission: 20%** of a ride or day tour, after pass-through costs (ferry tickets,
    later boats and park fees, which go to the driver in full). Jorge, 2026-11-09: drivers should
    keep about 80% of the net; Daytrip keeps roughly 40% of the gross on his own rides. Drivers

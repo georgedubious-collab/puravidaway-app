@@ -441,6 +441,8 @@ export interface DayTour {
   durationHours: number;
   /** Private vehicle, guide, entrances and lunch, per person, by group size. */
   perPerson: PerPersonTiers;
+  /** What the company pays per traveller (entrances, lunch, activities); deducted before the driver's share. */
+  costPerPersonCents: number;
   highlights: string[];
   /** Per-tour Smart En-Route price; falls back to EN_ROUTE_UPGRADE_CENTS. */
   enRouteUpgradeCents?: number;
@@ -468,6 +470,7 @@ export const DAY_TOURS: DayTour[] = [
     name: "Arenal Volcano 1968 Lava Trails, La Fortuna Waterfall & Hot Springs",
     durationHours: 8,
     perPerson: { soloCents: 35000, smallCents: 29500, groupCents: 27500 },
+    costPerPersonCents: 9500,
     highlights: ["Lava-field trails", "La Fortuna Waterfall", "Hot springs soak"],
   },
   {
@@ -476,6 +479,7 @@ export const DAY_TOURS: DayTour[] = [
     name: "Manuel Antonio National Park Wildlife Walk + Catamaran Snorkel",
     durationHours: 7.5,
     perPerson: { soloCents: 33000, smallCents: 28000, groupCents: 26000 },
+    costPerPersonCents: 11000,
     highlights: ["Naturalist guide & scope", "Sloths, monkeys, toucans", "Afternoon catamaran"],
   },
   {
@@ -484,6 +488,7 @@ export const DAY_TOURS: DayTour[] = [
     name: "Sierpe Mangrove Boat Safari & Caño Island Snorkeling",
     durationHours: 7,
     perPerson: { soloCents: 37500, smallCents: 30000, groupCents: 27500 },
+    costPerPersonCents: 14000,
     highlights: ["Mangrove wildlife", "Caño Island reef", "Dolphins in season"],
   },
   {
@@ -492,6 +497,7 @@ export const DAY_TOURS: DayTour[] = [
     name: "Monteverde Hanging Bridges, Zipline & Night Walk",
     durationHours: 7,
     perPerson: { soloCents: 28000, smallCents: 23000, groupCents: 21000 },
+    costPerPersonCents: 12500,
     highlights: ["Cloud-forest canopy", "Zipline", "Guided night walk"],
   },
 ];

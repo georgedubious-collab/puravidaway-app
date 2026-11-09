@@ -189,7 +189,11 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
             {b.driver_payout != null && (
               <Item
                 k="Driver payout"
-                v={`${usd(b.driver_payout)} (we keep ${usd(b.platform_fee ?? 0)})${b.claimed_at ? " · offer accepted from the job board" : " · suggested"}`}
+                v={`${usd(b.driver_payout)} (we keep ${usd(b.platform_fee ?? 0)}${
+                  Number(b.company_costs ?? 0) > 0
+                    ? `, of which ${usd(b.company_costs ?? 0)} pays entrances, lunch and activities: ${usd(Number(b.platform_fee ?? 0) - Number(b.company_costs ?? 0))} net`
+                    : ""
+                })${b.claimed_at ? " · offer accepted from the job board" : " · suggested"}`}
               />
             )}
             {b.driver_notes && <Item k="Message for driver" v={b.driver_notes} />}

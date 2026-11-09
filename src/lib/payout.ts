@@ -7,7 +7,10 @@
  * are passed through in full. Drivers see only their payout, never the client's
  * price; the admin sees both.
  *
- *   payout = (price − pass-through costs) × (1 − commission) + pass-through costs
+ *   payout = (price − pass-through costs − company-paid costs) × (1 − commission) + pass-through costs
+ *
+ * Company-paid costs (Jorge, 2026-11-09): on tours and guided stops the company pays the
+ * lunch, park tickets and activities, so they come off before the driver's 80% of the net.
  *
  * Expeditions are arranged by the team (lodges, boats, guides), so they have no
  * automatic payout and never appear on the job board.
@@ -24,16 +27,24 @@ export interface Payout {
   feeCents: number;
 }
 
-/** Split one booking's price. `passThroughCents` is paid to the driver in full (ferries). */
+/**
+ * Split one booking's price. `passThroughCents` is paid to the driver in full (ferries);
+ * `companyCostCents` (entrances, lunch, activities the company pays) is taken off before
+ * the driver's share and stays with the company to pay those bills.
+ */
 export function splitPayout(
   totalCents: number,
   passThroughCents: number,
   catalog?: Pick<CatalogData, "driverCommissionBps">,
+  companyCostCents = 0,
 ): Payout {
   const bps = catalog?.driverCommissionBps ?? DRIVER_COMMISSION_BPS_DEFAULT;
-  const pass = Math.min(Math.max(0, passThroughCents), Math.max(0, totalCents));
-  const fee = Math.round(((totalCents - pass) * bps) / 10000);
-  return { payoutCents: totalCents - fee, feeCents: fee };
+  const total = Math.max(0, totalCents);
+  const pass = Math.min(Math.max(0, passThroughCents), total);
+  const costs = Math.min(Math.max(0, companyCostCents), total - pass);
+  const net = total - pass - costs;
+  const payout = pass + net - Math.round((net * bps) / 10000);
+  return { payoutCents: payout, feeCents: total - payout };
 }
 
 /** Does this kind of booking go on the driver job board with an automatic payout? */

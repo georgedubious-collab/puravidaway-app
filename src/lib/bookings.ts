@@ -52,6 +52,8 @@ export interface BookingRow {
   /** Driver payout and platform share (USD), migration 0017. Null on expeditions (arranged by the team). */
   driver_payout?: number | string | null;
   platform_fee?: number | string | null;
+  /** Entrances, lunch, activities the company pays on this booking (migration 0023); part of platform_fee. */
+  company_costs?: number | string | null;
   /** Set when the team accepted a driver's offer from the job board. */
   claimed_at?: string | null;
   created_at: string;

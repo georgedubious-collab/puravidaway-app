@@ -58,7 +58,7 @@ const EXAMPLES: [HubId, HubId][] = [
   ["LIR", "Tamarindo"], ["SJO", "Arenal"], ["SJO", "ManuelAntonio"], ["SJO", "Tamarindo"], ["Arenal", "Monteverde"], ["SJO", "Sierpe"],
 ];
 interface Stop { id: string; name: string; description: string; duration_min: number; price: number | null; detour_km?: number; detour_min?: number; tour_price_pp?: number; park_fee_included: boolean; entrance?: string; corridors: string[]; active: boolean }
-interface Tour { id: string; region: Region; name: string; duration_hours: number; price: number | null; price_pp_solo?: number; price_pp_small?: number; price_pp_group?: number; en_route_upgrade_price: number; active: boolean }
+interface Tour { id: string; region: Region; name: string; duration_hours: number; price: number | null; price_pp_solo?: number; price_pp_small?: number; price_pp_group?: number; cost_pp?: number; en_route_upgrade_price: number; active: boolean }
 interface Expedition { id: string; name: string; days: number; nights: number; base_price: number; active: boolean }
 interface Tier { id: string; name: string; surcharge: number; active: boolean }
 interface Season { id: string; name: string; multiplier: number; is_default: boolean }
@@ -298,7 +298,7 @@ export default async function PricingPage() {
 
       <Section
         title="1-day tours"
-        note="Priced per person (private vehicle, guide, entrances and lunch), with a lower rate for 2–3 travellers and for 4 or more; 7+ pay the 4+ rate. The en-route upgrade is a flat amount per group."
+        note="Priced per person (private vehicle, guide, entrances and lunch), with a lower rate for 2–3 travellers and for 4 or more; 7+ pay the 4+ rate. The en-route upgrade is a flat amount per group. 'Our costs per person' is what we pay for entrances, lunch and activities: it comes off the price before the driver's share is worked out."
       >
         {(t.data ?? []).map((x) => (
           <Card key={x.id}>
@@ -311,6 +311,7 @@ export default async function PricingPage() {
               <Field l="Per person · 1 traveller"><input name="price_pp_solo" inputMode="decimal" defaultValue={x.price_pp_solo ?? 0} className={input} disabled={x.price_pp_solo === undefined} /></Field>
               <Field l="Per person · 2–3"><input name="price_pp_small" inputMode="decimal" defaultValue={x.price_pp_small ?? 0} className={input} disabled={x.price_pp_solo === undefined} /></Field>
               <Field l="Per person · 4+"><input name="price_pp_group" inputMode="decimal" defaultValue={x.price_pp_group ?? 0} className={input} disabled={x.price_pp_solo === undefined} /></Field>
+              <Field l="Our costs per person"><input name="cost_pp" inputMode="decimal" defaultValue={x.cost_pp ?? 0} className={input} disabled={x.cost_pp === undefined} /></Field>
               <Field l="En-route upgrade"><input name="en_route_upgrade_price" inputMode="decimal" defaultValue={x.en_route_upgrade_price} className={input} /></Field>
               <Field l="Hours"><input name="duration_hours" inputMode="decimal" defaultValue={x.duration_hours} className={input} /></Field>
               <Live on={x.active} />
@@ -367,7 +368,7 @@ export default async function PricingPage() {
 
       <Section
         title="Drivers' payout"
-        note="Our share of each ride and day tour, as a percentage of the price minus pass-through costs (ferry tickets go to the driver in full). Drivers see only their payout on the job board and their trips, never the client's price. Expeditions are arranged by the team and have no automatic payout."
+        note="Our share of each ride and day tour, as a percentage of the net price: after ferry tickets (which go to the driver in full) and after the entrances, lunch and activities we pay on tours and guided stops. Drivers see only their payout on the job board and their trips, never the client's price. Expeditions are arranged by the team and have no automatic payout."
       >
         <Card>
           {!commissionReady && (
@@ -382,8 +383,10 @@ export default async function PricingPage() {
             </Field>
           </AdminForm>
           <p className="mt-3 text-xs text-slate-600">
-            Example: a {formatUSD(16200)} ride pays the driver {formatUSD(Math.round(16200 * (1 - commissionBps / 10000)))}. Changing this only
-            affects new bookings; each booking keeps the payout it was created with.
+            Example: a {formatUSD(16200)} ride pays the driver {formatUSD(Math.round(16200 * (1 - commissionBps / 10000)))}. On tours and
+            guided stops, the entrances, lunch and activities we pay are taken off first: a {formatUSD(59000)} tour with {formatUSD(19000)} of
+            costs pays the driver {formatUSD(Math.round(40000 * (1 - commissionBps / 10000)))}. Changing this only affects new bookings; each
+            booking keeps the payout it was created with.
           </p>
         </Card>
       </Section>
