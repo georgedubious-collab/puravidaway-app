@@ -4,10 +4,11 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { headers } from "next/headers";
 import { after } from "next/server";
 import { getCatalog } from "@/lib/catalogSource";
-import { HUBS } from "@/lib/catalog";
 import { cashAllowed, itemPaymentMode, parsePaymentMode } from "@/lib/cart";
 import { costaRicaTimestamp, formatTime12h, todayInCostaRica } from "@/lib/dates";
 import { ADMIN_EMAIL, SITE_URL, sendEmail } from "@/lib/email";
+import { resolveTransfer } from "@/lib/googleMaps";
+import type { RidePlace, RideRoute } from "@/lib/places";
 import { cashFeeCents, formatBpsPercent } from "@/lib/pricing";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { MAX_TRIP_ITEMS, itemTime, parseSpec, priceItem, type ItemSpec } from "@/lib/tripRequest";
@@ -65,22 +66,35 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
 
     const catalog = await getCatalog();
     const today = todayInCostaRica();
-    const priced: { spec: ItemSpec; date: string; totalCents: number; referenceCents: number }[] = [];
+    const priced: {
+      spec: ItemSpec;
+      date: string;
+      totalCents: number;
+      referenceCents: number;
+      /** Rides: both ends as priced (typed places looked up again on the server) and the road route. */
+      ride?: { origin: RidePlace; destination: RidePlace; route: RideRoute | null };
+    }[] = [];
     const repriced: Record<string, number> = {};
     for (const item of items) {
-      const spec = parseSpec(item.spec);
+      let spec = parseSpec(item.spec);
       if (!spec) return { ok: false, error: "One item was added on an older version of the site. Please remove it and add it again." };
       if (typeof item.date !== "string" || item.date < today) {
         return { ok: false, error: "One of the dates is in the past. Please change it." };
       }
       let p;
+      let ride: (typeof priced)[number]["ride"];
       try {
-        p = priceItem(spec, item.date, catalog);
+        if (spec.kind === "transfer") {
+          const r = await resolveTransfer(spec);
+          spec = r.spec;
+          ride = { origin: r.origin, destination: r.destination, route: r.route };
+        }
+        p = priceItem(spec, item.date, catalog, ride?.route);
       } catch (e) {
         return { ok: false, error: (e as Error).message };
       }
       if (p.totalCents !== item.totalCents) repriced[item.id] = p.totalCents;
-      priced.push({ spec, date: item.date, ...p });
+      priced.push({ spec, date: item.date, ...p, ride });
     }
     if (Object.keys(repriced).length) {
       return { ok: false, error: "Some prices have changed since you added them. Please check the new totals and send again.", repriced };
@@ -115,12 +129,15 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
       console.error("[trip request]", trip.error);
       return { ok: false, error: "We couldn't save your request. Please try again or send it on WhatsApp." };
     }
-    const rows = priced.map(({ spec, date, totalCents, referenceCents }) => ({
+    const rows = priced.map(({ spec, date, totalCents, referenceCents, ride }) => ({
       trip_id: tripId,
       service_type: spec.kind,
       catalog_item_id: spec.kind === "day_tour" ? spec.tourId : spec.kind === "expedition" ? spec.expeditionId : null,
-      origin: spec.kind === "transfer" ? hubName(spec.origin) : null,
-      destination: spec.kind === "transfer" ? hubName(spec.destination) : null,
+      origin: ride ? placeText(ride.origin) : null,
+      destination: ride ? placeText(ride.destination) : null,
+      // Map point + the road route the price was made from (a later price change never alters it).
+      origin_coords: ride ? { ...placeCoords(ride.origin), route: ride.route } : null,
+      destination_coords: ride ? placeCoords(ride.destination) : null,
       sightseeing_stops:
         spec.kind === "transfer"
           ? spec.stopIds.map((id) => ({ id, price: (catalog.stops.find((s) => s.id === id)?.priceCents ?? 0) / 100 }))
@@ -170,10 +187,10 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
         : `Payment: online in full, ${money(onlineCents)}. We send you a secure payment link once your trip is confirmed.`;
     const tripUrl = `${SITE_URL}/trip/${tripToken}`;
     // One line per item, e.g. "PVW-10492 · 2026-11-22, 9:00 AM pickup · Ride: SJO Airport → Manuel Antonio".
-    const itemLines = priced.map(({ spec, date }, i) => {
+    const itemLines = priced.map(({ spec, date, ride }, i) => {
       const what =
         spec.kind === "transfer"
-          ? `Ride: ${hubName(spec.origin)} → ${hubName(spec.destination)}`
+          ? `Ride: ${ride?.origin.label ?? spec.origin} → ${ride?.destination.label ?? spec.destination}`
           : spec.kind === "day_tour"
             ? `Day tour: ${catalog.dayTours.find((t) => t.id === spec.tourId)?.name ?? spec.tourId}`
             : `Expedition: ${catalog.expeditions.find((x) => x.id === spec.expeditionId)?.name ?? spec.expeditionId}`;
@@ -217,6 +234,11 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
   }
 }
 
-function hubName(id: string): string {
-  return HUBS.find((h) => h.id === id)?.name ?? id;
+/** Booking text for one end: "Arenas Del Mar Resort, Rd to Arenas Del Mar, Manuel Antonio…" or our town's name. */
+function placeText(p: RidePlace): string {
+  return p.address && p.address !== p.label ? `${p.label}, ${p.address}` : p.label;
+}
+
+function placeCoords(p: RidePlace) {
+  return { lat: p.lat, lng: p.lng, place_id: p.id, town: p.hub };
 }

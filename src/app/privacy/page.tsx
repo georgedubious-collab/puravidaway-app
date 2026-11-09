@@ -67,6 +67,12 @@ export default function PrivacyPage() {
             security and troubleshooting.
           </li>
           <li>
+            <strong>Place search:</strong> when you type a pickup or drop-off, what you type and the
+            place you pick are sent from our server to Google Maps to find the place and the road
+            distance. We don’t send your name or contact details with it. The places you book are
+            saved with your booking so your driver knows where to go.
+          </li>
+          <li>
             <strong>Visit statistics:</strong> we use Vercel Web Analytics to count page views, which
             pages are popular, and the visitor’s country and device type. It doesn’t use cookies and
             doesn’t identify you or follow you to other websites.
@@ -148,7 +154,8 @@ export default function PrivacyPage() {
           <li>
             <strong>Service providers that process data for us:</strong> Supabase (database, sign-in and
             file storage, hosted in the United States), Vercel (website hosting and server logs, United
-            States and global network), Resend (sending our emails, United States) and, when online
+            States and global network), Resend (sending our emails, United States), Google Maps (place search and road distances,
+            United States) and, when online
             payment launches, our payment provider. They may use the data only to provide their service
             to us.
           </li>

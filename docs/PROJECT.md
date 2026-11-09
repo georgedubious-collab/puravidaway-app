@@ -82,8 +82,17 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
   private trip page `/trip/<code>`, tri-party trip chat with Resend email notifications.
 - Not yet built: online payment (Green Pay, §6.4), live bidding (bid mode saves a request with the
   traveller's offer; the team handles it), GPS fleet map, `/account` for signed-in travellers
-  (travellers use their private trip page instead), map place search for exact pick-up points.
-- Env: `NEXT_PUBLIC_WHATSAPP_NUMBER` (see `.env.example`) **must be set in Vercel before
+  (travellers use their private trip page instead), an in-page map (the summary links to the
+  route on Google Maps instead), automatic airport / dock / 4x4 / ferry handling for typed places
+  (pricing build step 4).
+- Pickup / drop-off search (2026-11-09, pricing build step 3): type a town, airport, hotel, dock,
+  restaurant or address (Google Places, Costa Rica only); typed places are priced from Google
+  Routes road km + driving time (`src/lib/googleMaps.ts`, server-only, cached 30 days) and linked to
+  their nearest town for the area factor, stops and suggestions (`src/lib/places.ts`). Rides
+  between two of our towns still use the built-in tables at no cost. Drake Bay places (within
+  15 km) are reached by road to the Sierpe dock + the boat.
+- Env: `GOOGLE_MAPS_API_KEY` (server-only, Places API (New) + Routes API; without it only our
+  towns are offered). `NEXT_PUBLIC_WHATSAPP_NUMBER` (see `.env.example`) **must be set in Vercel before
   launch**; until then WhatsApp buttons open a placeholder number and the build logs a warning.
 - Route landing pages (`/transfers/[slug]`, content in `src/lib/routePages.ts`): SJO → Manuel
   Antonio, La Fortuna/Arenal, Monteverde, Tamarindo, Puerto Viejo and Sierpe (Drake Bay boat);
@@ -127,7 +136,7 @@ Legal pages (`/terms`, `/privacy`, `/cancellation`) are linked from every footer
 "Send trip request" button, so the cancellation policy is visible before anyone pays.
 
 1. **Transfers & Sightseeing** — exact pick-up/drop-off by map place search (hotel, dock,
-   restaurant, address; see COMPETITORS.md §2d — *target; Phase 2a ships hub dropdowns*), date,
+   restaurant, address; see COMPETITORS.md §2d — *built 2026-11-09: our towns plus Google place search*), date,
    passengers, Fixed Price vs Driver Bids
    toggle, sightseeing stop cards (duration, price, whether there is an entrance fee: free, included or paid at the gate), vehicle
    cards with the price per car and "from $X per person (N travellers)", the "Every ride includes"
@@ -334,8 +343,9 @@ approve button). Expiry warnings cover the licence, insurance, Dekra and Marcham
 ### 7.3 `bookings`
 `id` uuid PK · `booking_ref` text unique (e.g. `PVW-10492`) · `client_id` → `profiles.id` ·
 `service_type` (`transfer` | `day_tour` | `expedition`) · `catalog_item_id` (nullable; day tour or
-expedition) · `origin` text · `origin_coords` jsonb · `destination` text · `destination_coords`
-jsonb · `sightseeing_stops` jsonb (array of stop IDs + snapshot prices) · `vehicle_class` ·
+expedition) · `origin` text (place name + address) · `origin_coords` jsonb (`lat`, `lng`,
+`place_id`, `town`, and `route` = the Google road km / minutes the price was made from, null
+between two of our towns) · `destination` text · `destination_coords` jsonb (same, without route) · `sightseeing_stops` jsonb (array of stop IDs + snapshot prices) · `vehicle_class` ·
 `lodging_tier` · `scheduled_at` timestamptz · `passenger_count` int · `flight_or_hotel_notes` ·
 `pricing_mode` (`fixed` | `bid`) · `total_price` numeric · `currency` (`USD` | `CRC`) ·
 `amount_paid` numeric · `payment_mode` (`full_100` | `cash_driver`; `deposit_20` on old rows
@@ -521,8 +531,8 @@ Rules for every AI:
   and proof of insurance. Show the ICT permit as a per-driver badge, never as a blanket claim.
 - Reflect real Costa Rican operations: ICT permits, SINAC park permits and timed entries, Sierpe
   boat logistics, Marchamo / Dekra / INS compliance, realistic drive times, WhatsApp-first sales.
-- Never commit secrets. Supabase service-role keys and Green Pay credentials live only in Vercel
-  environment variables.
+- Never commit secrets. Supabase service-role keys, the Google Maps key and Green Pay credentials
+  live only in Vercel environment variables.
 
 ---
 
