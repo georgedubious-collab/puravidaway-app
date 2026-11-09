@@ -3,7 +3,8 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { ActionForm } from "@/components/ActionForm";
 import { requireUser } from "@/lib/auth";
-import { SERVICE_LABEL, usd, type DriverJob } from "@/lib/bookings";
+import { SERVICE_LABEL, usd, type DriverJob, type DriverTrip } from "@/lib/bookings";
+import { nearHome, returnMatch, townName as areaName } from "@/lib/matching";
 import { HUBS } from "@/lib/catalog";
 import { getCatalog } from "@/lib/catalogSource";
 import { formatScheduledAt, todayInCostaRica } from "@/lib/dates";
@@ -38,8 +39,9 @@ async function Jobs() {
   const me = await requireUser("/driver/jobs");
   const supabase = (await createSupabaseServerClient())!;
   const today = todayInCostaRica();
-  const [jobs, d, v, catalog] = await Promise.all([
+  const [jobs, mine, d, v, catalog] = await Promise.all([
     supabase.rpc("driver_jobs").then((r) => r as { data: DriverJob[] | null; error: { message: string } | null }),
+    supabase.rpc("my_trips").then((r) => r as { data: DriverTrip[] | null }),
     supabase.from("drivers").select("*").eq("id", me.id).maybeSingle<DriverRecord>(),
     supabase.from("driver_vehicles").select("*").eq("driver_id", me.id).order("created_at").returns<VehicleRecord[]>(),
     getCatalog(),
@@ -88,6 +90,8 @@ async function Jobs() {
             const fit = vehicles.filter((x) => (x.passenger_capacity ?? 0) >= (j.passenger_count ?? 1));
             const payout = j.driver_payout != null ? Math.round(Number(j.driver_payout)) : null;
             const open = j.my_offer_status === "submitted";
+            const match = returnMatch(j, mine.data ?? []);
+            const home = nearHome(d.data?.home_hub, j);
             return (
               <li key={j.id} className="rounded-xl border border-slate-200 bg-white p-5">
                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -103,6 +107,16 @@ async function Jobs() {
                     </p>
                     {asked.length > 0 && <p className="text-sm text-slate-600">Asked for: {asked.join(", ")}</p>}
                     {j.driver_notes && <p className="mt-1 text-sm text-slate-700 italic">“{j.driver_notes}”</p>}
+                    {match && (
+                      <p className="mt-1 inline-block rounded bg-emerald-100 px-1.5 text-xs font-bold text-emerald-900">
+                        {match.kind === "after"
+                          ? `Return trip: you drop off in ${areaName(j.origin_town)} ${match.gapMinutes >= 60 ? `${Math.floor(match.gapMinutes / 60)} h` : `${match.gapMinutes} min`} before this pickup`
+                          : `Fits before your trip from ${areaName(j.destination_town)}`}
+                      </p>
+                    )}
+                    {!match && home && (
+                      <p className="mt-1 inline-block rounded bg-sky-100 px-1.5 text-xs font-bold text-sky-900">Starts in your area</p>
+                    )}
                   </div>
                   <p className="text-right">
                     <span className="block text-xs font-bold uppercase tracking-wider text-slate-400">Suggested payout</span>

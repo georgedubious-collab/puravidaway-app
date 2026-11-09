@@ -486,6 +486,11 @@ await expectOk("driver withdraws the offer", "driver",
 await expectBlocked("a withdrawn offer cannot be accepted", "admin",
   `select public.accept_offer((select id from public.bids where booking_id = '10000000-0000-0000-0000-000000000004'))`);
 await expectRows("commission setting seeded", "anon", "select * from public.pricing_settings where driver_commission_bps = 2000", 1);
+// Migration 0018: where the driver is based.
+await expectOk("driver sets their home town", "driver", `update public.drivers set home_hub = 'Arenal' where id = '${U.driver}'`);
+await expectRows("home town change does not send the driver back to review", "admin",
+  `select 1 from public.drivers where id = '${U.driver}' and home_hub = 'Arenal' and not needs_review`, 1);
+await expectBlocked("unknown home town refused", "driver", `update public.drivers set home_hub = 'Paris' where id = '${U.driver}'`);
 await expectBlocked("commission above 50% refused", "admin", "update public.pricing_settings set driver_commission_bps = 9000");
 
 // --- Trip chat --------------------------------------------------------------------------

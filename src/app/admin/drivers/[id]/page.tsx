@@ -1,3 +1,4 @@
+import { townName } from "@/lib/matching";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ActionForm } from "@/components/ActionForm";
@@ -111,6 +112,7 @@ export default async function DriverDetail({ params }: { params: Promise<{ id: s
             <Item k="Criminal record date" v={d.criminal_record_date} />
             <Item k="ICT permit" v={d.ict_permit_number} />
             <Item k="English" v={d.english_level ? ENGLISH_LEVEL_LABEL[d.english_level] : null} />
+            <Item k="Based in" v={d.home_hub ? townName(d.home_hub) : null} />
           </dl>
           <p className="mt-3 text-xs text-slate-500">Check each one against the document before approving.</p>
           <h3 className="mt-4 text-sm font-extrabold text-slate-900">Bio shown to travellers</h3>

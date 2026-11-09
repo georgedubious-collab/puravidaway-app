@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { ActionForm } from "@/components/ActionForm";
 import { requireUser, type Profile } from "@/lib/auth";
+import { EXTRA_AREAS, HUBS } from "@/lib/catalog";
 import { addDays, todayInCostaRica } from "@/lib/dates";
 import {
   CRIMINAL_RECORD_MAX_AGE_DAYS,
@@ -384,6 +385,18 @@ function PersonFields({ me, d, lockLicence = false }: { me: Profile; d?: DriverR
       </Field>
       <Field l="ICT permit number (optional)">
         <input name="ict_permit_number" defaultValue={d?.ict_permit_number ?? ""} className={input} />
+      </Field>
+      <Field l="Where are you based?">
+        <select name="home_hub" defaultValue={d?.home_hub ?? ""} className={input}>
+          <option value="">Choose your town or area</option>
+          {HUBS.map((h) => (
+            <option key={h.id} value={h.id}>{h.name}</option>
+          ))}
+          {EXTRA_AREAS.map((a) => (
+            <option key={a.id} value={a.id}>{a.name}</option>
+          ))}
+        </select>
+        <span className="mt-1 block text-xs font-normal text-slate-500">Jobs that start near you, and return trips after your drop-offs, are offered to you first.</span>
       </Field>
     </div>
   );

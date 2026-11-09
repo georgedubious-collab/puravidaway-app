@@ -9,6 +9,8 @@ import { formatScheduledAt, todayInCostaRica } from "@/lib/dates";
 import { canTakeTrips, type DriverRecord, type VehicleRecord } from "@/lib/driverKyc";
 import { prefMismatches, prefsSummary } from "@/lib/preferences";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { LiveRefresh } from "@/components/LiveRefresh";
+import { compareRanks, nearHome, offerRank, returnMatch, townName, townOf, type ReturnMatch, type TripLike } from "@/lib/matching";
 import { acceptOffer, updateBooking } from "../actions";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -39,14 +41,40 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
   // Drivers' offers from the job board, with who they are and how much work they've had.
   const { data: offers } = await supabase.from("bids").select("*").eq("booking_id", b.id).order("created_at").returns<OfferRow[]>();
   const offerDriverIds = [...new Set((offers ?? []).map((o) => o.driver_id))];
-  const [{ data: offerNames }, { data: offerLoad }] = offerDriverIds.length
+  type Load = TripLike & { assigned_driver_id: string | null };
+  const [{ data: offerNames }, { data: offerHomes }, { data: offerLoad }] = offerDriverIds.length
     ? await Promise.all([
         supabase.from("profiles").select("id, full_name").in("id", offerDriverIds),
-        supabase.from("bookings").select("assigned_driver_id, status").in("assigned_driver_id", offerDriverIds).in("status", ["confirmed", "in_progress", "completed"]),
+        supabase.from("drivers").select("id, home_hub").in("id", offerDriverIds),
+        supabase
+          .from("bookings")
+          .select("id, assigned_driver_id, status, scheduled_at, origin, destination, origin_coords, destination_coords, sightseeing_stops, booking_ref")
+          .in("assigned_driver_id", offerDriverIds)
+          .in("status", ["confirmed", "in_progress", "completed"])
+          .returns<Load[]>(),
       ])
-    : [{ data: [] }, { data: [] }];
+    : [{ data: [] }, { data: [] }, { data: [] as Load[] }];
   const nameOf = (id: string) => offerNames?.find((p) => p.id === id)?.full_name ?? "Driver";
-  const tripsOf = (id: string) => (offerLoad ?? []).filter((x) => x.assigned_driver_id === id).length;
+  const homeOf = (id: string) => (offerHomes as { id: string; home_hub: string | null }[] | null)?.find((d) => d.id === id)?.home_hub ?? null;
+  const tripsOf = (id: string) => (offerLoad ?? []).filter((x) => x.assigned_driver_id === id);
+  // Rank offers: return-trip match first, then drivers based nearby, then fewer trips, then cheaper.
+  const job = {
+    origin_town: townOf(b.origin, b.origin_coords),
+    destination_town: townOf(b.destination, b.destination_coords),
+    scheduled_at: b.scheduled_at ?? "",
+  };
+  const ranked = (offers ?? [])
+    .map((o) => {
+      const mine = tripsOf(o.driver_id);
+      const match = b.scheduled_at ? returnMatch(job, mine.filter((t) => t.id !== b.id)) : null;
+      const home = nearHome(homeOf(o.driver_id), job);
+      return { o, match, home, trips: mine.length, rank: offerRank({ match, home, trips: mine.length, amount: Number(o.bid_amount) }) };
+    })
+    .sort((x, y) => compareRanks(x.rank, y.rank));
+  const matchText = (m: ReturnMatch) =>
+    m.kind === "after"
+      ? `Return trip: drops off in ${townName(job.origin_town)} ${m.gapMinutes >= 60 ? `${Math.floor(m.gapMinutes / 60)} h` : `${m.gapMinutes} min`} before this pickup (${m.trip.booking_ref ?? ""})`
+      : `Leads into their next trip from ${townName(job.destination_town)} (${m.trip.booking_ref ?? ""})`;
   const { data: siblings } = b.trip_id
     ? await supabase.from("bookings").select("id, booking_ref, service_type, scheduled_at").eq("trip_id", b.trip_id).neq("id", b.id)
     : { data: [] };
@@ -92,6 +120,7 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
 
   return (
     <div className="space-y-6">
+      {b.status === "pending_bids" && <LiveRefresh seconds={10} />}
       <Link href="/admin/bookings" className="text-sm font-bold text-emerald-700 underline">
         ← All bookings
       </Link>
@@ -167,16 +196,26 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
         <section className="rounded-xl border border-slate-200 bg-white p-5">
           <h2 className="font-extrabold text-slate-900">Drivers&apos; offers</h2>
           <p className="mt-1 text-xs text-slate-500">
-            Suggested payout {b.driver_payout != null ? usd(b.driver_payout) : "—"}. &ldquo;Trips&rdquo; counts the rides each driver has
-            had with us, so you can spread the work. Accepting one assigns the driver, confirms the booking and declines the rest.
+            Suggested payout {b.driver_payout != null ? usd(b.driver_payout) : "—"}. Sorted for you: a driver with a return trip
+            first, then drivers based nearby, then fewer trips with us, then the lower offer. Accepting one assigns the driver,
+            confirms the booking and declines the rest. New offers appear by themselves.
           </p>
           <ul className="mt-3 divide-y divide-slate-100">
-            {(offers ?? []).map((o) => (
+            {ranked.map(({ o, match, home, trips }) => (
               <li key={o.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
                 <div className="text-sm">
                   <p className="font-bold text-slate-900">
-                    {nameOf(o.driver_id)} <span className="font-semibold text-slate-500">· {tripsOf(o.driver_id)} trips</span>
+                    {nameOf(o.driver_id)}{" "}
+                    <span className="font-semibold text-slate-500">
+                      · {trips} trip{trips === 1 ? "" : "s"}{homeOf(o.driver_id) ? ` · based in ${townName(homeOf(o.driver_id))}` : ""}
+                    </span>
                   </p>
+                  {match && (
+                    <p className="mt-0.5 inline-block rounded bg-emerald-100 px-1.5 text-xs font-bold text-emerald-900">{matchText(match)}</p>
+                  )}
+                  {!match && home && (
+                    <p className="mt-0.5 inline-block rounded bg-sky-100 px-1.5 text-xs font-bold text-sky-900">Based near the pickup</p>
+                  )}
                   <p className="text-slate-600">
                     {o.vehicle_snapshot?.make_model ?? "Vehicle"} {o.vehicle_snapshot?.plate ?? ""}
                     {o.vehicle_snapshot?.seats ? ` · ${o.vehicle_snapshot.seats} seats` : ""} · {o.created_at.slice(0, 10)}

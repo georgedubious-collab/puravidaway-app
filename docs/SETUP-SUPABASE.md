@@ -38,6 +38,8 @@ Either way works; the first needs no installs.
 17. `20261109000017_driver_job_board.sql` — driver job board: payout + commission (20%), drivers read
     jobs and their trips through `driver_jobs()` / `my_trips()` (never the client's price), offers via
     `offer_job()`, the team accepts with `accept_offer()`
+18. `20261109000018_driver_home_base.sql` — where each driver is based (`drivers.home_hub`), for ranking
+    offers and spotting return trips
 
 Later files are added as the app grows. Since Option C is set up, they run by themselves
 after a merge; each pull request still lists them.
