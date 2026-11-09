@@ -84,7 +84,10 @@ function done() {
 async function saveVehicleImpl(fd: FormData) {
   await save("vehicle_classes", fd, {
     name: text(fd, "name"),
-    base_rate: money(fd, "base_rate"),
+    price_factor: decimal(fd, "price_factor", 0.5, 3),
+    extra_fee: money(fd, "extra_fee"),
+    allows_stops: checked(fd, "allows_stops"),
+    spanish_speaking_driver: checked(fd, "spanish_speaking_driver"),
     max_pax: int(fd, "max_pax", 1, 60),
     luggage: text(fd, "luggage", { required: false }),
     badge: text(fd, "badge", { required: false }),
@@ -211,6 +214,39 @@ async function savePaymentSettingsImpl(fd: FormData) {
   done();
 }
 
+/** Ride price formula numbers (docs/PRICING.md §4), in dollars. */
+async function saveRideFormulaImpl(fd: FormData) {
+  await requireRole("admin", "/admin/pricing");
+  const values = {
+    ride_base_fare: money(fd, "ride_base_fare"),
+    ride_per_km: money(fd, "ride_per_km"),
+    ride_per_hour: money(fd, "ride_per_hour"),
+    ride_minimum_fare: money(fd, "ride_minimum_fare"),
+  };
+  const supabase = (await createSupabaseServerClient())!;
+  const { data, error } = await supabase.from("pricing_settings").upsert({ id: true, ...values }).select("id");
+  if (error) throw new Error(error.message);
+  if (!data?.length) throw new InputError("Nothing was saved. Reload the page and try again.");
+  done();
+}
+
+/** One area factor per hub (1.15 = +15%). */
+async function saveAreaFactorsImpl(fd: FormData) {
+  await requireRole("admin", "/admin/pricing");
+  const rows = HUBS.map((h) => ({ hub_id: h.id, area_factor: decimal(fd, `area_${h.id}`, 0.5, 2) }));
+  const supabase = (await createSupabaseServerClient())!;
+  const { data, error } = await supabase.from("hub_pricing").upsert(rows).select("hub_id");
+  if (error) throw new Error(error.message);
+  if ((data?.length ?? 0) !== rows.length) throw new InputError("Nothing was saved. Reload the page and try again.");
+  done();
+}
+
+export async function saveRideFormula(_prev: FormState, fd: FormData): Promise<FormState> {
+  return run(() => saveRideFormulaImpl(fd));
+}
+export async function saveAreaFactors(_prev: FormState, fd: FormData): Promise<FormState> {
+  return run(() => saveAreaFactorsImpl(fd));
+}
 export async function savePaymentSettings(_prev: FormState, fd: FormData): Promise<FormState> {
   return run(() => savePaymentSettingsImpl(fd));
 }

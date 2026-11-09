@@ -116,11 +116,49 @@ const ROUTE_MINUTES: PairsAfter<typeof HUB_IDS> = {
 /** Safety net only (e.g. an unknown id in old data); every real pair is in the table. */
 const FALLBACK_ROUTE_MINUTES = 240;
 
+function pairValue(table: unknown, from: HubId, to: HubId): number | undefined {
+  const [a, b] = HUB_IDS.indexOf(from) < HUB_IDS.indexOf(to) ? [from, to] : [to, from];
+  return (table as Record<string, Record<string, number> | undefined>)[a]?.[b];
+}
+
 export function routeMinutes(from: HubId, to: HubId): number {
   if (from === to) return 0;
-  const [a, b] = HUB_IDS.indexOf(from) < HUB_IDS.indexOf(to) ? [from, to] : [to, from];
-  const row = (ROUTE_MINUTES as unknown as Record<string, Record<string, number> | undefined>)[a];
-  return row?.[b] ?? FALLBACK_ROUTE_MINUTES;
+  return pairValue(ROUTE_MINUTES, from, to) ?? FALLBACK_ROUTE_MINUTES;
+}
+
+/**
+ * Road kilometres between hubs, for the ride price formula (docs/PRICING.md §4).
+ * Drake Bay is reached by road to Sierpe + the river boat, so its km are the
+ * road km to Sierpe (the boat is priced separately). Daytrip's published
+ * distances where they exist (COMPETITORS.md §2b), otherwise estimates by
+ * main road. Replaced by Google Routes in build step 3.
+ * TODO(Jorge): sanity-check the estimates.
+ */
+const ROUTE_KM: PairsAfter<typeof HUB_IDS> = {
+  SJO: { LIR: 220, Arenal: 116, ManuelAntonio: 159, Monteverde: 132, Sierpe: 265, DrakeBay: 265, PuertoViejo: 232, Tamarindo: 273 },
+  LIR: { Arenal: 144, ManuelAntonio: 255, Monteverde: 150, Sierpe: 370, DrakeBay: 370, PuertoViejo: 450, Tamarindo: 69 },
+  Arenal: { ManuelAntonio: 235, Monteverde: 111, Sierpe: 350, DrakeBay: 350, PuertoViejo: 300, Tamarindo: 215 },
+  ManuelAntonio: { Monteverde: 193, Sierpe: 113, DrakeBay: 113, PuertoViejo: 390, Tamarindo: 250 },
+  Monteverde: { Sierpe: 306, DrakeBay: 306, PuertoViejo: 364, Tamarindo: 190 },
+  Sierpe: { DrakeBay: 0, PuertoViejo: 440, Tamarindo: 363 },
+  DrakeBay: { PuertoViejo: 440, Tamarindo: 363 },
+  PuertoViejo: { Tamarindo: 500 },
+  Tamarindo: {},
+};
+
+/** Sierpe → Drake Bay river boat, included in ROUTE_MINUTES for Drake Bay pairs. */
+export const DRAKE_BOAT_MINUTES = 75;
+
+export function routeKm(from: HubId, to: HubId): number {
+  if (from === to) return 0;
+  return pairValue(ROUTE_KM, from, to) ?? 0;
+}
+
+/** Time behind the wheel (drive time without the Drake Bay boat), used for pricing. */
+export function routeDrivingMinutes(from: HubId, to: HubId): number {
+  const total = routeMinutes(from, to);
+  const boat = from === "DrakeBay" || to === "DrakeBay" ? DRAKE_BOAT_MINUTES : 0;
+  return Math.max(0, total - boat);
 }
 
 /** The Sierpe ↔ Drake Bay leg is the boat: no road stops on it. */
@@ -229,7 +267,14 @@ export const SIGHTSEEING_STOPS: SightseeingStop[] = [
 export interface VehicleClass {
   id: string;
   name: string;
-  baseRateCents: number;
+  /** Multiplies the Standard ride price, in basis points (10000 = 1.00×). */
+  priceFactorBps: number;
+  /** Fixed amount added per ride, e.g. the Sierpe boat in the combo. */
+  extraFeeCents: number;
+  /** Economy is a direct ride: no sightseeing stops. */
+  allowsStops: boolean;
+  /** Economy: Spanish-speaking driver (basic English at most). */
+  spanishSpeakingDriver: boolean;
   maxPax: number;
   luggage: string;
   badge: string;
@@ -239,9 +284,34 @@ export interface VehicleClass {
 
 export const VEHICLE_CLASSES: VehicleClass[] = [
   {
+    id: "economy",
+    name: "Economy Sedan",
+    priceFactorBps: 9000,
+    extraFeeCents: 0,
+    allowsStops: false,
+    spanishSpeakingDriver: true,
+    maxPax: 3,
+    luggage: "3 suitcases",
+    badge: "Spanish-speaking driver · direct ride",
+  },
+  {
+    id: "sedan",
+    name: "Standard Sedan",
+    priceFactorBps: 10000,
+    extraFeeCents: 0,
+    allowsStops: true,
+    spanishSpeakingDriver: false,
+    maxPax: 3,
+    luggage: "3 suitcases",
+    badge: "Best value",
+  },
+  {
     id: "suv",
     name: "Standard Comfort SUV",
-    baseRateCents: 17500,
+    priceFactorBps: 12000,
+    extraFeeCents: 0,
+    allowsStops: true,
+    spanishSpeakingDriver: false,
     maxPax: 4,
     luggage: "4 suitcases",
     badge: "Most popular",
@@ -249,7 +319,10 @@ export const VEHICLE_CLASSES: VehicleClass[] = [
   {
     id: "4x4",
     name: "Executive 4x4 (Prado / Fortuner)",
-    baseRateCents: 21500,
+    priceFactorBps: 13000,
+    extraFeeCents: 0,
+    allowsStops: true,
+    spanishSpeakingDriver: false,
     maxPax: 4,
     luggage: "4 suitcases",
     badge: "Osa / Monteverde roads",
@@ -257,7 +330,10 @@ export const VEHICLE_CLASSES: VehicleClass[] = [
   {
     id: "van",
     name: "Private Toyota HiAce / Hyundai Staria",
-    baseRateCents: 24500,
+    priceFactorBps: 13500,
+    extraFeeCents: 0,
+    allowsStops: true,
+    spanishSpeakingDriver: false,
     maxPax: 10,
     luggage: "10 suitcases",
     badge: "Families & groups",
@@ -265,7 +341,10 @@ export const VEHICLE_CLASSES: VehicleClass[] = [
   {
     id: "sierpe_combo",
     name: "4x4 Transfer + Sierpe River Boat",
-    baseRateCents: 29000,
+    priceFactorBps: 13000,
+    extraFeeCents: 7500, // Sierpe river boat
+    allowsStops: true,
+    spanishSpeakingDriver: false,
     maxPax: 4,
     luggage: "Wet/dry assist",
     badge: "Drake Bay / Corcovado",
@@ -439,6 +518,34 @@ export const SEASONS: Season[] = [
  * value is pricing_settings.cash_fee_bps, edited at /admin/pricing.
  */
 export const CASH_FEE_BPS_DEFAULT = 1000;
+
+/** Ride price formula, Standard class (Jorge, 2026-11-09; docs/PRICING.md §4.2). Edited at /admin/pricing. */
+export interface RideFormula {
+  baseFareCents: number;
+  perKmCents: number;
+  perHourCents: number;
+  minimumFareCents: number;
+}
+
+export const RIDE_FORMULA_DEFAULT: RideFormula = {
+  baseFareCents: 3500,
+  perKmCents: 70,
+  perHourCents: 1200,
+  minimumFareCents: 11000,
+};
+
+/** Area factor of the pickup town (basis points): drivers are scarcer in Guanacaste and Osa. */
+export const AREA_FACTOR_BPS_DEFAULT: Record<HubId, number> = {
+  SJO: 10000,
+  LIR: 11000,
+  Arenal: 10000,
+  ManuelAntonio: 10000,
+  Monteverde: 10000,
+  Sierpe: 11500,
+  DrakeBay: 11500,
+  PuertoViejo: 10000,
+  Tamarindo: 11000,
+};
 
 /**
  * WhatsApp number for the concierge buttons (digits only, with country code).

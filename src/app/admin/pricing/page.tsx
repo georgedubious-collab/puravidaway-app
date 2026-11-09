@@ -1,4 +1,13 @@
-import { CASH_FEE_BPS_DEFAULT, HUBS, REGION_NAMES, type Region } from "@/lib/catalog";
+import {
+  AREA_FACTOR_BPS_DEFAULT,
+  CASH_FEE_BPS_DEFAULT,
+  HUBS,
+  REGION_NAMES,
+  RIDE_FORMULA_DEFAULT,
+  type HubId,
+  type Region,
+} from "@/lib/catalog";
+import { formatUSD, rideCents } from "@/lib/pricing";
 import { requireRole } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AdminForm } from "./AdminForm";
@@ -9,14 +18,29 @@ import {
   saveDayTour,
   saveExpedition,
   saveLodgingTier,
+  saveAreaFactors,
   savePaymentSettings,
+  saveRideFormula,
   saveSeason,
   saveStop,
   saveVehicle,
 } from "./actions";
 
 /* Row shapes as stored in the database (money is numeric dollars). */
-interface Vehicle { id: string; name: string; base_rate: number; max_pax: number; luggage: string; badge: string; active: boolean }
+interface Vehicle {
+  id: string; name: string; max_pax: number; luggage: string; badge: string; active: boolean;
+  /* From migration 0013; undefined until it is run. */
+  price_factor?: number; extra_fee?: number; allows_stops?: boolean; spanish_speaking_driver?: boolean;
+}
+interface Settings {
+  cash_fee_bps: number;
+  ride_base_fare?: number; ride_per_km?: number; ride_per_hour?: number; ride_minimum_fare?: number;
+}
+
+/** Example routes shown under the formula so the effect of a change is visible. */
+const EXAMPLES: [HubId, HubId][] = [
+  ["LIR", "Tamarindo"], ["SJO", "Arenal"], ["SJO", "ManuelAntonio"], ["SJO", "Tamarindo"], ["Arenal", "Monteverde"], ["SJO", "Sierpe"],
+];
 interface Stop { id: string; name: string; description: string; duration_min: number; price: number; park_fee_included: boolean; corridors: string[]; active: boolean }
 interface Tour { id: string; region: Region; name: string; duration_hours: number; price: number; en_route_upgrade_price: number; active: boolean }
 interface Expedition { id: string; name: string; days: number; nights: number; base_price: number; active: boolean }
@@ -30,7 +54,7 @@ const label = "block text-xs font-bold text-slate-600";
 export default async function PricingPage() {
   await requireRole("admin", "/admin/pricing");
   const db = (await createSupabaseServerClient())!;
-  const [v, s, t, e, l, se, r, ps] = await Promise.all([
+  const [v, s, t, e, l, se, r, ps, hp] = await Promise.all([
     db.from("vehicle_classes").select("*").order("sort_order").returns<Vehicle[]>(),
     db.from("sightseeing_stops").select("*").order("sort_order").returns<Stop[]>(),
     db.from("day_tours").select("*").order("sort_order").returns<Tour[]>(),
@@ -38,9 +62,31 @@ export default async function PricingPage() {
     db.from("lodging_tiers").select("*").order("sort_order").returns<Tier[]>(),
     db.from("seasons").select("*").order("priority").returns<Season[]>(),
     db.from("season_ranges").select("*").order("starts_on").returns<Range[]>(),
-    db.from("pricing_settings").select("cash_fee_bps").maybeSingle<{ cash_fee_bps: number }>(),
+    db.from("pricing_settings").select("*").maybeSingle<Settings>(),
+    db.from("hub_pricing").select("hub_id, area_factor").returns<{ hub_id: HubId; area_factor: number }[]>(),
   ]);
   const cashFeeBps = ps.data?.cash_fee_bps ?? CASH_FEE_BPS_DEFAULT;
+  // Migration 0013 adds the formula columns and hub_pricing.
+  const formulaReady = !hp.error && ps.data?.ride_base_fare !== undefined;
+  const dollars = (c: number) => c / 100;
+  const formula = {
+    base: ps.data?.ride_base_fare ?? dollars(RIDE_FORMULA_DEFAULT.baseFareCents),
+    perKm: ps.data?.ride_per_km ?? dollars(RIDE_FORMULA_DEFAULT.perKmCents),
+    perHour: ps.data?.ride_per_hour ?? dollars(RIDE_FORMULA_DEFAULT.perHourCents),
+    minimum: ps.data?.ride_minimum_fare ?? dollars(RIDE_FORMULA_DEFAULT.minimumFareCents),
+  };
+  const areaBps = { ...AREA_FACTOR_BPS_DEFAULT };
+  for (const h of hp.data ?? []) areaBps[h.hub_id] = Math.round(Number(h.area_factor) * 10000);
+  const exampleCatalog = {
+    rideFormula: {
+      baseFareCents: Math.round(formula.base * 100),
+      perKmCents: Math.round(formula.perKm * 100),
+      perHourCents: Math.round(formula.perHour * 100),
+      minimumFareCents: Math.round(formula.minimum * 100),
+    },
+    areaFactorBps: areaBps,
+  };
+  const hubName = (id: HubId) => HUBS.find((h) => h.id === id)?.name ?? id;
 
   return (
     <div className="space-y-10">
@@ -52,16 +98,87 @@ export default async function PricingPage() {
         </p>
       </div>
 
-      <Section title="Vehicles" note="Transfer price = vehicle rate + stops, × season. (Per-route pricing is still an open decision.)">
+      {!formulaReady && (
+        <p className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+          Run migration <code>20261109000013_ride_formula.sql</code> in the Supabase SQL editor to edit the ride
+          formula, vehicle factors and area factors. Until then the site uses the built-in numbers shown below.
+        </p>
+      )}
+
+      <Section
+        title="Ride price formula"
+        note="Price of a Standard Sedan ride: the larger of the minimum fare and base + per km × road km + per hour × driving hours. Then × the vehicle factor × the pickup town's area factor, + the vehicle's extra fee, rounded to whole dollars. Stops are added on top, and the season multiplier applies to the total."
+      >
+        <Card>
+          <AdminForm action={saveRideFormula} className="grid gap-3 sm:grid-cols-6 items-end">
+            <Field l="Base fare (USD)"><input name="ride_base_fare" inputMode="decimal" defaultValue={formula.base} className={input} disabled={!formulaReady} /></Field>
+            <Field l="Per km (USD)"><input name="ride_per_km" inputMode="decimal" defaultValue={formula.perKm} className={input} disabled={!formulaReady} /></Field>
+            <Field l="Per hour driving (USD)"><input name="ride_per_hour" inputMode="decimal" defaultValue={formula.perHour} className={input} disabled={!formulaReady} /></Field>
+            <Field l="Minimum fare (USD)"><input name="ride_minimum_fare" inputMode="decimal" defaultValue={formula.minimum} className={input} disabled={!formulaReady} /></Field>
+          </AdminForm>
+          <table className="mt-4 w-full text-sm">
+            <caption className="text-left text-xs font-bold text-slate-600 mb-1">With today&apos;s numbers (green season, before stops)</caption>
+            <thead>
+              <tr className="text-left text-xs text-slate-500">
+                <th className="py-1 font-semibold">Route</th>
+                {(v.data ?? []).filter((x) => x.active).map((x) => (
+                  <th key={x.id} className="py-1 font-semibold text-right">{x.name}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {EXAMPLES.map(([a, b]) => (
+                <tr key={a + b} className="border-t border-slate-100">
+                  <td className="py-1.5">{hubName(a)} → {hubName(b)}</td>
+                  {(v.data ?? []).filter((x) => x.active).map((x) => (
+                    <td key={x.id} className="py-1.5 text-right font-semibold">
+                      {formatUSD(
+                        rideCents(a, b, {
+                          priceFactorBps: Math.round(Number(x.price_factor ?? 1) * 10000),
+                          extraFeeCents: Math.round(Number(x.extra_fee ?? 0) * 100),
+                        }, exampleCatalog),
+                      )}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      </Section>
+
+      <Section
+        title="Area factors"
+        note="Multiplies rides that start in each town, where drivers are scarcer and must come from far away (1.15 = +15%). Lower a factor as local partner drivers join."
+      >
+        <Card>
+          <AdminForm action={saveAreaFactors} className="grid gap-3 grid-cols-2 sm:grid-cols-5 items-end">
+            {HUBS.map((h) => (
+              <Field key={h.id} l={h.name}>
+                <input name={`area_${h.id}`} inputMode="decimal" defaultValue={areaBps[h.id] / 10000} className={input} disabled={!formulaReady} />
+              </Field>
+            ))}
+          </AdminForm>
+        </Card>
+      </Section>
+
+      <Section title="Vehicles" note="Factor multiplies the Standard ride price (Economy 0.90, Standard 1.00, SUV 1.20, 4x4 1.30, Van 1.35). Extra fee is a fixed amount per ride, e.g. the Sierpe boat in the combo.">
         {(v.data ?? []).map((x) => (
           <Card key={x.id}>
             <AdminForm action={saveVehicle} className="grid gap-3 sm:grid-cols-6 items-end">
               <input type="hidden" name="id" value={x.id} />
               <Field l="Name" className="sm:col-span-2"><input name="name" defaultValue={x.name} className={input} /></Field>
-              <Field l="Rate (USD)"><input name="base_rate" inputMode="decimal" defaultValue={x.base_rate} className={input} /></Field>
+              <Field l="Price factor"><input name="price_factor" inputMode="decimal" defaultValue={x.price_factor ?? 1} className={input} disabled={!formulaReady} /></Field>
+              <Field l="Extra fee (USD)"><input name="extra_fee" inputMode="decimal" defaultValue={x.extra_fee ?? 0} className={input} disabled={!formulaReady} /></Field>
               <Field l="Max passengers"><input name="max_pax" type="number" min={1} defaultValue={x.max_pax} className={input} /></Field>
               <Field l="Luggage"><input name="luggage" defaultValue={x.luggage} className={input} /></Field>
-              <Field l="Badge"><input name="badge" defaultValue={x.badge} className={input} /></Field>
+              <Field l="Badge" className="sm:col-span-2"><input name="badge" defaultValue={x.badge} className={input} /></Field>
+              <label className="flex items-center gap-2 text-sm font-bold min-h-10">
+                <input type="checkbox" name="allows_stops" defaultChecked={x.allows_stops ?? true} disabled={!formulaReady} /> Stops allowed
+              </label>
+              <label className="flex items-center gap-2 text-sm font-bold min-h-10 sm:col-span-2">
+                <input type="checkbox" name="spanish_speaking_driver" defaultChecked={x.spanish_speaking_driver ?? false} disabled={!formulaReady} /> Spanish-speaking driver
+              </label>
               <Live on={x.active} />
             </AdminForm>
           </Card>

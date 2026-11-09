@@ -1,6 +1,15 @@
 import "server-only";
 import { unstable_cache } from "next/cache";
-import { CASH_FEE_BPS_DEFAULT, type HubId, type Region } from "./catalog";
+import {
+  AREA_FACTOR_BPS_DEFAULT,
+  CASH_FEE_BPS_DEFAULT,
+  HUB_IDS,
+  RIDE_FORMULA_DEFAULT,
+  VEHICLE_CLASSES,
+  type HubId,
+  type Region,
+  type RideFormula,
+} from "./catalog";
 import { BUILT_IN_CATALOG, type CatalogData } from "./catalogModel";
 import { createSupabasePublicClient } from "./supabase/server";
 
@@ -29,7 +38,7 @@ export async function getCatalog(): Promise<CatalogData> {
 }
 
 /** Only successful database reads are cached (a thrown error is never stored). */
-const cachedDatabaseCatalog = unstable_cache(loadDatabaseCatalog, ["catalog-v3"], {
+const cachedDatabaseCatalog = unstable_cache(loadDatabaseCatalog, ["catalog-v4"], {
   tags: [CATALOG_TAG],
   revalidate: 3600,
 });
@@ -37,7 +46,7 @@ const cachedDatabaseCatalog = unstable_cache(loadDatabaseCatalog, ["catalog-v3"]
 async function loadDatabaseCatalog(): Promise<CatalogData> {
   const db = createSupabasePublicClient()!;
   {
-    const [vehicles, stops, tours, exps, tiers, seasons, ranges, settings] = await Promise.all([
+    const [vehicles, stops, tours, exps, tiers, seasons, ranges, settings, hubPricing] = await Promise.all([
       db.from("vehicle_classes").select("*").eq("active", true).order("sort_order"),
       db.from("sightseeing_stops").select("*").eq("active", true).order("sort_order"),
       db.from("day_tours").select("*").eq("active", true).order("sort_order"),
@@ -45,7 +54,8 @@ async function loadDatabaseCatalog(): Promise<CatalogData> {
       db.from("lodging_tiers").select("*").eq("active", true).order("sort_order"),
       db.from("seasons").select("*"),
       db.from("season_ranges").select("*"),
-      db.from("pricing_settings").select("cash_fee_bps").maybeSingle(),
+      db.from("pricing_settings").select("*").maybeSingle(),
+      db.from("hub_pricing").select("hub_id, area_factor"),
     ]);
     const failed = [vehicles, stops, tours, exps, tiers, seasons, ranges].find((r) => r.error);
     if (failed?.error) throw failed.error;
@@ -53,13 +63,31 @@ async function loadDatabaseCatalog(): Promise<CatalogData> {
     // pricing_settings arrives with migration 0012; until it is run, use the built-in fee.
     if (settings.error) console.warn("[PuraVidaWay] pricing_settings unavailable, using the built-in cash fee:", settings.error.message);
     const feeBps = Number(settings.data?.cash_fee_bps);
+    // Formula columns and hub_pricing arrive with migration 0013; until it is run, use the
+    // built-in formula and factors so prices stay sensible (never the retired flat rate).
+    if (hubPricing.error) console.warn("[PuraVidaWay] hub_pricing unavailable, using built-in area factors:", hubPricing.error.message);
+    const rideFormula = readRideFormula(settings.data);
+    const areaFactorBps = { ...AREA_FACTOR_BPS_DEFAULT };
+    for (const h of hubPricing.data ?? []) {
+      const f = bpsOrNull(h.area_factor, 5000, 20000);
+      if (f !== null && (HUB_IDS as readonly string[]).includes(h.hub_id)) areaFactorBps[h.hub_id as HubId] = f;
+    }
 
     return {
       source: "database",
       vehicles: vehicles.data.map((v) => ({
         id: v.id,
         name: v.name,
-        baseRateCents: cents(v.base_rate),
+        priceFactorBps:
+          bpsOrNull(v.price_factor, 5000, 30000) ??
+          VEHICLE_CLASSES.find((b) => b.id === v.id)?.priceFactorBps ??
+          10000,
+        extraFeeCents:
+          v.extra_fee == null
+            ? (VEHICLE_CLASSES.find((b) => b.id === v.id)?.extraFeeCents ?? 0)
+            : cents(v.extra_fee),
+        allowsStops: v.allows_stops ?? true,
+        spanishSpeakingDriver: v.spanish_speaking_driver ?? false,
         maxPax: v.max_pax,
         luggage: v.luggage,
         badge: v.badge,
@@ -114,6 +142,31 @@ async function loadDatabaseCatalog(): Promise<CatalogData> {
         endsOn: r.ends_on,
       })),
       cashFeeBps: Number.isInteger(feeBps) && feeBps >= 0 && feeBps <= 5000 ? feeBps : CASH_FEE_BPS_DEFAULT,
+      rideFormula,
+      areaFactorBps,
     };
   }
+}
+
+/** A factor like 1.15 as basis points, or null when missing / out of range. */
+function bpsOrNull(v: unknown, min: number, max: number): number | null {
+  if (v == null || v === "") return null;
+  const b = bps(v as number | string);
+  return Number.isFinite(b) && b >= min && b <= max ? b : null;
+}
+
+/** Formula numbers from pricing_settings, falling back per field to the built-in defaults. */
+function readRideFormula(row: Record<string, unknown> | null | undefined): RideFormula {
+  const pick = (col: string, fallback: number) => {
+    const v = row?.[col];
+    if (v == null || v === "") return fallback;
+    const c = cents(v as number | string);
+    return Number.isFinite(c) && c >= 0 ? c : fallback;
+  };
+  return {
+    baseFareCents: pick("ride_base_fare", RIDE_FORMULA_DEFAULT.baseFareCents),
+    perKmCents: pick("ride_per_km", RIDE_FORMULA_DEFAULT.perKmCents),
+    perHourCents: pick("ride_per_hour", RIDE_FORMULA_DEFAULT.perHourCents),
+    minimumFareCents: pick("ride_minimum_fare", RIDE_FORMULA_DEFAULT.minimumFareCents),
+  };
 }

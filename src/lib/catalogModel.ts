@@ -4,7 +4,9 @@
  * in catalog.ts. Everything here is plain data that can be sent to the browser.
  */
 import {
+  AREA_FACTOR_BPS_DEFAULT,
   CASH_FEE_BPS_DEFAULT,
+  RIDE_FORMULA_DEFAULT,
   DAY_TOURS,
   EN_ROUTE_UPGRADE_CENTS,
   EXPEDITIONS,
@@ -13,6 +15,8 @@ import {
   SIGHTSEEING_STOPS,
   VEHICLE_CLASSES,
   type DayTour,
+  type HubId,
+  type RideFormula,
   type Expedition,
   type LodgingTier,
   type Season,
@@ -39,6 +43,10 @@ export interface CatalogData {
   seasonRanges: SeasonRange[];
   /** Cash booking fee in basis points of the ride / day-tour price (1000 = 10%). */
   cashFeeBps: number;
+  /** Ride price formula for the Standard class (docs/PRICING.md §4). */
+  rideFormula: RideFormula;
+  /** Area factor per pickup town, in basis points (10000 = 1.00×). */
+  areaFactorBps: Record<HubId, number>;
 }
 
 /** Season for a travel date: highest-priority range that contains it, else the default season. */
@@ -83,4 +91,6 @@ export const BUILT_IN_CATALOG: CatalogData = {
   seasons: SEASONS.map((s) => ({ ...s, priority: PRIORITY[s.id] ?? 0, isDefault: s.id === "green" })),
   seasonRanges: builtInSeasonRanges(2025, 2040),
   cashFeeBps: CASH_FEE_BPS_DEFAULT,
+  rideFormula: RIDE_FORMULA_DEFAULT,
+  areaFactorBps: AREA_FACTOR_BPS_DEFAULT,
 };

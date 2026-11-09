@@ -13,6 +13,11 @@
  * corridors for the "both ends" rule). catalog.ts already holds those values,
  * so a fresh run of this script writes them into the seed as well; the
  * committed 0003 file is left as it was applied.
+ *
+ * Vehicle prices: the flat base_rate was retired in 20261109000013_ride_formula.sql,
+ * which adds price_factor / extra_fee / allows_stops / spanish_speaking_driver and
+ * sets them for every class. The seed writes base_rate 0 (the column must exist
+ * and be non-negative at that point).
  */
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, writeFileSync } from "node:fs";
@@ -44,7 +49,7 @@ const lines = [
 ];
 
 cat.VEHICLE_CLASSES.forEach((v, i) => lines.push(
-  `insert into public.vehicle_classes (id, name, base_rate, max_pax, luggage, badge, only_for_hubs, sort_order) values (${q(v.id)}, ${q(v.name)}, ${money(v.baseRateCents)}, ${v.maxPax}, ${q(v.luggage)}, ${q(v.badge)}, ${arr(v.onlyForHubs)}, ${i}) on conflict (id) do nothing;`));
+  `insert into public.vehicle_classes (id, name, base_rate, max_pax, luggage, badge, only_for_hubs, sort_order) values (${q(v.id)}, ${q(v.name)}, 0, ${v.maxPax}, ${q(v.luggage)}, ${q(v.badge)}, ${arr(v.onlyForHubs)}, ${i}) on conflict (id) do nothing;`));
 lines.push("");
 cat.SIGHTSEEING_STOPS.forEach((s, i) => lines.push(
   `insert into public.sightseeing_stops (id, name, description, duration_min, price, corridors, sort_order) values (${q(s.id)}, ${q(s.name)}, ${q(s.description)}, ${s.durationMin}, ${money(s.priceCents)}, ${arr(s.corridors)}, ${i}) on conflict (id) do nothing;`));

@@ -120,6 +120,12 @@ export function priceItem(spec: ItemSpec, date: string, catalog: CatalogData): P
     if (vehicle.onlyForHubs && !vehicle.onlyForHubs.includes(spec.origin) && !vehicle.onlyForHubs.includes(spec.destination)) {
       throw new Error(`The ${vehicle.name} isn't available on this route.`);
     }
+    if (!vehicle.allowsStops && spec.stopIds.length > 0) {
+      throw new Error(`The ${vehicle.name} is a direct ride without stops. Remove the stops or choose another vehicle.`);
+    }
+    if (vehicle.spanishSpeakingDriver && spec.prefs?.language === "english") {
+      throw new Error(`The ${vehicle.name} has a Spanish-speaking driver. Choose another vehicle for an English-speaking driver.`);
+    }
     for (const id of spec.stopIds) {
       const stop = catalog.stops.find((s) => s.id === id);
       if (!stop || !stopFitsRoute(stop, spec.origin, spec.destination)) {

@@ -105,7 +105,7 @@ await db.exec(`
 `);
 
 // --- Catalog ------------------------------------------------------------------
-await expectRows("visitor reads active vehicles", "anon", "select * from public.vehicle_classes", 4);
+await expectRows("visitor reads active vehicles", "anon", "select * from public.vehicle_classes", 6);
 await expectRows("visitor reads stops", "anon", "select * from public.sightseeing_stops", 5);
 // Migration 0011: corridor lists for the "both ends" stop rule.
 await expectRows("Tárcoles/Carara corridors updated", "anon",
@@ -129,6 +129,26 @@ await expectOk("admin changes the cash fee", "admin", "update public.pricing_set
 await expectRows("visitor sees the new cash fee", "anon", "select * from public.pricing_settings where cash_fee_bps = 1200", 1);
 await expectBlocked("cash fee above 50% is refused", "admin", "update public.pricing_settings set cash_fee_bps = 6000");
 await expectOk("admin resets the cash fee", "admin", "update public.pricing_settings set cash_fee_bps = 1000");
+
+// Ride formula (migration 0013)
+await expectRows("visitor reads the ride formula", "anon", "select * from public.pricing_settings where ride_base_fare = 35 and ride_per_km = 0.70 and ride_per_hour = 12 and ride_minimum_fare = 110", 1);
+await expectBlocked("visitor cannot change the ride formula", "anon", "update public.pricing_settings set ride_per_km = 0", { affected: 0 });
+await expectBlocked("client cannot change the ride formula", "client", "update public.pricing_settings set ride_minimum_fare = 1", { affected: 0 });
+await expectOk("admin changes the ride formula", "admin", "update public.pricing_settings set ride_per_km = 0.75");
+await expectBlocked("negative per-km price is refused", "admin", "update public.pricing_settings set ride_per_km = -1");
+await expectOk("admin resets the ride formula", "admin", "update public.pricing_settings set ride_per_km = 0.70");
+await expectRows("visitor reads the 9 area factors", "anon", "select * from public.hub_pricing", 9);
+await expectRows("Osa pickups cost 15% more", "anon", "select * from public.hub_pricing where hub_id in ('Sierpe','DrakeBay') and area_factor = 1.15", 2);
+await expectBlocked("visitor cannot change an area factor", "anon", "update public.hub_pricing set area_factor = 1", { affected: 0 });
+await expectBlocked("client cannot change an area factor", "client", "update public.hub_pricing set area_factor = 1", { affected: 0 });
+await expectBlocked("client cannot add a town", "client", "insert into public.hub_pricing (hub_id) values ('SJO')");
+await expectBlocked("unknown town is refused", "admin", "insert into public.hub_pricing (hub_id) values ('Narnia')");
+await expectOk("admin changes an area factor", "admin", "update public.hub_pricing set area_factor = 1.05 where hub_id = 'LIR'");
+await expectBlocked("area factor above 2 is refused", "admin", "update public.hub_pricing set area_factor = 3 where hub_id = 'LIR'");
+await expectRows("Economy and Standard sedans exist", "anon", "select * from public.vehicle_classes where id in ('economy','sedan') and base_rate is null", 2);
+await expectRows("Economy is a direct ride with a Spanish-speaking driver", "anon", "select * from public.vehicle_classes where id = 'economy' and price_factor = 0.90 and not allows_stops and spanish_speaking_driver", 1);
+await expectBlocked("client cannot change a vehicle factor", "client", "update public.vehicle_classes set price_factor = 0.5", { affected: 0 });
+await expectBlocked("vehicle factor above 3 is refused", "admin", "update public.vehicle_classes set price_factor = 5 where id = 'van'");
 
 // --- Seasons --------------------------------------------------------------------
 for (const [d, s] of [["2026-10-20", "green"], ["2026-12-10", "high"], ["2026-12-25", "peak"],

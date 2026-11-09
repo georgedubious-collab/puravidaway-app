@@ -7,7 +7,7 @@ import { DriverStandards } from "@/components/trust/DriverStandards";
 import { Reviews } from "@/components/trust/Reviews";
 import { AIRPORT_HUBS, HUBS, routeMinutes, stopFitsRoute } from "@/lib/catalog";
 import { getCatalog } from "@/lib/catalogSource";
-import { applyMultiplier, formatDuration, formatUSD, perPersonCents, perPersonShare } from "@/lib/pricing";
+import { applyMultiplier, formatDuration, formatUSD, perPersonCents, perPersonShare, rideCents } from "@/lib/pricing";
 import { builderHref, fillFaq, relatedHref, ROUTE_PAGES, routePage } from "@/lib/routePages";
 import { guarantees, ridePromises } from "@/lib/trust";
 
@@ -67,9 +67,10 @@ export default async function RouteLandingPage({
   const catalog = await getCatalog();
   const fitting = catalog.vehicles.filter((v) => touches(v.onlyForHubs));
   const vehicles = fitting.length ? fitting : catalog.vehicles;
-  const cheapest = vehicles.reduce((a, b) => (b.baseRateCents < a.baseRateCents ? b : a));
   const defaultSeason = catalog.seasons.find((x) => x.isDefault);
-  const carCents = (v: (typeof vehicles)[number]) => applyMultiplier(v.baseRateCents, defaultSeason?.multiplierBps ?? 10000);
+  const carCents = (v: (typeof vehicles)[number]) =>
+    applyMultiplier(rideCents(page.origin, page.destination, v, catalog), defaultSeason?.multiplierBps ?? 10000);
+  const cheapest = vehicles.reduce((a, b) => (carCents(b) < carCents(a) ? b : a));
   const fromCents = carCents(cheapest);
   // Daytrip-style "from $X per person": the class with the lowest price per seat, shared by a full car.
   const perPerson = vehicles
@@ -128,8 +129,8 @@ export default async function RouteLandingPage({
           </dl>
           <p className="mt-3 text-sm text-slate-500">
             {defaultSeason?.name ?? "Green season"} prices. The car price is for the whole vehicle: {cheapest.name}, up to{" "}
-            {cheapest.maxPax} travelers. &ldquo;Per person&rdquo; is the {perPerson.v.name} price shared by a full car of{" "}
-            {perPerson.v.maxPax}.
+            {cheapest.maxPax} travelers. &ldquo;Per person&rdquo; is the {perPerson.v.name} price shared by{" "}
+            {perPersonShare(perPerson.v.maxPax)} travellers.
             {highPct > 0 ? ` December to April adds ${highPct}%` : ""}
             {peakPct > 0 ? `; Christmas–New Year and Easter week add ${peakPct}%.` : highPct > 0 ? "." : ""}
           </p>
