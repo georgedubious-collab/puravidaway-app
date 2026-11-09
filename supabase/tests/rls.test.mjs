@@ -541,6 +541,16 @@ await expectRows("driver starts the trip", "driver", `select public.driver_set_t
 await expectBlocked("driver cannot start it twice", "driver", `select public.driver_set_trip_status(${J3}, 'in_progress')`);
 await expectBlocked("driver cannot set other statuses", "driver", `select public.driver_set_trip_status(${J3}, 'cancelled')`);
 await expectRows("driver completes the trip", "driver", `select public.driver_set_trip_status(${J3}, 'completed') as ref`, 1);
+// Migration 0026: push tokens for the mobile apps.
+await expectOk("driver registers their phone", "driver", "select public.register_device('ExponentPushToken[aaaaaaaaaaaaaaaaaaaaaa]', 'android', 'driver')");
+await expectRows("driver sees their own token", "driver", "select * from public.device_tokens", 1);
+await expectRows("nobody else sees it", "client", "select * from public.device_tokens", 0);
+await expectRows("visitors see no tokens", "anon", "select * from public.device_tokens", 0);
+await expectBlocked("cannot register a token for someone else", "client",
+  `insert into public.device_tokens (token, user_id, platform, app) values ('ExponentPushToken[bbbbbbbbbbbbbbbbbbbbbb]', '${U.driver}', 'ios', 'driver')`);
+await expectBlocked("unknown platform refused", "driver", "select public.register_device('ExponentPushToken[cccccccccccccccccccccc]', 'windows', 'driver')");
+await expectOk("the same phone signs in as another user", "client", "select public.register_device('ExponentPushToken[aaaaaaaaaaaaaaaaaaaaaa]', 'android', 'client')");
+await expectRows("the token moved to the new user", "driver", "select * from public.device_tokens", 0);
 // Migration 0025: settlements.
 await expectOk("server makes the completed trip a cash trip", "server", `update public.bookings set payment_mode = 'cash_driver', cash_fee = 20 where id = ${J3}`);
 await expectRows("driver sees how much cash to collect (price + fee)", "driver", `select 1 from public.my_trips() where id = ${J3} and cash_to_collect = 220`, 1);

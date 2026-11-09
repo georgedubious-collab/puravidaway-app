@@ -54,6 +54,8 @@ Either way works; the first needs no installs.
     (`driver_set_trip_status()`, `bookings.started_at` / `completed_at`)
 25. `20261109000025_driver_settlements.sql` — weekly settlements: `bookings.driver_settled_at`,
     `my_trips()` returns `cash_to_collect` for cash trips
+26. `20261109000026_device_tokens.sql` — push tokens for the mobile apps (`device_tokens`,
+    `register_device()`)
 
 Later files are added as the app grows. Since Option C is set up, they run by themselves
 after a merge; each pull request still lists them.
