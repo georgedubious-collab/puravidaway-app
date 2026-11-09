@@ -119,6 +119,17 @@ await expectOk("admin hides a stop", "admin", "update public.sightseeing_stops s
 await expectRows("visitor no longer sees hidden stop", "anon", "select * from public.sightseeing_stops", 4);
 await expectRows("admin still sees hidden stop", "admin", "select * from public.sightseeing_stops", 5);
 
+// --- Pricing settings (migration 0012) -------------------------------------------
+await expectRows("visitor reads the cash fee (10%)", "anon", "select * from public.pricing_settings where cash_fee_bps = 1000", 1);
+await expectBlocked("visitor cannot change the cash fee", "anon", "update public.pricing_settings set cash_fee_bps = 0", { affected: 0 });
+await expectBlocked("client cannot change the cash fee", "client", "update public.pricing_settings set cash_fee_bps = 0", { affected: 0 });
+await expectBlocked("visitor cannot add a settings row", "anon", "insert into public.pricing_settings (id, cash_fee_bps) values (false, 0)");
+await expectBlocked("only one settings row can exist", "admin", "insert into public.pricing_settings (id, cash_fee_bps) values (false, 0)");
+await expectOk("admin changes the cash fee", "admin", "update public.pricing_settings set cash_fee_bps = 1200");
+await expectRows("visitor sees the new cash fee", "anon", "select * from public.pricing_settings where cash_fee_bps = 1200", 1);
+await expectBlocked("cash fee above 50% is refused", "admin", "update public.pricing_settings set cash_fee_bps = 6000");
+await expectOk("admin resets the cash fee", "admin", "update public.pricing_settings set cash_fee_bps = 1000");
+
 // --- Seasons --------------------------------------------------------------------
 for (const [d, s] of [["2026-10-20", "green"], ["2026-12-10", "high"], ["2026-12-25", "peak"],
                       ["2027-02-10", "high"], ["2027-03-25", "peak"], ["2027-06-01", "green"]]) {
@@ -273,6 +284,17 @@ await expectOk("server saves a guest trip request", "server", `
     ('10000000-0000-0000-0000-000000000009', '40000000-0000-0000-0000-000000000001', 'transfer', 230, 'Flight AA123')`);
 await expectRows("visitor cannot see guest requests", "anon", "select * from public.bookings where trip_id is not null", 0);
 await expectRows("other clients cannot see guest requests", "client2", "select * from public.bookings where trip_id is not null", 0);
+// Migration 0012: payment options (online in full, or cash to the driver + cash fee).
+await expectOk("server saves a cash-to-driver booking with its fee", "server",
+  `update public.bookings set payment_mode = 'cash_driver', cash_fee = 23 where id = '10000000-0000-0000-0000-000000000009'`);
+await expectOk("old deposit_20 rows stay valid", "server",
+  `update public.bookings set payment_mode = 'deposit_20' where id = '10000000-0000-0000-0000-000000000009'`);
+await expectBlocked("unknown payment mode is refused", "server",
+  `update public.bookings set payment_mode = 'cash' where id = '10000000-0000-0000-0000-000000000009'`);
+await expectBlocked("negative cash fee is refused", "server",
+  `update public.bookings set cash_fee = -1 where id = '10000000-0000-0000-0000-000000000009'`);
+await expectBlocked("visitor cannot change the cash fee on a booking", "anon",
+  `update public.bookings set cash_fee = 0 where id = '10000000-0000-0000-0000-000000000009'`, { affected: 0 });
 await expectBlocked("client cannot create a request directly", "client", `
   insert into public.bookings (service_type, total_price, client_notes) values ('transfer', 1, 'x')`);
 await expectBlocked("admin cannot assign another driver's vehicle", "admin", `

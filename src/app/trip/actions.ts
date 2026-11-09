@@ -5,14 +5,19 @@ import { headers } from "next/headers";
 import { after } from "next/server";
 import { getCatalog } from "@/lib/catalogSource";
 import { HUBS } from "@/lib/catalog";
+import { cashAllowed, itemPaymentMode, parsePaymentMode } from "@/lib/cart";
 import { costaRicaTimestamp, formatTime12h, todayInCostaRica } from "@/lib/dates";
 import { ADMIN_EMAIL, SITE_URL, sendEmail } from "@/lib/email";
+import { cashFeeCents, formatBpsPercent } from "@/lib/pricing";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { MAX_TRIP_ITEMS, itemTime, parseSpec, priceItem, type ItemSpec } from "@/lib/tripRequest";
 
 export interface TripRequestInput {
   items: { id: string; date: string; totalCents: number; spec: unknown }[];
-  mode: "full_100" | "deposit_20";
+  /** "deposit_20" may still arrive from a page opened before it was retired; it is treated as full_100. */
+  mode: "full_100" | "cash_driver" | "deposit_20";
+  /** The cash booking fee the traveller was shown (basis points), checked against the live value. */
+  cashFeeBps?: number;
   name: string;
   email: string;
   phone: string;
@@ -47,7 +52,10 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
     if (phone.replace(/\D/g, "").length < 7 || phone.length > 30) {
       return { ok: false, error: "Please add a mobile number with country code, e.g. +1 555 123 4567." };
     }
-    if (input.mode !== "full_100" && input.mode !== "deposit_20") return { ok: false, error: "Pick how you'd like to pay." };
+    if (input.mode !== "full_100" && input.mode !== "cash_driver" && input.mode !== "deposit_20") {
+      return { ok: false, error: "Pick how you'd like to pay." };
+    }
+    const mode = parsePaymentMode(input.mode);
     const items = Array.isArray(input.items) ? input.items : [];
     if (items.length === 0) return { ok: false, error: "Your trip is empty." };
     if (items.length > MAX_TRIP_ITEMS) return { ok: false, error: `Up to ${MAX_TRIP_ITEMS} items per request, please.` };
@@ -77,6 +85,17 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
     if (Object.keys(repriced).length) {
       return { ok: false, error: "Some prices have changed since you added them. Please check the new totals and send again.", repriced };
     }
+    // Cash booking fee: always the live value from the database, never the browser's.
+    const feeBps = catalog.cashFeeBps;
+    const paysCash = mode === "cash_driver" && priced.some((p) => cashAllowed(p.spec.kind));
+    if (paysCash && input.cashFeeBps !== feeBps) {
+      return {
+        ok: false,
+        error: `The cash booking fee is now ${formatBpsPercent(feeBps)}. Please reload the page to see your new total, then send again.`,
+      };
+    }
+    const feeFor = (spec: ItemSpec, totalCents: number) =>
+      itemPaymentMode(spec.kind, mode) === "cash_driver" ? cashFeeCents(totalCents, feeBps) : 0;
 
     // Abuse limit (every request emails the address given): 5 an hour per network, 3 per email.
     const h = await headers();
@@ -119,7 +138,8 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
       pricing_mode: spec.kind === "transfer" && spec.pricing === "bid" ? "bid" : "fixed",
       total_price: totalCents / 100,
       currency: "USD",
-      payment_mode: input.mode,
+      payment_mode: itemPaymentMode(spec.kind, mode),
+      cash_fee: feeFor(spec, totalCents) / 100,
       status: "pending_payment",
       client_notes:
         [notes, spec.kind === "transfer" && spec.pricing === "bid" ? `Offer; fixed price was $${(referenceCents / 100).toFixed(2)}` : ""]
@@ -133,7 +153,21 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
       return { ok: false, error: "We couldn't save your request. Please try again or send it on WhatsApp." };
     }
     const refs = (data ?? []).map((r) => r.booking_ref as string);
-    const total = priced.reduce((n, p) => n + p.totalCents, 0) / 100;
+    const feeTotalCents = priced.reduce((n, p) => n + feeFor(p.spec, p.totalCents), 0);
+    const tripCents = priced.reduce((n, p) => n + p.totalCents, 0) + feeTotalCents;
+    const total = tripCents / 100;
+    const cashCents = priced.reduce(
+      (n, p) => n + (itemPaymentMode(p.spec.kind, mode) === "cash_driver" ? p.totalCents + feeFor(p.spec, p.totalCents) : 0),
+      0,
+    );
+    const onlineCents = tripCents - cashCents;
+    const money = (c: number) => `$${(c / 100).toFixed(2)}`;
+    const paymentLine =
+      cashCents > 0
+        ? `Payment: cash to your driver, ${money(cashCents)} (includes a ${formatBpsPercent(feeBps)} cash booking fee of ${money(feeTotalCents)})${
+            onlineCents > 0 ? `; ${money(onlineCents)} online in full for the expedition, by secure link once confirmed` : ""
+          }.`
+        : `Payment: online in full, ${money(onlineCents)}. We send you a secure payment link once your trip is confirmed.`;
     const tripUrl = `${SITE_URL}/trip/${tripToken}`;
     // One line per item, e.g. "PVW-10492 · 2026-11-22, 9:00 AM pickup · Ride: SJO Airport → Manuel Antonio".
     const itemLines = priced.map(({ spec, date }, i) => {
@@ -155,6 +189,7 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
           `Thanks for your request! Our team is checking availability and will confirm your pickup times. Nothing has been charged.`,
           `Your booking reference${refs.length > 1 ? "s" : ""}: ${refs.join(", ")}.`,
           ...itemLines,
+          paymentLine,
           "Times are Costa Rica time. Your trip page has your bookings and a chat with our team. Your driver's profile and car photos appear there once confirmed.",
         ],
         button: { label: "Open your trip page", url: tripUrl },
@@ -164,7 +199,10 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
           to: ADMIN_EMAIL,
           subject: `New trip request ${refs.join(", ")} · $${total.toFixed(2)}`,
           lines: [
-            `${name} (${email}, ${phone}) sent ${refs.length} item${refs.length > 1 ? "s" : ""} worth $${total.toFixed(2)}, ${input.mode === "deposit_20" ? "20% deposit" : "paying in full"}.`,
+            `${name} (${email}, ${phone}) sent ${refs.length} item${refs.length > 1 ? "s" : ""} worth $${total.toFixed(2)}.`,
+            cashCents > 0
+              ? `Pays cash to the driver: ${money(cashCents)} (cash fee ${money(feeTotalCents)})${onlineCents > 0 ? `; online in full: ${money(onlineCents)}` : ""}.`
+              : `Pays online in full: ${money(onlineCents)} (send the payment link once confirmed).`,
             ...itemLines,
             notes ? `Notes: ${notes}` : "",
           ].filter(Boolean),

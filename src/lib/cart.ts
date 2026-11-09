@@ -5,7 +5,7 @@
  */
 import { WHATSAPP_NUMBER } from "./catalog";
 import { formatTime12h } from "./dates";
-import { depositCents, formatUSD } from "./pricing";
+import { cashFeeCents, formatBpsPercent, formatUSD } from "./pricing";
 import { parseSpec, type ItemSpec } from "./tripRequest";
 
 export interface CartItem {
@@ -22,7 +22,59 @@ export interface CartItem {
   spec?: ItemSpec;
 }
 
-export type PaymentMode = "full_100" | "deposit_20";
+/**
+ * How the traveller pays (Jorge, 2026-11-08; PROJECT.md §6.4):
+ * - full_100: pay online in full; we send a secure payment link once the trip is confirmed.
+ * - cash_driver: pay the driver in cash, plus a cash booking fee (catalog.cashFeeBps).
+ *   Rides and 1-day tours only; expeditions are always paid online.
+ */
+export type PaymentMode = "full_100" | "cash_driver";
+
+/** Read a stored / submitted payment choice. The retired 20% deposit maps to paying in full. */
+export function parsePaymentMode(v: unknown): PaymentMode {
+  return v === "cash_driver" ? "cash_driver" : "full_100";
+}
+
+/** Rides and 1-day tours can be paid to the driver in cash; expeditions can't (permits, boats, lodges are prepaid). */
+export function cashAllowed(kind: CartItem["kind"]): boolean {
+  return kind === "transfer" || kind === "day_tour";
+}
+
+/** The payment mode that actually applies to one item. */
+export function itemPaymentMode(kind: CartItem["kind"], mode: PaymentMode): PaymentMode {
+  return mode === "cash_driver" && cashAllowed(kind) ? "cash_driver" : "full_100";
+}
+
+/** Cash booking fee on one item (0 unless it's paid in cash). */
+export function itemCashFeeCents(item: Pick<CartItem, "kind" | "totalCents">, mode: PaymentMode, feeBps: number): number {
+  return itemPaymentMode(item.kind, mode) === "cash_driver" ? cashFeeCents(item.totalCents, feeBps) : 0;
+}
+
+export interface CartTotals {
+  /** Sum of item prices, before any cash fee. */
+  itemsCents: number;
+  cashFeeCents: number;
+  /** itemsCents + cashFeeCents */
+  totalCents: number;
+  /** Paid online (payment link after confirmation). */
+  onlineCents: number;
+  /** Paid to the driver in cash, fee included. */
+  cashCents: number;
+}
+
+export function cartTotals(items: CartItem[], mode: PaymentMode, feeBps: number): CartTotals {
+  let onlineCents = 0;
+  let cashCents = 0;
+  let fee = 0;
+  for (const i of items) {
+    const f = itemCashFeeCents(i, mode, feeBps);
+    fee += f;
+    if (itemPaymentMode(i.kind, mode) === "cash_driver") cashCents += i.totalCents + f;
+    else onlineCents += i.totalCents;
+  }
+  const itemsCents = cartTotalCents(items);
+  return { itemsCents, cashFeeCents: fee, totalCents: itemsCents + fee, onlineCents, cashCents };
+}
 
 const KINDS = new Set(["transfer", "day_tour", "expedition"]);
 
@@ -71,10 +123,6 @@ export function cartTotalCents(items: CartItem[]): number {
   return items.reduce((sum, i) => sum + i.totalCents, 0);
 }
 
-export function amountDueNowCents(totalCents: number, mode: PaymentMode): number {
-  return mode === "deposit_20" ? depositCents(totalCents) : totalCents;
-}
-
 export function newItemId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 }
@@ -87,8 +135,10 @@ export function whatsAppLink(message: string): string {
 export function cartWhatsAppMessage(
   items: CartItem[],
   mode: PaymentMode,
+  feeBps: number,
   clientName?: string,
 ): string {
+  const t = cartTotals(items, mode, feeBps);
   const lines = [
     `Hi PuraVidaWay! I'd like to book this trip${clientName ? ` (${clientName})` : ""}:`,
     "",
@@ -96,13 +146,18 @@ export function cartWhatsAppMessage(
       (i, n) =>
         `${n + 1}. ${i.title}\n   ${i.detail}\n   Date: ${i.date || "TBD"}${
           i.spec?.kind === "transfer" ? `, pickup ${formatTime12h(i.spec.pickupTime)} (Costa Rica time)` : ""
-        } — ${formatUSD(i.totalCents)}`,
+        } — ${formatUSD(i.totalCents)}${
+          mode === "cash_driver" ? (cashAllowed(i.kind) ? " (cash to driver)" : " (online in full)") : ""
+        }`,
     ),
     "",
-    `Total: ${formatUSD(cartTotalCents(items))}`,
-    mode === "deposit_20"
-      ? `I'd like to pay the 20% deposit now (${formatUSD(amountDueNowCents(cartTotalCents(items), mode))}).`
-      : "I'd like to pay in full.",
+    ...(t.cashFeeCents > 0 ? [`Cash booking fee (${formatBpsPercent(feeBps)}): +${formatUSD(t.cashFeeCents)}`] : []),
+    `Total: ${formatUSD(t.totalCents)}`,
+    t.cashCents > 0
+      ? `I'd like to pay the driver in cash (${formatUSD(t.cashCents)})${
+          t.onlineCents > 0 ? ` and pay the expedition online in full (${formatUSD(t.onlineCents)})` : ""
+        }.`
+      : "I'd like to pay online in full once the trip is confirmed.",
   ];
   return lines.join("\n");
 }

@@ -4,6 +4,8 @@ import {
   BOOKING_STATUSES,
   BOOKING_STATUS_LABEL,
   SERVICE_LABEL,
+  bookingDue,
+  paymentModeLabel,
   usd,
   type BookingRow,
   type BookingStatus,
@@ -58,7 +60,8 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
       <ul className="space-y-3">
         {[...trips.values()].map((items) => {
           const first = items[0];
-          const total = items.reduce((n, b) => n + Number(b.total_price), 0);
+          const total = items.reduce((n, b) => n + bookingDue(b), 0);
+          const modes = [...new Set(items.map((b) => paymentModeLabel(b.payment_mode)))];
           return (
             <li key={first.trip_id ?? first.id} className="rounded-xl border border-slate-200 bg-white p-4">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -69,7 +72,7 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
                   </span>
                 </p>
                 <p className="text-sm font-bold text-slate-700">
-                  {usd(total)} · {first.payment_mode === "deposit_20" ? "20% deposit" : "pays in full"}
+                  {usd(total)} · {modes.join(" + ")}
                 </p>
               </div>
               <ul className="mt-2 divide-y divide-slate-100">
@@ -83,7 +86,8 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
                         {b.pricing_mode === "bid" && <span className="ml-1 rounded bg-amber-100 px-1.5 text-xs font-bold">offer</span>}
                       </span>
                       <span className="text-sm font-semibold">
-                        {usd(b.total_price)} ·{" "}
+                        {usd(bookingDue(b))}
+                        {Number(b.cash_fee ?? 0) > 0 ? " incl. cash fee" : ""} ·{" "}
                         <span className={b.assigned_driver_id ? "text-emerald-700" : "text-amber-700"}>
                           {b.assigned_driver_id ? "driver assigned" : "no driver"}
                         </span>{" "}

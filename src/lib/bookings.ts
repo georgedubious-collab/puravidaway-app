@@ -36,7 +36,10 @@ export interface BookingRow {
   total_price: number;
   currency: string;
   amount_paid: number;
-  payment_mode: "full_100" | "deposit_20" | null;
+  /** deposit_20: retired 2026-11-08, only on older requests. */
+  payment_mode: "full_100" | "cash_driver" | "deposit_20" | null;
+  /** Cash booking fee (USD) on cash_driver bookings; 0 otherwise. Missing before migration 0012. */
+  cash_fee?: number | string | null;
   assigned_driver_id: string | null;
   assigned_vehicle_id: string | null;
   status: BookingStatus;
@@ -48,6 +51,18 @@ export interface BookingRow {
 
 export function usd(n: number | string): string {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(Number(n));
+}
+
+/** What the traveller owes on one booking: price + cash booking fee. */
+export function bookingDue(b: Pick<BookingRow, "total_price" | "cash_fee">): number {
+  return Math.round((Number(b.total_price) + Number(b.cash_fee ?? 0)) * 100) / 100;
+}
+
+/** Short payment label for the team, e.g. "Cash to driver" or "Online in full". */
+export function paymentModeLabel(mode: BookingRow["payment_mode"]): string {
+  if (mode === "cash_driver") return "Cash to driver";
+  if (mode === "deposit_20") return "20% deposit (old request)";
+  return "Online in full";
 }
 
 /** Traveller contact details (server/admin only, never readable by drivers). */

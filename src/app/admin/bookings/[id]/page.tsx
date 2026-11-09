@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { ActionForm } from "@/components/ActionForm";
 import { ChatBox } from "@/components/ChatBox";
 import { requireRole } from "@/lib/auth";
-import { BOOKING_STATUSES, BOOKING_STATUS_LABEL, SERVICE_LABEL, usd, type BookingRow, type TripContact } from "@/lib/bookings";
+import { BOOKING_STATUSES, BOOKING_STATUS_LABEL, SERVICE_LABEL, bookingDue, usd, type BookingRow, type TripContact } from "@/lib/bookings";
 import { getCatalog } from "@/lib/catalogSource";
 import { formatScheduledAt, todayInCostaRica } from "@/lib/dates";
 import { canTakeTrips, type DriverRecord, type VehicleRecord } from "@/lib/driverKyc";
@@ -67,7 +67,14 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
   const stops = (b.sightseeing_stops ?? [])
     .map((s) => (s.id === "en_route_upgrade" ? "Smart En-Route Transfer" : (catalog.stops.find((x) => x.id === s.id)?.name ?? s.id)))
     .join(", ");
-  const due = b.payment_mode === "deposit_20" ? Math.round(Number(b.total_price) * 20) / 100 : Number(b.total_price);
+  const cashFee = Number(b.cash_fee ?? 0);
+  const due = bookingDue(b);
+  const paymentText =
+    b.payment_mode === "cash_driver"
+      ? `Cash to driver: ${usd(due)} (${usd(b.total_price)} + ${usd(cashFee)} cash booking fee)`
+      : b.payment_mode === "deposit_20"
+        ? `20% deposit (old request): ${usd(Math.round(Number(b.total_price) * 20) / 100)} of ${usd(b.total_price)}`
+        : `Online in full: ${usd(due)} (send the payment link once confirmed)`;
   const guest: TripContact = b.trips ?? { guest_name: null, guest_email: null, guest_phone: null };
   const phoneDigits = guest.guest_phone?.replace(/\D/g, "") ?? "";
   const field = "mt-1 block w-full min-h-10 rounded-lg border border-slate-300 px-2 font-normal";
@@ -133,7 +140,7 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
             {prefsSummary(b.preferences).length > 0 && <Item k="Asked for" v={prefsSummary(b.preferences).join(", ")} />}
             {b.driver_notes && <Item k="Message for driver" v={b.driver_notes} />}
             <Item k="Price" v={`${usd(b.total_price)}${b.pricing_mode === "bid" ? " (client's offer)" : ""}`} />
-            <Item k="Payment" v={b.payment_mode === "deposit_20" ? `20% deposit: ${usd(due)}` : `In full: ${usd(due)}`} />
+            <Item k="Payment" v={paymentText} />
             <Item k="Received" v={usd(b.amount_paid)} />
           </dl>
         </section>

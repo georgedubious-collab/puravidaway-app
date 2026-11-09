@@ -1,6 +1,6 @@
 import "server-only";
 import { unstable_cache } from "next/cache";
-import type { HubId, Region } from "./catalog";
+import { CASH_FEE_BPS_DEFAULT, type HubId, type Region } from "./catalog";
 import { BUILT_IN_CATALOG, type CatalogData } from "./catalogModel";
 import { createSupabasePublicClient } from "./supabase/server";
 
@@ -29,7 +29,7 @@ export async function getCatalog(): Promise<CatalogData> {
 }
 
 /** Only successful database reads are cached (a thrown error is never stored). */
-const cachedDatabaseCatalog = unstable_cache(loadDatabaseCatalog, ["catalog-v2"], {
+const cachedDatabaseCatalog = unstable_cache(loadDatabaseCatalog, ["catalog-v3"], {
   tags: [CATALOG_TAG],
   revalidate: 3600,
 });
@@ -37,7 +37,7 @@ const cachedDatabaseCatalog = unstable_cache(loadDatabaseCatalog, ["catalog-v2"]
 async function loadDatabaseCatalog(): Promise<CatalogData> {
   const db = createSupabasePublicClient()!;
   {
-    const [vehicles, stops, tours, exps, tiers, seasons, ranges] = await Promise.all([
+    const [vehicles, stops, tours, exps, tiers, seasons, ranges, settings] = await Promise.all([
       db.from("vehicle_classes").select("*").eq("active", true).order("sort_order"),
       db.from("sightseeing_stops").select("*").eq("active", true).order("sort_order"),
       db.from("day_tours").select("*").eq("active", true).order("sort_order"),
@@ -45,10 +45,14 @@ async function loadDatabaseCatalog(): Promise<CatalogData> {
       db.from("lodging_tiers").select("*").eq("active", true).order("sort_order"),
       db.from("seasons").select("*"),
       db.from("season_ranges").select("*"),
+      db.from("pricing_settings").select("cash_fee_bps").maybeSingle(),
     ]);
     const failed = [vehicles, stops, tours, exps, tiers, seasons, ranges].find((r) => r.error);
     if (failed?.error) throw failed.error;
     if (!vehicles.data?.length || !seasons.data?.length) throw new Error("catalog tables are empty");
+    // pricing_settings arrives with migration 0012; until it is run, use the built-in fee.
+    if (settings.error) console.warn("[PuraVidaWay] pricing_settings unavailable, using the built-in cash fee:", settings.error.message);
+    const feeBps = Number(settings.data?.cash_fee_bps);
 
     return {
       source: "database",
@@ -108,6 +112,7 @@ async function loadDatabaseCatalog(): Promise<CatalogData> {
         startsOn: r.starts_on,
         endsOn: r.ends_on,
       })),
+      cashFeeBps: Number.isInteger(feeBps) && feeBps >= 0 && feeBps <= 5000 ? feeBps : CASH_FEE_BPS_DEFAULT,
     };
   }
 }

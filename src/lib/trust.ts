@@ -8,6 +8,7 @@
  *   honest default until real reviews exist.
  * - Driver checks must describe what is actually done for EVERY partner driver.
  */
+import { formatBpsPercent } from "./pricing";
 
 export interface Review {
   quote: string;
@@ -53,31 +54,51 @@ export const DRIVER_CHECKS: string[] = [
 ];
 
 export const ICT_BADGE_NOTE =
-  "Ask us which drivers hold a Costa Rica Tourism Institute (ICT) tourist-transport permit; driver profiles with an ICT badge are coming soon.";
+  "Drivers who hold a Costa Rica Tourism Institute (ICT) tourist-transport permit show an ICT badge on their profile, on your trip page once your driver is confirmed.";
 
 /** Marketplace wording modelled on GetTransfer. Have a Costa Rican lawyer review before launch. */
 export const CARRIER_NOTE =
   "Transportation is provided by independent partner drivers and transport companies, who are responsible for holding the licenses and permits required by applicable law.";
 
+export interface Guarantee {
+  title: string;
+  text: string;
+  /** Optional "read more" link. */
+  href?: string;
+}
+
 /**
- * Promises shown next to the pay button. Cancellation terms are deliberately
- * missing: that policy is still an open decision (docs/PROJECT.md §9 #7).
+ * Promises shown next to the send button and on route pages. Each must be true
+ * today (docs/PROJECT.md §10):
+ * - Cancellation (decided 2026-11-08): free up to 24 h before pickup for rides
+ *   and day tours; full policy at /cancellation.
+ * - Payment (decided 2026-11-08): online in full (link sent after the team
+ *   confirms) or cash to the driver on rides and day tours, plus the cash
+ *   booking fee from the database (pricing_settings, edited at /admin/pricing).
+ *   Online payment isn't live yet, so never "pay now".
  */
-export const GUARANTEES: { title: string; text: string }[] = [
-  {
-    title: "Price locked when you book",
-    text: "No surge, no fuel surcharge, nothing extra at the hotel door.",
-  },
-  {
-    title: "Your driver waits with your bags",
-    text: "Luggage stays locked in the vehicle while you enjoy each stop.",
-  },
-  {
-    title: "Pay 20% now",
-    text: "Hold your drivers and permits with a deposit, pay the rest before you travel.",
-  },
-  {
-    title: "A real person on WhatsApp",
-    text: "Our team in Costa Rica answers, not a call center.",
-  },
-];
+export function guarantees(cashFeeBps: number): Guarantee[] {
+  return [
+    {
+      title: "Price confirmed before you pay",
+      text: "No surge, no fuel surcharge, nothing extra at the hotel door.",
+    },
+    {
+      title: "Free cancellation up to 24 h before pickup",
+      text: "On rides and day tours.",
+      href: "/cancellation",
+    },
+    {
+      title: "Your driver waits with your bags",
+      text: "Luggage stays locked in the vehicle while you enjoy each stop.",
+    },
+    {
+      title: "Pay online or in cash",
+      text: `Pay online in full (we send a secure link once your trip is confirmed), or pay your driver in cash on rides and day tours with a ${formatBpsPercent(cashFeeBps)} cash booking fee.`,
+    },
+    {
+      title: "A real person on WhatsApp",
+      text: "Our team in Costa Rica answers, not a call center.",
+    },
+  ];
+}

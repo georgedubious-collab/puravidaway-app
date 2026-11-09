@@ -4,6 +4,7 @@
  * in catalog.ts. Everything here is plain data that can be sent to the browser.
  */
 import {
+  CASH_FEE_BPS_DEFAULT,
   DAY_TOURS,
   EN_ROUTE_UPGRADE_CENTS,
   EXPEDITIONS,
@@ -36,6 +37,8 @@ export interface CatalogData {
   lodgingTiers: LodgingTier[];
   seasons: (Season & { priority: number; isDefault: boolean })[];
   seasonRanges: SeasonRange[];
+  /** Cash booking fee in basis points of the ride / day-tour price (1000 = 10%). */
+  cashFeeBps: number;
 }
 
 /** Season for a travel date: highest-priority range that contains it, else the default season. */
@@ -79,4 +82,5 @@ export const BUILT_IN_CATALOG: CatalogData = {
   lodgingTiers: LODGING_TIERS,
   seasons: SEASONS.map((s) => ({ ...s, priority: PRIORITY[s.id] ?? 0, isDefault: s.id === "green" })),
   seasonRanges: builtInSeasonRanges(2025, 2040),
+  cashFeeBps: CASH_FEE_BPS_DEFAULT,
 };

@@ -2,11 +2,13 @@
 
 import { X } from "lucide-react";
 import { useEffect } from "react";
+import { useCatalog } from "./CatalogContext";
 import { TripSummary, type TripState } from "./TripSummary";
 import { TrustPanel } from "./trust/TrustPanel";
 
 /** Phone and tablet version of the trip sidebar. */
 export function CartDrawer({ open, trip, onClose }: { open: boolean; trip: TripState; onClose: () => void }) {
+  const { cashFeeBps } = useCatalog();
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -45,7 +47,7 @@ export function CartDrawer({ open, trip, onClose }: { open: boolean; trip: TripS
         </div>
         <div className="p-4 flex-1 overflow-y-auto space-y-6">
           <TripSummary trip={trip} />
-          <TrustPanel />
+          <TrustPanel cashFeeBps={cashFeeBps} />
         </div>
       </aside>
     </>

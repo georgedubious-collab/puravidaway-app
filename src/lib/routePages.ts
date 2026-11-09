@@ -4,6 +4,7 @@
  * Prices, drive times and stops come from the catalog so they never drift.
  */
 import type { HubId } from "./catalog";
+import { formatBpsPercent } from "./pricing";
 
 export interface RoutePage {
   slug: string;
@@ -50,7 +51,7 @@ export const ROUTE_PAGES: RoutePage[] = [
       },
       {
         q: "How do we pay?",
-        a: "Pay 20% now to hold your ride and the rest before you travel, or pay in full. We confirm everything with you on WhatsApp.",
+        a: "Two ways. Pay online in full: once our team confirms your ride, we send you a secure payment link. Or pay your driver in cash on the day, plus a {cashFee} cash booking fee shown in your trip total. Multi-day expeditions are paid online in full, because park permits, boats and lodges are booked in advance.",
       },
     ],
     related: [
@@ -370,6 +371,11 @@ export const ROUTE_PAGES: RoutePage[] = [
     ],
   },
 ];
+
+/** FAQ answers can say {cashFee}; it is filled in from the live catalog so the number never drifts. */
+export function fillFaq(text: string, cashFeeBps: number): string {
+  return text.replaceAll("{cashFee}", formatBpsPercent(cashFeeBps));
+}
 
 export function routePage(slug: string): RoutePage | undefined {
   return ROUTE_PAGES.find((p) => p.slug === slug);

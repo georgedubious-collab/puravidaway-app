@@ -62,7 +62,8 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
   **built-in fallback**: the live catalog comes from Supabase via `getCatalog()`
   (`src/lib/catalogSource.ts`) and is edited at `/admin/pricing`.
 - `src/lib/pricing.ts` — the §6 pricing engine (season multipliers in basis points, cents math).
-- `src/lib/cart.ts` — Trip Cart model, payment-option maths, WhatsApp deep-link builder.
+- `src/lib/cart.ts` — Trip Cart model, payment options (online in full / cash to the driver +
+  cash booking fee, `cartTotals()`), WhatsApp deep-link builder.
 - `src/components/` — storefront UI: `Header`, `TransfersView`, `DayToursView`,
   `ExpeditionsView`, `CartDrawer`, `Toast`, `Storefront` (state + localStorage cart).
 - Legal pages (2026-11-08, **draft pending review by a Costa Rican lawyer**): `/terms`,
@@ -126,16 +127,19 @@ Legal pages (`/terms`, `/privacy`, `/cancellation`) are linked from every footer
 2. **1-Day Private Tours** — region filter, Smart En-Route Transfer upgrade (+$65).
 3. **Multi-Day Expeditions** — lodging tier selector, day-by-day itinerary.
 4. **Trip Cart & checkout** — combines transfers, stops, day tours and expeditions. Payment choice
-   (decided 2026-11-08, §6.4): **pay online in full** or **pay the driver in cash + 10% cash
-   booking fee**. Checkout via
-   Green Pay.
+   (decided 2026-11-08, built): **pay online in full** (we send a secure Green Pay link once the
+   team confirms the trip; online payment isn't live yet, so the site never says "pay now"), or
+   **pay the driver in cash + a 10% cash booking fee** (rides and 1-day tours only). Expeditions
+   are **online in full only** (SINAC permits, boats and lodges are prepaid); in a mixed cart the
+   rides/tours are cash and the expedition is online, labelled per item. The trip summary shows
+   "Cash booking fee (10%) +$X" and the cash vs online amounts. The 20% deposit is retired.
 5. **WhatsApp concierge** — context-aware buttons (`route`, `cart`, `general`) that pre-fill the
    route or cart contents into a WhatsApp message to the PuraVidaWay team.
 
 ### 4.2 Admin command center (`/admin`, admin role only — never public)
 1. **Bookings & dispatch** — incoming bookings, assign drivers, status changes.
 2. **CRM pipeline** — `New HubSpot Inquiry` → `WhatsApp Discovery` → `Quote Sent` →
-   `20% Deposit Paid` → `Trip Active`, with one-click WhatsApp script generation.
+   `Payment Confirmed` (paid online, or cash on the day) → `Trip Active`, with one-click WhatsApp script generation.
 3. **Inventory & seasonal pricing manager** — edit catalog items and season multipliers without
    code changes.
 4. **Driver KYC & ICT compliance vault** — Cédula, ICT tourism permit, driver's license, Marchamo,
@@ -247,17 +251,20 @@ Multipliers live in the database and are edited from the admin pricing manager.
 5. PuraVidaWay keeps a **platform commission** (% of the accepted bid), collected through Green Pay.
 
 ### 6.4 Payments
-**Decided (Jorge, 2026-11-08): two options, no 20% deposit.**
-- **Pay online in full** (`full_100`). Until Green Pay is connected, the team sends a payment
-  link after confirming the trip; the site must not say "pay now" before that works.
-- **Pay cash to the driver** on the day (`cash_driver`), plus a **cash booking fee of 10% of the
-  ride price** (admin-editable, stored in the database like every other price). The fee covers
-  no-show risk and the platform's margin on cash rides.
-- Assumption to confirm: cash is offered for rides and day tours only; **expeditions are paid
-  online** because SINAC permits, boats and lodges are prepaid.
-- Store `total_price` and `amount_paid`; balance = difference.
-- Replaces the earlier 100% / 20% deposit rule (`deposit_20`), which the code still uses until
-  the payment-options PR lands.
+Decided by Jorge 2026-11-08 (replaces the 100% / 20% deposit rule):
+- `full_100` — **pay online in full.** Green Pay isn't live yet: the team confirms the trip,
+  then sends a secure payment link.
+- `cash_driver` — **pay the driver in cash + a cash booking fee** of 10% of the ride / day-tour
+  price (after the season multiplier, rounded to the cent). Rides and 1-day tours only.
+  The fee is `pricing_settings.cash_fee_bps` (1000 = 10%, allowed 0–50%), edited at
+  `/admin/pricing` → Payment; built-in fallback 10% (`CASH_FEE_BPS_DEFAULT`).
+- **Expeditions: online in full only** (SINAC permits, boats and lodges are prepaid). A mixed
+  cart pays its rides/tours in cash and its expeditions online.
+- The server re-prices every item and the fee from the live catalog before saving; each booking
+  stores its own `payment_mode` and `cash_fee`. Owed = `total_price` + `cash_fee`; `amount_paid`
+  records what was received.
+- `deposit_20` is retired; old bookings keep it, and old carts / open tabs sending it are
+  treated as `full_100`.
 - Green Pay calls and webhook verification happen **only on the server** (Next.js route handlers).
   Card data never touches our servers or database.
 
@@ -305,7 +312,8 @@ expedition) · `origin` text · `origin_coords` jsonb · `destination` text · `
 jsonb · `sightseeing_stops` jsonb (array of stop IDs + snapshot prices) · `vehicle_class` ·
 `lodging_tier` · `scheduled_at` timestamptz · `passenger_count` int · `flight_or_hotel_notes` ·
 `pricing_mode` (`fixed` | `bid`) · `total_price` numeric · `currency` (`USD` | `CRC`) ·
-`amount_paid` numeric · `payment_mode` (`full_100` | `deposit_20`) · `assigned_driver_id` →
+`amount_paid` numeric · `payment_mode` (`full_100` | `cash_driver`; `deposit_20` on old rows
+only) · `cash_fee` numeric(10,2) (cash booking fee snapshot, 0 unless `cash_driver`) · `assigned_driver_id` →
 `drivers.id` (nullable) · `status` (`pending_payment` | `pending_bids` | `confirmed` |
 `in_progress` | `completed` | `cancelled`) · `created_at`
 
@@ -328,6 +336,8 @@ and `season_for_date(date)` returns the season for a travel date.
 - `expeditions` — id, name, days, nights, base_price, itinerary jsonb, active
 - `lodging_tiers` — id, expedition_id (nullable = applies to all), name, surcharge
 - `seasons` — id, name, multiplier, date ranges
+- `pricing_settings` — a single row (`id` = true): `cash_fee_bps` int (default 1000 = 10%, 0–5000),
+  `updated_at`. Public read, admin write. Loaded by `getCatalog()` as `cashFeeBps`.
 - `payments` — id, booking_id, provider (`greenpay`), provider_ref, amount, type (`deposit` | `balance` | `full`), status, raw_payload jsonb, created_at
 
 ### 7.7 Row Level Security
@@ -360,7 +370,7 @@ and `season_for_date(date)` returns the season for a travel date.
 - **bids:** drivers create and manage their own; the amount can change only while the request is
   open and the driver is still approved (withdrawing is always allowed); the booking's client
   reads bids on their booking; admins see all.
-- **catalog tables:** public read for active items; admin write.
+- **catalog tables:** public read for active items; admin write. **pricing_settings** (cash fee): public read, admin write.
 - **payments:** written only by the server (service role); clients read their own; admins read all.
 
 ---
@@ -373,7 +383,7 @@ and `season_for_date(date)` returns the season for a travel date.
 | **2a. Next.js foundation** | Next.js + TS + Tailwind scaffold; rebuild storefront from the prototype design with catalog data from §5; working cart and WhatsApp buttons | **Done (PR #2)** |
 | **2b. Supabase core** | Schema + RLS from §7, Auth with roles, catalog served from DB, `/admin` behind login, inventory & season pricing manager | **Live** (PRs #7–#9; Supabase connected). Migration 0010 still to be applied on the live database |
 | **2c. Driver KYC vault** | Driver sign-up, document upload, admin approval, 30-day expiry alerts | **Built (PRs #12–#14): `/driver` portal with several vehicles, `/admin/drivers` vault** |
-| **2d. Checkout** | Part 1: trip requests saved online (server re-prices every item, guest name/email/WhatsApp, booking refs) + `/admin/bookings` dispatch (status, driver + vehicle, amount received, internal notes). Part 2: Green Pay, pay in full online or cash + 10% fee (§6.4), webhooks, confirmation emails | **Part 1 built (PR #15)**; part 2 needs Green Pay credentials (cancellation policy decided, §9 #7) |
+| **2d. Checkout** | Part 1: trip requests saved online (server re-prices every item, guest name/email/WhatsApp, booking refs) + `/admin/bookings` dispatch (status, driver + vehicle, amount received, internal notes). Part 2: Green Pay (online in full; cash to the driver + 10% fee is built, 2026-11-08), webhooks, confirmation emails | **Part 1 built (PR #15)**; payment options built; Green Pay needs credentials |
 | **3. Bidding & GPS** | Live driver bidding; driver on-duty GPS broadcast to admin Leaflet map | Planned |
 | **4. Chat & CRM** | Tri-party trip chat (traveller via private trip link, assigned driver, team) with Resend email notifications; HubSpot sync; SMS / WhatsApp Business API | **Chat built (PR #17)**, polling every 8 s; HubSpot and SMS planned |
 | **5. Mobile apps** | Driver app (GPS, push notifications, camera) first, then Client app, for App Store / Google Play; plan in §11 | Planned — spec drafted; store accounts can be opened now (§11.6) |
