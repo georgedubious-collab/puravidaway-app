@@ -1,4 +1,4 @@
-import { HUBS, REGION_NAMES, type Region } from "@/lib/catalog";
+import { CASH_FEE_BPS_DEFAULT, HUBS, REGION_NAMES, type Region } from "@/lib/catalog";
 import { requireRole } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AdminForm } from "./AdminForm";
@@ -9,6 +9,7 @@ import {
   saveDayTour,
   saveExpedition,
   saveLodgingTier,
+  savePaymentSettings,
   saveSeason,
   saveStop,
   saveVehicle,
@@ -29,7 +30,7 @@ const label = "block text-xs font-bold text-slate-600";
 export default async function PricingPage() {
   await requireRole("admin", "/admin/pricing");
   const db = (await createSupabaseServerClient())!;
-  const [v, s, t, e, l, se, r] = await Promise.all([
+  const [v, s, t, e, l, se, r, ps] = await Promise.all([
     db.from("vehicle_classes").select("*").order("sort_order").returns<Vehicle[]>(),
     db.from("sightseeing_stops").select("*").order("sort_order").returns<Stop[]>(),
     db.from("day_tours").select("*").order("sort_order").returns<Tour[]>(),
@@ -37,7 +38,9 @@ export default async function PricingPage() {
     db.from("lodging_tiers").select("*").order("sort_order").returns<Tier[]>(),
     db.from("seasons").select("*").order("priority").returns<Season[]>(),
     db.from("season_ranges").select("*").order("starts_on").returns<Range[]>(),
+    db.from("pricing_settings").select("cash_fee_bps").maybeSingle<{ cash_fee_bps: number }>(),
   ]);
+  const cashFeeBps = ps.data?.cash_fee_bps ?? CASH_FEE_BPS_DEFAULT;
 
   return (
     <div className="space-y-10">
@@ -133,6 +136,26 @@ export default async function PricingPage() {
             </AdminForm>
           </Card>
         ))}
+      </Section>
+
+      <Section
+        title="Payment"
+        note="Travellers pay online in full, or pay the driver in cash on rides and 1-day tours plus this cash booking fee (a % of the ride or tour price, shown in their trip total). Expeditions are always paid online."
+      >
+        <Card>
+          {ps.error ? (
+            <p className="text-sm text-amber-800">
+              Run migration <code>20261108000012_payment_options.sql</code> in the Supabase SQL editor to edit the
+              cash fee. Until then the site uses {CASH_FEE_BPS_DEFAULT / 100}%.
+            </p>
+          ) : (
+            <AdminForm action={savePaymentSettings} className="grid gap-3 sm:grid-cols-6 items-end">
+              <Field l="Cash booking fee (%)" className="sm:col-span-2">
+                <input name="cash_fee_percent" inputMode="decimal" defaultValue={cashFeeBps / 100} className={input} />
+              </Field>
+            </AdminForm>
+          )}
+        </Card>
       </Section>
 
       <Section title="Seasons" note="A travel date uses the highest season whose dates include it; any other date uses the default season.">

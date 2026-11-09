@@ -197,6 +197,23 @@ export async function saveStop(_prev: FormState, fd: FormData): Promise<FormStat
 export async function addStop(_prev: FormState, fd: FormData): Promise<FormState> {
   return run(() => addStopImpl(fd));
 }
+/** Cash booking fee, entered as a percent (10 = 10%), stored as basis points (1000). */
+async function savePaymentSettingsImpl(fd: FormData) {
+  await requireRole("admin", "/admin/pricing");
+  const pct = decimal(fd, "cash_fee_percent", 0, 50);
+  const supabase = (await createSupabaseServerClient())!;
+  const { data, error } = await supabase
+    .from("pricing_settings")
+    .upsert({ id: true, cash_fee_bps: Math.round(pct * 100) })
+    .select("id");
+  if (error) throw new Error(error.message);
+  if (!data?.length) throw new InputError("Nothing was saved. Reload the page and try again.");
+  done();
+}
+
+export async function savePaymentSettings(_prev: FormState, fd: FormData): Promise<FormState> {
+  return run(() => savePaymentSettingsImpl(fd));
+}
 export async function saveDayTour(_prev: FormState, fd: FormData): Promise<FormState> {
   return run(() => saveDayTourImpl(fd));
 }

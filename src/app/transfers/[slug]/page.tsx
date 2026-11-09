@@ -8,8 +8,8 @@ import { Reviews } from "@/components/trust/Reviews";
 import { HUBS, routeMinutes, stopFitsRoute } from "@/lib/catalog";
 import { getCatalog } from "@/lib/catalogSource";
 import { applyMultiplier, formatDuration, formatUSD } from "@/lib/pricing";
-import { builderHref, relatedHref, ROUTE_PAGES, routePage } from "@/lib/routePages";
-import { GUARANTEES } from "@/lib/trust";
+import { builderHref, fillFaq, relatedHref, ROUTE_PAGES, routePage } from "@/lib/routePages";
+import { guarantees } from "@/lib/trust";
 
 export function generateStaticParams() {
   return ROUTE_PAGES.map((p) => ({ slug: p.slug }));
@@ -181,10 +181,20 @@ export default async function RouteLandingPage({
 
       <section className="max-w-6xl mx-auto px-4 sm:px-6 py-14">
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {GUARANTEES.map((g) => (
+          {guarantees(catalog.cashFeeBps).map((g) => (
             <div key={g.title}>
               <h3 className="font-extrabold text-slate-900">{g.title}</h3>
-              <p className="mt-1 text-sm leading-relaxed text-slate-600">{g.text}</p>
+              <p className="mt-1 text-sm leading-relaxed text-slate-600">
+                {g.text}
+                {g.href && (
+                  <>
+                    {" "}
+                    <Link href={g.href} className="font-semibold text-emerald-700 underline">
+                      Read the policy
+                    </Link>
+                  </>
+                )}
+              </p>
             </div>
           ))}
         </div>
@@ -196,7 +206,7 @@ export default async function RouteLandingPage({
           {page.faqs.map((f) => (
             <div key={f.q} className="rounded-2xl border border-slate-200 bg-white p-5">
               <h3 className="font-extrabold text-slate-900">{f.q}</h3>
-              <p className="mt-1.5 text-slate-600 leading-relaxed">{f.a}</p>
+              <p className="mt-1.5 text-slate-600 leading-relaxed">{fillFaq(f.a, catalog.cashFeeBps)}</p>
             </div>
           ))}
         </div>

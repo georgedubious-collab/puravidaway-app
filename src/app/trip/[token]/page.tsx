@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { Car, CheckCircle2, Compass, Languages, ShieldCheck } from "lucide-react";
 import { ChatBox } from "@/components/ChatBox";
-import { SERVICE_LABEL, TRIP_TOKEN, usd, type BookingRow, type BookingStatus } from "@/lib/bookings";
+import { SERVICE_LABEL, TRIP_TOKEN, bookingDue, usd, type BookingRow, type BookingStatus } from "@/lib/bookings";
 import { getCatalog } from "@/lib/catalogSource";
 import { formatScheduledAt } from "@/lib/dates";
 import { ENGLISH_LEVEL_LABEL, prefsSummary } from "@/lib/preferences";
@@ -194,7 +194,12 @@ export default async function TripPage({ params }: { params: Promise<{ token: st
                   {asked.length > 0 && <p className="text-sm text-slate-600">You asked for: {asked.join(", ")}</p>}
                 </div>
                 <div className="text-right">
-                  <p className="text-lg font-extrabold text-emerald-700">{usd(b.total_price)}</p>
+                  <p className="text-lg font-extrabold text-emerald-700">{usd(bookingDue(b))}</p>
+                  <p className="text-xs text-slate-500">
+                    {b.payment_mode === "cash_driver"
+                      ? `Cash to your driver · incl. ${usd(b.cash_fee ?? 0)} cash booking fee`
+                      : "Online in full · secure payment link once confirmed"}
+                  </p>
                   <p className={`text-xs font-bold ${b.status === "confirmed" ? "text-emerald-700" : "text-slate-500"}`}>
                     {TRAVELLER_STATUS[b.status]}
                   </p>

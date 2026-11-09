@@ -401,6 +401,13 @@ export const SEASONS: Season[] = [
 ];
 
 /**
+ * Cash booking fee when the traveller pays the driver in cash, in basis points
+ * of the ride / day-tour price (1000 = 10%). Built-in fallback only: the live
+ * value is pricing_settings.cash_fee_bps, edited at /admin/pricing.
+ */
+export const CASH_FEE_BPS_DEFAULT = 1000;
+
+/**
  * WhatsApp number for the concierge buttons (digits only, with country code).
  * Set NEXT_PUBLIC_WHATSAPP_NUMBER in Vercel before launch; until then the
  * buttons open the placeholder below and a warning is logged at build time.

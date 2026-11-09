@@ -26,6 +26,8 @@ Either way works; the first needs no installs.
 9. `20261014000009_trip_chat.sql` — trip chat, server-only traveller contacts, abuse limits
 10. `20261021000010_advisor_fixes.sql` — Supabase security-advisor fixes
 11. `20261108000011_stop_corridors.sql` — sightseeing stop corridors for the "both ends" rule
+12. `20261108000012_payment_options.sql` — pay online in full or cash to the driver; the cash
+    booking fee setting (10%, edited at `/admin/pricing` → Payment)
 
 Later files are added as the app grows; each pull request says when there's a new one to run.
 
@@ -97,6 +99,6 @@ red "ERROR" items. If it lists "Security Definer View: open_trip_requests", file
 run yet.
 
 ## Checking the security rules
-`npm run test:db` replays the migrations in a throwaway in-memory Postgres and runs 168 checks
+`npm run test:db` replays the migrations in a throwaway in-memory Postgres and runs 184 checks
 (clients can't see each other's bookings, drivers can't approve themselves, nobody but the server
 can record payments, and so on).

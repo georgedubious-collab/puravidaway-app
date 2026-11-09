@@ -2,13 +2,13 @@ import { Check, ShieldCheck, Star } from "lucide-react";
 import {
   CARRIER_NOTE,
   DRIVER_CHECKS,
-  GUARANTEES,
+  guarantees,
   ICT_BADGE_NOTE,
   visibleRatingSources,
 } from "@/lib/trust";
 
-/** Compact trust block that sits next to the pay button. */
-export function TrustPanel() {
+/** Compact trust block that sits next to the send button. */
+export function TrustPanel({ cashFeeBps }: { cashFeeBps: number }) {
   const ratings = visibleRatingSources();
   return (
     <div className="space-y-3 text-sm">
@@ -33,12 +33,20 @@ export function TrustPanel() {
       )}
 
       <ul className="space-y-2">
-        {GUARANTEES.map((g) => (
+        {guarantees(cashFeeBps).map((g) => (
           <li key={g.title} className="flex gap-2">
             <Check className="w-4 h-4 mt-0.5 shrink-0 text-emerald-600" aria-hidden />
             <span>
               <span className="font-bold text-slate-900">{g.title}.</span>{" "}
               <span className="text-slate-600">{g.text}</span>
+              {g.href && (
+                <>
+                  {" "}
+                  <a href={g.href} className="font-semibold text-emerald-700 underline">
+                    Policy
+                  </a>
+                </>
+              )}
             </span>
           </li>
         ))}

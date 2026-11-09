@@ -156,7 +156,12 @@ export function seasonForDate(date: Date): Season {
   return SEASONS[0];
 }
 
-/** Deposit rule: 20% of total (integer arithmetic), rounded to the cent. */
-export function depositCents(totalCents: number): number {
-  return Math.round(totalCents / 5);
+/** Cash booking fee for one item: feeBps of its price (1000 = 10%), rounded to the cent. */
+export function cashFeeCents(itemCents: number, feeBps: number): number {
+  return applyMultiplier(itemCents, feeBps);
+}
+
+/** "10%", "12.5%" from basis points. */
+export function formatBpsPercent(bps: number): string {
+  return `${Number((bps / 100).toFixed(2))}%`;
 }

@@ -5,15 +5,18 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 import { submitTripRequest } from "@/app/trip/actions";
 import {
-  amountDueNowCents,
-  cartTotalCents,
+  cartTotals,
   cartWhatsAppMessage,
+  cashAllowed,
+  itemCashFeeCents,
+  itemPaymentMode,
   whatsAppLink,
   type CartItem,
   type PaymentMode,
 } from "@/lib/cart";
 import { DEFAULT_PICKUP_TIME, formatTime12h } from "@/lib/dates";
-import { formatUSD } from "@/lib/pricing";
+import { formatBpsPercent, formatUSD } from "@/lib/pricing";
+import { useCatalog } from "./CatalogContext";
 
 export interface TripContact {
   name: string;
@@ -47,8 +50,12 @@ const field = "mt-1 w-full min-h-11 border border-slate-300 rounded-xl px-3 text
  */
 export function TripSummary({ trip }: { trip: TripState }) {
   const { items, onRemove, mode, onMode, contact, onContact } = trip;
-  const total = cartTotalCents(items);
-  const dueNow = amountDueNowCents(total, mode);
+  const { cashFeeBps } = useCatalog();
+  const feeLabel = formatBpsPercent(cashFeeBps);
+  const totals = cartTotals(items, mode, cashFeeBps);
+  const hasExpedition = items.some((i) => i.kind === "expedition");
+  const anyCashable = items.some((i) => cashAllowed(i.kind));
+  const showPerItemPayment = mode === "cash_driver" && hasExpedition && anyCashable;
   const legs = [...items].sort((a, b) => legKey(a).localeCompare(legKey(b)));
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -66,6 +73,7 @@ export function TripSummary({ trip }: { trip: TripState }) {
       const res = await submitTripRequest({
         items: items.map((i) => ({ id: i.id, date: i.date, totalCents: i.totalCents, spec: i.spec })),
         mode,
+        cashFeeBps,
         ...contact,
         website,
       });
@@ -103,6 +111,13 @@ export function TripSummary({ trip }: { trip: TripState }) {
               </div>
               <div className="text-right shrink-0">
                 <p className="text-sm font-extrabold text-emerald-700">{formatUSD(item.totalCents)}</p>
+                {showPerItemPayment && (
+                  <p className="text-[11px] font-bold text-slate-500">
+                    {itemPaymentMode(item.kind, mode) === "cash_driver"
+                      ? `Cash · +${formatUSD(itemCashFeeCents(item, mode, cashFeeBps))} fee`
+                      : "Online"}
+                  </p>
+                )}
                 <button
                   type="button"
                   onClick={() => onRemove(item.id)}
@@ -118,36 +133,72 @@ export function TripSummary({ trip }: { trip: TripState }) {
       )}
 
       <form onSubmit={send} className="space-y-3">
-        <div role="group" aria-label="Payment" className="grid grid-cols-2 gap-2">
+        <fieldset className="space-y-2">
+          <legend className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">How would you like to pay?</legend>
           {(
             [
-              ["deposit_20", "Pay 20% now"],
-              ["full_100", "Pay in full"],
-            ] as [PaymentMode, string][]
-          ).map(([m, label]) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => onMode(m)}
-              aria-pressed={mode === m}
-              className={`min-h-11 rounded-xl text-sm font-bold transition ${
-                mode === m
-                  ? "bg-amber-50 border-2 border-amber-400 text-slate-900"
-                  : "bg-white border border-slate-300 text-slate-600"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        <div className="flex items-center justify-between text-sm text-slate-600">
-          <span>Trip total</span>
-          <span className="font-bold text-slate-900">{formatUSD(total)}</span>
+              ["full_100", "Pay online in full", "We send you a secure payment link once your trip is confirmed."],
+              [
+                "cash_driver",
+                "Pay the driver in cash",
+                `Rides and day tours, paid on the day. Adds a ${feeLabel} cash booking fee.`,
+              ],
+            ] as [PaymentMode, string, string][]
+          ).map(([m, label, hint]) => {
+            const disabled = m === "cash_driver" && items.length > 0 && !anyCashable;
+            const on = (m === "full_100" && mode === "cash_driver" && items.length > 0 && !anyCashable) || (mode === m && !disabled);
+            return (
+              <button
+                key={m}
+                type="button"
+                onClick={() => onMode(m)}
+                aria-pressed={on}
+                disabled={disabled}
+                className={`w-full min-h-11 rounded-xl px-3 py-2 text-left transition disabled:opacity-50 ${
+                  on ? "bg-amber-50 border-2 border-amber-400" : "bg-white border border-slate-300"
+                }`}
+              >
+                <span className="block text-sm font-bold text-slate-900">{label}</span>
+                <span className="block text-xs text-slate-600">{hint}</span>
+              </button>
+            );
+          })}
+          {hasExpedition && (
+            <p className="text-xs text-slate-600">
+              Expeditions are paid online in full: park permits, boats and lodges are booked and paid in advance.
+            </p>
+          )}
+        </fieldset>
+        <div className="space-y-1 text-sm text-slate-600">
+          <div className="flex items-center justify-between">
+            <span>Trip price</span>
+            <span className="font-bold text-slate-900">{formatUSD(totals.itemsCents)}</span>
+          </div>
+          {totals.cashFeeCents > 0 && (
+            <div className="flex items-center justify-between">
+              <span>Cash booking fee ({feeLabel})</span>
+              <span className="font-bold text-slate-900">+{formatUSD(totals.cashFeeCents)}</span>
+            </div>
+          )}
         </div>
         <div className="flex items-center justify-between font-extrabold text-slate-900">
-          <span>Due when confirmed</span>
-          <span className="text-2xl text-emerald-700">{formatUSD(dueNow)}</span>
+          <span>Total</span>
+          <span className="text-2xl text-emerald-700">{formatUSD(totals.totalCents)}</span>
         </div>
+        {totals.cashCents > 0 && (
+          <div className="space-y-1 rounded-xl bg-slate-100 p-3 text-sm text-slate-700">
+            <div className="flex items-center justify-between">
+              <span>Cash to your driver on the day</span>
+              <span className="font-bold">{formatUSD(totals.cashCents)}</span>
+            </div>
+            {totals.onlineCents > 0 && (
+              <div className="flex items-center justify-between">
+                <span>Online, link sent once confirmed</span>
+                <span className="font-bold">{formatUSD(totals.onlineCents)}</span>
+              </div>
+            )}
+          </div>
+        )}
 
         {items.length > 0 && (
           <fieldset className="space-y-3 rounded-xl border border-slate-200 bg-white p-3">
@@ -211,11 +262,14 @@ export function TripSummary({ trip }: { trip: TripState }) {
         </p>
         <p className="text-xs text-slate-500 text-center">
           Nothing is charged now. Our team confirms availability and your pickup times by email and
-          in your trip chat, then sends your payment link.
+          in your trip chat
+          {totals.onlineCents > 0 || items.length === 0
+            ? ", then sends your secure payment link."
+            : ". You pay your driver in cash on the day."}
         </p>
         {items.length > 0 && (
           <a
-            href={whatsAppLink(cartWhatsAppMessage(items, mode, contact.name))}
+            href={whatsAppLink(cartWhatsAppMessage(items, mode, cashFeeBps, contact.name))}
             target="_blank"
             rel="noopener noreferrer"
             className="flex min-h-11 items-center justify-center gap-2 text-sm font-bold text-emerald-700 hover:text-emerald-600"

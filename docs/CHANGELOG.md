@@ -3,6 +3,18 @@
 Every merged change gets one line: `YYYY-MM-DD — <AI or Jorge> — <what changed>`.
 Newest entries first. AIs: read the top of this file before starting work.
 
+- 2026-11-08 — Claude — Payment options (migration 0012), replacing the 20% deposit: pay online in
+  full (secure payment link sent once the trip is confirmed; online payment isn't live yet), or pay
+  the driver in cash + a 10% cash booking fee on rides and 1-day tours; expeditions are online in
+  full only. The fee lives in the new `pricing_settings` table (public read, admin write), is
+  edited at `/admin/pricing` → Payment, re-priced on the server and saved per booking
+  (`bookings.cash_fee`). Trip summary shows "Cash booking fee (10%) +$X", cash vs online amounts
+  and a per-item label when an expedition is mixed in; WhatsApp message, emails, admin bookings
+  and trip page updated. Old carts / open tabs with `deposit_20` load as "online in full".
+  Guarantees: "Price confirmed before you pay" (was "Price locked when you book"), new "Free
+  cancellation up to 24 h before pickup" (links to /cancellation), ICT note no longer says "coming
+  soon". 184 database checks.
+
 - 2026-11-08 — Claude — Ride builder fixes (migration 0011). Drive times for all 36 hub pairs
   (Daytrip times where known, Drake Bay = road to Sierpe + 75 min boat; a type check makes every
   pair required). Stops are now "optional extras" offered only when both pickup and drop-off are on

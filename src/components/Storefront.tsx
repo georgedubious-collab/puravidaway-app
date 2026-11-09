@@ -8,8 +8,9 @@ import { HUBS, type HubId } from "@/lib/catalog";
 import type { CatalogData } from "@/lib/catalogModel";
 import { CatalogProvider } from "./CatalogContext";
 import {
-  cartTotalCents,
+  cartTotals,
   type CartItem,
+  parsePaymentMode,
   parseStoredCart,
   type PaymentMode,
   whatsAppLink,
@@ -26,6 +27,7 @@ import { TripSummary, type TripContact, type TripState } from "./TripSummary";
 import { TrustPanel } from "./trust/TrustPanel";
 
 const STORAGE_KEY = "pvw-cart-v1";
+const MODE_KEY = "pvw-pay-mode";
 
 type Builder = "transfers" | "daytours" | "multiday";
 
@@ -53,7 +55,7 @@ export function Storefront({ today, catalog }: { today: string; catalog: Catalog
   const [items, setItems] = useState<CartItem[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
   const [hydrated, setHydrated] = useState(false);
-  const [mode, setMode] = useState<PaymentMode>("deposit_20");
+  const [mode, setMode] = useState<PaymentMode>("full_100");
   const [contact, setContact] = useState<TripContact>({ name: "", email: "", phone: "", notes: "" });
   const [sentRefs, setSentRefs] = useState<string[] | null>(null);
   const [sentTripToken, setSentTripToken] = useState<string | null>(null);
@@ -67,6 +69,9 @@ export function Storefront({ today, catalog }: { today: string; catalog: Catalog
       // setState is intentional: the server never knows this visitor's trip.
       // eslint-disable-next-line react-hooks/set-state-in-effect
       if (raw) setItems(parseStoredCart(raw));
+      // Old values (the retired "deposit_20") load as paying online in full.
+      const storedMode = window.localStorage.getItem(MODE_KEY);
+      if (storedMode) setMode(parsePaymentMode(storedMode));
     } catch {
       /* storage unavailable — start empty */
     }
@@ -80,13 +85,21 @@ export function Storefront({ today, catalog }: { today: string; catalog: Catalog
       /* ignore */
     }
   }, [items, hydrated]);
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      window.localStorage.setItem(MODE_KEY, mode);
+    } catch {
+      /* ignore */
+    }
+  }, [mode, hydrated]);
 
   function addItem(item: CartItem) {
     setItems((prev) => [...prev, item]);
     toast.show("Added to your trip");
   }
   const removeItem = (id: string) => setItems((prev) => prev.filter((i) => i.id !== id));
-  const total = cartTotalCents(items);
+  const total = cartTotals(items, mode, catalog.cashFeeBps).totalCents;
   const trip: TripState = {
     items,
     onRemove: removeItem,
@@ -121,7 +134,7 @@ export function Storefront({ today, catalog }: { today: string; catalog: Catalog
           </h2>
           <TripSummary trip={trip} />
           <div className="border-t border-slate-200 pt-5">
-            <TrustPanel />
+            <TrustPanel cashFeeBps={catalog.cashFeeBps} />
           </div>
         </aside>
 
