@@ -1,9 +1,11 @@
 import {
   AREA_FACTOR_BPS_DEFAULT,
   CASH_FEE_BPS_DEFAULT,
+  ENTRANCE_ADMIN_LABEL,
   HUBS,
   REGION_NAMES,
   RIDE_FORMULA_DEFAULT,
+  STOP_ENTRANCES,
   type HubId,
   type Region,
 } from "@/lib/catalog";
@@ -41,7 +43,7 @@ interface Settings {
 const EXAMPLES: [HubId, HubId][] = [
   ["LIR", "Tamarindo"], ["SJO", "Arenal"], ["SJO", "ManuelAntonio"], ["SJO", "Tamarindo"], ["Arenal", "Monteverde"], ["SJO", "Sierpe"],
 ];
-interface Stop { id: string; name: string; description: string; duration_min: number; price: number; park_fee_included: boolean; corridors: string[]; active: boolean }
+interface Stop { id: string; name: string; description: string; duration_min: number; price: number; park_fee_included: boolean; entrance?: string; corridors: string[]; active: boolean }
 interface Tour { id: string; region: Region; name: string; duration_hours: number; price: number; en_route_upgrade_price: number; active: boolean }
 interface Expedition { id: string; name: string; days: number; nights: number; base_price: number; active: boolean }
 interface Tier { id: string; name: string; surcharge: number; active: boolean }
@@ -196,9 +198,20 @@ export default async function PricingPage() {
               <Field l="Name" className="sm:col-span-3"><input name="name" defaultValue={x.name} className={input} /></Field>
               <Field l="Price (USD)"><input name="price" inputMode="decimal" defaultValue={x.price} className={input} /></Field>
               <Field l="Minutes"><input name="duration_min" type="number" min={5} defaultValue={x.duration_min} className={input} /></Field>
-              <label className="flex items-center gap-2 text-sm min-h-10">
-                <input type="checkbox" name="park_fee_included" defaultChecked={x.park_fee_included} /> Park fee included
-              </label>
+              {x.entrance === undefined ? (
+                // Before migration 0014: the old yes/no switch.
+                <label className="flex items-center gap-2 text-sm min-h-10">
+                  <input type="checkbox" name="park_fee_included" defaultChecked={x.park_fee_included} /> Park fee included
+                </label>
+              ) : (
+                <Field l="Entrance">
+                  <select name="entrance" defaultValue={x.entrance} className={input}>
+                    {STOP_ENTRANCES.map((e) => (
+                      <option key={e} value={e}>{ENTRANCE_ADMIN_LABEL[e]}</option>
+                    ))}
+                  </select>
+                </Field>
+              )}
               <Field l="Description" className="sm:col-span-6"><input name="description" defaultValue={x.description} className={input} /></Field>
               <Corridors selected={x.corridors} />
               <Live on={x.active} />

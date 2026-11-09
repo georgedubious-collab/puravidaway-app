@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath, revalidateTag } from "next/cache";
-import { HUBS } from "@/lib/catalog";
+import { HUBS, isStopEntrance } from "@/lib/catalog";
 import { CATALOG_TAG } from "@/lib/catalogSource";
 import { requireRole } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -95,13 +95,25 @@ async function saveVehicleImpl(fd: FormData) {
   });
 }
 
+/**
+ * Stop entrance: free / included / gate (migration 0014). The old yes/no
+ * park_fee_included is kept in step ("included" = yes) for anything still reading it.
+ * Before 0014 the form only has the old checkbox, so only that is written.
+ */
+function entrance(fd: FormData): Record<string, unknown> {
+  if (!fd.has("entrance")) return { park_fee_included: checked(fd, "park_fee_included") };
+  const v = fd.get("entrance");
+  if (!isStopEntrance(v)) throw new InputError("Entrance must be free, included or gate");
+  return { entrance: v, park_fee_included: v === "included" };
+}
+
 async function saveStopImpl(fd: FormData) {
   await save("sightseeing_stops", fd, {
     name: text(fd, "name"),
     description: text(fd, "description", { required: false, max: 600 }),
     duration_min: int(fd, "duration_min", 5, 600),
     price: money(fd, "price"),
-    park_fee_included: checked(fd, "park_fee_included"),
+    ...entrance(fd),
     corridors: hubs(fd),
     active: checked(fd, "active"),
   });

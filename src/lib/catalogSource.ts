@@ -4,6 +4,7 @@ import {
   AREA_FACTOR_BPS_DEFAULT,
   CASH_FEE_BPS_DEFAULT,
   HUB_IDS,
+  isStopEntrance,
   RIDE_FORMULA_DEFAULT,
   VEHICLE_CLASSES,
   type HubId,
@@ -38,7 +39,7 @@ export async function getCatalog(): Promise<CatalogData> {
 }
 
 /** Only successful database reads are cached (a thrown error is never stored). */
-const cachedDatabaseCatalog = unstable_cache(loadDatabaseCatalog, ["catalog-v4"], {
+const cachedDatabaseCatalog = unstable_cache(loadDatabaseCatalog, ["catalog-v5"], {
   tags: [CATALOG_TAG],
   revalidate: 3600,
 });
@@ -100,7 +101,8 @@ async function loadDatabaseCatalog(): Promise<CatalogData> {
         durationMin: s.duration_min,
         priceCents: cents(s.price),
         corridors: s.corridors as HubId[],
-        parkFeeIncluded: Boolean(s.park_fee_included),
+        // Before migration 0014 there is only the old yes/no park_fee_included.
+        entrance: isStopEntrance(s.entrance) ? s.entrance : s.park_fee_included ? "included" : "gate",
       })),
       dayTours: (tours.data ?? []).map((t) => ({
         id: t.id,

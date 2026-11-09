@@ -2,7 +2,7 @@
 
 import { Camera, Car, Check, Gavel, Languages, Link2, MapPin, MessageCircle, PlusCircle, Ticket, Users } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AIRPORT_HUBS, HUBS, stopFitsRoute, type HubId } from "@/lib/catalog";
+import { AIRPORT_HUBS, ENTRANCE_LABEL, HUBS, stopFitsRoute, type HubId } from "@/lib/catalog";
 import { seasonForYmd } from "@/lib/catalogModel";
 import { useCatalog } from "./CatalogContext";
 import { newItemId, whatsAppLink, type CartItem } from "@/lib/cart";
@@ -353,7 +353,7 @@ export function TransfersView({
                       </p>
                       <p className="text-[11px] font-semibold text-slate-600 mt-1 flex items-center gap-1">
                         <Ticket className="w-3.5 h-3.5" aria-hidden />
-                        {s.parkFeeIncluded ? "Park entrance included" : "Park entrance paid at the gate"}
+                        {ENTRANCE_LABEL[s.entrance]}
                       </p>
                     </button>
                   );

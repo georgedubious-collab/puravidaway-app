@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import { LegalLinks } from "@/components/legal/LegalLinks";
 import { DriverStandards } from "@/components/trust/DriverStandards";
 import { Reviews } from "@/components/trust/Reviews";
-import { AIRPORT_HUBS, HUBS, routeMinutes, stopFitsRoute } from "@/lib/catalog";
+import { AIRPORT_HUBS, ENTRANCE_LABEL, HUBS, routeMinutes, stopFitsRoute } from "@/lib/catalog";
 import { getCatalog } from "@/lib/catalogSource";
 import { applyMultiplier, formatDuration, formatUSD, perPersonCents, perPersonShare, rideCents } from "@/lib/pricing";
 import { builderHref, fillFaq, relatedHref, ROUTE_PAGES, routePage } from "@/lib/routePages";
@@ -204,7 +204,7 @@ export default async function RouteLandingPage({
                     </span>
                     <span className="mt-1 flex items-center gap-1 text-xs font-semibold text-slate-600">
                       <Ticket className="w-3.5 h-3.5" aria-hidden />
-                      {s.parkFeeIncluded ? "Park entrance included" : "Park entrance paid at the gate"}
+                      {ENTRANCE_LABEL[s.entrance]}
                     </span>
                   </span>
                   <span className="font-extrabold text-emerald-700 whitespace-nowrap">

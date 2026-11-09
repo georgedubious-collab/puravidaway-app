@@ -30,6 +30,8 @@ Either way works; the first needs no installs.
     booking fee setting (10%, edited at `/admin/pricing` → Payment)
 13. `20261109000013_ride_formula.sql` — ride price formula (base + per km + per hour, minimum
     fare), vehicle factors incl. the new Economy and Standard sedans, area factors per town
+14. `20261109000014_stop_entrance.sql` — stop entrance as free / included / paid at the gate;
+    marks Tárcoles as a free stop
 
 Later files are added as the app grows; each pull request says when there's a new one to run.
 

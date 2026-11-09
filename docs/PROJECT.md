@@ -106,7 +106,7 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
   prices for the chosen date.
 - Competitor gaps (2026-11-08): per car + "from $X per person (N travellers)" on vehicle cards and
   route pages; "Every ride includes" list (`RIDE_PROMISES`, `src/lib/trust.ts`); stop cards show
-  whether the park entrance is included (`park_fee_included`); after a ride is added, an inline
+  the entrance: free stop / included / paid at the gate (`entrance`, migration 0014); after a ride is added, an inline
   suggestion of 1–2 tours / expeditions in the drop-off region; the ride builder's choices are
   kept in the address so rides can be shared (`src/lib/shareLink.ts`).
 - Seasons: peak = Dec 20–Jan 5 + Semana Santa (Palm Sunday → Easter); high = Dec–Apr; else green.
@@ -129,7 +129,7 @@ Legal pages (`/terms`, `/privacy`, `/cancellation`) are linked from every footer
 1. **Transfers & Sightseeing** — exact pick-up/drop-off by map place search (hotel, dock,
    restaurant, address; see COMPETITORS.md §2d — *target; Phase 2a ships hub dropdowns*), date,
    passengers, Fixed Price vs Driver Bids
-   toggle, sightseeing stop cards (duration, price, whether the park entrance is included), vehicle
+   toggle, sightseeing stop cards (duration, price, whether there is an entrance fee: free, included or paid at the gate), vehicle
    cards with the price per car and "from $X per person (N travellers)", the "Every ride includes"
    list (flight tracking on airport pickups, 60 min free waiting, child seats free on request, free
    cancellation up to 24 h), live route timeline with total duration, flight number or hotel
@@ -200,8 +200,8 @@ Notes:
   Carara — SJO, Monteverde, Manuel Antonio, Sierpe, Drake Bay; Poás — SJO, Arenal; Río Celeste —
   Arenal, LIR; Sloth trail — Arenal. Known gap of a flat list: Tárcoles/Carara also show on
   Manuel Antonio ↔ Sierpe/Drake Bay and SJO ↔ Monteverde, which need a detour.
-- Park entrance fees: decide per stop whether they are bundled in the stop price or billed
-  separately, and say so on the card.
+- Park entrance fees: chosen per stop in /admin/pricing as free (no ticket, e.g. Tárcoles),
+  included in our stop price, or paid at the gate; the card says which.
 - **Poás + Doka at 120 min is tight.** Poás requires advance timed-entry tickets, and adding Doka
   makes it two separate visits. Consider splitting it into two stops or extending the time.
 
@@ -356,7 +356,7 @@ only) · `cash_fee` numeric(10,2) (cash booking fee snapshot, 0 unless `cash_dri
 Implemented in `supabase/migrations/`. Catalog ids are short text slugs (`suv`, `tarcoles`)
 matching `src/lib/catalog.ts`; seasons use `season_ranges` (start/end dates) plus a `priority`,
 and `season_for_date(date)` returns the season for a travel date.
-- `sightseeing_stops` — id, name, description, duration_min, price, park_fee_included, corridors, active
+- `sightseeing_stops` — id, name, description, duration_min, price, entrance (free | included | gate; replaces park_fee_included, which is kept in step), corridors, active
 - `vehicle_classes` — id, name, price_factor, extra_fee, allows_stops, spanish_speaking_driver,
   max_pax, luggage, badge, only_for_hubs, active (`base_rate` retired 2026-11-09, kept for old data)
 - `day_tours` — id, region, name, description, duration_hours, price, en_route_upgrade_price, active
