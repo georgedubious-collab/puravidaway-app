@@ -564,10 +564,30 @@ await expectRows("outside the window the position is refused", "driver", "select
 await expectRows("and the stored position is erased", "admin", "select * from public.driver_locations", 0);
 await expectOk("server brings the pickup back and the driver reports again", "server", "update public.bookings set scheduled_at = now() + interval '1 hour' where id = '10000000-0000-0000-0000-000000000005'");
 await expectRows("accepted again", "driver", "select 1 where public.report_location(9.99, -84.2)", 1);
+// Migration 0029: "on my way" opens the window early; arrival estimates live on the position row.
+await expectOk("server moves the pickup five hours ahead again", "server", "update public.bookings set scheduled_at = now() + interval '5 hours' where id = '10000000-0000-0000-0000-000000000005'");
+await expectRows("five hours ahead there is no window yet", "driver", "select * from public.tracking_window()", 0);
+await expectRows("driver taps I'm on my way", "driver", "select public.driver_set_trip_status('10000000-0000-0000-0000-000000000005', 'en_route') as ref", 1);
+await expectRows("on my way opens the tracking window", "driver", "select * from public.tracking_window()", 1);
+await expectRows("and positions are accepted", "driver", "select 1 where public.report_location(10.2, -84.4)", 1);
+await expectRows("my_trips shows the step", "driver", "select 1 from public.my_trips() where id = '10000000-0000-0000-0000-000000000005' and en_route_at is not null", 1);
+await expectOk("server stores an arrival estimate", "server", `update public.driver_locations set eta_at = now() + interval '6 hours', late_min = 60 where driver_id = '${U.driver}'`);
+await expectOk("server moves the pickup within three hours", "server", "update public.bookings set scheduled_at = now() + interval '1 hour' where id = '10000000-0000-0000-0000-000000000005'");
+await expectRows("driver taps Client picked up", "driver", "select public.driver_set_trip_status('10000000-0000-0000-0000-000000000005', 'in_progress') as ref", 1);
+await expectRows("the arrival estimate is cleared after pickup", "admin", `select 1 from public.driver_locations where driver_id = '${U.driver}' and eta_at is null and late_min is null`, 1);
+await expectRows("driver taps Trip ended", "driver", "select public.driver_set_trip_status('10000000-0000-0000-0000-000000000005', 'completed') as ref", 1);
+await expectRows("ending the trip erases the position", "admin", "select * from public.driver_locations", 0);
+await expectRows("and closes the window", "driver", "select * from public.tracking_window()", 0);
+await expectOk("server opens one more trip for the consent test", "server", `
+  insert into public.bookings (id, client_id, service_type, total_price, status, assigned_driver_id, scheduled_at)
+  values ('10000000-0000-0000-0000-000000000006', '${U.client}', 'transfer', 100, 'confirmed', '${U.driver}', now() + interval '1 hour')`);
+await expectRows("accepted on the new trip", "driver", "select 1 where public.report_location(9.99, -84.2)", 1);
+await expectBlocked("on my way is refused more than six hours ahead", "driver",
+  "select public.driver_set_trip_status((select id from public.bookings where status = 'pending_bids' limit 1), 'en_route')");
 await expectOk("driver withdraws consent", "driver", "select public.set_location_consent(false)");
 await expectRows("withdrawing erases the position", "admin", "select * from public.driver_locations", 0);
 await expectRows("and further positions are refused", "driver", "select 1 where not public.report_location(9.99, -84.2)", 1);
-await expectOk("server cancels the extra trip", "server", "update public.bookings set status = 'cancelled' where id = '10000000-0000-0000-0000-000000000005'");
+await expectOk("server cancels the extra trip", "server", "update public.bookings set status = 'cancelled' where id = '10000000-0000-0000-0000-000000000006'");
 // Migration 0026: push tokens for the mobile apps.
 await expectOk("driver registers their phone", "driver", "select public.register_device('ExponentPushToken[aaaaaaaaaaaaaaaaaaaaaa]', 'android', 'driver')");
 await expectRows("driver sees their own token", "driver", "select * from public.device_tokens", 1);

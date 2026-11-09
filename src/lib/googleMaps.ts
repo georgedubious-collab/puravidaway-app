@@ -237,3 +237,28 @@ export async function resolveTransfer<
   const route = await rideRoute(origin, destination);
   return { spec: { ...spec, origin: origin.hub, destination: destination.hub }, origin, destination, route };
 }
+
+/**
+ * Drive time in minutes between two points with live traffic, or null when Google
+ * can't say. Used only for the lateness check (src/lib/eta.ts): never cached, and
+ * billed at Google's traffic-aware rate, so callers must throttle.
+ */
+export async function trafficMinutes(a: LatLng, b: LatLng): Promise<number | null> {
+  try {
+    if (straightKm(a, b) < 0.15) return 0;
+    const data = await google("https://routes.googleapis.com/directions/v2:computeRoutes", {
+      method: "POST",
+      fieldMask: "routes.duration",
+      body: {
+        origin: { location: { latLng: { latitude: a.lat, longitude: a.lng } } },
+        destination: { location: { latLng: { latitude: b.lat, longitude: b.lng } } },
+        travelMode: "DRIVE",
+        routingPreference: "TRAFFIC_AWARE",
+      },
+    });
+    const seconds = Number(String((data.routes as { duration?: string }[] | undefined)?.[0]?.duration ?? "").replace(/s$/, ""));
+    return Number.isFinite(seconds) && seconds >= 0 ? Math.ceil(seconds / 60) : null;
+  } catch {
+    return null;
+  }
+}

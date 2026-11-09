@@ -1,5 +1,8 @@
 import * as Location from "expo-location";
 import * as TaskManager from "expo-task-manager";
+import { Platform } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { api } from "./api";
 import { supabase } from "./supabase";
 
 /**
@@ -24,11 +27,25 @@ TaskManager.defineTask<{ locations?: Location.LocationObject[] }>(TASK, async ({
       p_heading: last.coords.heading,
     });
     // false = no trip in the window any more (or consent withdrawn): stop sharing.
-    if (!err && accepted === false) await stopTracking();
+    if (!err && accepted === false) return await stopTracking();
+    if (!err) await maybeCheckEta();
   } catch {
     /* offline: the next update tries again */
   }
 });
+
+/**
+ * Every 5 minutes, ask the server whether we'll reach the pickup on time. The server
+ * works it out from the position it already has, with live traffic, and alerts the
+ * team if we'd be more than 20 minutes late. It also throttles on its side.
+ */
+const ETA_KEY = "eta-last-check";
+async function maybeCheckEta(): Promise<void> {
+  const last = Number((await AsyncStorage.getItem(ETA_KEY)) ?? 0);
+  if (Date.now() - last < 5 * 60000) return;
+  await AsyncStorage.setItem(ETA_KEY, String(Date.now()));
+  await api("/driver/eta", {});
+}
 
 export async function stopTracking(): Promise<void> {
   try {
@@ -79,8 +96,9 @@ export async function syncTracking(consented: boolean): Promise<TrackingState> {
     if (!(await Location.hasStartedLocationUpdatesAsync(TASK))) {
       await Location.startLocationUpdatesAsync(TASK, {
         accuracy: Location.Accuracy.Balanced,
+        // Android: a position every minute even when parked. iPhone reports by distance moved.
         timeInterval: 60000,
-        distanceInterval: 200,
+        distanceInterval: Platform.OS === "android" ? 0 : 100,
         pausesUpdatesAutomatically: false,
         showsBackgroundLocationIndicator: true,
         activityType: Location.ActivityType.AutomotiveNavigation,

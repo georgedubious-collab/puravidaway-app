@@ -8,6 +8,21 @@ import type { ChatMessage, Coords, Names, Trip } from "../types";
 import { Btn, Card, Field } from "../ui";
 import { tripTitle } from "./Trips";
 
+type StepId = "en_route" | "in_progress" | "completed";
+const STEPS: Record<StepId, { title: string; help: string; button: string }> = {
+  en_route: {
+    title: "Heading to the pickup?",
+    help: "Tap when you set off (from 6 hours before the pickup time). The traveller is told you're on the way and our team follows your arrival.",
+    button: "I'm on my way",
+  },
+  in_progress: { title: "When your travellers are on board", help: "Tap at the pickup, once everyone is in the car.", button: "Client picked up" },
+  completed: {
+    title: "When you've dropped your travellers off",
+    help: "Tap at the drop-off. Location sharing stops and the traveller is asked to rate the trip.",
+    button: "Trip ended",
+  },
+};
+
 /** Where the car goes for one end. Drake Bay is reached by boat, so the car goes to the Sierpe dock. */
 const SIERPE_DOCK = { lat: 8.8593, lng: -83.4725 };
 function target(text: string | null, coords: Coords | null): { label: string; lat?: number; lng?: number; note?: string } | null {
@@ -31,7 +46,10 @@ export function TripDetail({ trip, names, onBack, onChanged }: { trip: Trip; nam
   const stops = (trip.sightseeing_stops ?? []).map((s) => names.stops[s.id] ?? s.id).join(", ");
   const cash = trip.cash_to_collect == null ? 0 : Number(trip.cash_to_collect);
 
-  async function step(next: "in_progress" | "completed") {
+  // I'm on my way → Client picked up → Trip ended.
+  const next: StepId = trip.status === "in_progress" ? "completed" : trip.en_route_at ? "in_progress" : "en_route";
+
+  async function step(next: StepId) {
     setBusy(true);
     setError("");
     const res = await api("/driver/trips/status", { booking_id: trip.id, step: next });
@@ -53,18 +71,10 @@ export function TripDetail({ trip, names, onBack, onChanged }: { trip: Trip; nam
 
       {trip.status === "confirmed" || trip.status === "in_progress" ? (
         <View style={[S.card, { borderColor: C.emerald, borderWidth: 2 }]}>
-          <Text style={S.h2}>{trip.status === "confirmed" ? "When your travellers are on board" : "When you've dropped your travellers off"}</Text>
-          <Text style={S.muted}>
-            {trip.status === "confirmed"
-              ? "Tap as you set off (available from 3 hours before the pickup time)."
-              : "Tap at the drop-off. The traveller is then asked to rate the trip."}
-          </Text>
-          <Btn
-            label={trip.status === "confirmed" ? "Start trip" : "Complete trip"}
-            onPress={() => step(trip.status === "confirmed" ? "in_progress" : "completed")}
-            busy={busy}
-            color={C.emerald}
-          />
+          <Text style={S.h2}>{STEPS[next].title}</Text>
+          <Text style={S.muted}>{STEPS[next].help}</Text>
+          <Btn label={STEPS[next].button} onPress={() => step(next)} busy={busy} color={C.emerald} />
+          {next === "in_progress" ? <Text style={{ color: C.emerald, fontWeight: "700" }}>You&apos;re on your way. Our team can see your progress.</Text> : null}
           {error ? <Text style={S.error}>{error}</Text> : null}
         </View>
       ) : null}

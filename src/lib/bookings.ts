@@ -108,6 +108,8 @@ export type DriverTrip = Pick<
   cash_to_collect?: number | string | null;
   driver_settled_at?: string | null;
   completed_at?: string | null;
+  /** When the driver tapped "I'm on my way" (migration 0029). */
+  en_route_at?: string | null;
 };
 
 export function usd(n: number | string): string {

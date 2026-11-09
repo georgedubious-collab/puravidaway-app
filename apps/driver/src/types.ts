@@ -47,6 +47,8 @@ export interface Trip {
   cash_to_collect: number | string | null;
   driver_settled_at: string | null;
   completed_at: string | null;
+  /** When the driver tapped "I'm on my way". */
+  en_route_at: string | null;
 }
 
 export interface Vehicle {

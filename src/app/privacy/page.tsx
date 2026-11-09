@@ -106,8 +106,10 @@ export default function PrivacyPage() {
           <li>Your profile text, English level, bids, assigned trips and chat messages.</li>
           <li>
             <strong>Location during trips (driver app):</strong> if you agree in the app, your phone
-            shares its location with our team from 3 hours before a pickup until you complete the
-            trip, including when the app is in the background. Nothing is shared outside that
+            shares its location with our team from 3 hours before a pickup (or from when you tap
+            “I’m on my way”) until you end the trip, including when the app is in the background.
+            Before the pickup we use it, with live traffic data from Google Maps, to estimate your
+            arrival time. Nothing is shared outside that
             window. We keep only your latest position, not a history; only our team sees it; and you
             can stop sharing in the app at any time.
           </li>
