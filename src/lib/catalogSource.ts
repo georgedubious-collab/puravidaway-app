@@ -72,6 +72,7 @@ async function loadDatabaseCatalog(): Promise<CatalogData> {
         durationMin: s.duration_min,
         priceCents: cents(s.price),
         corridors: s.corridors as HubId[],
+        parkFeeIncluded: Boolean(s.park_fee_included),
       })),
       dayTours: (tours.data ?? []).map((t) => ({
         id: t.id,

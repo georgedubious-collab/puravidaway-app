@@ -1,14 +1,16 @@
 "use client";
 
-import { Camera, Car, Gavel, Languages, MapPin, MessageCircle, PlusCircle, Users } from "lucide-react";
-import { useMemo, useState } from "react";
-import { HUBS, stopFitsRoute, type HubId } from "@/lib/catalog";
+import { Camera, Car, Check, Gavel, Languages, Link2, MapPin, MessageCircle, PlusCircle, Ticket, Users } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { AIRPORT_HUBS, HUBS, stopFitsRoute, type HubId } from "@/lib/catalog";
 import { seasonForYmd } from "@/lib/catalogModel";
 import { useCatalog } from "./CatalogContext";
 import { newItemId, whatsAppLink, type CartItem } from "@/lib/cart";
 import { DEFAULT_PICKUP_TIME, PICKUP_TIMES, addDays, formatTime12h } from "@/lib/dates";
-import { applyMultiplier, formatDuration, formatUSD, quoteTransfer } from "@/lib/pricing";
+import { applyMultiplier, formatDuration, formatUSD, perPersonCents, quoteTransfer } from "@/lib/pricing";
+import { MAX_SHARED_PAX, rideLinkQuery, type RideLinkState } from "@/lib/shareLink";
 import { MIN_OFFER_USD } from "@/lib/tripRequest";
+import { ridePromises } from "@/lib/trust";
 import { DEFAULT_PREFS, LANGUAGE_LABEL, hasContactDetails, prefsSummary, type DriverLanguage, type RidePrefs } from "@/lib/preferences";
 
 type PricingMode = "fixed" | "bid";
@@ -18,24 +20,26 @@ type PricingMode = "fixed" | "bid";
 export function TransfersView({
   today,
   onAdd,
-  initialOrigin = "SJO",
-  initialDestination = "ManuelAntonio",
+  initial = {},
+  suggestion,
 }: {
   /** Today's date in Costa Rica (YYYY-MM-DD), computed on the server. */
   today: string;
   onAdd: (item: CartItem) => void;
-  /** Pre-filled from route pages via ?from=&to= */
-  initialOrigin?: HubId;
-  initialDestination?: HubId;
+  /** Pre-filled from a shared link or a route page (?from=&to=…), already validated. */
+  initial?: Partial<RideLinkState>;
+  /** "While you're there" suggestions after a ride is added, shown under the add button. */
+  suggestion?: React.ReactNode;
 }) {
-  const [origin, setOrigin] = useState<HubId>(initialOrigin);
-  const [destination, setDestination] = useState<HubId>(initialDestination);
-  const [date, setDate] = useState(() => addDays(today, 14));
-  const [pickupTime, setPickupTime] = useState(DEFAULT_PICKUP_TIME);
-  const [pax, setPax] = useState(2);
+  const [origin, setOrigin] = useState<HubId>(initial.origin ?? "SJO");
+  const [destination, setDestination] = useState<HubId>(initial.destination ?? "ManuelAntonio");
+  const [date, setDate] = useState(() => initial.date ?? addDays(today, 14));
+  const [pickupTime, setPickupTime] = useState(initial.pickupTime ?? DEFAULT_PICKUP_TIME);
+  const [pax, setPax] = useState(initial.pax ?? 2);
   const [mode, setMode] = useState<PricingMode>("fixed");
-  const [vehicleId, setVehicleId] = useState("suv");
-  const [stopIds, setStopIds] = useState<string[]>([]);
+  const [vehicleId, setVehicleId] = useState(initial.vehicleId ?? "suv");
+  const [stopIds, setStopIds] = useState<string[]>(initial.stopIds ?? []);
+  const [copied, setCopied] = useState(false);
   const [notes, setNotes] = useState("");
   const [prefs, setPrefs] = useState<RidePrefs>(DEFAULT_PREFS);
   const [driverNotes, setDriverNotes] = useState("");
@@ -74,6 +78,40 @@ export function TransfersView({
     ? vehicleId
     : (availableVehicles[0]?.id ?? catalog.vehicles[0].id);
   const effectiveStopIds = stopIds.filter((id) => availableStops.some((s) => s.id === id));
+  const stopsKey = effectiveStopIds.join(",");
+
+  // Shareable link: mirror the ride choices in the address bar (debounced), never personal details.
+  const skipFirstSync = useRef(true);
+  useEffect(() => {
+    if (skipFirstSync.current) {
+      skipFirstSync.current = false;
+      return;
+    }
+    const t = window.setTimeout(() => {
+      const q = rideLinkQuery(
+        { origin, destination, date, pickupTime, pax, vehicleId: effectiveVehicleId, stopIds: stopsKey ? stopsKey.split(",") : [] },
+        window.location.search,
+      );
+      if (`?${q}` !== window.location.search) {
+        window.history.replaceState(null, "", `${window.location.pathname}?${q}${window.location.hash}`);
+      }
+    }, 400);
+    return () => window.clearTimeout(t);
+  }, [origin, destination, date, pickupTime, pax, effectiveVehicleId, stopsKey]);
+
+  async function copyLink() {
+    try {
+      const q = rideLinkQuery(
+        { origin, destination, date, pickupTime, pax, vehicleId: effectiveVehicleId, stopIds: effectiveStopIds },
+        window.location.search,
+      );
+      await navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}?${q}`);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2500);
+    } catch {
+      /* clipboard blocked: the address bar already has the link */
+    }
+  }
 
   const quote = useMemo(
     () =>
@@ -223,7 +261,7 @@ export function TransfersView({
               onChange={(e) => setPax(Number(e.target.value))}
               className="w-full bg-white text-slate-900 rounded-lg px-3 py-2.5 text-sm font-semibold"
             >
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+              {Array.from({ length: MAX_SHARED_PAX }, (_, i) => i + 1).map((n) => (
                 <option key={n} value={n}>
                   {n} passenger{n > 1 ? "s" : ""}
                 </option>
@@ -300,6 +338,10 @@ export function TransfersView({
                       <p className="text-xs font-extrabold text-emerald-700 mt-2">
                         +{formatUSD(seasonal(s.priceCents))} · adds {formatDuration(s.durationMin)}
                       </p>
+                      <p className="text-[11px] font-semibold text-slate-600 mt-1 flex items-center gap-1">
+                        <Ticket className="w-3.5 h-3.5" aria-hidden />
+                        {s.parkFeeIncluded ? "Park entrance included" : "Park entrance paid at the gate"}
+                      </p>
                     </button>
                   );
                 })}
@@ -336,7 +378,11 @@ export function TransfersView({
                         <Users className="w-3.5 h-3.5" /> Up to {v.maxPax} · {v.luggage}
                       </p>
                       <p className="text-lg font-extrabold text-emerald-700 mt-2">
-                        {formatUSD(seasonal(v.baseRateCents))}
+                        {formatUSD(seasonal(v.baseRateCents))}{" "}
+                        <span className="text-xs font-bold text-slate-500">per car</span>
+                      </p>
+                      <p className="text-xs font-semibold text-slate-600">
+                        from {formatUSD(perPersonCents(seasonal(v.baseRateCents), v.maxPax))} per person ({v.maxPax} travellers)
                       </p>
                       {seasonPct !== 0 && (
                         <p className="text-[11px] font-bold text-amber-700">
@@ -348,6 +394,7 @@ export function TransfersView({
                   );
                 })}
               </div>
+              <RidePromises airport={AIRPORT_HUBS.includes(origin)} />
             </Card>
           ) : (
             <div className="bg-white rounded-2xl p-5 shadow-sm border-2 border-amber-400">
@@ -564,6 +611,17 @@ export function TransfersView({
             >
               <MessageCircle className="w-4 h-4" /> Ask about this route on WhatsApp
             </a>
+            <button
+              type="button"
+              onClick={copyLink}
+              className="w-full mt-2 min-h-11 text-emerald-700 hover:text-emerald-600 font-bold text-xs flex items-center justify-center gap-2"
+            >
+              <Link2 className="w-4 h-4" aria-hidden /> {copied ? "Link copied" : "Copy a link to this ride"}
+            </button>
+            <p className="sr-only" aria-live="polite">
+              {copied ? "Link copied" : ""}
+            </p>
+            {suggestion && <div className="mt-4">{suggestion}</div>}
           </div>
         </div>
       </div>
@@ -595,6 +653,33 @@ function Field({
       <span className={cls}>{label}</span>
       {children}
     </label>
+  );
+}
+
+/** What every ride includes (src/lib/trust.ts RIDE_PROMISES); luggage is on each vehicle card. */
+function RidePromises({ airport }: { airport: boolean }) {
+  return (
+    <div className="mt-4 border-t border-slate-100 pt-3">
+      <p className="text-xs font-bold text-slate-600 mb-2">Every ride includes</p>
+      <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-slate-700">
+        {ridePromises(airport).map((p) => (
+          <li key={p.title} className="flex items-start gap-1.5">
+            <Check className="w-3.5 h-3.5 mt-0.5 shrink-0 text-emerald-600" aria-hidden />
+            <span>
+              <span className="font-bold text-slate-900">{p.title}</span>
+              {p.href && (
+                <>
+                  {" "}
+                  <a href={p.href} className="font-semibold text-emerald-700 underline">
+                    Policy
+                  </a>
+                </>
+              )}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

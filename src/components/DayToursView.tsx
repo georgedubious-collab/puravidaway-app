@@ -1,7 +1,7 @@
 "use client";
 
 import { Clock, PlusCircle, ShieldCheck } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { EN_ROUTE_UPGRADE_CENTS, REGION_NAMES, type Region } from "@/lib/catalog";
 import { seasonForYmd } from "@/lib/catalogModel";
 import { useCatalog } from "./CatalogContext";
@@ -12,12 +12,22 @@ import { formatUSD, quoteDayTour } from "@/lib/pricing";
 export function DayToursView({
   today,
   onAdd,
+  initialRegion,
+  initialDate,
+  highlightId,
 }: {
   today: string;
   onAdd: (item: CartItem) => void;
+  /** From a "while you're there" suggestion after adding a ride. */
+  initialRegion?: Region;
+  initialDate?: string;
+  highlightId?: string;
 }) {
-  const [region, setRegion] = useState<Region | "ALL">("ALL");
-  const [date, setDate] = useState(() => addDays(today, 14));
+  const [region, setRegion] = useState<Region | "ALL">(initialRegion ?? "ALL");
+  const [date, setDate] = useState(() => initialDate ?? addDays(today, 14));
+  useEffect(() => {
+    if (highlightId) document.getElementById(`tour-${highlightId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [highlightId]);
   const [upgrades, setUpgrades] = useState<Record<string, boolean>>({});
   const catalog = useCatalog();
   const season = seasonForYmd(date, catalog);
@@ -71,7 +81,10 @@ export function DayToursView({
           return (
             <div
               key={t.id}
-              className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 flex flex-col"
+              id={`tour-${t.id}`}
+              className={`bg-white rounded-2xl border shadow-sm p-5 flex flex-col ${
+                t.id === highlightId ? "border-amber-400 ring-2 ring-amber-300" : "border-slate-200"
+              }`}
             >
               <span className="text-[10px] uppercase tracking-wider font-extrabold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full self-start">
                 {REGION_NAMES[t.region]}

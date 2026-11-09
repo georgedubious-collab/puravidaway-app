@@ -245,28 +245,30 @@ What the exact point does to price (Daytrip, Sedan, from SJO):
 
 ## 5. Product requirements that follow (checklist for every PR)
 
-Status on 2026-11-08 (✅ met · 🟡 partly · ❌ not yet → the PR that addresses it):
-1 ❌ per-person price → payment & promises PR · 1b ❌ map search → PRICING.md build step 3 ·
-2 ❌ card promises (Jorge confirmed: flight tracking, 60 min free waiting, child seats free;
-no blanket "English-speaking") → payment & promises PR · 3 🟡 entrance fee not shown → PRICING.md §5 ·
-4 ✅ (bidding to be reworked, PRICING.md §6) · 5 🟡 → legal pages PR · 6 🟡 profile only after
-confirmation, no ratings yet · 7 ❌ upsell after adding a ride → payment & promises PR ·
-8 🟡 only from/to in shared links → payment & promises PR.
+Status as of 2026-11-08 in brackets.
 
-1. Price display: per car **and** "from $X per person".
+1. Price display: per car **and** "from $X per person". **[Done: vehicle cards and route pages,
+   "from $X per person (N travellers)" = car ÷ max passengers, rounded up.]**
 1b. Pick-up/drop-off by **map search of any exact place** (hotel, dock, restaurant), with the
-    route drawn on a map — not a town dropdown (§2d).
+    route drawn on a map — not a town dropdown (§2d). **[Open: still hub dropdowns.]**
 2. Every transfer card states: flight tracking, driver waits, luggage allowance, free
-   cancellation window, English-speaking local partner driver (ICT permit shown as a per-driver
-   badge, never a blanket claim; see PROJECT.md §10).
-3. Sightseeing stops show duration and whether entrance fees are included.
-4. Bid mode shows the fixed price as reference and warns on unrealistic offers.
-5. Cancellation and refund policy visible before payment. *Partly met (2026-11-08): `/cancellation` is linked from
-   the footer and under "Send trip request"; still to do: show the free-cancellation window on
-   each card and next to the pay button.*
+   cancellation window (ICT permit shown as a per-driver badge, never a blanket claim; see
+   PROJECT.md §10). **[Done: `RIDE_PROMISES` in `src/lib/trust.ts` — flight tracking on airport
+   pickups, 60 min free waiting, child seats free on request, free cancellation up to 24 h;
+   luggage on each vehicle card.]** The driver's language is a per-ride request, **not** a
+   blanket promise: a cheaper Spanish-speaking Economy class is planned.
+3. Sightseeing stops show duration and whether entrance fees are included. **[Done: from
+   `park_fee_included`, edited in /admin/pricing.]**
+4. Bid mode shows the fixed price as reference and warns on unrealistic offers. **[Done.]**
+5. Cancellation and refund policy visible before payment. **[Done: `/cancellation` page live,
+   linked from the footer, under "Send trip request" and in the trip panel's guarantees; the
+   24 h free-cancellation window is in each ride's "Every ride includes" list.]**
 6. Driver profile (photo, vehicle, rating, compliance badges) visible before the trip.
-7. After adding a transfer, suggest a tour or expedition (Welcome-style upsell).
+   **[Partly: photo, car photos and ICT badge on the trip page once confirmed; no ratings yet.]**
+7. After adding a transfer, suggest a tour or expedition (Welcome-style upsell). **[Done:
+   inline, dismissible, by drop-off region.]**
 8. Host/hotel referral links are a planned feature (Phase 4) — keep booking URLs shareable.
+   **[Shareable ride links done; referral tracking still planned.]**
 
 ## Sources
 

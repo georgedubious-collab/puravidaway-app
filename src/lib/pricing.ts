@@ -156,6 +156,16 @@ export function seasonForDate(date: Date): Season {
   return SEASONS[0];
 }
 
+/**
+ * Daytrip-style "from $X per person": the car price shared by a full car
+ * (the class's maximum passengers), rounded UP to whole dollars, so the
+ * label never undersells what a full car pays.
+ */
+export function perPersonCents(carCents: number, maxPax: number): number {
+  if (maxPax < 1) return carCents;
+  return Math.ceil(carCents / (maxPax * 100)) * 100;
+}
+
 /** Cash booking fee for one item: feeBps of its price (1000 = 10%), rounded to the cent. */
 export function cashFeeCents(itemCents: number, feeBps: number): number {
   return applyMultiplier(itemCents, feeBps);

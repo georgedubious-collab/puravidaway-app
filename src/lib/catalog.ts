@@ -155,6 +155,12 @@ export interface SightseeingStop {
    * drop-off are listed (a single hub = a stop in that town). See stopFitsRoute().
    */
   corridors: HubId[];
+  /**
+   * Is the park / attraction entrance included in the stop price?
+   * sightseeing_stops.park_fee_included, ticked in /admin/pricing ("Park fee included").
+   * Built-in values match the seed (all false) until the team confirms each stop.
+   */
+  parkFeeIncluded: boolean;
 }
 
 /**
@@ -176,6 +182,7 @@ export const SIGHTSEEING_STOPS: SightseeingStop[] = [
     description:
       "Watch 15-ft American crocodiles from the famous bridge while your driver stays with the bags.",
     corridors: ["SJO", "Monteverde", "ManuelAntonio", "Sierpe", "DrakeBay"],
+    parkFeeIncluded: false,
   },
   {
     id: "carara",
@@ -185,6 +192,7 @@ export const SIGHTSEEING_STOPS: SightseeingStop[] = [
     description:
       "Guided trail walk through transitional rainforest full of wild scarlet macaws.",
     corridors: ["SJO", "Monteverde", "ManuelAntonio", "Sierpe", "DrakeBay"],
+    parkFeeIncluded: false,
   },
   {
     id: "poas",
@@ -194,6 +202,7 @@ export const SIGHTSEEING_STOPS: SightseeingStop[] = [
     description:
       "Peer into an active turquoise crater lake, then sample highland Arabica coffee. Timed-entry tickets required.",
     corridors: ["SJO", "Arenal"],
+    parkFeeIncluded: false,
   },
   {
     id: "rioceleste",
@@ -203,6 +212,7 @@ export const SIGHTSEEING_STOPS: SightseeingStop[] = [
     description:
       "Hike to the sky-blue river inside Tenorio Volcano National Park.",
     corridors: ["Arenal", "LIR"],
+    parkFeeIncluded: false,
   },
   {
     id: "sloth",
@@ -212,6 +222,7 @@ export const SIGHTSEEING_STOPS: SightseeingStop[] = [
     description:
       "Spot two- and three-toed sloths on a guided boardwalk trail near La Fortuna.",
     corridors: ["Arenal"],
+    parkFeeIncluded: false,
   },
 ];
 
@@ -263,6 +274,28 @@ export const VEHICLE_CLASSES: VehicleClass[] = [
 ];
 
 export type Region = "Arenal" | "ManuelAntonio" | "Osa" | "Monteverde";
+
+/** Airport hubs: pickups there get flight tracking and the wait starts when the flight lands. */
+export const AIRPORT_HUBS: readonly HubId[] = ["SJO", "LIR"];
+
+/**
+ * Which tour region a ride's drop-off is in, for "while you're there" suggestions
+ * after a ride is added. Hubs without a region (airports, Tamarindo, Puerto Viejo)
+ * fall back to the first tours / expeditions in the catalog order.
+ */
+export const HUB_REGION: Partial<Record<HubId, Region>> = {
+  Arenal: "Arenal",
+  ManuelAntonio: "ManuelAntonio",
+  Monteverde: "Monteverde",
+  Sierpe: "Osa",
+  DrakeBay: "Osa",
+};
+
+/** Regions each expedition starts in or passes through (expeditions have no region column). */
+export const EXPEDITION_REGIONS: Record<string, Region[]> = {
+  md1: ["Osa"],
+  md2: ["Arenal", "Monteverde", "ManuelAntonio"],
+};
 
 export const REGION_NAMES: Record<Region, string> = {
   Arenal: "La Fortuna / Arenal",

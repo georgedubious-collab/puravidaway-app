@@ -60,6 +60,47 @@ export const ICT_BADGE_NOTE =
 export const CARRIER_NOTE =
   "Transportation is provided by independent partner drivers and transport companies, who are responsible for holding the licenses and permits required by applicable law.";
 
+export interface RidePromise {
+  title: string;
+  text: string;
+  /** Only shown for pickups at an airport hub (AIRPORT_HUBS). */
+  airportOnly?: boolean;
+  href?: string;
+}
+
+/**
+ * What every ride includes, shown on the ride builder and route pages.
+ * ONLY promises the team confirmed it delivers (Jorge, 2026-11-08). Luggage
+ * allowance is per vehicle (shown on each card). Never add a blanket
+ * "English-speaking driver": a Spanish-speaking Economy class is planned, and
+ * the driver's language is a per-ride request (docs/PROJECT.md §9 #10).
+ */
+export const RIDE_PROMISES: RidePromise[] = [
+  {
+    title: "Flight tracking",
+    text: "On airport pickups we follow your flight, so a delay doesn't leave you stranded.",
+    airportOnly: true,
+  },
+  {
+    title: "60 min free waiting",
+    text: "Your driver waits up to 60 minutes after your flight lands, or after your pickup time.",
+  },
+  {
+    title: "Child seats free on request",
+    text: "Tell us how many and the children's ages when you book.",
+  },
+  {
+    title: "Free cancellation up to 24 h",
+    text: "Cancel up to 24 hours before pickup at no cost.",
+    href: "/cancellation",
+  },
+];
+
+/** Promises for a ride from this pickup (flight tracking only at airports). */
+export function ridePromises(pickupIsAirport: boolean): RidePromise[] {
+  return RIDE_PROMISES.filter((p) => !p.airportOnly || pickupIsAirport);
+}
+
 export interface Guarantee {
   title: string;
   text: string;

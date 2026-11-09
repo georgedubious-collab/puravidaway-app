@@ -3,6 +3,20 @@
 Every merged change gets one line: `YYYY-MM-DD — <AI or Jorge> — <what changed>`.
 Newest entries first. AIs: read the top of this file before starting work.
 
+- 2026-11-08 — Claude — Competitor gaps (COMPETITORS.md §5). Vehicle cards and route pages show the
+  price per car **and** "from $X per person (N travellers)" (car price ÷ the class's max
+  passengers, rounded up to whole dollars). "Every ride includes" list from one place
+  (`RIDE_PROMISES` in `src/lib/trust.ts`): flight tracking (airport pickups only), 60 min free
+  waiting, child seats free on request, free cancellation up to 24 h; luggage stays on each card.
+  No blanket "English-speaking driver" claim. After a ride is added, an inline, dismissible
+  "While you're in …" suggestion offers 1–2 day tours / expeditions in the drop-off's region
+  (`HUB_REGION`, `EXPEDITION_REGIONS`; otherwise the first ones in catalog order); one click opens
+  that tab with the item highlighted and the date set to the day after the ride. Shareable ride
+  links: from, to, date, time, passengers, vehicle and stops live in the address (debounced
+  `replaceState`, validated against the catalog on load, old `?from=&to=` links still work, no
+  personal details), plus a "Copy a link to this ride" button. Stop cards show "Park entrance
+  included" / "Park entrance paid at the gate" from `sightseeing_stops.park_fee_included`.
+
 - 2026-11-08 — Claude — Payment options (migration 0012), replacing the 20% deposit: pay online in
   full (secure payment link sent once the trip is confirmed; online payment isn't live yet), or pay
   the driver in cash + a 10% cash booking fee on rides and 1-day tours; expeditions are online in
