@@ -357,9 +357,16 @@ and `season_for_date(date)` returns the season for a travel date.
    ($175–$290) regardless of route, which would make SJO→Manuel Antonio cost the same as
    SJO→Tamarindo. Recommended: a **route × vehicle price table** (each corridor has its own price
    per vehicle class), which matches how Costa Rica transfers are actually quoted.
+   **Analysis 2026-11-08: `docs/PRICING.md`.** Recommended: exact place search + real road
+   distance/time (Google Places + Routes) priced by a formula (base + per km + per hour, minimum
+   fare) × vehicle factor × area factor × season, with optional fixed zone prices for the busiest
+   pairs. Pending Jorge's approval of the starting numbers.
 2. **Platform commission %** on accepted bids. Benchmarks: Daytrip keeps ~30%, GetTransfer
    13–25% (see COMPETITORS.md §1b). Recommendation: flat 12–15%, weekly payouts.
 3. **Bid floor/ceiling** relative to the reference price (e.g. 70%–130%).
+   **Recommendation 2026-11-08 (`docs/PRICING.md` §6):** travellers always get a fixed price;
+   drivers claim jobs at a fixed payout behind the scenes; "name your price" becomes "request a
+   custom quote" for groups, charters and unusual routes. Pending Jorge.
 4. **Stop ↔ corridor mapping** (which stops are offered on which routes).
 5. **Lodging tier pricing**: per person or per booking? Same question for day tours.
 6. **Passenger-based pricing**: do day tours and expeditions price per person?
@@ -374,6 +381,9 @@ and `season_for_date(date)` returns the season for a travel date.
     English), Wi-Fi, stroller, child seats and pets. Built as **free requests matched by the
     team**. Decide whether any cost extra (e.g. child seats) or whether "Spanish / basic English"
     is cheaper.
+    **Jorge 2026-11-08:** no blanket "English-speaking" promise; add a cheaper **Economy** class
+    with a Spanish-speaking driver (like Daytrip's Sedan Lite), see `docs/PRICING.md` §4.3.
+    Child seats stay free on request.
 11. **In-app chat vs WhatsApp:** decided (Jorge, 2026-10-14): in-app trip chat with email
     notifications through Resend is the main channel; WhatsApp stays as an option. SMS later.
 12. **Mobile framework:** decided (Jorge, 2026-10-14): **Expo (React Native)** for both apps
