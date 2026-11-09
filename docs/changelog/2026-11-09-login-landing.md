@@ -1,0 +1,1 @@
+- 2026-11-09 — Claude — After sign-in without a requested page, people land by role (`/auth/landing`: team to /admin, everyone else to /driver) instead of always /admin, which showed new drivers an access error.
