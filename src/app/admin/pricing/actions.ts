@@ -160,7 +160,14 @@ async function saveDayTourImpl(fd: FormData) {
   await save("day_tours", fd, {
     name: text(fd, "name"),
     duration_hours: decimal(fd, "duration_hours", 0.5, 24),
-    price: money(fd, "price"),
+    // Per-person tiers (migration 0022); absent from the form before it runs.
+    ...(fd.has("price_pp_solo")
+      ? {
+          price_pp_solo: money(fd, "price_pp_solo"),
+          price_pp_small: money(fd, "price_pp_small"),
+          price_pp_group: money(fd, "price_pp_group"),
+        }
+      : {}),
     en_route_upgrade_price: money(fd, "en_route_upgrade_price"),
     active: checked(fd, "active"),
   });

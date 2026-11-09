@@ -1,0 +1,1 @@
+- 2026-11-09 — Claude — Day tours are priced per person, tiered by group size (1 / 2–3 / 4+ travellers; migration 0022), like Jorge's own tours: e.g. Arenal $350 / $295 / $275 per person instead of $145 per group. The tour builder gets a travellers selector; tiers are edited at /admin/pricing.

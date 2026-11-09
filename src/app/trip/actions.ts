@@ -157,7 +157,7 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
       lodging_tier: spec.kind === "expedition" ? spec.tierId : null,
       // Costa Rica time: the ride's pickup time, or the tour / expedition default until the team confirms.
       scheduled_at: costaRicaTimestamp(date, itemTime(spec)),
-      passenger_count: spec.kind === "transfer" ? spec.pax : null,
+      passenger_count: spec.kind === "transfer" || spec.kind === "day_tour" ? spec.pax : null,
       flight_or_hotel_notes: spec.kind === "transfer" ? (spec.notes ?? null) : null,
       preferences: spec.kind === "transfer" && spec.prefs ? spec.prefs : {},
       driver_notes: spec.kind === "transfer" ? (spec.driverNotes ?? null) : null,

@@ -427,12 +427,20 @@ export const REGION_NAMES: Record<Region, string> = {
   Monteverde: "Monteverde & Río Celeste",
 };
 
+/** Per-person prices by group size (Jorge, 2026-11-09, like his tours): 1 / 2–3 / 4 or more travellers. */
+export interface PerPersonTiers {
+  soloCents: number;
+  smallCents: number;
+  groupCents: number;
+}
+
 export interface DayTour {
   id: string;
   region: Region;
   name: string;
   durationHours: number;
-  priceCents: number;
+  /** Private vehicle, guide, entrances and lunch, per person, by group size. */
+  perPerson: PerPersonTiers;
   highlights: string[];
   /** Per-tour Smart En-Route price; falls back to EN_ROUTE_UPGRADE_CENTS. */
   enRouteUpgradeCents?: number;
@@ -440,13 +448,26 @@ export interface DayTour {
 
 export const EN_ROUTE_UPGRADE_CENTS = 6500;
 
+/** The per-person rate that applies to a group of `pax`. */
+export function perPersonTierCents(t: PerPersonTiers, pax: number): number {
+  if (pax <= 1) return t.soloCents;
+  if (pax <= 3) return t.smallCents;
+  return t.groupCents;
+}
+
+/** What a group of `pax` pays for a day tour (before the en-route upgrade and the season). */
+export function dayTourCents(tour: Pick<DayTour, "perPerson">, pax: number): number {
+  const n = Math.max(1, pax);
+  return perPersonTierCents(tour.perPerson, n) * n;
+}
+
 export const DAY_TOURS: DayTour[] = [
   {
     id: "dt1",
     region: "Arenal",
     name: "Arenal Volcano 1968 Lava Trails, La Fortuna Waterfall & Hot Springs",
     durationHours: 8,
-    priceCents: 14500,
+    perPerson: { soloCents: 35000, smallCents: 29500, groupCents: 27500 },
     highlights: ["Lava-field trails", "La Fortuna Waterfall", "Hot springs soak"],
   },
   {
@@ -454,7 +475,7 @@ export const DAY_TOURS: DayTour[] = [
     region: "ManuelAntonio",
     name: "Manuel Antonio National Park Wildlife Walk + Catamaran Snorkel",
     durationHours: 7.5,
-    priceCents: 15500,
+    perPerson: { soloCents: 33000, smallCents: 28000, groupCents: 26000 },
     highlights: ["Naturalist guide & scope", "Sloths, monkeys, toucans", "Afternoon catamaran"],
   },
   {
@@ -462,7 +483,7 @@ export const DAY_TOURS: DayTour[] = [
     region: "Osa",
     name: "Sierpe Mangrove Boat Safari & Caño Island Snorkeling",
     durationHours: 7,
-    priceCents: 16500,
+    perPerson: { soloCents: 37500, smallCents: 30000, groupCents: 27500 },
     highlights: ["Mangrove wildlife", "Caño Island reef", "Dolphins in season"],
   },
   {
@@ -470,7 +491,7 @@ export const DAY_TOURS: DayTour[] = [
     region: "Monteverde",
     name: "Monteverde Hanging Bridges, Zipline & Night Walk",
     durationHours: 7,
-    priceCents: 14000,
+    perPerson: { soloCents: 28000, smallCents: 23000, groupCents: 21000 },
     highlights: ["Cloud-forest canopy", "Zipline", "Guided night walk"],
   },
 ];

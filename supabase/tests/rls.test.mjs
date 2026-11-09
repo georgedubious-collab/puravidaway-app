@@ -118,6 +118,9 @@ await expectRows("ferry fares (colones) and exchange rate seeded", "anon", "sele
 await expectBlocked("absurd exchange rate refused", "admin", "update public.pricing_settings set crc_per_usd = 5");
 await expectBlocked("unknown pricing area refused", "admin", "insert into public.hub_pricing (hub_id, area_factor) values ('Nowhere', 1)");
 await expectBlocked("visitor cannot change ferry fares", "anon", "update public.pricing_settings set ferry_vehicle_fare_crc = 1", { affected: 0 });
+// Migration 0022: day tours per person, tiered by group size.
+await expectRows("Arenal day tour tiers seeded", "anon", "select * from public.day_tours where id = 'dt1' and price_pp_solo = 350 and price_pp_small = 295 and price_pp_group = 275", 1);
+await expectBlocked("negative tour price refused", "admin", "update public.day_tours set price_pp_group = -1 where id = 'dt1'");
 // Migration 0021: stops priced by waiting time + detour.
 await expectRows("waiting rate seeded at $20/hour", "anon", "select * from public.pricing_settings where wait_per_hour = 20", 1);
 await expectRows("Poás detour and per-person tour price seeded", "anon", "select * from public.sightseeing_stops where id = 'poas' and detour_km = 24 and detour_min = 40 and tour_price_pp = 55", 1);
