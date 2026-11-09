@@ -14,6 +14,7 @@ import {
   type HubId,
   type Region,
 } from "@/lib/catalog";
+import { DRIVER_COMMISSION_BPS_DEFAULT } from "@/lib/payout";
 import { formatUSD, rideCents } from "@/lib/pricing";
 import { requireRole } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -26,6 +27,7 @@ import {
   saveExpedition,
   saveLodgingTier,
   saveAreaFactors,
+  saveDriverCommission,
   saveFerryFares,
   savePaymentSettings,
   saveRideFormula,
@@ -44,6 +46,7 @@ interface Settings {
   cash_fee_bps: number;
   ride_base_fare?: number; ride_per_km?: number; ride_per_hour?: number; ride_minimum_fare?: number;
   ferry_vehicle_fare_crc?: number; ferry_passenger_fare_crc?: number; crc_per_usd?: number;
+  driver_commission_bps?: number;
 }
 
 /** Example routes shown under the formula so the effect of a change is visible. */
@@ -87,6 +90,8 @@ export default async function PricingPage() {
   // Migration 0015 adds the ferry fares and the Southern Nicoya area.
   const ferryReady = ps.data?.crc_per_usd !== undefined;
   const extraAreasReady = (hp.data ?? []).some((h) => h.hub_id === "SouthNicoya");
+  const commissionBps = ps.data?.driver_commission_bps ?? DRIVER_COMMISSION_BPS_DEFAULT;
+  const commissionReady = ps.data?.driver_commission_bps !== undefined;
   const ferry = {
     vehicleCrc: ps.data?.ferry_vehicle_fare_crc ?? FERRY_FARES_DEFAULT.vehicleCrc,
     passengerCrc: ps.data?.ferry_passenger_fare_crc ?? FERRY_FARES_DEFAULT.passengerCrc,
@@ -309,6 +314,29 @@ export default async function PricingPage() {
           <p className="mt-3 text-xs text-slate-600">
             At ₡{ferry.rate} per dollar: car + driver {usd(ferry.vehicleCrc)}, each passenger {usd(ferry.passengerCrc)}.
             A crossing with 2 passengers adds {formatUSD(Math.round(crcToCents(ferry.vehicleCrc + 2 * ferry.passengerCrc, ferry.rate) / 100) * 100)}.
+          </p>
+        </Card>
+      </Section>
+
+      <Section
+        title="Drivers' payout"
+        note="Our share of each ride and day tour, as a percentage of the price minus pass-through costs (ferry tickets go to the driver in full). Drivers see only their payout on the job board and their trips, never the client's price. Expeditions are arranged by the team and have no automatic payout."
+      >
+        <Card>
+          {!commissionReady && (
+            <p className="mb-3 text-sm text-amber-800">
+              Run migration <code>20261109000017_driver_job_board.sql</code> in the Supabase SQL editor to edit this.
+              Until then the site uses {DRIVER_COMMISSION_BPS_DEFAULT / 100}%.
+            </p>
+          )}
+          <AdminForm action={saveDriverCommission} className="grid gap-3 sm:grid-cols-6 items-end">
+            <Field l="Our commission (%)" className="sm:col-span-2">
+              <input name="commission_percent" inputMode="decimal" defaultValue={commissionBps / 100} className={input} disabled={!commissionReady} />
+            </Field>
+          </AdminForm>
+          <p className="mt-3 text-xs text-slate-600">
+            Example: a {formatUSD(16200)} ride pays the driver {formatUSD(Math.round(16200 * (1 - commissionBps / 10000)))}. Changing this only
+            affects new bookings; each booking keeps the payout it was created with.
           </p>
         </Card>
       </Section>

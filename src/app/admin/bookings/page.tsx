@@ -11,6 +11,7 @@ import {
   type BookingStatus,
   type TripContact,
 } from "@/lib/bookings";
+import { LiveRefresh } from "@/components/LiveRefresh";
 import { getCatalog } from "@/lib/catalogSource";
 import { formatScheduledAt } from "@/lib/dates";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -31,6 +32,12 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
       ? `${b.origin} → ${b.destination}`
       : ([...catalog.dayTours, ...catalog.expeditions].find((x) => x.id === b.catalog_item_id)?.name ?? b.catalog_item_id);
   if (error) return <p className="font-semibold text-red-700">Couldn&apos;t load bookings: {error.message}</p>;
+  // Open offers per booking on the job board.
+  const openIds = (data ?? []).filter((b) => b.status === "pending_bids").map((b) => b.id);
+  const { data: openOffers } = openIds.length
+    ? await supabase.from("bids").select("booking_id").in("booking_id", openIds).eq("status", "submitted")
+    : { data: [] as { booking_id: string }[] };
+  const offersOn = (id: string) => (openOffers ?? []).filter((o) => o.booking_id === id).length;
 
   // One card per trip request (its items share a trip_id).
   const trips = new Map<string, (BookingRow & { trips: TripContact | null })[]>();
@@ -41,6 +48,7 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
 
   return (
     <div className="space-y-6">
+      {openIds.length > 0 && <LiveRefresh seconds={15} />}
       <div>
         <h1 className="text-2xl font-extrabold text-slate-900">Bookings</h1>
         <p className="mt-1 text-sm text-slate-600">
@@ -84,6 +92,11 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
                         {SERVICE_LABEL[b.service_type]}{" "}
                         {itemName(b)}
                         {b.pricing_mode === "bid" && <span className="ml-1 rounded bg-amber-100 px-1.5 text-xs font-bold">offer</span>}
+                        {b.status === "pending_bids" && (
+                          <span className={`ml-1 rounded px-1.5 text-xs font-bold ${offersOn(b.id) ? "bg-emerald-100 text-emerald-900" : "bg-slate-100 text-slate-600"}`}>
+                            {offersOn(b.id)} driver offer{offersOn(b.id) === 1 ? "" : "s"}
+                          </span>
+                        )}
                       </span>
                       <span className="text-sm font-semibold">
                         {usd(bookingDue(b))}

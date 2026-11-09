@@ -128,6 +128,8 @@ export interface PricedItem {
   totalCents: number;
   /** Fixed catalog price, for reference when the traveller made an offer. */
   referenceCents: number;
+  /** Costs the driver pays out of pocket and gets back in full (ferry tickets); see src/lib/payout.ts. */
+  passThroughCents: number;
 }
 
 /**
@@ -174,15 +176,15 @@ export function priceItem(spec: ItemSpec, date: string, catalog: CatalogData, ro
       if (offer < MIN_OFFER_USD * 100 || offer > MAX_OFFER_USD * 100) {
         throw new Error(`Offers must be between $${MIN_OFFER_USD} and $${MAX_OFFER_USD}.`);
       }
-      return { totalCents: offer, referenceCents: quote.totalCents };
+      return { totalCents: offer, referenceCents: quote.totalCents, passThroughCents: Math.min(offer, quote.ferryCents) };
     }
-    return { totalCents: quote.totalCents, referenceCents: quote.totalCents };
+    return { totalCents: quote.totalCents, referenceCents: quote.totalCents, passThroughCents: quote.ferryCents };
   }
 
   if (spec.kind === "day_tour") {
     if (!catalog.dayTours.some((t) => t.id === spec.tourId)) throw new Error("That tour is no longer offered.");
     const total = quoteDayTour(spec.tourId, spec.upgrade, season, catalog);
-    return { totalCents: total, referenceCents: total };
+    return { totalCents: total, referenceCents: total, passThroughCents: 0 };
   }
 
   if (!catalog.expeditions.some((e) => e.id === spec.expeditionId)) throw new Error("That expedition is no longer offered.");
@@ -191,5 +193,5 @@ export function priceItem(spec: ItemSpec, date: string, catalog: CatalogData, ro
     throw new Error("That lodging option is no longer offered.");
   }
   const total = quoteExpedition(spec.expeditionId, spec.tierId, season, catalog);
-  return { totalCents: total, referenceCents: total };
+  return { totalCents: total, referenceCents: total, passThroughCents: 0 };
 }

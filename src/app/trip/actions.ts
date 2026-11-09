@@ -9,6 +9,7 @@ import { costaRicaTimestamp, formatTime12h, todayInCostaRica } from "@/lib/dates
 import { ADMIN_EMAIL, SITE_URL, sendEmail } from "@/lib/email";
 import { resolveTransfer } from "@/lib/googleMaps";
 import type { RidePlace, RideRoute } from "@/lib/places";
+import { hasDriverPayout, splitPayout } from "@/lib/payout";
 import { cashFeeCents, formatBpsPercent } from "@/lib/pricing";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { MAX_TRIP_ITEMS, itemTime, parseSpec, priceItem, type ItemSpec } from "@/lib/tripRequest";
@@ -71,6 +72,7 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
       date: string;
       totalCents: number;
       referenceCents: number;
+      passThroughCents: number;
       /** Rides: both ends as priced (typed places looked up again on the server) and the road route. */
       ride?: { origin: RidePlace; destination: RidePlace; route: RideRoute | null };
     }[] = [];
@@ -129,7 +131,10 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
       console.error("[trip request]", trip.error);
       return { ok: false, error: "We couldn't save your request. Please try again or send it on WhatsApp." };
     }
-    const rows = priced.map(({ spec, date, totalCents, referenceCents, ride }) => ({
+    // Driver payout: the platform keeps its commission on the price minus pass-through costs (ferries).
+    const payoutFor = (kind: string, totalCents: number, passThroughCents: number) =>
+      hasDriverPayout(kind) ? splitPayout(totalCents, passThroughCents, catalog) : null;
+    const rows = priced.map(({ spec, date, totalCents, referenceCents, passThroughCents, ride }) => ({
       trip_id: tripId,
       service_type: spec.kind,
       catalog_item_id: spec.kind === "day_tour" ? spec.tourId : spec.kind === "expedition" ? spec.expeditionId : null,
@@ -154,6 +159,8 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
       driver_notes: spec.kind === "transfer" ? (spec.driverNotes ?? null) : null,
       pricing_mode: spec.kind === "transfer" && spec.pricing === "bid" ? "bid" : "fixed",
       total_price: totalCents / 100,
+      driver_payout: payoutFor(spec.kind, totalCents, passThroughCents)?.payoutCents != null ? payoutFor(spec.kind, totalCents, passThroughCents)!.payoutCents / 100 : null,
+      platform_fee: payoutFor(spec.kind, totalCents, passThroughCents)?.feeCents != null ? payoutFor(spec.kind, totalCents, passThroughCents)!.feeCents / 100 : null,
       currency: "USD",
       payment_mode: itemPaymentMode(spec.kind, mode),
       cash_fee: feeFor(spec, totalCents) / 100,

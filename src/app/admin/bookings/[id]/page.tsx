@@ -3,13 +3,15 @@ import { notFound } from "next/navigation";
 import { ActionForm } from "@/components/ActionForm";
 import { ChatBox } from "@/components/ChatBox";
 import { requireRole } from "@/lib/auth";
-import { BOOKING_STATUSES, BOOKING_STATUS_LABEL, SERVICE_LABEL, bookingDue, usd, type BookingRow, type TripContact } from "@/lib/bookings";
+import { BOOKING_STATUSES, BOOKING_STATUS_LABEL, SERVICE_LABEL, bookingDue, usd, type BookingRow, type OfferRow, type TripContact } from "@/lib/bookings";
 import { getCatalog } from "@/lib/catalogSource";
 import { formatScheduledAt, todayInCostaRica } from "@/lib/dates";
 import { canTakeTrips, type DriverRecord, type VehicleRecord } from "@/lib/driverKyc";
 import { prefMismatches, prefsSummary } from "@/lib/preferences";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { updateBooking } from "../actions";
+import { LiveRefresh } from "@/components/LiveRefresh";
+import { compareRanks, nearHome, offerRank, ratingBand, returnMatch, townName, townOf, type ReturnMatch, type TripLike } from "@/lib/matching";
+import { acceptOffer, updateBooking } from "../actions";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 type DriverRow = DriverRecord & { profiles: { full_name: string | null } | null; driver_vehicles: VehicleRecord[] };
@@ -36,6 +38,51 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
   if (!b) notFound();
 
   const { data: note } = await supabase.from("booking_admin_notes").select("notes").eq("booking_id", b.id).maybeSingle();
+  // Drivers' offers from the job board, with who they are and how much work they've had.
+  const { data: offers } = await supabase.from("bids").select("*").eq("booking_id", b.id).order("created_at").returns<OfferRow[]>();
+  const offerDriverIds = [...new Set((offers ?? []).map((o) => o.driver_id))];
+  type Load = TripLike & { assigned_driver_id: string | null };
+  const [{ data: offerNames }, { data: offerHomes }, { data: offerLoad }] = offerDriverIds.length
+    ? await Promise.all([
+        supabase.from("profiles").select("id, full_name").in("id", offerDriverIds),
+        supabase.from("drivers").select("id, home_hub, rating_avg, rating_count").in("id", offerDriverIds),
+        supabase
+          .from("bookings")
+          .select("id, assigned_driver_id, status, scheduled_at, origin, destination, origin_coords, destination_coords, sightseeing_stops, booking_ref")
+          .in("assigned_driver_id", offerDriverIds)
+          .in("status", ["confirmed", "in_progress", "completed"])
+          .returns<Load[]>(),
+      ])
+    : [{ data: [] }, { data: [] }, { data: [] as Load[] }];
+  const nameOf = (id: string) => offerNames?.find((p) => p.id === id)?.full_name ?? "Driver";
+  type DriverBits = { id: string; home_hub: string | null; rating_avg: number | string | null; rating_count: number | null };
+  const bitsOf = (id: string) => (offerHomes as DriverBits[] | null)?.find((d) => d.id === id);
+  const homeOf = (id: string) => bitsOf(id)?.home_hub ?? null;
+  const ratingText = (id: string) => {
+    const d = bitsOf(id);
+    return d?.rating_count ? `★ ${Number(d.rating_avg).toFixed(1)} (${d.rating_count})` : "★ new driver";
+  };
+  const tripsOf = (id: string) => (offerLoad ?? []).filter((x) => x.assigned_driver_id === id);
+  // Rank offers: return-trip match first, then drivers based nearby, then fewer trips, then cheaper.
+  const job = {
+    origin_town: townOf(b.origin, b.origin_coords),
+    destination_town: townOf(b.destination, b.destination_coords),
+    scheduled_at: b.scheduled_at ?? "",
+  };
+  const ranked = (offers ?? [])
+    .map((o) => {
+      const mine = tripsOf(o.driver_id);
+      const match = b.scheduled_at ? returnMatch(job, mine.filter((t) => t.id !== b.id)) : null;
+      const home = nearHome(homeOf(o.driver_id), job);
+      const bits = bitsOf(o.driver_id);
+      const rating = ratingBand(bits?.rating_avg, bits?.rating_count);
+      return { o, match, home, trips: mine.length, rank: offerRank({ match, home, trips: mine.length, amount: Number(o.bid_amount), rating }) };
+    })
+    .sort((x, y) => compareRanks(x.rank, y.rank));
+  const matchText = (m: ReturnMatch) =>
+    m.kind === "after"
+      ? `Return trip: drops off in ${townName(job.origin_town)} ${m.gapMinutes >= 60 ? `${Math.floor(m.gapMinutes / 60)} h` : `${m.gapMinutes} min`} before this pickup (${m.trip.booking_ref ?? ""})`
+      : `Leads into their next trip from ${townName(job.destination_town)} (${m.trip.booking_ref ?? ""})`;
   const { data: siblings } = b.trip_id
     ? await supabase.from("bookings").select("id, booking_ref, service_type, scheduled_at").eq("trip_id", b.trip_id).neq("id", b.id)
     : { data: [] };
@@ -81,6 +128,7 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
 
   return (
     <div className="space-y-6">
+      {b.status === "pending_bids" && <LiveRefresh seconds={10} />}
       <Link href="/admin/bookings" className="text-sm font-bold text-emerald-700 underline">
         ← All bookings
       </Link>
@@ -138,6 +186,12 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
             {b.lodging_tier && <Item k="Lodging" v={catalog.lodgingTiers.find((t) => t.id === b.lodging_tier)?.name ?? b.lodging_tier} />}
             {b.flight_or_hotel_notes && <Item k="Ride notes" v={b.flight_or_hotel_notes} />}
             {prefsSummary(b.preferences).length > 0 && <Item k="Asked for" v={prefsSummary(b.preferences).join(", ")} />}
+            {b.driver_payout != null && (
+              <Item
+                k="Driver payout"
+                v={`${usd(b.driver_payout)} (we keep ${usd(b.platform_fee ?? 0)})${b.claimed_at ? " · offer accepted from the job board" : " · suggested"}`}
+              />
+            )}
             {b.driver_notes && <Item k="Message for driver" v={b.driver_notes} />}
             <Item k="Price" v={`${usd(b.total_price)}${b.pricing_mode === "bid" ? " (client's offer)" : ""}`} />
             <Item k="Payment" v={paymentText} />
@@ -145,6 +199,55 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
           </dl>
         </section>
       </div>
+
+      {(offers ?? []).length > 0 && (
+        <section className="rounded-xl border border-slate-200 bg-white p-5">
+          <h2 className="font-extrabold text-slate-900">Drivers&apos; offers</h2>
+          <p className="mt-1 text-xs text-slate-500">
+            Suggested payout {b.driver_payout != null ? usd(b.driver_payout) : "—"}. Sorted for you: a driver with a return trip
+            first, then the better rating (new drivers count as 4.0), then drivers based nearby, then the lower offer, then fewer
+            trips with us. Accepting one assigns the driver, confirms the booking and declines the rest. New offers appear by themselves.
+          </p>
+          <ul className="mt-3 divide-y divide-slate-100">
+            {ranked.map(({ o, match, home, trips }) => (
+              <li key={o.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+                <div className="text-sm">
+                  <p className="font-bold text-slate-900">
+                    {nameOf(o.driver_id)}{" "}
+                    <span className="font-semibold text-slate-500">
+                      · {ratingText(o.driver_id)} · {trips} trip{trips === 1 ? "" : "s"}{homeOf(o.driver_id) ? ` · based in ${townName(homeOf(o.driver_id))}` : ""}
+                    </span>
+                  </p>
+                  {match && (
+                    <p className="mt-0.5 inline-block rounded bg-emerald-100 px-1.5 text-xs font-bold text-emerald-900">{matchText(match)}</p>
+                  )}
+                  {!match && home && (
+                    <p className="mt-0.5 inline-block rounded bg-sky-100 px-1.5 text-xs font-bold text-sky-900">Based near the pickup</p>
+                  )}
+                  <p className="text-slate-600">
+                    {o.vehicle_snapshot?.make_model ?? "Vehicle"} {o.vehicle_snapshot?.plate ?? ""}
+                    {o.vehicle_snapshot?.seats ? ` · ${o.vehicle_snapshot.seats} seats` : ""} · {o.created_at.slice(0, 10)}
+                  </p>
+                  {o.note && <p className="text-slate-700 italic">&ldquo;{o.note}&rdquo;</p>}
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className={`text-lg font-extrabold ${Number(o.bid_amount) > Number(b.driver_payout ?? 0) ? "text-amber-700" : "text-emerald-700"}`}>
+                    {usd(o.bid_amount)}
+                  </span>
+                  {o.status === "submitted" && b.status === "pending_bids" ? (
+                    <ActionForm action={acceptOffer} submitLabel="Accept" savedLabel="Accepted" className="inline">
+                      <input type="hidden" name="bid_id" value={o.id} />
+                      <input type="hidden" name="booking_id" value={b.id} />
+                    </ActionForm>
+                  ) : (
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500">{o.status}</span>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section className="rounded-xl border border-slate-200 bg-white p-5">
         <h2 className="font-extrabold text-slate-900">Dispatch</h2>

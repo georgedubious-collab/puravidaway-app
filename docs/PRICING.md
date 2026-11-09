@@ -216,7 +216,8 @@ it moves to the driver side.
 | 4b | **Special places**: typed airports (flight extras), Sierpe dock / Drake boat fares, 4x4-only areas | List of 4x4-only areas; Drake boat fares (private boat and per seat) |
 | 5 | **Stops priced as wait + detour**; park-fee note on cards | Hourly wait rate, which stops are guided |
 | 6 | **Zone prices** for the busiest pairs (optional) | Prices for those pairs |
-| 7 | **Driver job board** with fixed payouts (replaces public bidding) + "custom quote" | Commission % (§9 #2) |
+| 7a ✅ | **Built 2026-11-09** (migration 0017). **Driver job board with offers**: the team posts a booking ("Open for drivers"); approved drivers see it at `/driver/jobs` with a **suggested payout only** (never the client's price; route town to town until assigned) and send an offer at that amount or their own (70–130%), with a note. The team compares offers on the booking page, ranked for it (a driver with a same-day **return trip** ending where this job starts first, then the **better-rated** driver (travellers rate after every completed trip; a rating with a comment counts double; new drivers count as 4.0), then drivers **based near the pickup**, then the lower offer, then fewer trips with us; new offers appear live) and accepts one: driver + vehicle assigned, booking confirmed, the offer becomes the payout, other offers declined. Suggested payout = (price − pass-through costs such as ferry tickets) × (1 − commission) + pass-through; commission 20% at `/admin/pricing` → Drivers' payout | Commission ✅ (20%) |
+| 7b | **"Request a custom quote"** replaces the storefront's "Driver bids" mode (groups, charters, unusual routes) | — |
 
 ## 8. Decisions
 
@@ -244,5 +245,18 @@ it moves to the driver side.
    to whole dollars, not season-adjusted. Drake Bay boat fares still unknown (today's combo adds
    a flat $75).
 
-**Still open:** platform commission % (PROJECT.md §9 #2; 12–15% recommended), needed for the
-driver job board (build step 7).
+8. **Platform commission: 20%** of a ride or day tour, after pass-through costs (ferry tickets,
+   later boats and park fees, which go to the driver in full). Jorge, 2026-11-09: drivers should
+   keep about 80% of the net; Daytrip keeps roughly 40% of the gross on his own rides. Drivers
+   never see what the client paid, only the suggested payout. Editable at `/admin/pricing`; each
+   booking keeps the payout it was created with, or the offer the team accepted. Example:
+   SJO → La Fortuna $162 suggests $130 to the driver. Jorge wants several drivers to be able to
+   offer so he can see what each would do the trip for and spread the work (2026-11-09); offers
+   are limited to 70–130% of the suggestion.
+9. **Waiting time (for build step 5, not built yet):** Jorge suggested $30/hour. Market check
+   2026-11-09: operators include ~1 hour free and then charge about $10–20 per extra hour, so
+   $30 would be the highest in the market; recommendation $20/hour to the client, of which the
+   driver gets 80%. Jorge to confirm.
+
+**Still open:** none for the job board. Drake Bay boat fares and 4x4-only areas (step 4b) are
+deferred by Jorge.

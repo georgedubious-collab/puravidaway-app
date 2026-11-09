@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { ActionForm } from "@/components/ActionForm";
 import { requireUser, type Profile } from "@/lib/auth";
+import { EXTRA_AREAS, HUBS } from "@/lib/catalog";
 import { addDays, todayInCostaRica } from "@/lib/dates";
 import {
   CRIMINAL_RECORD_MAX_AGE_DAYS,
@@ -76,7 +77,48 @@ async function DriverPortal() {
     const { data } = await supabase.storage.from("driver-kyc-docs").createSignedUrls(photoPaths, 600);
     for (const s of data ?? []) if (s.path && s.signedUrl) thumbs[s.path] = s.signedUrl;
   }
-  return <Application me={me} d={d.data} vehicles={vehicles} thumbs={thumbs} />;
+  const { data: reviews } = await supabase
+    .from("driver_reviews")
+    .select("id, stars, comment, created_at")
+    .eq("driver_id", me.id)
+    .order("created_at", { ascending: false })
+    .limit(20)
+    .returns<{ id: string; stars: number; comment: string | null; created_at: string }[]>();
+  return (
+    <>
+      <Application me={me} d={d.data} vehicles={vehicles} thumbs={thumbs} />
+      {d.data.kyc_status === "approved" && <YourRating d={d.data} reviews={reviews ?? []} />}
+    </>
+  );
+}
+
+/** The driver's rating from travellers: weighted average (a review with a comment counts double). */
+function YourRating({ d, reviews }: { d: DriverRecord; reviews: { id: string; stars: number; comment: string | null; created_at: string }[] }) {
+  return (
+    <div className="mt-6">
+      <Card>
+        <h2 className="text-lg font-extrabold text-slate-900">
+          Your rating{d.rating_count ? `: ★ ${Number(d.rating_avg).toFixed(1)} from ${d.rating_count} ratings` : ""}
+        </h2>
+        <p className="mt-1 text-sm text-slate-600">
+          Travellers rate you after each trip. Better-rated drivers are offered more trips. A rating with a written
+          comment counts double, so great service that people write about pays off twice.
+        </p>
+        {reviews.length > 0 && (
+          <ul className="mt-3 space-y-2 text-sm">
+            {reviews.map((r) => (
+              <li key={r.id} className="rounded-lg bg-slate-50 p-3">
+                <span className="font-bold text-amber-500">{"★".repeat(r.stars)}</span>
+                <span className="text-slate-300">{"★".repeat(5 - r.stars)}</span>{" "}
+                <span className="text-xs text-slate-500">{r.created_at.slice(0, 10)}</span>
+                {r.comment && <p className="mt-1 italic text-slate-700">&ldquo;{r.comment}&rdquo;</p>}
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+    </div>
+  );
 }
 
 /* ------------------------------------------------------------------------- */
@@ -384,6 +426,18 @@ function PersonFields({ me, d, lockLicence = false }: { me: Profile; d?: DriverR
       </Field>
       <Field l="ICT permit number (optional)">
         <input name="ict_permit_number" defaultValue={d?.ict_permit_number ?? ""} className={input} />
+      </Field>
+      <Field l="Where are you based?">
+        <select name="home_hub" defaultValue={d?.home_hub ?? ""} className={input}>
+          <option value="">Choose your town or area</option>
+          {HUBS.map((h) => (
+            <option key={h.id} value={h.id}>{h.name}</option>
+          ))}
+          {EXTRA_AREAS.map((a) => (
+            <option key={a.id} value={a.id}>{a.name}</option>
+          ))}
+        </select>
+        <span className="mt-1 block text-xs font-normal text-slate-500">Jobs that start near you, and return trips after your drop-offs, are offered to you first.</span>
       </Field>
     </div>
   );

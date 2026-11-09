@@ -57,6 +57,11 @@ export interface DriverRecord {
   criminal_record_date: string | null;
   bio: string | null;
   english_level: "fluent" | "basic" | null;
+  /** Town / area the driver is based in (hub id or "SouthNicoya"), migration 0018. */
+  home_hub?: string | null;
+  /** Travellers' ratings, weighted (a review with a comment counts double), migration 0019. */
+  rating_avg?: number | string | null;
+  rating_count?: number | null;
   kyc_status: KycStatus;
   kyc_note: string | null;
   needs_review: boolean;

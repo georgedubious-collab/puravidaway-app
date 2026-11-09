@@ -299,10 +299,17 @@ await expectOk("server creates bookings", "server", `
     ('10000000-0000-0000-0000-000000000001', '${U.client}', 'transfer', 190, 'pending_bids'),
     ('10000000-0000-0000-0000-000000000002', '${U.client2}', 'transfer', 200, 'confirmed')`);
 await expectRows("client sees own booking only", "client", "select * from public.bookings", 1);
-await expectRows("approved driver sees open request summary", "driver", "select * from public.open_trip_requests()", 1);
+// Migration 0017: drivers read jobs and their trips through functions, never the booking row.
+await expectOk("server sets the payout on the open ride", "server",
+  "update public.bookings set driver_payout = 152, platform_fee = 38, scheduled_at = now() + interval '5 days', passenger_count = 2 where id = '10000000-0000-0000-0000-000000000001'");
+await expectRows("approved driver sees the open job with the payout", "driver", "select * from public.driver_jobs() where driver_payout = 152", 1);
 await expectRows("driver cannot read the full booking row", "driver", "select * from public.bookings", 0);
-await expectRows("pending driver sees no requests", "pending", "select * from public.open_trip_requests()", 0);
-await expectRows("client sees no open requests", "client2", "select * from public.open_trip_requests()", 0);
+await expectRows("pending driver sees no jobs", "pending", "select * from public.driver_jobs()", 0);
+await expectRows("client sees no open jobs", "client2", "select * from public.driver_jobs()", 0);
+await expectRows("job board never exposes the client's price or contact", "admin",
+  "select 1 from pg_proc where proname in ('driver_jobs','my_trips') and pg_get_function_result(oid) ~ '(total_price|platform_fee|amount_paid|guest|client_id|client_notes)'", 0);
+await expectRows("job board shows the route town to town only", "admin",
+  "select 1 from pg_proc where proname = 'driver_jobs' and pg_get_function_result(oid) ~ 'origin_town' and pg_get_function_result(oid) !~ 'origin_coords'", 1);
 await expectRows("visitor sees no bookings", "anon", "select * from public.bookings", 0);
 await expectBlocked("client cannot change own price", "client", "update public.bookings set total_price = 1", { affected: 0 });
 await expectRows("booking ref generated", "admin", "select * from public.bookings where booking_ref like 'PVW-1000%'", 2);
@@ -338,10 +345,11 @@ await expectOk("admin assigns driver and vehicle", "admin", `
 await expectOk("admin writes an internal note", "admin", `
   insert into public.booking_admin_notes (booking_id, notes) values ('10000000-0000-0000-0000-000000000009', 'VIP')`);
 await expectRows("assigned driver cannot read internal notes", "driver", "select * from public.booking_admin_notes", 0);
-await expectRows("assigned driver sees the trip", "driver",
-  "select 1 from public.bookings where id = '10000000-0000-0000-0000-000000000009'", 1);
-await expectRows("drivers' open-request view has no guest details", "admin",
-  "select 1 from pg_proc where proname = 'open_trip_requests' and pg_get_function_result(oid) ~ '(guest|client_id|client_notes|admin_notes|trip_id|coords)'", 0);
+await expectRows("assigned driver sees the trip through my_trips()", "driver",
+  "select 1 from public.my_trips() where id = '10000000-0000-0000-0000-000000000009'", 1);
+await expectRows("assigned driver still cannot read the booking row itself", "driver",
+  "select 1 from public.bookings where id = '10000000-0000-0000-0000-000000000009'", 0);
+await expectRows("other driver's trips are not in my_trips()", "pending", "select * from public.my_trips()", 0);
 
 // --- Preferences & profiles (file 8) -----------------------------------------------
 await expectOk("driver writes a bio", "driver",
@@ -361,8 +369,8 @@ await expectRows("feature change on an approved vehicle is flagged", "admin",
 await expectOk("server saves preferences with a request", "server", `
   update public.bookings set preferences = '{"language":"english","child_seats":1,"pets":true}', driver_notes = 'We have a small dog'
    where id = '10000000-0000-0000-0000-000000000001'`);
-await expectRows("open-request view shows preferences but no contact details", "admin",
-  "select 1 from pg_proc where proname = 'open_trip_requests' and pg_get_function_result(oid) ~ 'preferences' and pg_get_function_result(oid) ~ 'driver_notes'", 1);
+await expectRows("job board shows preferences and the driver message", "admin",
+  "select 1 from pg_proc where proname = 'driver_jobs' and pg_get_function_result(oid) ~ 'preferences' and pg_get_function_result(oid) ~ 'driver_notes'", 1);
 
 // --- Trip chat with guests (file 9) --------------------------------------------------
 await expectOk("server posts a traveller message (no account)", "server", `
@@ -428,25 +436,87 @@ for (const m of ["8888_1234", "8888/1234", "pepe at gmail dot com", "instagram @
 }
 
 // --- Bids -----------------------------------------------------------------------------
-await expectOk("approved driver bids on open request", "driver", `
-  insert into public.bids (id, booking_id, driver_id, bid_amount) values
-  ('20000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', '${U.driver}', 185)`);
-await expectBlocked("pending driver cannot bid", "pending", `
-  insert into public.bids (booking_id, driver_id, bid_amount) values ('10000000-0000-0000-0000-000000000001', '${U.pending}', 150)`);
-await expectBlocked("driver cannot bid on closed booking", "driver", `
-  insert into public.bids (booking_id, driver_id, bid_amount) values ('10000000-0000-0000-0000-000000000002', '${U.driver}', 150)`);
-await expectBlocked("driver cannot accept own bid", "driver",
-  `update public.bids set status = 'accepted' where id = '20000000-0000-0000-0000-000000000001'`);
-await expectOk("driver lowers bid while open", "driver",
-  `update public.bids set bid_amount = 180 where id = '20000000-0000-0000-0000-000000000001'`);
+// Offers go through offer_job(); see the job-board section below for the full flow.
+await expectBlocked("driver cannot offer on a booking that isn't on the board", "driver",
+  `select public.offer_job('10000000-0000-0000-0000-000000000002', '30000000-0000-0000-0000-000000000001', 150)`);
+await expectBlocked("driver cannot mark an offer accepted", "driver",
+  `update public.bids set status = 'accepted' where driver_id = '${U.driver}'`, { affected: 0 });
 await expectOk("server closes the request", "server",
   `update public.bookings set status = 'confirmed' where id = '10000000-0000-0000-0000-000000000001'`);
-await expectBlocked("driver cannot reprice after the request closes", "driver",
-  `update public.bids set bid_amount = 300 where id = '20000000-0000-0000-0000-000000000001'`);
-await expectRows("client sees bids on own booking", "client", "select * from public.bids", 1);
-await expectRows("other client sees no bids", "client2", "select * from public.bids", 0);
-await expectOk("driver withdraws own bid", "driver",
-  `update public.bids set status = 'withdrawn' where id = '20000000-0000-0000-0000-000000000001'`);
+await expectRows("other client sees no offers", "client2", "select * from public.bids", 0);
+
+// --- Job board offers (migration 0017) -------------------------------------------------------
+const V1 = "'30000000-0000-0000-0000-000000000001'";
+const J3 = "'10000000-0000-0000-0000-000000000003'";
+await expectOk("server posts a new ride to the job board", "server", `
+  insert into public.bookings (id, client_id, service_type, total_price, driver_payout, platform_fee, status, passenger_count, scheduled_at)
+  values (${J3}, '${U.client}', 'transfer', 200, 160, 40, 'pending_bids', 3, now() + interval '3 days')`);
+await expectBlocked("pending driver cannot offer", "pending", `select public.offer_job(${J3}, ${V1}, 160)`);
+await expectBlocked("driver cannot offer with someone else's vehicle", "driver",
+  `select public.offer_job(${J3}, '30000000-0000-0000-0000-000000000099', 160)`);
+await expectOk("server sets the vehicle's seats", "server", `update public.driver_vehicles set passenger_capacity = 2 where id = ${V1}`);
+await expectBlocked("too few seats for the group", "driver", `select public.offer_job(${J3}, ${V1}, 160)`);
+await expectOk("server sets the vehicle's seats", "server", `update public.driver_vehicles set passenger_capacity = 4 where id = ${V1}`);
+await expectBlocked("offer below 70% of the payout refused", "driver", `select public.offer_job(${J3}, ${V1}, 100)`);
+await expectBlocked("offer above 130% of the payout refused", "driver", `select public.offer_job(${J3}, ${V1}, 250)`);
+await expectBlocked("offer note cannot contain a phone number", "driver", `select public.offer_job(${J3}, ${V1}, 160, 'call me 8888-1234')`);
+await expectRows("approved driver sends an offer", "driver", `select public.offer_job(${J3}, ${V1}, 150, 'Already in La Fortuna that day') as ref`, 1);
+await expectRows("driver changes the offer (one per driver per job)", "driver", `select public.offer_job(${J3}, ${V1}, 155) as ref`, 1);
+await expectRows("one offer row, at the new amount", "admin", `select 1 from public.bids where booking_id = ${J3} and driver_id = '${U.driver}' and bid_amount = 155 and status = 'submitted'`, 1);
+await expectRows("driver sees their offer on the job", "driver", `select 1 from public.driver_jobs() where id = ${J3} and my_offer = 155 and my_offer_status = 'submitted'`, 1);
+await expectBlocked("driver cannot insert an offer directly", "driver",
+  `insert into public.bids (booking_id, driver_id, bid_amount) values (${J3}, '${U.driver}', 1)`);
+await expectBlocked("driver cannot edit the amount directly", "driver", `update public.bids set bid_amount = 999 where booking_id = ${J3}`, { affected: 0 });
+await expectRows("client sees no offers", "client", "select * from public.bids", 0);
+await expectBlocked("driver cannot accept an offer", "driver", `select public.accept_offer((select id from public.bids where booking_id = ${J3}))`);
+await expectRows("admin accepts the offer", "admin", `select public.accept_offer((select id from public.bids where booking_id = ${J3})) as ref`, 1);
+await expectRows("accepting assigned, confirmed and set the payout to the offer", "admin",
+  `select 1 from public.bookings where id = ${J3} and status = 'confirmed' and assigned_driver_id = '${U.driver}' and assigned_vehicle_id = ${V1} and driver_payout = 155 and platform_fee = 45 and claimed_at is not null`, 1);
+await expectBlocked("an accepted offer cannot be accepted again", "admin", `select public.accept_offer((select id from public.bids where booking_id = ${J3}))`);
+await expectBlocked("no offers on a booking that left the board", "driver", `select public.offer_job(${J3}, ${V1}, 160)`);
+await expectRows("assigned job left the board", "driver", `select * from public.driver_jobs() where id = ${J3}`, 0);
+await expectRows("assigned job is in the driver's trips with the agreed payout", "driver",
+  `select * from public.my_trips() where id = ${J3} and driver_payout = 155`, 1);
+await expectOk("server posts a second ride", "server", `
+  insert into public.bookings (id, client_id, service_type, total_price, driver_payout, platform_fee, status, passenger_count, scheduled_at)
+  values ('10000000-0000-0000-0000-000000000004', '${U.client}', 'transfer', 100, 80, 20, 'pending_bids', 1, now() + interval '4 days')`);
+await expectRows("driver offers on it", "driver", `select public.offer_job('10000000-0000-0000-0000-000000000004', ${V1}, 80) as ref`, 1);
+await expectOk("driver withdraws the offer", "driver",
+  `update public.bids set status = 'withdrawn' where booking_id = '10000000-0000-0000-0000-000000000004' and driver_id = '${U.driver}'`);
+await expectBlocked("a withdrawn offer cannot be accepted", "admin",
+  `select public.accept_offer((select id from public.bids where booking_id = '10000000-0000-0000-0000-000000000004'))`);
+await expectRows("commission setting seeded", "anon", "select * from public.pricing_settings where driver_commission_bps = 2000", 1);
+// Migration 0018: where the driver is based.
+await expectOk("driver sets their home town", "driver", `update public.drivers set home_hub = 'Arenal' where id = '${U.driver}'`);
+await expectRows("home town change does not send the driver back to review", "admin",
+  `select 1 from public.drivers where id = '${U.driver}' and home_hub = 'Arenal' and not needs_review`, 1);
+await expectBlocked("unknown home town refused", "driver", `update public.drivers set home_hub = 'Paris' where id = '${U.driver}'`);
+
+// Migration 0019: travellers rate drivers; a comment counts double.
+const B9 = "'10000000-0000-0000-0000-000000000009'";
+await expectOk("server completes the trip", "server", `update public.bookings set status = 'completed' where id = ${B9}`);
+await expectOk("server saves a stars-only rating", "server",
+  `insert into public.driver_reviews (booking_id, driver_id, stars) values (${B9}, '${U.driver}', 5)`);
+await expectRows("stars-only rating counts once", "admin", `select 1 from public.drivers where id = '${U.driver}' and rating_avg = 5.00 and rating_count = 1`, 1);
+await expectBlocked("one rating per booking", "server", `insert into public.driver_reviews (booking_id, driver_id, stars) values (${B9}, '${U.driver}', 4)`);
+await expectOk("server saves a rating with a comment on another trip", "server",
+  `insert into public.driver_reviews (booking_id, driver_id, stars, comment) values ('10000000-0000-0000-0000-000000000003', '${U.driver}', 4, 'Punctual and careful on the mountain roads')`);
+await expectRows("a comment counts double: (5×1 + 4×2) / 3 = 4.33 from 3", "admin",
+  `select 1 from public.drivers where id = '${U.driver}' and rating_avg = 4.33 and rating_count = 3`, 1);
+await expectBlocked("review comment cannot carry a phone number", "server",
+  `insert into public.driver_reviews (booking_id, driver_id, stars, comment) values ('10000000-0000-0000-0000-000000000004', '${U.driver}', 5, 'call me 8888-1234')`);
+await expectBlocked("stars must be 1–5", "server", `insert into public.driver_reviews (booking_id, driver_id, stars) values ('10000000-0000-0000-0000-000000000004', '${U.driver}', 6)`);
+await expectRows("driver reads their own ratings", "driver", "select * from public.driver_reviews", 2);
+await expectRows("another driver sees none", "pending", "select * from public.driver_reviews", 0);
+await expectRows("clients see no ratings", "client", "select * from public.driver_reviews", 0);
+await expectRows("visitors see no ratings", "anon", "select * from public.driver_reviews", 0);
+await expectBlocked("driver cannot rate themselves", "driver",
+  `insert into public.driver_reviews (booking_id, driver_id, stars) values ('10000000-0000-0000-0000-000000000004', '${U.driver}', 5)`);
+await expectRows("review reminder column exists (migration 0020)", "admin",
+  "select 1 from information_schema.columns where table_name = 'bookings' and column_name = 'review_reminded_at'", 1);
+await expectOk("admin removes a rating", "admin", `delete from public.driver_reviews where booking_id = ${B9}`);
+await expectRows("totals follow the removal", "admin", `select 1 from public.drivers where id = '${U.driver}' and rating_avg = 4.00 and rating_count = 2`, 1);
+await expectBlocked("commission above 50% refused", "admin", "update public.pricing_settings set driver_commission_bps = 9000");
 
 // --- Trip chat --------------------------------------------------------------------------
 await expectOk("client messages on own trip", "client", `

@@ -260,6 +260,24 @@ async function saveAreaFactorsImpl(fd: FormData) {
   done();
 }
 
+/** Platform commission on rides / day tours, entered as a percent (20 = 20%), stored as basis points. */
+async function saveDriverCommissionImpl(fd: FormData) {
+  await requireRole("admin", "/admin/pricing");
+  const pct = decimal(fd, "commission_percent", 0, 50);
+  const supabase = (await createSupabaseServerClient())!;
+  const { data, error } = await supabase
+    .from("pricing_settings")
+    .upsert({ id: true, driver_commission_bps: Math.round(pct * 100) })
+    .select("id");
+  if (error) throw new Error(error.message);
+  if (!data?.length) throw new InputError("Nothing was saved. Reload the page and try again.");
+  done();
+}
+
+export async function saveDriverCommission(_prev: FormState, fd: FormData): Promise<FormState> {
+  return run(() => saveDriverCommissionImpl(fd));
+}
+
 /** Gulf of Nicoya ferry fares per crossing in colones, and the colones-per-dollar rate (migration 0015). */
 async function saveFerryFaresImpl(fd: FormData) {
   await requireRole("admin", "/admin/pricing");

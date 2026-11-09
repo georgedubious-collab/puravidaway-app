@@ -35,6 +35,15 @@ Either way works; the first needs no installs.
 15. `20261109000015_nicoya_ferry.sql` — Gulf of Nicoya ferry fares and the Southern Nicoya
     area factor (Santa Teresa, Montezuma, Paquera), colones-per-dollar rate
 16. `20261109000016_price_level.sql` — ride formula numbers on par with Daytrip (run once)
+17. `20261109000017_driver_job_board.sql` — driver job board: payout + commission (20%), drivers read
+    jobs and their trips through `driver_jobs()` / `my_trips()` (never the client's price), offers via
+    `offer_job()`, the team accepts with `accept_offer()`
+18. `20261109000018_driver_home_base.sql` — where each driver is based (`drivers.home_hub`), for ranking
+    offers and spotting return trips
+19. `20261109000019_driver_reviews.sql` — travellers' driver ratings (`driver_reviews`, weighted totals on
+    `drivers`), review-request tracking on bookings
+20. `20261109000020_review_reminder.sql` — tracks the one follow-up "please rate your driver" email
+    (sent by the daily Vercel Cron job; needs `CRON_SECRET` in Vercel, see `.env.example`)
 
 Later files are added as the app grows. Since Option C is set up, they run by themselves
 after a merge; each pull request still lists them.

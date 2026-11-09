@@ -1,5 +1,6 @@
 "use server";
 
+import { AREA_IDS } from "@/lib/catalog";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth";
 import { isValidYmd } from "@/lib/dates";
@@ -49,6 +50,10 @@ const driverFields = (fd: FormData) =>
     license_expiry: () => date(fd, "license_expiry", "Licence expiry"),
     criminal_record_date: () => date(fd, "criminal_record_date", "Criminal record date"),
     ict_permit_number: () => text(fd, "ict_permit_number", 40),
+    home_hub: () => {
+      const v = String(fd.get("home_hub") ?? "");
+      return (AREA_IDS as readonly string[]).includes(v) ? v : null;
+    },
   });
 
 const vehicleBasics = (fd: FormData) =>

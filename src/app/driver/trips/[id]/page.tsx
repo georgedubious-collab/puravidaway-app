@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { ChatBox } from "@/components/ChatBox";
 import { requireUser } from "@/lib/auth";
-import { BOOKING_STATUS_LABEL, SERVICE_LABEL, type BookingRow } from "@/lib/bookings";
+import { BOOKING_STATUS_LABEL, SERVICE_LABEL, usd, type DriverTrip } from "@/lib/bookings";
 import { getCatalog } from "@/lib/catalogSource";
 import { addDays, formatScheduledAt, scheduledParts, todayInCostaRica } from "@/lib/dates";
 import { googleMapsUrl, navTarget, wazeUrl, type NavTarget } from "@/lib/navigation";
@@ -18,28 +18,37 @@ export const metadata: Metadata = { title: "Trip | PuraVidaWay Drivers", robots:
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export default function DriverTripPage({ params }: { params: Promise<{ id: string }> }) {
+export default function DriverTripPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ claimed?: string }>;
+}) {
   return (
     <main className="flex-1 bg-slate-50">
       <DriverHeader />
       <div className="max-w-3xl mx-auto px-4 py-8">
         <Suspense fallback={<p className="text-sm font-semibold text-slate-500">Loading…</p>}>
-          <Trip params={params} />
+          <Trip params={params} searchParams={searchParams} />
         </Suspense>
       </div>
     </main>
   );
 }
 
-async function Trip({ params }: { params: Promise<{ id: string }> }) {
+async function Trip({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ claimed?: string }> }) {
   const { id } = await params;
-  const me = await requireUser(`/driver/trips/${id}`);
+  const { claimed } = await searchParams;
+  await requireUser(`/driver/trips/${id}`);
   if (!UUID.test(id)) notFound();
   const supabase = (await createSupabaseServerClient())!;
-  const [{ data: b }, catalog] = await Promise.all([
-    supabase.from("bookings").select("*").eq("id", id).eq("assigned_driver_id", me.id).maybeSingle<BookingRow>(),
+  // my_trips(): only this driver's trips, without the client's price (migration 0017).
+  const [{ data: mine }, catalog] = await Promise.all([
+    supabase.rpc("my_trips").then((r) => r as { data: DriverTrip[] | null }),
     getCatalog(),
   ]);
+  const b = (mine ?? []).find((x) => x.id === id);
   if (!b) notFound();
 
   // Traveller contact details are server-only: read them here, after the database
@@ -70,6 +79,11 @@ async function Trip({ params }: { params: Promise<{ id: string }> }) {
       <Link href="/driver/trips" className="text-sm font-bold text-emerald-700 underline">
         ← Your trips
       </Link>
+      {claimed === "1" && (
+        <p role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-900">
+          This ride is yours. Introduce yourself in the chat below and confirm the pickup time.
+        </p>
+      )}
       <div>
         <p className="font-mono text-sm font-bold text-slate-500">{b.booking_ref}</p>
         <h1 className="text-2xl font-extrabold text-slate-900">{name}</h1>
@@ -80,6 +94,7 @@ async function Trip({ params }: { params: Promise<{ id: string }> }) {
 
       <section className="rounded-xl border border-slate-200 bg-white p-5">
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
+          {b.driver_payout != null && <Item k="Your payout" v={usd(b.driver_payout)} />}
           <Item k="Traveller" v={(guest?.guest_name ?? "").split(" ")[0] || "—"} />
           <Item k="WhatsApp / phone" v={showPhone ? guest?.guest_phone : "Shown the day before the trip"} />
           {b.passenger_count && <Item k="Passengers" v={b.passenger_count} />}
