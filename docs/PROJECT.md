@@ -84,6 +84,18 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
   (travellers use their private trip page instead), map place search for exact pick-up points.
 - Env: `NEXT_PUBLIC_WHATSAPP_NUMBER` (see `.env.example`) **must be set in Vercel before
   launch**; until then WhatsApp buttons open a placeholder number and the build logs a warning.
+- Route landing pages (`/transfers/[slug]`, content in `src/lib/routePages.ts`): SJO → Manuel
+  Antonio, La Fortuna/Arenal, Monteverde, Tamarindo, Puerto Viejo and Sierpe (Drake Bay boat);
+  LIR → Tamarindo; La Fortuna → Monteverde and Manuel Antonio. "Other rides" links open the
+  matching landing page when one exists, otherwise the trip builder.
+- Search engines (2026-11-08): **the whole site is `noindex` and `robots.txt` blocks all
+  crawlers until `NEXT_PUBLIC_SITE_INDEXABLE=true` is set** (Vercel, Production only). Then
+  `robots.txt` blocks only `/admin`, `/driver`, `/trip`, `/login`, `/auth`, `/api` and points to
+  `sitemap.xml` (home, route pages, `/terms`, `/privacy`, `/cancellation`).
+  `NEXT_PUBLIC_SITE_URL` (default `https://puravidaway-app.vercel.app`) sets canonical and
+  link-preview URLs; the preview image is `src/app/opengraph-image.tsx`. Custom 404 and error
+  pages (`not-found.tsx`, `error.tsx`, `global-error.tsx`). Vercel Web Analytics
+  (`@vercel/analytics`) is in the root layout and must be enabled in the Vercel dashboard.
 - Rendered per request (`connection()` in `page.tsx`): full HTML for search engines; "today" is
   computed server-side in `America/Costa_Rica`.
 - Seasons: peak = Dec 20–Jan 5 + Semana Santa (Palm Sunday → Easter); high = Dec–Apr; else green.

@@ -3,6 +3,14 @@
 Every merged change gets one line: `YYYY-MM-DD — <AI or Jorge> — <what changed>`.
 Newest entries first. AIs: read the top of this file before starting work.
 
+- 2026-11-08 — Claude — Launch prep: the site stays hidden from search engines (noindex +
+  `robots.txt` block) until `NEXT_PUBLIC_SITE_INDEXABLE=true`; `robots.txt` then hides the
+  private areas and lists `sitemap.xml`. Site address from `NEXT_PUBLIC_SITE_URL`, link previews
+  (Open Graph/X card + branded preview image), custom 404/error pages with a WhatsApp help link,
+  Vercel Web Analytics, and eight new route landing pages (SJO → La Fortuna, Monteverde,
+  Tamarindo, Puerto Viejo, Sierpe; LIR → Tamarindo; La Fortuna → Monteverde, Manuel Antonio)
+  whose "Other rides" links now go to landing pages where they exist.
+
 - 2026-11-08 — Claude — Legal pages (draft, pending lawyer review): `/terms`, `/privacy` and
   `/cancellation`, with "Last updated" date, a visible draft notice and a placeholder for the
   operator's legal name, cédula jurídica and address. The privacy policy lists only the data the

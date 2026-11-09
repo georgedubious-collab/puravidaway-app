@@ -1,5 +1,5 @@
 import { ArrowRight, Clock, Compass, Luggage, MapPin, Users } from "lucide-react";
-import type { Metadata } from "next";
+import type { Metadata, ResolvingMetadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { LegalLinks } from "@/components/legal/LegalLinks";
@@ -8,23 +8,47 @@ import { Reviews } from "@/components/trust/Reviews";
 import { HUBS, routeMinutes } from "@/lib/catalog";
 import { getCatalog } from "@/lib/catalogSource";
 import { applyMultiplier, formatDuration, formatUSD } from "@/lib/pricing";
-import { builderHref, ROUTE_PAGES, routePage } from "@/lib/routePages";
+import { builderHref, relatedHref, ROUTE_PAGES, routePage } from "@/lib/routePages";
 import { GUARANTEES } from "@/lib/trust";
 
 export function generateStaticParams() {
   return ROUTE_PAGES.map((p) => ({ slug: p.slug }));
 }
 
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}): Promise<Metadata> {
+export async function generateMetadata(
+  {
+    params,
+  }: {
+    params: Promise<{ slug: string }>;
+  },
+  parent: ResolvingMetadata,
+): Promise<Metadata> {
   const page = routePage((await params).slug);
   if (!page) return {};
+  const title = `${page.title} | PuraVidaWay`;
+  const path = `/transfers/${page.slug}`;
+  // Setting openGraph/twitter here replaces the root ones, so carry over the
+  // site-wide preview image (src/app/opengraph-image.tsx).
+  const inherited = await parent;
   return {
-    title: `${page.title} | PuraVidaWay`,
+    title,
     description: page.metaDescription,
+    alternates: { canonical: path },
+    openGraph: {
+      type: "website",
+      siteName: "PuraVidaWay",
+      title,
+      description: page.metaDescription,
+      url: path,
+      locale: "en_US",
+      images: inherited.openGraph?.images,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description: page.metaDescription,
+      images: inherited.twitter?.images,
+    },
   };
 }
 
@@ -186,7 +210,7 @@ export default async function RouteLandingPage({
           {page.related.map((r) => (
             <Link
               key={r.label}
-              href={builderHref(r.origin, r.destination)}
+              href={relatedHref(r.origin, r.destination)}
               className="min-h-11 inline-flex items-center px-4 rounded-full border border-slate-300 bg-white text-sm font-semibold text-slate-800 hover:border-emerald-500"
             >
               {r.label}
