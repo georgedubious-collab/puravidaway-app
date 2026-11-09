@@ -146,6 +146,21 @@ export function nearestHub(p: LatLng): HubId {
   return best;
 }
 
+/** Typed places this close to SJO or LIR airport count as an airport pickup (terminals, car-rental lots, airport hotels aside). */
+export const AIRPORT_RADIUS_KM = 1.5;
+
+/**
+ * Is this pickup at one of the two international airports? True for our SJO / LIR
+ * towns and for any typed place within AIRPORT_RADIUS_KM of the terminal, so a
+ * traveller who types "Juan Santamaría International Airport" gets the same flight
+ * tracking and waiting promises as one who picks "SJO Airport" from the list.
+ */
+export function isAirportPickup(p: Pick<RidePlace, "id" | "lat" | "lng">): boolean {
+  const hub = hubOfPlaceId(p.id);
+  if (hub) return hub === "SJO" || hub === "LIR";
+  return straightKm(p, HUB_POINTS.SJO) <= AIRPORT_RADIUS_KM || straightKm(p, HUB_POINTS.LIR) <= AIRPORT_RADIUS_KM;
+}
+
 /** Where the car actually goes: places in Drake Bay are reached from the Sierpe dock. */
 export function roadEnd(p: RidePlace): LatLng {
   return p.hub === "DrakeBay" ? HUB_POINTS.Sierpe : { lat: p.lat, lng: p.lng };

@@ -1,0 +1,1 @@
+- 2026-11-09 — Claude — Airport pickups typed in the search box (within 1.5 km of SJO or LIR) get the same flight-tracking and free-waiting promises and a flight-number prompt as the listed airports.
