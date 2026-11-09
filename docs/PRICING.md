@@ -167,10 +167,12 @@ stop price = waiting time × hourly wait rate ($22–28 / h, Daytrip's range)
 
 **Built 2026-11-09 (step 5, migration 0021):** exactly this, with the waiting rate at **$20/hour**
 (Jorge; the market gives ~1 h free then $10–20/h), detour km and minutes per stop (there and back,
-estimates to refine), a guide fee per stop (0 until Jorge says which stops are guided and what the
-guide costs), rounded to whole dollars. Today: Tárcoles $15 (was $25), Carara $33 ($55),
-Poás $68 ($68), Río Celeste $62 ($65), sloth trail $25 ($48). The entrance fee stays
-separate (free / included / paid at the gate). Park-fee amounts aren't shown yet.
+estimates to refine), rounded to whole dollars, **plus a tour part per person** for stops that are
+really tours (Jorge, 2026-11-09: "tours are not just a drive"; priced like his tours on
+costaricatravelplanner.com, which are per person with the vehicle, guide and entrances included).
+Today, driver part + tour part per person: Tárcoles $15 + 0 (was $25 flat), Carara $33 + $45,
+Poás $68 + $55, Río Celeste $62 + $35, sloth trail $25 + $30. The per-person amounts are starting
+guesses to confirm at `/admin/pricing`. Park-fee amounts aren't shown yet.
 
 With exact routing, "is this stop on my way?" is answered by the detour. A stop that adds
 more than about 45 min of detour isn't offered. That replaces the hand-made stop ↔ corridor
@@ -221,7 +223,8 @@ it moves to the driver side.
 | 3 ✅ | **Built 2026-11-09.** **Place search + route** (Google): type any place, see drive time + km and a Google Maps link, price from real km/hours. Prices are re-checked on the server when the trip is sent, as today. See §3.1 | Google Cloud account with billing + API key ✅ |
 | 4a ✅ | **Built 2026-11-09** (migrations 0015–0016). **Southern Nicoya + ferries**: places on the peninsula tip (Santa Teresa, Montezuma, Paquera…) get a 1.35 area factor at either end when the route takes the ferry (not from Liberia by road); Puntarenas ferry crossings on Google's route add the car + driver fare and a per-passenger fare (in colones, converted at the admin's exchange rate), shown as their own line. Also the new price level (§8 #1). SJO → Santa Teresa (2 pax) Standard ≈ $349 vs Daytrip $356; LIR → Santa Teresa $276 vs $300–350 elsewhere | Ferry fares ✅, exchange rate ✅ |
 | 4b | **Special places**: typed airports (flight extras), Sierpe dock / Drake boat fares, 4x4-only areas | List of 4x4-only areas; Drake boat fares (private boat and per seat) |
-| 5 ✅ | **Built 2026-11-09** (migration 0021). **Stops priced as wait + detour** (+ guide fee), see §5. Park-fee amounts on cards still to do | Wait rate ✅ ($20/h); which stops are guided and the guide fee still open |
+| 5 ✅ | **Built 2026-11-09** (migration 0021). **Stops priced as wait + detour** (driver's part) **+ a per-person tour part** for guided stops, see §5. Park-fee amounts on cards still to do | Wait rate ✅ ($20/h); confirm the per-person tour amounts |
+| 5b | **Day tours priced per person, tiered by group size** (1 / 2–3 / 4–6), like costaricatravelplanner.com (e.g. Arenal full day $350 / $295 / $275 pp). Replaces the flat per-group tour prices | Confirm the per-person tiers for our 4 tours |
 | 6 | **Zone prices** for the busiest pairs (optional) | Prices for those pairs |
 | 7a ✅ | **Built 2026-11-09** (migration 0017). **Driver job board with offers**: the team posts a booking ("Open for drivers"); approved drivers see it at `/driver/jobs` with a **suggested payout only** (never the client's price; route town to town until assigned) and send an offer at that amount or their own (70–130%), with a note. The team compares offers on the booking page, ranked for it (a driver with a same-day **return trip** ending where this job starts first, then the **better-rated** driver (travellers rate after every completed trip; a rating with a comment counts double; new drivers count as 4.0), then drivers **based near the pickup**, then the lower offer, then fewer trips with us; new offers appear live) and accepts one: driver + vehicle assigned, booking confirmed, the offer becomes the payout, other offers declined. Suggested payout = (price − pass-through costs such as ferry tickets) × (1 − commission) + pass-through; commission 20% at `/admin/pricing` → Drivers' payout | Commission ✅ (20%) |
 | 7b | **"Request a custom quote"** replaces the storefront's "Driver bids" mode (groups, charters, unusual routes) | — |

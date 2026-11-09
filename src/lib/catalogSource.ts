@@ -112,7 +112,7 @@ async function loadDatabaseCatalog(): Promise<CatalogData> {
           durationMin: s.duration_min,
           detourKm: Number(s.detour_km ?? SIGHTSEEING_STOPS.find((b) => b.id === s.id)?.detourKm ?? 0),
           detourMin: Number(s.detour_min ?? SIGHTSEEING_STOPS.find((b) => b.id === s.id)?.detourMin ?? 0),
-          guideFeeCents: cents(s.guide_fee ?? 0),
+          tourPerPersonCents: cents(s.tour_price_pp ?? 0),
         };
         return {
         id: s.id,

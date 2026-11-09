@@ -209,6 +209,7 @@ export default async function RouteLandingPage({
                   </span>
                   <span className="font-extrabold text-emerald-700 whitespace-nowrap">
                     +{formatUSD(s.priceCents)}
+                    {s.tourPerPersonCents > 0 ? ` + ${formatUSD(s.tourPerPersonCents)}/person` : ""}
                   </span>
                 </li>
               ))}

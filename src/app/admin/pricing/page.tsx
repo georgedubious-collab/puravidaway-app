@@ -57,7 +57,7 @@ interface Settings {
 const EXAMPLES: [HubId, HubId][] = [
   ["LIR", "Tamarindo"], ["SJO", "Arenal"], ["SJO", "ManuelAntonio"], ["SJO", "Tamarindo"], ["Arenal", "Monteverde"], ["SJO", "Sierpe"],
 ];
-interface Stop { id: string; name: string; description: string; duration_min: number; price: number | null; detour_km?: number; detour_min?: number; guide_fee?: number; park_fee_included: boolean; entrance?: string; corridors: string[]; active: boolean }
+interface Stop { id: string; name: string; description: string; duration_min: number; price: number | null; detour_km?: number; detour_min?: number; tour_price_pp?: number; park_fee_included: boolean; entrance?: string; corridors: string[]; active: boolean }
 interface Tour { id: string; region: Region; name: string; duration_hours: number; price: number; en_route_upgrade_price: number; active: boolean }
 interface Expedition { id: string; name: string; days: number; nights: number; base_price: number; active: boolean }
 interface Tier { id: string; name: string; surcharge: number; active: boolean }
@@ -101,11 +101,12 @@ export default async function PricingPage() {
   const stopPrice = (x: Stop) =>
     stopsReady
       ? stopPriceCents(
-          { durationMin: x.duration_min, detourKm: Number(x.detour_km ?? 0), detourMin: Number(x.detour_min ?? 0), guideFeeCents: Math.round(Number(x.guide_fee ?? 0) * 100) },
+          { durationMin: x.duration_min, detourKm: Number(x.detour_km ?? 0), detourMin: Number(x.detour_min ?? 0) },
           exampleCatalog.rideFormula,
           Math.round(waitPerHour * 100),
         )
       : Math.round(Number(x.price ?? 0) * 100);
+  const tourPP = (x: Stop) => Math.round(Number(x.tour_price_pp ?? 0) * 100);
   const commissionReady = ps.data?.driver_commission_bps !== undefined;
   const ferry = {
     vehicleCrc: ps.data?.ferry_vehicle_fare_crc ?? FERRY_FARES_DEFAULT.vehicleCrc,
@@ -231,7 +232,7 @@ export default async function PricingPage() {
 
       <Section
         title="Sightseeing stops"
-        note="Stops are optional paid extras on the road between two towns. Price = minutes at the stop × the waiting rate + detour km and minutes at the ride formula's rates + guide fee, rounded to whole dollars (park entrance is separate). Tick every town the stop sits between: a ride offers it only when BOTH its pickup and drop-off are ticked. Tick just one town for a stop in that town. Never offered on the Sierpe ↔ Drake Bay boat."
+        note="Stops are optional paid extras on the road between two towns. Driver's part = minutes at the stop × the waiting rate + detour km and minutes at the ride formula's rates, rounded to whole dollars. Stops that are really tours (guided walk, Poás + coffee) add a tour price PER PERSON for the guide, entrance and activity, like the tours on costaricatravelplanner.com. Tick every town the stop sits between: a ride offers it only when BOTH its pickup and drop-off are ticked. Tick just one town for a stop in that town. Never offered on the Sierpe ↔ Drake Bay boat."
       >
         <Card>
           {!stopsReady && (
@@ -255,8 +256,12 @@ export default async function PricingPage() {
               <Field l="Minutes at the stop"><input name="duration_min" type="number" min={5} defaultValue={x.duration_min} className={input} /></Field>
               <Field l="Detour km (there and back)"><input name="detour_km" inputMode="decimal" defaultValue={x.detour_km ?? 0} className={input} disabled={!stopsReady} /></Field>
               <Field l="Detour minutes"><input name="detour_min" type="number" min={0} defaultValue={x.detour_min ?? 0} className={input} disabled={!stopsReady} /></Field>
-              <Field l="Guide fee (USD)"><input name="guide_fee" inputMode="decimal" defaultValue={x.guide_fee ?? 0} className={input} disabled={!stopsReady} /></Field>
-              <Field l="Price (computed)"><p className="min-h-10 flex items-center font-extrabold text-emerald-700">{formatUSD(stopPrice(x))}</p></Field>
+              <Field l="Tour price per person (USD)"><input name="tour_price_pp" inputMode="decimal" defaultValue={x.tour_price_pp ?? 0} className={input} disabled={!stopsReady} /></Field>
+              <Field l="Price (computed)">
+                <p className="min-h-10 flex items-center font-extrabold text-emerald-700">
+                  {formatUSD(stopPrice(x))}{tourPP(x) > 0 ? ` + ${formatUSD(tourPP(x))}/person` : ""}
+                </p>
+              </Field>
               {x.entrance === undefined ? (
                 // Before migration 0014: the old yes/no switch.
                 <label className="flex items-center gap-2 text-sm min-h-10">
@@ -284,7 +289,7 @@ export default async function PricingPage() {
             <Field l="Minutes at the stop"><input name="duration_min" type="number" min={5} required className={input} /></Field>
             <Field l="Detour km (there and back)"><input name="detour_km" inputMode="decimal" defaultValue={0} className={input} disabled={!stopsReady} /></Field>
             <Field l="Detour minutes"><input name="detour_min" type="number" min={0} defaultValue={0} className={input} disabled={!stopsReady} /></Field>
-            <Field l="Guide fee (USD)"><input name="guide_fee" inputMode="decimal" defaultValue={0} className={input} disabled={!stopsReady} /></Field>
+            <Field l="Tour price per person (USD)"><input name="tour_price_pp" inputMode="decimal" defaultValue={0} className={input} disabled={!stopsReady} /></Field>
             <Field l="Description" className="sm:col-span-6"><input name="description" className={input} /></Field>
             <Corridors selected={[]} />
           </AdminForm>

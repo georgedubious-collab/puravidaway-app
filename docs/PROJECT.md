@@ -192,18 +192,21 @@ Monteverde Cloud Forest · Sierpe Boat Dock (Osa) · Drake Bay (via Sierpe boat)
 Puerto Viejo (Caribbean) · Tamarindo / Guanacaste
 
 ### 5.2 Sightseeing stops
-Since 2026-11-09 (pricing build step 5, migration 0021) a stop's price is **computed**, not typed:
-`minutes at the stop × waiting rate ($20/h) + detour km × per-km + detour minutes × per-hour + guide fee`,
-rounded to whole dollars (`stopPriceCents()` in `src/lib/catalog.ts`; rates at `/admin/pricing`).
-Park entrance is separate. At today's rates:
+Since 2026-11-09 (pricing build step 5, migration 0021) a stop's price is **computed**, not typed.
+Two parts (Jorge: "tours are not just a drive"):
+- **Driver's part** = `minutes at the stop × waiting rate ($20/h) + detour km × per-km + detour minutes × per-hour`,
+  rounded to whole dollars (`stopPriceCents()` in `src/lib/catalog.ts`).
+- **Tour part, per person** (`tour_price_pp`): guide, entrance, activity, priced like the tours on
+  costaricatravelplanner.com (internal reference only; never named on the site). 0 for a plain stop.
+  Group price = `stopTotalCents(stop, pax)`. Rates and inputs at `/admin/pricing`. At today's rates:
 
-| ID | Name | At the stop | Detour (there and back) | Price |
-| :--- | :--- | :--- | :--- | :--- |
-| `tarcoles` | Tárcoles Crocodile Bridge | 45 min | on the way | +$15 |
-| `carara` | Carara National Park Scarlet Macaw Walk | 90 min | 2 km / 5 min | +$33 |
-| `poas` | Poás Volcano Crater & Doka Coffee Estate | 120 min | 24 km / 40 min | +$68 |
-| `rioceleste` | Río Celeste Waterfall Hike (Tenorio Volcano NP) | 120 min | 18 km / 35 min | +$62 |
-| `sloth` | La Fortuna Sloth & Wildlife Sanctuary Trail | 75 min | in town | +$25 |
+| ID | Name | At the stop | Detour (there and back) | Driver part | Tour part / person |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `tarcoles` | Tárcoles Crocodile Bridge | 45 min | on the way | +$15 | — |
+| `carara` | Carara National Park Scarlet Macaw Walk | 90 min | 2 km / 5 min | +$33 | $45 (to confirm) |
+| `poas` | Poás Volcano Crater & Doka Coffee Estate | 120 min | 24 km / 40 min | +$68 | $55 (to confirm) |
+| `rioceleste` | Río Celeste Waterfall Hike (Tenorio Volcano NP) | 120 min | 18 km / 35 min | +$62 | $35 (to confirm) |
+| `sloth` | La Fortuna Sloth & Wildlife Sanctuary Trail | 75 min | in town | +$25 | $30 (to confirm) |
 
 Notes:
 - Stops are **optional paid extras** ("Add a stop (optional extra)", each card "+$X · adds N min",
@@ -260,7 +263,8 @@ Decide whether tier prices are per person or per booking (see §9).
 standard   = max(minimum fare, base + per km × road km + per hour × driving hours)
 ride       = round_to_dollar(standard × vehicle factor × area factor)
              + vehicle extra fee
-stop       = round_to_dollar(minutes at stop × wait rate/60 + detour km × per km + detour min × per hour/60 + guide fee)
+stop       = round_to_dollar(minutes at stop × wait rate/60 + detour km × per km + detour min × per hour/60)
+             + tour price per person × travellers
 transfer   = (ride + Σ selected stop prices) × season multiplier
              + ferries × (car-and-driver fare + passengers × passenger fare)
 ```
@@ -379,7 +383,7 @@ only) · `cash_fee` numeric(10,2) (cash booking fee snapshot, 0 unless `cash_dri
 Implemented in `supabase/migrations/`. Catalog ids are short text slugs (`suv`, `tarcoles`)
 matching `src/lib/catalog.ts`; seasons use `season_ranges` (start/end dates) plus a `priority`,
 and `season_for_date(date)` returns the season for a travel date.
-- `sightseeing_stops` — id, name, description, duration_min, detour_km, detour_min, guide_fee (migration 0021; `price` is retired, the stop price is computed from these), entrance (free | included | gate; replaces park_fee_included, which is kept in step), corridors, active
+- `sightseeing_stops` — id, name, description, duration_min, detour_km, detour_min, tour_price_pp (migration 0021; `price` is retired, the stop price is computed from these), entrance (free | included | gate; replaces park_fee_included, which is kept in step), corridors, active
 - `vehicle_classes` — id, name, price_factor, extra_fee, allows_stops, spanish_speaking_driver,
   max_pax, luggage, badge, only_for_hubs, active (`base_rate` retired 2026-11-09, kept for old data)
 - `day_tours` — id, region, name, description, duration_hours, price, en_route_upgrade_price, active

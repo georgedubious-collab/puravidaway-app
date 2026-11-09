@@ -190,11 +190,15 @@ export interface SightseeingStop {
   /** Extra road km / minutes the stop adds to the ride, there and back (0 when it's on the way). */
   detourKm: number;
   detourMin: number;
-  /** Added when the stop includes a guide. */
-  guideFeeCents: number;
   /**
-   * The stop's price in cents, computed by stopPriceCents() from the three inputs
-   * above and the live rates (never typed by hand since 2026-11-09).
+   * The tour part of the stop, per traveller: guide, entrance, activity (0 for a plain
+   * stop). Priced per person like Jorge's tours on costaricatravelplanner.com.
+   */
+  tourPerPersonCents: number;
+  /**
+   * The driver's part of the stop's price in cents (waiting + detour), computed by
+   * stopPriceCents() from the inputs above and the live rates; never typed by hand
+   * since 2026-11-09. The full price for a group is stopTotalCents(stop, pax).
    */
   priceCents: number;
   description: string;
@@ -248,7 +252,7 @@ const STOPS_WITHOUT_PRICE: Omit<SightseeingStop, "priceCents">[] = [
     durationMin: 45,
     detourKm: 0,
     detourMin: 0,
-    guideFeeCents: 0,
+    tourPerPersonCents: 0,
     description:
       "Watch 15-ft American crocodiles from the famous bridge while your driver stays with the bags.",
     corridors: ["SJO", "Monteverde", "ManuelAntonio", "Sierpe", "DrakeBay"],
@@ -260,7 +264,7 @@ const STOPS_WITHOUT_PRICE: Omit<SightseeingStop, "priceCents">[] = [
     durationMin: 90,
     detourKm: 2,
     detourMin: 5,
-    guideFeeCents: 0,
+    tourPerPersonCents: 4500,
     description:
       "Guided trail walk through transitional rainforest full of wild scarlet macaws.",
     corridors: ["SJO", "Monteverde", "ManuelAntonio", "Sierpe", "DrakeBay"],
@@ -272,7 +276,7 @@ const STOPS_WITHOUT_PRICE: Omit<SightseeingStop, "priceCents">[] = [
     durationMin: 120,
     detourKm: 24,
     detourMin: 40,
-    guideFeeCents: 0,
+    tourPerPersonCents: 5500,
     description:
       "Peer into an active turquoise crater lake, then sample highland Arabica coffee. Timed-entry tickets required.",
     corridors: ["SJO", "Arenal"],
@@ -284,7 +288,7 @@ const STOPS_WITHOUT_PRICE: Omit<SightseeingStop, "priceCents">[] = [
     durationMin: 120,
     detourKm: 18,
     detourMin: 35,
-    guideFeeCents: 0,
+    tourPerPersonCents: 3500,
     description:
       "Hike to the sky-blue river inside Tenorio Volcano National Park.",
     corridors: ["Arenal", "LIR"],
@@ -296,7 +300,7 @@ const STOPS_WITHOUT_PRICE: Omit<SightseeingStop, "priceCents">[] = [
     durationMin: 75,
     detourKm: 0,
     detourMin: 0,
-    guideFeeCents: 0,
+    tourPerPersonCents: 3000,
     description:
       "Spot two- and three-toed sloths on a guided boardwalk trail near La Fortuna.",
     corridors: ["Arenal"],
@@ -584,21 +588,24 @@ export const RIDE_FORMULA_DEFAULT: RideFormula = {
 export const WAIT_PER_HOUR_CENTS_DEFAULT = 2000;
 
 /**
- * Price of a sightseeing stop (docs/PRICING.md §5, built 2026-11-09):
- *   waiting time × wait rate + detour km × per-km + detour minutes × per-hour + guide fee,
- * rounded to whole dollars. Park entrance is separate (free / included / paid at the gate).
+ * The driver's part of a sightseeing stop (docs/PRICING.md §5, built 2026-11-09):
+ *   waiting time × wait rate + detour km × per-km + detour minutes × per-hour,
+ * rounded to whole dollars. The tour part (guide, entrance, activity) is per person,
+ * see stopTotalCents(). Park entrance labels are separate (free / included / gate).
  */
 export function stopPriceCents(
-  stop: Pick<SightseeingStop, "durationMin" | "detourKm" | "detourMin" | "guideFeeCents">,
+  stop: Pick<SightseeingStop, "durationMin" | "detourKm" | "detourMin">,
   formula: Pick<RideFormula, "perKmCents" | "perHourCents"> = RIDE_FORMULA_DEFAULT,
   waitPerHourCents: number = WAIT_PER_HOUR_CENTS_DEFAULT,
 ): number {
   const raw =
-    (waitPerHourCents * stop.durationMin) / 60 +
-    formula.perKmCents * stop.detourKm +
-    (formula.perHourCents * stop.detourMin) / 60 +
-    stop.guideFeeCents;
+    (waitPerHourCents * stop.durationMin) / 60 + formula.perKmCents * stop.detourKm + (formula.perHourCents * stop.detourMin) / 60;
   return Math.round(raw / 100) * 100;
+}
+
+/** What a group of `pax` pays for a stop: the driver's part + the tour part per person. */
+export function stopTotalCents(stop: Pick<SightseeingStop, "priceCents" | "tourPerPersonCents">, pax: number): number {
+  return stop.priceCents + stop.tourPerPersonCents * Math.max(1, pax);
 }
 
 /** Built-in stops with their prices at the default rates (the live catalog recomputes them). */

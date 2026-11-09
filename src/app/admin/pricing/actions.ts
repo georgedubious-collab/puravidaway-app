@@ -107,13 +107,13 @@ function entrance(fd: FormData): Record<string, unknown> {
   return { entrance: v, park_fee_included: v === "included" };
 }
 
-/** Detour and guide inputs (migration 0021); absent from the form before the migration runs. */
+/** Detour and per-person tour inputs (migration 0021); absent from the form before the migration runs. */
 function stopPricing(fd: FormData): Record<string, number> {
   if (!fd.has("detour_km")) return {};
   return {
     detour_km: decimal(fd, "detour_km", 0, 500),
     detour_min: int(fd, "detour_min", 0, 600),
-    guide_fee: money(fd, "guide_fee"),
+    tour_price_pp: money(fd, "tour_price_pp"),
   };
 }
 
