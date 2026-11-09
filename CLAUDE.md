@@ -20,6 +20,11 @@ plainly, avoid jargon, and never assume a dev-team workflow (no "ask your backen
   containing `- YYYY-MM-DD — Claude — <what changed>`. Don't edit the top of `docs/CHANGELOG.md`
   in feature PRs (it caused merge conflicts); notes are folded into it in a separate PR
   (`docs/changelog/README.md`).
+- Database migrations run automatically after a merge to `main`
+  (`.github/workflows/db-migrations.yml`, `docs/SETUP-SUPABASE.md` Option C). Every new migration
+  gets a timestamp later than all existing files and must be safe to run exactly once, in order.
+  Never tell Jorge to paste a migration into the SQL editor; after a merge with a migration,
+  check the Action's run and verify the live database with a read-only query.
 - Open decisions live in `docs/PROJECT.md` §9. Don't silently decide them; ask Jorge or flag
   the assumption in the PR description.
 

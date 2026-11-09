@@ -1,0 +1,56 @@
+# Runs new database migrations on the live Supabase project after a merge to main,
+# so nobody has to paste SQL into the Supabase editor (docs/SETUP-SUPABASE.md, Option C).
+#
+# - Only runs when a merge changes supabase/migrations/, or by hand (Actions → Run workflow).
+# - `supabase db push` applies only files the database hasn't recorded as run yet, in order,
+#   and records each one; a file that fails stops the run and GitHub emails the repo owner.
+# - Needs one repository secret, SUPABASE_DB_URL: the "Session pooler" connection string from
+#   Supabase → Connect, with the database password filled in. Without it the job skips.
+name: Database migrations
+
+on:
+  push:
+    branches: [main]
+    paths: ["supabase/migrations/**"]
+  workflow_dispatch:
+
+# Never run two at once; never cancel one halfway.
+concurrency:
+  group: supabase-migrations
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+    steps:
+      - name: Check the secret is set
+        id: secret
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ]; then
+            echo "::warning::SUPABASE_DB_URL is not set, so no migrations were run. See docs/SETUP-SUPABASE.md (Option C)."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.secret.outputs.ok == 'true'
+
+      - uses: actions/setup-node@v4
+        if: steps.secret.outputs.ok == 'true'
+        with:
+          node-version: 22
+
+      - name: List what would run
+        if: steps.secret.outputs.ok == 'true'
+        run: npx -y supabase@2.122.1 db push --dry-run --db-url "$SUPABASE_DB_URL"
+
+      - name: Run new migrations
+        if: steps.secret.outputs.ok == 'true'
+        run: npx -y supabase@2.122.1 db push --db-url "$SUPABASE_DB_URL"
