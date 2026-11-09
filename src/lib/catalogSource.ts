@@ -135,6 +135,8 @@ async function loadDatabaseCatalog(): Promise<CatalogData> {
           t.price_pp_solo == null
             ? (DAY_TOURS.find((b) => b.id === t.id)?.perPerson ?? { soloCents: cents(t.price) || 0, smallCents: cents(t.price) || 0, groupCents: cents(t.price) || 0 })
             : { soloCents: cents(t.price_pp_solo), smallCents: cents(t.price_pp_small), groupCents: cents(t.price_pp_group) },
+        // Before migration 0023 there is no cost column: use the built-in tour's.
+        costPerPersonCents: t.cost_pp == null ? (DAY_TOURS.find((b) => b.id === t.id)?.costPerPersonCents ?? 0) : cents(t.cost_pp),
         highlights: t.highlights ?? [],
         enRouteUpgradeCents: cents(t.en_route_upgrade_price),
       })),

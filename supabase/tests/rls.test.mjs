@@ -118,6 +118,11 @@ await expectRows("ferry fares (colones) and exchange rate seeded", "anon", "sele
 await expectBlocked("absurd exchange rate refused", "admin", "update public.pricing_settings set crc_per_usd = 5");
 await expectBlocked("unknown pricing area refused", "admin", "insert into public.hub_pricing (hub_id, area_factor) values ('Nowhere', 1)");
 await expectBlocked("visitor cannot change ferry fares", "anon", "update public.pricing_settings set ferry_vehicle_fare_crc = 1", { affected: 0 });
+// Migration 0023: company-paid tour costs, deducted before the driver's share.
+await expectRows("tour costs per person seeded", "anon", "select * from public.day_tours where id = 'dt1' and cost_pp = 95", 1);
+await expectRows("bookings record company costs", "admin", "select 1 from information_schema.columns where table_name = 'bookings' and column_name = 'company_costs'", 1);
+await expectRows("drivers' functions never expose company costs", "admin",
+  "select 1 from pg_proc where proname in ('driver_jobs','my_trips') and pg_get_function_result(oid) ~ 'company_costs'", 0);
 // Migration 0022: day tours per person, tiered by group size.
 await expectRows("Arenal day tour tiers seeded", "anon", "select * from public.day_tours where id = 'dt1' and price_pp_solo = 350 and price_pp_small = 295 and price_pp_group = 275", 1);
 await expectBlocked("negative tour price refused", "admin", "update public.day_tours set price_pp_group = -1 where id = 'dt1'");

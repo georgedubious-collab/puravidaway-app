@@ -74,6 +74,7 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
       totalCents: number;
       referenceCents: number;
       passThroughCents: number;
+      companyCostCents: number;
       /** Rides: both ends as priced (typed places looked up again on the server) and the road route. */
       ride?: { origin: RidePlace; destination: RidePlace; route: RideRoute | null };
     }[] = [];
@@ -133,9 +134,10 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
       return { ok: false, error: "We couldn't save your request. Please try again or send it on WhatsApp." };
     }
     // Driver payout: the platform keeps its commission on the price minus pass-through costs (ferries).
-    const payoutFor = (kind: string, totalCents: number, passThroughCents: number) =>
-      hasDriverPayout(kind) ? splitPayout(totalCents, passThroughCents, catalog) : null;
-    const rows = priced.map(({ spec, date, totalCents, referenceCents, passThroughCents, ride }) => ({
+    // and company-paid costs (entrances, lunch, activities) come off before the driver's share.
+    const payoutFor = (kind: string, totalCents: number, passThroughCents: number, companyCostCents: number) =>
+      hasDriverPayout(kind) ? splitPayout(totalCents, passThroughCents, catalog, companyCostCents) : null;
+    const rows = priced.map(({ spec, date, totalCents, referenceCents, passThroughCents, companyCostCents, ride }) => ({
       trip_id: tripId,
       service_type: spec.kind,
       catalog_item_id: spec.kind === "day_tour" ? spec.tourId : spec.kind === "expedition" ? spec.expeditionId : null,
@@ -163,8 +165,9 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
       driver_notes: spec.kind === "transfer" ? (spec.driverNotes ?? null) : null,
       pricing_mode: spec.kind === "transfer" && spec.pricing === "bid" ? "bid" : "fixed",
       total_price: totalCents / 100,
-      driver_payout: payoutFor(spec.kind, totalCents, passThroughCents)?.payoutCents != null ? payoutFor(spec.kind, totalCents, passThroughCents)!.payoutCents / 100 : null,
-      platform_fee: payoutFor(spec.kind, totalCents, passThroughCents)?.feeCents != null ? payoutFor(spec.kind, totalCents, passThroughCents)!.feeCents / 100 : null,
+      driver_payout: (payoutFor(spec.kind, totalCents, passThroughCents, companyCostCents)?.payoutCents ?? null) === null ? null : payoutFor(spec.kind, totalCents, passThroughCents, companyCostCents)!.payoutCents / 100,
+      platform_fee: (payoutFor(spec.kind, totalCents, passThroughCents, companyCostCents)?.feeCents ?? null) === null ? null : payoutFor(spec.kind, totalCents, passThroughCents, companyCostCents)!.feeCents / 100,
+      company_costs: hasDriverPayout(spec.kind) ? Math.min(companyCostCents, totalCents) / 100 : 0,
       currency: "USD",
       payment_mode: itemPaymentMode(spec.kind, mode),
       cash_fee: feeFor(spec, totalCents) / 100,

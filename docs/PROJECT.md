@@ -248,6 +248,8 @@ Starting amounts (guesses to confirm; edited at `/admin/pricing`):
 | `dt3` | Osa | Sierpe mangrove boat safari & Caño Island snorkeling | 7 h | $375 | $300 | $275 |
 | `dt4` | Monteverde | Hanging bridges, zipline & night walk | 7 h | $280 | $230 | $210 |
 
+Driver payout on a tour = 80% of the net: `cost_pp × pax` (entrances, lunch, activities the
+company pays; migration 0023) comes off first (`splitPayout()` in `src/lib/payout.ts`).
 `day tour = per-person tier(pax) × pax (+ en-route upgrade) × season` (`dayTourCents()` in
 `src/lib/catalog.ts`, `quoteDayTour()`). Upgrade: **Smart En-Route Transfer** (+$65 per group) —
 picked up in one town, dropped at the next hotel.
@@ -371,7 +373,7 @@ expedition) · `origin` text (place name + address) · `origin_coords` jsonb (`l
 between two of our towns) · `destination` text · `destination_coords` jsonb (same, without route) · `sightseeing_stops` jsonb (array of stop IDs + snapshot prices) · `vehicle_class` ·
 `lodging_tier` · `scheduled_at` timestamptz · `passenger_count` int · `flight_or_hotel_notes` ·
 `pricing_mode` (`fixed` | `bid`) · `total_price` numeric · `driver_payout` / `platform_fee` numeric
-(migration 0017; null on expeditions) · `claimed_at` (set when the team accepted an offer from the job board) · `currency` (`USD` | `CRC`) ·
+(migration 0017; null on expeditions) · `company_costs` (entrances / lunch / activities the company pays, deducted before the driver's share; part of `platform_fee`; 0023) · `claimed_at` (set when the team accepted an offer from the job board) · `currency` (`USD` | `CRC`) ·
 `amount_paid` numeric · `payment_mode` (`full_100` | `cash_driver`; `deposit_20` on old rows
 only) · `cash_fee` numeric(10,2) (cash booking fee snapshot, 0 unless `cash_driver`) · `assigned_driver_id` →
 `drivers.id` (nullable) · `status` (`pending_payment` | `pending_bids` | `confirmed` |
@@ -393,7 +395,7 @@ and `season_for_date(date)` returns the season for a travel date.
 - `sightseeing_stops` — id, name, description, duration_min, detour_km, detour_min, tour_price_pp (migration 0021; `price` is retired, the stop price is computed from these), entrance (free | included | gate; replaces park_fee_included, which is kept in step), corridors, active
 - `vehicle_classes` — id, name, price_factor, extra_fee, allows_stops, spanish_speaking_driver,
   max_pax, luggage, badge, only_for_hubs, active (`base_rate` retired 2026-11-09, kept for old data)
-- `day_tours` — id, region, name, description, duration_hours, price_pp_solo / price_pp_small / price_pp_group (per person by group size, migration 0022; `price` retired), en_route_upgrade_price, active
+- `day_tours` — id, region, name, description, duration_hours, price_pp_solo / price_pp_small / price_pp_group (per person by group size, migration 0022; `price` retired), cost_pp (company-paid costs per person, 0023), en_route_upgrade_price, active
 - `expeditions` — id, name, days, nights, base_price, itinerary jsonb, active
 - `lodging_tiers` — id, expedition_id (nullable = applies to all), name, surcharge
 - `seasons` — id, name, multiplier, date ranges

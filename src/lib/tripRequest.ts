@@ -137,6 +137,8 @@ export interface PricedItem {
   referenceCents: number;
   /** Costs the driver pays out of pocket and gets back in full (ferry tickets); see src/lib/payout.ts. */
   passThroughCents: number;
+  /** Entrances, lunch and activities the company pays; deducted before the driver's share. */
+  companyCostCents: number;
 }
 
 /**
@@ -178,20 +180,26 @@ export function priceItem(spec: ItemSpec, date: string, catalog: CatalogData, ro
       }
     }
     const quote = quoteTransfer({ ...spec, season, catalog, route: typed ? route : null });
+    // Guided stops: the per-person tour part (guide, entrance, activity) is paid by the company.
+    const stopTourCosts = spec.stopIds.reduce(
+      (n, id) => n + (catalog.stops.find((s) => s.id === id)?.tourPerPersonCents ?? 0) * spec.pax,
+      0,
+    );
     if (spec.pricing === "bid") {
       const offer = spec.offerCents ?? 0;
       if (offer < MIN_OFFER_USD * 100 || offer > MAX_OFFER_USD * 100) {
         throw new Error(`Offers must be between $${MIN_OFFER_USD} and $${MAX_OFFER_USD}.`);
       }
-      return { totalCents: offer, referenceCents: quote.totalCents, passThroughCents: Math.min(offer, quote.ferryCents) };
+      return { totalCents: offer, referenceCents: quote.totalCents, passThroughCents: Math.min(offer, quote.ferryCents), companyCostCents: stopTourCosts };
     }
-    return { totalCents: quote.totalCents, referenceCents: quote.totalCents, passThroughCents: quote.ferryCents };
+    return { totalCents: quote.totalCents, referenceCents: quote.totalCents, passThroughCents: quote.ferryCents, companyCostCents: stopTourCosts };
   }
 
   if (spec.kind === "day_tour") {
     if (!catalog.dayTours.some((t) => t.id === spec.tourId)) throw new Error("That tour is no longer offered.");
     const total = quoteDayTour(spec.tourId, spec.upgrade, spec.pax, season, catalog);
-    return { totalCents: total, referenceCents: total, passThroughCents: 0 };
+    const tour = catalog.dayTours.find((t) => t.id === spec.tourId)!;
+    return { totalCents: total, referenceCents: total, passThroughCents: 0, companyCostCents: tour.costPerPersonCents * spec.pax };
   }
 
   if (!catalog.expeditions.some((e) => e.id === spec.expeditionId)) throw new Error("That expedition is no longer offered.");
@@ -200,5 +208,5 @@ export function priceItem(spec: ItemSpec, date: string, catalog: CatalogData, ro
     throw new Error("That lodging option is no longer offered.");
   }
   const total = quoteExpedition(spec.expeditionId, spec.tierId, season, catalog);
-  return { totalCents: total, referenceCents: total, passThroughCents: 0 };
+  return { totalCents: total, referenceCents: total, passThroughCents: 0, companyCostCents: 0 };
 }

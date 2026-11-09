@@ -168,6 +168,7 @@ async function saveDayTourImpl(fd: FormData) {
           price_pp_group: money(fd, "price_pp_group"),
         }
       : {}),
+    ...(fd.has("cost_pp") ? { cost_pp: money(fd, "cost_pp") } : {}),
     en_route_upgrade_price: money(fd, "en_route_upgrade_price"),
     active: checked(fd, "active"),
   });

@@ -1,0 +1,1 @@
+- 2026-11-09 — Claude — Driver payout on tours is 80% of the net (migration 0023): entrances, lunch and activities the company pays (`day_tours.cost_pp` per traveller; the per-person tour part of ride stops) are deducted before the driver's share; bookings record `company_costs`, shown on the admin booking page.

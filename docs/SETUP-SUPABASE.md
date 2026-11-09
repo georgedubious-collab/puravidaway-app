@@ -48,6 +48,8 @@ Either way works; the first needs no installs.
     the flat stop price is retired
 22. `20261109000022_tour_pricing.sql` — day tours per person, tiered by group size (1 / 2–3 / 4+);
     the flat tour price is retired
+23. `20261109000023_tour_costs.sql` — company-paid tour costs per person (`day_tours.cost_pp`) and
+    `bookings.company_costs`, deducted before the driver's share
 
 Later files are added as the app grows. Since Option C is set up, they run by themselves
 after a merge; each pull request still lists them.
