@@ -3,6 +3,13 @@
 Every merged change gets one line: `YYYY-MM-DD — <AI or Jorge> — <what changed>`.
 Newest entries first. AIs: read the top of this file before starting work.
 
+- 2026-11-08 — Claude — Security update: Next.js and eslint-config-next 16.4.0 → 16.4.5. Fixes
+  the critical `npm audit` finding (GHSA-2464-fhr4-w9xw remote code execution via SVG image
+  optimization, GHSA-673q-mjm6-r5xr remote code execution in `use cache`, GHSA-p3m5-59mp-jv5r
+  Server Actions denial of service). Production dependencies now audit clean; 8 moderate findings
+  remain in the lint tooling only (minimatch, dev-only, not shipped). Lockfile re-resolved so
+  `npm ci` accepts it (npm 11 had dropped optional `@emnapi` wasm packages).
+
 - 2026-10-21 — Claude — Supabase security-advisor fixes (migration 0010): the drivers' open-request
   list is now the function `open_trip_requests()` (same safe columns) instead of an owner-rights
   view, and four helper functions get a fixed `search_path`. Migrations can now be applied
