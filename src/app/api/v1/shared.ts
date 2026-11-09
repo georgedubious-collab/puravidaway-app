@@ -30,3 +30,16 @@ export async function formFrom(req: Request, fields: string[]): Promise<FormData
 export function fromState(state: FormState) {
   return state.ok ? json({ ok: true }) : json({ ok: false, error: state.error ?? "Something went wrong." }, 400);
 }
+
+/** Vehicle fields the apps may send (same as the website's vehicle form, without the feature ticks). */
+export const VEHICLE_FIELDS = [
+  "plate",
+  "make_model",
+  "year",
+  "color",
+  "passenger_capacity",
+  "ins_policy_number",
+  "ins_insurance_expiry",
+  "dekra_inspection_expiry",
+  "marchamo_year",
+];

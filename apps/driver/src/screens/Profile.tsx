@@ -1,7 +1,5 @@
-import * as Linking from "expo-linking";
 import type { ReactNode } from "react";
 import { ScrollView, Text } from "react-native";
-import { SITE_URL } from "../config";
 import { townName } from "../format";
 import { C, S } from "../theme";
 import type { DriverInfo, Vehicle } from "../types";
@@ -14,18 +12,21 @@ const KYC: Record<string, string> = {
   suspended: "Suspended",
 };
 
-/** The driver's status, rating and vehicles. Documents are managed on the website for now. */
+/** The driver's status, rating and vehicles, with the way in to documents and location sharing. */
 export function Profile({
   email,
   driver,
   vehicles,
   onSignOut,
+  onDocuments,
   location,
 }: {
   email: string;
   driver: DriverInfo | null;
   vehicles: Vehicle[];
   onSignOut: () => void;
+  /** Open the documents and vehicles screen. */
+  onDocuments: () => void;
   /** The location-sharing card. */
   location?: ReactNode;
 }) {
@@ -53,7 +54,7 @@ export function Profile({
           </Text>
         ))}
       </Card>
-      <Btn label="Documents and vehicles (website)" alt onPress={() => void Linking.openURL(SITE_URL + "/driver")} />
+      <Btn label="Documents and vehicles" alt onPress={onDocuments} />
       <Btn label="Sign out" onPress={onSignOut} color={C.red} />
     </ScrollView>
   );
