@@ -547,15 +547,40 @@ export interface RideFormula {
   minimumFareCents: number;
 }
 
+/**
+ * Price level (Jorge, 2026-11-09): on par with, or a few dollars under, Daytrip's lowest
+ * published prices, so partner drivers earn a proper rate. SJO → La Fortuna $162 (Daytrip
+ * $161), SJO → Manuel Antonio $202 ($205), SJO → Tamarindo $324 ($338). Live values:
+ * pricing_settings (migration 0016), edited at /admin/pricing.
+ */
 export const RIDE_FORMULA_DEFAULT: RideFormula = {
-  baseFareCents: 3500,
-  perKmCents: 70,
-  perHourCents: 1200,
-  minimumFareCents: 11000,
+  baseFareCents: 3000,
+  perKmCents: 90,
+  perHourCents: 1000,
+  minimumFareCents: 12000,
 };
 
-/** Area factor of the pickup town (basis points): drivers are scarcer in Guanacaste and Osa. */
-export const AREA_FACTOR_BPS_DEFAULT: Record<HubId, number> = {
+/**
+ * Pricing areas that aren't one of our towns (docs/PRICING.md §4.4). A typed place
+ * inside one gets its area factor whether it is the pickup or the drop-off, but only
+ * when the route takes the ferry: the factor pays for the queue and the driver's
+ * crossing back. Shapes are in src/lib/places.ts.
+ */
+export const EXTRA_AREAS = [
+  { id: "SouthNicoya", name: "Southern Nicoya (Santa Teresa, Montezuma, Paquera)" },
+] as const;
+
+export type ExtraAreaId = (typeof EXTRA_AREAS)[number]["id"];
+export type AreaId = HubId | ExtraAreaId;
+export const AREA_IDS: readonly AreaId[] = [...HUB_IDS, ...EXTRA_AREAS.map((a) => a.id)];
+
+/**
+ * Area factors (basis points): a town's applies to rides that start there (drivers are
+ * scarcer in Guanacaste and Osa); an extra area's applies to ferry rides starting or ending in it.
+ * Southern Nicoya 1.35 (Jorge, 2026-11-09): ferry queues and the driver's crossing back,
+ * putting SJO → Santa Teresa a few dollars under Daytrip ($346 vs $356, 2 pax, ferry included).
+ */
+export const AREA_FACTOR_BPS_DEFAULT: Record<AreaId, number> = {
   SJO: 10000,
   LIR: 11000,
   Arenal: 10000,
@@ -565,7 +590,33 @@ export const AREA_FACTOR_BPS_DEFAULT: Record<HubId, number> = {
   DrakeBay: 11500,
   PuertoViejo: 10000,
   Tamarindo: 11000,
+  SouthNicoya: 13500,
 };
+
+/**
+ * Car ferries across the Gulf of Nicoya (Puntarenas ↔ Paquera / Playa Naranjo), per
+ * crossing, in colones as the ferry company charges them: about ₡15,000 for the vehicle
+ * with its driver and ₡1,500 per passenger (Jorge, 2026-11-09). Converted to dollars at
+ * the exchange rate below when a ride is priced, and added on top of the ride price (no
+ * season multiplier) for every ferry on Google's route. Edited at /admin/pricing.
+ */
+export interface FerryFares {
+  vehicleCrc: number;
+  passengerCrc: number;
+}
+
+export const FERRY_FARES_DEFAULT: FerryFares = { vehicleCrc: 15000, passengerCrc: 1500 };
+
+/**
+ * Colones per US dollar, for the ferry fares. Jorge checks it about once a week
+ * (≈ ₡452 on 2026-11-09) and updates it at /admin/pricing; live value pricing_settings.crc_per_usd.
+ */
+export const CRC_PER_USD_DEFAULT = 452;
+
+/** Whole US cents for an amount in colones. */
+export function crcToCents(crc: number, crcPerUsd: number): number {
+  return Math.round((crc / crcPerUsd) * 100);
+}
 
 /**
  * WhatsApp number for the concierge buttons (digits only, with country code).

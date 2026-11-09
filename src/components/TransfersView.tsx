@@ -9,7 +9,7 @@ import { PlaceInput } from "./PlaceInput";
 import { hubPlace, isHubPlace, mapsDirectionsUrl, needsRoute, type RidePlace, type RideRoute } from "@/lib/places";
 import { newItemId, whatsAppLink, type CartItem } from "@/lib/cart";
 import { DEFAULT_PICKUP_TIME, PICKUP_TIMES, addDays, formatTime12h } from "@/lib/dates";
-import { applyMultiplier, formatDuration, formatUSD, perPersonCents, perPersonShare, quoteTransfer, rideCents } from "@/lib/pricing";
+import { applyMultiplier, ferryCents, formatDuration, formatUSD, perPersonCents, perPersonShare, quoteTransfer, rideCents } from "@/lib/pricing";
 import { MAX_SHARED_PAX, rideLinkQuery, type RideLinkState } from "@/lib/shareLink";
 import { MIN_OFFER_USD } from "@/lib/tripRequest";
 import { ridePromises } from "@/lib/trust";
@@ -165,8 +165,9 @@ export function TransfersView({
         season,
         catalog,
         route,
+        pax,
       }),
-    [origin, destination, effectiveVehicleId, effectiveStopIds, season, catalog, route],
+    [origin, destination, effectiveVehicleId, effectiveStopIds, season, catalog, route, pax],
   );
 
   // Bid mode: the client's own offer (whole USD) replaces the fixed price.
@@ -182,6 +183,9 @@ export function TransfersView({
   const selectedStops = catalog.stops.filter((s) => effectiveStopIds.includes(s.id));
   const cantAdd = !priceReady || noVehicleFits || (mode === "bid" && !offerValid) || driverNotesBlocked;
   const price = (cents: number) => (priceReady ? formatUSD(cents) : "…");
+  // Car price on a vehicle card: the ride for the date + ferries for this group.
+  const ferry = ferryCents(route, pax, catalog);
+  const carCents = (v: (typeof catalog.vehicles)[number]) => seasonal(rideCents(origin, destination, v, catalog, route)) + ferry;
 
   function toggleStop(id: string) {
     setStopIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -417,12 +421,15 @@ export function TransfersView({
                         <Users className="w-3.5 h-3.5" /> Up to {v.maxPax} · {v.luggage}
                       </p>
                       <p className="text-lg font-extrabold text-emerald-700 mt-2">
-                        {price(seasonal(rideCents(origin, destination, v, catalog, route)))}{" "}
+                        {price(carCents(v))}{" "}
                         <span className="text-xs font-bold text-slate-500">per car</span>
                       </p>
                       <p className="text-xs font-semibold text-slate-600">
-                        from {price(perPersonCents(seasonal(rideCents(origin, destination, v, catalog, route)), v.maxPax))} per person ({perPersonShare(v.maxPax)} travellers)
+                        from {price(perPersonCents(carCents(v), v.maxPax))} per person ({perPersonShare(v.maxPax)} travellers)
                       </p>
+                      {ferry > 0 && (
+                        <p className="text-[11px] font-semibold text-slate-600">Ferry fares included</p>
+                      )}
                       {seasonPct !== 0 && (
                         <p className="text-[11px] font-bold text-amber-700">
                           {season.name} {seasonPct > 0 ? "+" : "−"}
@@ -590,6 +597,7 @@ export function TransfersView({
               {priceReady ? (
                 <>
                   Driving: {formatDuration(quote.driveMinutes)}
+                  {route?.ferries ? " incl. ferry" : ""}
                   {route ? ` · ${Math.round(route.km)} km` : ""} · Stops: {formatDuration(quote.stopsMinutes)}
                 </>
               ) : (
@@ -633,8 +641,14 @@ export function TransfersView({
                   {quote.stopsCents > 0 && (
                     <Row
                       label="Stops (optional extras)"
-                      value={`+${price(quote.totalCents - seasonal(quote.baseCents))}`}
+                      value={`+${price(quote.totalCents - quote.ferryCents - seasonal(quote.baseCents))}`}
                       green
+                    />
+                  )}
+                  {quote.ferryCents > 0 && route && (
+                    <Row
+                      label={`Ferry, ${route.ferries} crossing${route.ferries > 1 ? "s" : ""} (car, driver + ${pax} passenger${pax > 1 ? "s" : ""})`}
+                      value={`+${price(quote.ferryCents)}`}
                     />
                   )}
                   {seasonPct !== 0 && (

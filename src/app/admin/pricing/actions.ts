@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath, revalidateTag } from "next/cache";
-import { HUBS, isStopEntrance } from "@/lib/catalog";
+import { EXTRA_AREAS, HUBS, isStopEntrance } from "@/lib/catalog";
 import { CATALOG_TAG } from "@/lib/catalogSource";
 import { requireRole } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -245,12 +245,38 @@ async function saveRideFormulaImpl(fd: FormData) {
 /** One area factor per hub (1.15 = +15%). */
 async function saveAreaFactorsImpl(fd: FormData) {
   await requireRole("admin", "/admin/pricing");
-  const rows = HUBS.map((h) => ({ hub_id: h.id, area_factor: decimal(fd, `area_${h.id}`, 0.5, 2) }));
+  const rows = [
+    ...HUBS.map((h) => ({ hub_id: h.id as string, area_factor: decimal(fd, `area_${h.id}`, 0.5, 2) })),
+    // Extra areas (migration 0015) only when the form sent them (their inputs are disabled before).
+    ...EXTRA_AREAS.filter((a) => fd.has(`area_${a.id}`)).map((a) => ({
+      hub_id: a.id as string,
+      area_factor: decimal(fd, `area_${a.id}`, 0.5, 2),
+    })),
+  ];
   const supabase = (await createSupabaseServerClient())!;
   const { data, error } = await supabase.from("hub_pricing").upsert(rows).select("hub_id");
   if (error) throw new Error(error.message);
   if ((data?.length ?? 0) !== rows.length) throw new InputError("Nothing was saved. Reload the page and try again.");
   done();
+}
+
+/** Gulf of Nicoya ferry fares per crossing in colones, and the colones-per-dollar rate (migration 0015). */
+async function saveFerryFaresImpl(fd: FormData) {
+  await requireRole("admin", "/admin/pricing");
+  const values = {
+    ferry_vehicle_fare_crc: int(fd, "ferry_vehicle_fare_crc", 0, 500000),
+    ferry_passenger_fare_crc: int(fd, "ferry_passenger_fare_crc", 0, 100000),
+    crc_per_usd: decimal(fd, "crc_per_usd", 100, 2000),
+  };
+  const supabase = (await createSupabaseServerClient())!;
+  const { data, error } = await supabase.from("pricing_settings").upsert({ id: true, ...values }).select("id");
+  if (error) throw new Error(error.message);
+  if (!data?.length) throw new InputError("Nothing was saved. Reload the page and try again.");
+  done();
+}
+
+export async function saveFerryFares(_prev: FormState, fd: FormData): Promise<FormState> {
+  return run(() => saveFerryFaresImpl(fd));
 }
 
 export async function saveRideFormula(_prev: FormState, fd: FormData): Promise<FormState> {

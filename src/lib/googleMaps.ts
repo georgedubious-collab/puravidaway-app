@@ -2,6 +2,7 @@ import "server-only";
 import { unstable_cache } from "next/cache";
 import type { HubId } from "./catalog";
 import {
+  areaOf,
   boatMinutes,
   cleanPlaceLabel,
   hubOfPlaceId,
@@ -126,15 +127,31 @@ export async function resolvePlace(id: string, label?: string, sessionToken?: st
   if (!isGooglePlaceId(id)) throw new MapsError("That place isn't valid. Please search for it again.");
   const g = await lookupPlace(id, sessionToken);
   if (!inCostaRica(g)) throw new MapsError("We only drive within Costa Rica. Please pick a place in Costa Rica.");
-  return { id, label: cleanPlaceLabel(label) || g.address || "Selected place", address: g.address, lat: g.lat, lng: g.lng, hub: nearestHub(g) };
+  const area = areaOf(g);
+  return {
+    id,
+    label: cleanPlaceLabel(label) || g.address || "Selected place",
+    address: g.address,
+    lat: g.lat,
+    lng: g.lng,
+    hub: nearestHub(g),
+    ...(area ? { area } : {}),
+  };
 }
 
 const round5 = (n: number) => n.toFixed(5);
 
-async function fetchRoute(a: LatLng, b: LatLng): Promise<{ km: number; drivingMinutes: number }> {
+interface Road {
+  km: number;
+  drivingMinutes: number;
+  ferries: number;
+}
+
+async function fetchRoute(a: LatLng, b: LatLng): Promise<Road> {
   const data = await google("https://routes.googleapis.com/directions/v2:computeRoutes", {
     method: "POST",
-    fieldMask: "routes.distanceMeters,routes.duration",
+    // Step maneuvers tell us where the route takes a car ferry (still the Essentials tier).
+    fieldMask: "routes.distanceMeters,routes.duration,routes.legs.steps.navigationInstruction.maneuver",
     body: {
       origin: { location: { latLng: { latitude: a.lat, longitude: a.lng } } },
       destination: { location: { latLng: { latitude: b.lat, longitude: b.lng } } },
@@ -142,19 +159,34 @@ async function fetchRoute(a: LatLng, b: LatLng): Promise<{ km: number; drivingMi
       routingPreference: "TRAFFIC_UNAWARE",
     },
   });
-  const r = (data.routes as { distanceMeters?: number; duration?: string }[] | undefined)?.[0];
+  const r = (
+    data.routes as
+      | { distanceMeters?: number; duration?: string; legs?: { steps?: { navigationInstruction?: { maneuver?: string } }[] }[] }[]
+      | undefined
+  )?.[0];
   const seconds = Number(String(r?.duration ?? "").replace(/s$/, ""));
   if (!r || typeof r.distanceMeters !== "number" || !Number.isFinite(seconds)) {
     throw new MapsError("We couldn't find a road between those places. Please message us on WhatsApp.");
   }
-  return { km: Math.round(r.distanceMeters / 100) / 10, drivingMinutes: Math.ceil(seconds / 60) };
+  // One crossing per run of ferry steps.
+  let ferries = 0;
+  let onFerry = false;
+  for (const leg of r.legs ?? []) {
+    for (const step of leg.steps ?? []) {
+      const ferry = /^FERRY/.test(step.navigationInstruction?.maneuver ?? "");
+      if (ferry && !onFerry) ferries++;
+      onFerry = ferry;
+    }
+  }
+  // Google's time includes the crossing, so it is charged per hour like the road.
+  return { km: Math.round(r.distanceMeters / 100) / 10, drivingMinutes: Math.ceil(seconds / 60), ferries };
 }
 
 /** Road km + driving time between two points, cached (same answer for the quote and the server re-check). */
-function roadBetween(a: LatLng, b: LatLng): Promise<{ km: number; drivingMinutes: number }> {
-  if (straightKm(a, b) < 0.05) return Promise.resolve({ km: 0, drivingMinutes: 0 });
+function roadBetween(a: LatLng, b: LatLng): Promise<Road> {
+  if (straightKm(a, b) < 0.05) return Promise.resolve({ km: 0, drivingMinutes: 0, ferries: 0 });
   const key = `${round5(a.lat)},${round5(a.lng)}>${round5(b.lat)},${round5(b.lng)}`;
-  return unstable_cache(() => fetchRoute(a, b), ["gmaps-route-v1", key], { revalidate: CACHE_SECONDS })();
+  return unstable_cache(() => fetchRoute(a, b), ["gmaps-route-v2", key], { revalidate: CACHE_SECONDS })();
 }
 
 /** Longest ride we quote automatically (Peñas Blancas → Panama border is ~650 km). */
@@ -171,7 +203,10 @@ export async function rideRoute(origin: RidePlace, destination: RidePlace): Prom
   }
   const road = await roadBetween(roadEnd(origin), roadEnd(destination));
   if (road.km > MAX_ROUTE_KM) throw new MapsError("That ride is longer than we quote online. Please message us on WhatsApp.");
-  return { ...road, totalMinutes: road.drivingMinutes + boatMinutes(origin, destination) };
+  // Southern Nicoya's factor is for the ferry queue and the crossing back (Jorge, 2026-11-09):
+  // when Google drives around the gulf instead (e.g. from Liberia), no ferry, no factor.
+  const area = road.ferries > 0 ? (origin.area ?? destination.area) : undefined;
+  return { ...road, totalMinutes: road.drivingMinutes + boatMinutes(origin, destination), ...(area ? { area } : {}) };
 }
 
 /**

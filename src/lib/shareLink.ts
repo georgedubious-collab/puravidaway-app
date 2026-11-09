@@ -16,7 +16,7 @@
  * links from route pages keep working.
  */
 import { HUBS, type HubId } from "./catalog";
-import { cleanPlaceLabel, hubPlace, inCostaRica, isGooglePlaceId, isHubPlace, nearestHub, type RidePlace } from "./places";
+import { areaOf, cleanPlaceLabel, hubPlace, inCostaRica, isGooglePlaceId, isHubPlace, nearestHub, type RidePlace } from "./places";
 import type { CatalogData } from "./catalogModel";
 import { isValidPickupTime, isValidYmd } from "./dates";
 
@@ -72,7 +72,8 @@ function readPlace(params: { get(name: string): string | null }, key: "from" | "
   const [lat, lng] = (params.get(`${key}At`) ?? "").split(",").map(Number);
   const point = { lat, lng };
   if (!label || !Number.isFinite(lat) || !Number.isFinite(lng) || !inCostaRica(point)) return undefined;
-  return { id: v, label, ...point, hub: nearestHub(point) };
+  const area = areaOf(point);
+  return { id: v, label, ...point, hub: nearestHub(point), ...(area ? { area } : {}) };
 }
 
 function writePlace(q: URLSearchParams, key: "from" | "to", p: RidePlace) {

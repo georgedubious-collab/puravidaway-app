@@ -115,9 +115,16 @@ What that gives on real routes:
 | Monteverde → Manuel Antonio | 193 km / 3 h 40 | $251 | — | **$214** | 85% | $182 | $176 |
 | La Fortuna → Manuel Antonio | 235 km / 4 h 50 | $322 | — | **$257** | 80% | $218 | $225 |
 
-Result: **10–20% cheaper than Daytrip** and above GetTransfer's "from" price (theirs is a floor,
-and drivers can still bid higher or cancel). Drivers earn about the same as on Daytrip or more,
-assuming a 12–15% commission (§9 #2), which is what attracts the best drivers.
+Result of the table above: **10–20% cheaper than Daytrip** and above GetTransfer's "from" price
+(theirs is a floor, and drivers can still bid higher or cancel).
+
+**Revised 2026-11-09 (Jorge):** Daytrip already charges some of the lowest fares in the market,
+so undercutting them by 10–20% only cut what our drivers earn. The target is now **on par with,
+or a few dollars under, Daytrip's lowest published price**: base **$30 + $0.90/km + $10/hour,
+minimum $120** (migration 0016). SJO → La Fortuna $162 (Daytrip $161), Manuel Antonio $202
+($205), Tamarindo $324 ($338), LIR → Tamarindo $132 ($136), SJO → Santa Teresa $346 with the
+ferry for 2 ($356). Daytrip's seasonal swing (e.g. La Fortuna $161 → $185) is matched by our
+season multipliers (high season +15%, peak +25%).
 
 ### 4.3 Vehicle classes
 
@@ -205,7 +212,8 @@ it moves to the driver side.
 | 1 ✅ | **Built 2026-11-09** (migration 0013). **Formula in the database** with the current town list: per-km, per-hour, minimum, vehicle factors, area factors, editable at `/admin/pricing`. Each town pair gets its km and hours from a table we fill once. This fixes the flat price **without any map service** | Approve the starting numbers in §4.2 |
 | 2 ✅ | **Built 2026-11-09 with step 1.** **Economy class** (Spanish-speaking driver, 0.90×) | Confirm the factor |
 | 3 ✅ | **Built 2026-11-09.** **Place search + route** (Google): type any place, see drive time + km and a Google Maps link, price from real km/hours. Prices are re-checked on the server when the trip is sent, as today. See §3.1 | Google Cloud account with billing + API key ✅ |
-| 4 | **Special places**: airports, Sierpe dock / Drake boat, 4x4-only areas, Paquera ferry | List of 4x4-only areas and boat fares |
+| 4a ✅ | **Built 2026-11-09** (migrations 0015–0016). **Southern Nicoya + ferries**: places on the peninsula tip (Santa Teresa, Montezuma, Paquera…) get a 1.35 area factor at either end when the route takes the ferry (not from Liberia by road); Puntarenas ferry crossings on Google's route add the car + driver fare and a per-passenger fare (in colones, converted at the admin's exchange rate), shown as their own line. Also the new price level (§8 #1). SJO → Santa Teresa (2 pax) Standard ≈ $349 vs Daytrip $356; LIR → Santa Teresa $276 vs $300–350 elsewhere | Ferry fares ✅, exchange rate ✅ |
+| 4b | **Special places**: typed airports (flight extras), Sierpe dock / Drake boat fares, 4x4-only areas | List of 4x4-only areas; Drake boat fares (private boat and per seat) |
 | 5 | **Stops priced as wait + detour**; park-fee note on cards | Hourly wait rate, which stops are guided |
 | 6 | **Zone prices** for the busiest pairs (optional) | Prices for those pairs |
 | 7 | **Driver job board** with fixed payouts (replaces public bidding) + "custom quote" | Commission % (§9 #2) |
@@ -213,8 +221,10 @@ it moves to the driver side.
 ## 8. Decisions
 
 **Decided by Jorge, 2026-11-09:**
-1. **Price level: 10–20% below Daytrip.** Starting numbers as in §4.2 (base $35 + $0.70/km +
-   $12/hour, minimum $110), editable at `/admin/pricing`.
+1. **Price level: on par with, or a few dollars under, Daytrip's lowest published prices**
+   (revised the same day from "10–20% below": Daytrip is already among the cheapest, and the
+   gap only lowered drivers' earnings). Numbers: base $30 + $0.90/km + $10/hour, minimum $120
+   (migration 0016), editable at `/admin/pricing`. See the §4.2 note.
 2. **Economy class: 10% cheaper** than Standard (factor 0.90).
 3. **Google Maps Platform** (Places + Routes) for place search and road distance/time.
 4. **Fixed prices for travellers; drivers claim jobs** at a fixed payout behind the scenes;
@@ -223,7 +233,16 @@ it moves to the driver side.
 **Starting defaults, not yet confirmed (editable in the admin, change any time):**
 5. Park entrance fees are shown as "paid at the gate, ~$X" unless a stop is marked as included
    or free (no ticket, e.g. Tárcoles; migration 0014).
-6. Area factors: Southern Pacific / Osa 1.15, Liberia 1.10, everywhere else 1.00.
+6. Area factors: Southern Pacific / Osa 1.15, Liberia 1.10, Southern Nicoya 1.35 (applies at
+   either end, but only when the route takes the Puntarenas ferry; it pays for the queue and
+   the driver's crossing back, so rides around the gulf by road from Liberia don't get it),
+   everywhere else 1.00.
+7. Ferry fares (Jorge, 2026-11-09): Puntarenas ↔ Paquera / Playa Naranjo about ₡15,000 per
+   crossing for the car with its driver and ₡1,500 per passenger, kept in colones and converted
+   at `crc_per_usd` (₡452 on 2026-11-09; **Jorge checks the rate about once a week** and updates
+   it at `/admin/pricing`). Charged per crossing on Google's route, on top of the ride, rounded
+   to whole dollars, not season-adjusted. Drake Bay boat fares still unknown (today's combo adds
+   a flat $75).
 
 **Still open:** platform commission % (PROJECT.md §9 #2; 12–15% recommended), needed for the
 driver job board (build step 7).
