@@ -101,7 +101,14 @@ export type DriverTrip = Pick<
   | "origin_coords" | "destination_coords" | "sightseeing_stops" | "vehicle_class" | "scheduled_at"
   | "passenger_count" | "flight_or_hotel_notes" | "preferences" | "driver_notes" | "status"
   | "payment_mode" | "cash_fee" | "assigned_vehicle_id" | "created_at"
-> & { driver_payout: number | string | null; claimed_at: string | null };
+> & {
+  driver_payout: number | string | null;
+  claimed_at: string | null;
+  /** Cash trips only: what the driver collects from the traveller (price + cash fee). Migration 0025. */
+  cash_to_collect?: number | string | null;
+  driver_settled_at?: string | null;
+  completed_at?: string | null;
+};
 
 export function usd(n: number | string): string {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(Number(n));
