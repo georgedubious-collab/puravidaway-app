@@ -7,7 +7,7 @@ import { seasonForYmd } from "@/lib/catalogModel";
 import { useCatalog } from "./CatalogContext";
 import { newItemId, whatsAppLink, type CartItem } from "@/lib/cart";
 import { DEFAULT_PICKUP_TIME, PICKUP_TIMES, addDays, formatTime12h } from "@/lib/dates";
-import { applyMultiplier, formatDuration, formatUSD, perPersonCents, quoteTransfer } from "@/lib/pricing";
+import { applyMultiplier, formatDuration, formatUSD, perPersonCents, perPersonShare, quoteTransfer } from "@/lib/pricing";
 import { MAX_SHARED_PAX, rideLinkQuery, type RideLinkState } from "@/lib/shareLink";
 import { MIN_OFFER_USD } from "@/lib/tripRequest";
 import { ridePromises } from "@/lib/trust";
@@ -382,7 +382,7 @@ export function TransfersView({
                         <span className="text-xs font-bold text-slate-500">per car</span>
                       </p>
                       <p className="text-xs font-semibold text-slate-600">
-                        from {formatUSD(perPersonCents(seasonal(v.baseRateCents), v.maxPax))} per person ({v.maxPax} travellers)
+                        from {formatUSD(perPersonCents(seasonal(v.baseRateCents), v.maxPax))} per person ({perPersonShare(v.maxPax)} travellers)
                       </p>
                       {seasonPct !== 0 && (
                         <p className="text-[11px] font-bold text-amber-700">

@@ -15,7 +15,7 @@ Newest entries first. AIs: read the top of this file before starting work.
   links: from, to, date, time, passengers, vehicle and stops live in the address (debounced
   `replaceState`, validated against the catalog on load, old `?from=&to=` links still work, no
   personal details), plus a "Copy a link to this ride" button. Stop cards show "Park entrance
-  included" / "Park entrance paid at the gate" from `sightseeing_stops.park_fee_included`.
+  included" / "Park entrance paid at the gate" from `sightseeing_stops.park_fee_included`. The per-person price splits a car between at most 7 travellers (vans seat 10), as Daytrip does.
 
 - 2026-11-08 — Claude — Payment options (migration 0012), replacing the 20% deposit: pay online in
   full (secure payment link sent once the trip is confirmed; online payment isn't live yet), or pay

@@ -157,13 +157,24 @@ export function seasonForDate(date: Date): Season {
 }
 
 /**
+ * The "per person" figure never splits a car between more than 7 travellers,
+ * even for 10-seat vans: Daytrip divides its van by 7, and splitting by 10
+ * would make our van look unrealistically cheap next to theirs (Jorge, 2026-11-08).
+ */
+export const PER_PERSON_MAX_SHARE = 7;
+
+/** How many travellers the "from $X per person" label assumes for a class. */
+export function perPersonShare(maxPax: number): number {
+  return Math.max(1, Math.min(maxPax, PER_PERSON_MAX_SHARE));
+}
+
+/**
  * Daytrip-style "from $X per person": the car price shared by a full car
- * (the class's maximum passengers), rounded UP to whole dollars, so the
- * label never undersells what a full car pays.
+ * (the class's maximum passengers, capped at PER_PERSON_MAX_SHARE), rounded
+ * UP to whole dollars, so the label never undersells what a full car pays.
  */
 export function perPersonCents(carCents: number, maxPax: number): number {
-  if (maxPax < 1) return carCents;
-  return Math.ceil(carCents / (maxPax * 100)) * 100;
+  return Math.ceil(carCents / (perPersonShare(maxPax) * 100)) * 100;
 }
 
 /** Cash booking fee for one item: feeBps of its price (1000 = 10%), rounded to the cent. */

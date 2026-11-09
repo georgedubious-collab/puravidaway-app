@@ -7,7 +7,7 @@ import { DriverStandards } from "@/components/trust/DriverStandards";
 import { Reviews } from "@/components/trust/Reviews";
 import { AIRPORT_HUBS, HUBS, routeMinutes, stopFitsRoute } from "@/lib/catalog";
 import { getCatalog } from "@/lib/catalogSource";
-import { applyMultiplier, formatDuration, formatUSD, perPersonCents } from "@/lib/pricing";
+import { applyMultiplier, formatDuration, formatUSD, perPersonCents, perPersonShare } from "@/lib/pricing";
 import { builderHref, fillFaq, relatedHref, ROUTE_PAGES, routePage } from "@/lib/routePages";
 import { guarantees, ridePromises } from "@/lib/trust";
 
@@ -122,7 +122,7 @@ export default async function RouteLandingPage({
             <Fact
               icon={<User className="w-4 h-4" />}
               label="Per person from"
-              value={`${formatUSD(perPerson.cents)} (${perPerson.v.maxPax} travellers)`}
+              value={`${formatUSD(perPerson.cents)} (${perPersonShare(perPerson.v.maxPax)} travellers)`}
             />
             <Fact icon={<Luggage className="w-4 h-4" />} label="Fits" value={cheapest.luggage} />
           </dl>
