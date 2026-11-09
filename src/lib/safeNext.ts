@@ -6,7 +6,10 @@ const BASE = "https://puravidaway.invalid";
  * another website, so anything with a backslash or control character, or that
  * resolves off-site, falls back to the default.
  */
-export function safeNext(value: string | null | undefined, fallback = "/admin"): string {
+/** Default destination: /auth/landing picks /admin or /driver from the person's role. */
+export const DEFAULT_NEXT = "/auth/landing";
+
+export function safeNext(value: string | null | undefined, fallback = DEFAULT_NEXT): string {
   if (!value || !value.startsWith("/") || /[\\\u0000-\u001f\u007f]/.test(value)) return fallback;
   try {
     const u = new URL(value, BASE);
