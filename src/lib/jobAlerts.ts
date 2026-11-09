@@ -4,6 +4,7 @@ import { getCatalog } from "./catalogSource";
 import { formatScheduledAt } from "./dates";
 import { SITE_URL, sendEmail } from "./email";
 import { townName, townOf } from "./matching";
+import { sendPush } from "./push";
 import { createSupabaseAdminClient } from "./supabase/admin";
 
 /** At most this many drivers are emailed per job (alphabetical beyond drivers based at the pickup). */
@@ -43,6 +44,12 @@ export async function notifyDriversOfJobs(bookingIds: string[]): Promise<void> {
           : (catalog.dayTours.find((t) => t.id === j.catalog_item_id)?.name ?? "Day tour");
       const when = formatScheduledAt(j.scheduled_at);
       const payout = usd(Math.round(Number(j.driver_payout)));
+      // Push to every approved driver's phone (driver app), then email as the backup.
+      await sendPush(
+        list.map((d) => d.id),
+        { title: `New job: ${what}`, body: `${when} · ${j.passenger_count ?? 1} traveller${(j.passenger_count ?? 1) > 1 ? "s" : ""} · suggested payout ${payout}`, data: { screen: "job", id: j.id } },
+        "driver",
+      );
       const sorted = [...list].sort((a, b) => Number(b.home_hub === from) - Number(a.home_hub === from)).slice(0, MAX_RECIPIENTS);
       for (const d of sorted) {
         await sendEmail({

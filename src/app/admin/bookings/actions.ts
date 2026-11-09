@@ -7,6 +7,7 @@ import { BOOKING_STATUSES, usd } from "@/lib/bookings";
 import { formatScheduledAt } from "@/lib/dates";
 import { SITE_URL, sendEmail } from "@/lib/email";
 import { notifyDriversOfJobs } from "@/lib/jobAlerts";
+import { sendPush } from "@/lib/push";
 import { requestDriverReview } from "@/lib/reviewRequest";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { InputError, runAction, type FormState } from "@/lib/forms/formState";
@@ -57,6 +58,13 @@ export async function acceptOffer(_prev: FormState, fd: FormData): Promise<FormS
           ],
           button: { label: "Open your trip page", url: `${SITE_URL}/trip/${guest.access_token}` },
         });
+      }
+      if (offer) {
+        await sendPush(
+          [offer.driver_id],
+          { title: `You've got the ride ${ref}`, body: `${b?.origin ?? ""} → ${b?.destination ?? ""} · ${when} · payout ${usd(offer.bid_amount)}`, data: { screen: "trip", id: bookingId } },
+          "driver",
+        );
       }
       if (!who?.email) return;
       await sendEmail({

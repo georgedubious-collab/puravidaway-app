@@ -1,0 +1,1 @@
+- 2026-11-09 — Claude — Mobile-app groundwork (Jorge: the apps must work before launch): `device_tokens` table and `register_device()` (migration 0026), Expo push sender (`src/lib/push.ts`), push notifications to drivers for new open jobs and accepted offers, with email as the backup.
