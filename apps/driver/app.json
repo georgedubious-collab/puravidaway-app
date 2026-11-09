@@ -1,0 +1,28 @@
+{
+  "expo": {
+    "name": "PuraVidaWay Partner",
+    "slug": "puravidaway-partner",
+    "scheme": "puravidawaypartner",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.puravidaway.partner"
+    },
+    "android": {
+      "package": "com.puravidaway.partner",
+      "adaptiveIcon": {
+        "backgroundColor": "#022C22",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "plugins": [
+      ["expo-notifications", { "color": "#059669", "defaultChannel": "jobs" }]
+    ]
+  }
+}

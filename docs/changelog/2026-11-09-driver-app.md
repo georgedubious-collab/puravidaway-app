@@ -1,0 +1,1 @@
+- 2026-11-09 — Claude — Driver app first version in `apps/driver/` (Expo, Android + iPhone from one codebase): sign-in by email code, open jobs and offers, trips with start/complete, Waze / Google Maps, chat, earnings, profile and push registration. Standalone project, ignored by Vercel and by the website's type check and lint.
