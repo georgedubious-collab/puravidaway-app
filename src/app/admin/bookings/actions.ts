@@ -6,6 +6,8 @@ import { requireRole } from "@/lib/auth";
 import { BOOKING_STATUSES, usd } from "@/lib/bookings";
 import { formatScheduledAt } from "@/lib/dates";
 import { SITE_URL, sendEmail } from "@/lib/email";
+import { notifyDriversOfJobs } from "@/lib/jobAlerts";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { InputError, runAction, type FormState } from "@/lib/forms/formState";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -33,10 +35,29 @@ export async function acceptOffer(_prev: FormState, fd: FormData): Promise<FormS
     const { data: who } = offer
       ? await supabase.from("profiles").select("full_name, email").eq("id", offer.driver_id).maybeSingle()
       : { data: null };
-    const { data: b } = await supabase.from("bookings").select("origin, destination, scheduled_at").eq("id", bookingId).maybeSingle();
+    const { data: b } = await supabase.from("bookings").select("origin, destination, scheduled_at, trip_id").eq("id", bookingId).maybeSingle();
+    // The traveller's contact lives in the server-only trips table.
+    const admin = createSupabaseAdminClient();
+    const { data: guest } =
+      admin && b?.trip_id
+        ? await admin.from("trips").select("guest_name, guest_email, access_token").eq("id", b.trip_id).maybeSingle()
+        : { data: null };
     after(async () => {
-      if (!who?.email) return;
       const when = b?.scheduled_at ? formatScheduledAt(b.scheduled_at) : "";
+      if (guest?.guest_email) {
+        const first = (who?.full_name ?? "Your driver").split(" ")[0];
+        await sendEmail({
+          to: guest.guest_email,
+          subject: `Your ride is confirmed (${ref}) · ${when}`,
+          lines: [
+            `Hi ${(guest.guest_name ?? "").split(" ")[0] || "there"},`,
+            `Good news: ${first} will drive you, ${b?.origin ?? ""} → ${b?.destination ?? ""}, pickup ${when} (Costa Rica time).`,
+            "Your trip page shows your driver's profile and car photos, and has a chat with them and our team.",
+          ],
+          button: { label: "Open your trip page", url: `${SITE_URL}/trip/${guest.access_token}` },
+        });
+      }
+      if (!who?.email) return;
       await sendEmail({
         to: who.email,
         subject: `You've got the ride ${ref} · ${when}`,
@@ -104,6 +125,11 @@ export async function updateBooking(_prev: FormState, fd: FormData): Promise<For
       throw error;
     }
     if (!data?.length) throw new InputError("Booking not found.");
+
+    // Just opened for drivers: email approved drivers about the job.
+    if (status === "pending_bids" && before && before.status !== "pending_bids") {
+      after(() => notifyDriversOfJobs([id]));
+    }
 
     // Trip just completed: ask the traveller to rate the driver (once per booking).
     if (status === "completed" && before && before.status !== "completed" && !before.review_requested_at && before.trip_id && driverId) {
