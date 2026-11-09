@@ -23,6 +23,7 @@ import {
   routeDrivingMinutes,
   routeKm,
   routeMinutes,
+  stopTotalCents,
 } from "./catalog";
 import type { CatalogData } from "./catalogModel";
 import type { RideRoute } from "./places";
@@ -135,7 +136,8 @@ export function quoteTransfer(input: TransferQuoteInput): TransferQuote {
     .filter((s): s is NonNullable<typeof s> => Boolean(s));
 
   const baseCents = input.acceptedBidCents ?? rideCents(input.origin, input.destination, vehicle, input.catalog, input.route);
-  const stopsCents = stops.reduce((sum, s) => sum + s.priceCents, 0);
+  // Each stop: the driver's part (wait + detour) + its tour part per traveller.
+  const stopsCents = stops.reduce((sum, s) => sum + stopTotalCents(s, input.pax ?? 1), 0);
   const subtotalCents = baseCents + stopsCents;
   // In bid mode the traveller's offer covers everything, ferries included.
   const ferry = input.acceptedBidCents === undefined ? ferryCents(input.route, input.pax ?? 1, input.catalog) : 0;

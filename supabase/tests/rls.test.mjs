@@ -118,6 +118,12 @@ await expectRows("ferry fares (colones) and exchange rate seeded", "anon", "sele
 await expectBlocked("absurd exchange rate refused", "admin", "update public.pricing_settings set crc_per_usd = 5");
 await expectBlocked("unknown pricing area refused", "admin", "insert into public.hub_pricing (hub_id, area_factor) values ('Nowhere', 1)");
 await expectBlocked("visitor cannot change ferry fares", "anon", "update public.pricing_settings set ferry_vehicle_fare_crc = 1", { affected: 0 });
+// Migration 0021: stops priced by waiting time + detour.
+await expectRows("waiting rate seeded at $20/hour", "anon", "select * from public.pricing_settings where wait_per_hour = 20", 1);
+await expectRows("Poás detour and per-person tour price seeded", "anon", "select * from public.sightseeing_stops where id = 'poas' and detour_km = 24 and detour_min = 40 and tour_price_pp = 55", 1);
+await expectRows("Tárcoles is a plain stop (no tour part)", "anon", "select * from public.sightseeing_stops where id = 'tarcoles' and tour_price_pp = 0", 1);
+await expectRows("on-the-way stops have no detour", "anon", "select * from public.sightseeing_stops where id in ('tarcoles','sloth') and detour_km = 0 and detour_min = 0", 2);
+await expectBlocked("negative detour refused", "admin", "update public.sightseeing_stops set detour_km = -1 where id = 'poas'");
 // Migration 0014: entrance is free / included / gate.
 await expectRows("Tárcoles is a free stop", "anon", "select * from public.sightseeing_stops where id = 'tarcoles' and entrance = 'free'", 1);
 await expectRows("other stops default to paid at the gate", "anon", "select * from public.sightseeing_stops where id <> 'tarcoles' and entrance = 'gate'", 4);

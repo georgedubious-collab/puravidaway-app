@@ -2,7 +2,7 @@
 
 import { Camera, Car, Check, ExternalLink, Gavel, Languages, Link2, MapPin, MessageCircle, PlusCircle, Ticket, Users } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AIRPORT_HUBS, ENTRANCE_LABEL, stopFitsRoute } from "@/lib/catalog";
+import { AIRPORT_HUBS, ENTRANCE_LABEL, stopFitsRoute, stopTotalCents } from "@/lib/catalog";
 import { seasonForYmd } from "@/lib/catalogModel";
 import { useCatalog } from "./CatalogContext";
 import { PlaceInput } from "./PlaceInput";
@@ -379,8 +379,14 @@ export function TransfersView({
                       <p className="text-sm font-extrabold text-slate-900">{s.name}</p>
                       <p className="text-xs text-slate-500 mt-1">{s.description}</p>
                       <p className="text-xs font-extrabold text-emerald-700 mt-2">
-                        +{formatUSD(seasonal(s.priceCents))} · adds {formatDuration(s.durationMin)}
+                        +{formatUSD(seasonal(stopTotalCents(s, pax)))}
+                        {s.tourPerPersonCents > 0 ? ` for ${pax} traveller${pax > 1 ? "s" : ""}` : ""} · adds {formatDuration(s.durationMin)}
                       </p>
+                      {s.tourPerPersonCents > 0 && (
+                        <p className="text-[11px] text-slate-500">
+                          Guided visit {formatUSD(seasonal(s.tourPerPersonCents))} per person + {formatUSD(seasonal(s.priceCents))} driver time
+                        </p>
+                      )}
                       <p className="text-[11px] font-semibold text-slate-600 mt-1 flex items-center gap-1">
                         <Ticket className="w-3.5 h-3.5" aria-hidden />
                         {ENTRANCE_LABEL[s.entrance]}

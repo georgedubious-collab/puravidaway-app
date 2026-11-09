@@ -7,6 +7,7 @@ import { getCatalog } from "@/lib/catalogSource";
 import { cashAllowed, itemPaymentMode, parsePaymentMode } from "@/lib/cart";
 import { costaRicaTimestamp, formatTime12h, todayInCostaRica } from "@/lib/dates";
 import { ADMIN_EMAIL, SITE_URL, sendEmail } from "@/lib/email";
+import { stopTotalCents } from "@/lib/catalog";
 import { resolveTransfer } from "@/lib/googleMaps";
 import type { RidePlace, RideRoute } from "@/lib/places";
 import { hasDriverPayout, splitPayout } from "@/lib/payout";
@@ -145,7 +146,10 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
       destination_coords: ride ? placeCoords(ride.destination) : null,
       sightseeing_stops:
         spec.kind === "transfer"
-          ? spec.stopIds.map((id) => ({ id, price: (catalog.stops.find((s) => s.id === id)?.priceCents ?? 0) / 100 }))
+          ? spec.stopIds.map((id) => {
+              const s = catalog.stops.find((x) => x.id === id);
+              return { id, price: s ? stopTotalCents(s, spec.pax) / 100 : 0 };
+            })
           : spec.kind === "day_tour" && spec.upgrade
             ? [{ id: "en_route_upgrade" }]
             : [],

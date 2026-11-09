@@ -52,7 +52,8 @@ cat.VEHICLE_CLASSES.forEach((v, i) => lines.push(
   `insert into public.vehicle_classes (id, name, base_rate, max_pax, luggage, badge, only_for_hubs, sort_order) values (${q(v.id)}, ${q(v.name)}, 0, ${v.maxPax}, ${q(v.luggage)}, ${q(v.badge)}, ${arr(v.onlyForHubs)}, ${i}) on conflict (id) do nothing;`));
 lines.push("");
 cat.SIGHTSEEING_STOPS.forEach((s, i) => lines.push(
-  `insert into public.sightseeing_stops (id, name, description, duration_min, price, corridors, sort_order) values (${q(s.id)}, ${q(s.name)}, ${q(s.description)}, ${s.durationMin}, ${money(s.priceCents)}, ${arr(s.corridors)}, ${i}) on conflict (id) do nothing;`));
+  // price is retired (20261109000021_stop_pricing.sql): the stop price is computed from duration, detour and the per-person tour price.
+  `insert into public.sightseeing_stops (id, name, description, duration_min, price, detour_km, detour_min, tour_price_pp, corridors, sort_order) values (${q(s.id)}, ${q(s.name)}, ${q(s.description)}, ${s.durationMin}, 0, ${s.detourKm}, ${s.detourMin}, ${money(s.tourPerPersonCents)}, ${arr(s.corridors)}, ${i}) on conflict (id) do nothing;`));
 lines.push("");
 cat.DAY_TOURS.forEach((t, i) => lines.push(
   `insert into public.day_tours (id, region, name, highlights, duration_hours, price, en_route_upgrade_price, sort_order) values (${q(t.id)}, ${q(t.region)}, ${q(t.name)}, ${arr(t.highlights)}, ${t.durationHours}, ${money(t.priceCents)}, ${money(cat.EN_ROUTE_UPGRADE_CENTS)}, ${i}) on conflict (id) do nothing;`));
