@@ -4,7 +4,7 @@ import { LegalPage, LegalSection } from "@/components/legal/LegalPage";
 import { whatsAppLink } from "@/lib/cart";
 
 export const metadata: Metadata = {
-  title: "Cancellation & Refund Policy | PuraVidaWay",
+  title: "Cancellation & Refund Policy | Costa Rica Private Transfers",
   description:
     "Free cancellation up to 24 hours before pickup for Costa Rica transfers and day tours; clear refund rules for multi-day expeditions.",
 };
@@ -20,7 +20,7 @@ export default function CancellationPage() {
       intro={
         <p>
           Plans change. Here is exactly what you get back if you cancel or change your trip. “Amounts
-          you’ve paid us” means what you paid PuraVidaWay for the service you cancel. Times are Costa
+          you’ve paid us” means what you paid Costa Rica Private Transfers for the service you cancel. Times are Costa
           Rica time and count from the confirmed pickup or start time.
         </p>
       }
@@ -99,7 +99,7 @@ export default function CancellationPage() {
         <ul>
           <li>
             Cancel or change in your trip chat, or message our team on{" "}
-            <a href={whatsAppLink("Hi PuraVidaWay! I'd like to cancel or change my booking.")} target="_blank" rel="noopener noreferrer">
+            <a href={whatsAppLink("Hi! I'd like to cancel or change my booking.")} target="_blank" rel="noopener noreferrer">
               WhatsApp
             </a>{" "}
             with your booking reference. The time we receive your message counts.

@@ -9,7 +9,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 /**
  * Trip chat: one thread per booking between the traveller, the assigned driver
- * and the PuraVidaWay team. Travellers prove who they are with their private
+ * and our team. Travellers prove who they are with their private
  * trip link; drivers and admins with their sign-in. Everything is read and
  * written by the server after that check.
  */
@@ -93,7 +93,7 @@ async function load(ctx: Ctx): Promise<ChatMessage[]> {
   return (rows ?? []).map((r) => ({
     id: r.id,
     party: r.sender_role as Party,
-    name: r.sender_role === "admin" ? "PuraVidaWay team" : r.sender_role === "client" ? clientName : (names[r.sender_id] ?? "Driver"),
+    name: r.sender_role === "admin" ? "Our team" : r.sender_role === "client" ? clientName : (names[r.sender_id] ?? "Driver"),
     text: r.message,
     at: r.sent_at,
     mine: r.sender_role === ctx.party && (ctx.party === "client" || r.sender_id === ctx.userId),
@@ -184,7 +184,7 @@ async function notifyOthers(ctx: Ctx, text: string) {
   }
 
   const fromFor = (to: Party) =>
-    ctx.party === "admin" ? "the PuraVidaWay team" : ctx.party === "client" ? "the traveller" : to === "client" ? "your driver" : "the driver";
+    ctx.party === "admin" ? "our team" : ctx.party === "client" ? "the traveller" : to === "client" ? "your driver" : "the driver";
   const snippet = text.length > 300 ? `${text.slice(0, 300)}…` : text;
 
   for (const r of recipients) {

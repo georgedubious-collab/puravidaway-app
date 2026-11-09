@@ -16,8 +16,8 @@ function resolveSiteUrl(): string {
 export const SITE_URL = resolveSiteUrl();
 export const SITE_INDEXABLE = process.env.NEXT_PUBLIC_SITE_INDEXABLE === "true";
 
-export const SITE_NAME = "PuraVidaWay";
-export const SITE_TITLE = "PuraVidaWay — Costa Rica Transfers, Sightseeing & Tours";
+export const SITE_NAME = "Costa Rica Private Transfers";
+export const SITE_TITLE = "Costa Rica Private Transfers — Airport Transfers, Sightseeing & Tours";
 export const SITE_TAGLINE = "Private Costa Rica transfers with sightseeing stops";
 export const SITE_DESCRIPTION =
   "Private door-to-door transfers with sightseeing stops, driver bidding, 1-day private tours and multi-day eco-expeditions across Costa Rica.";

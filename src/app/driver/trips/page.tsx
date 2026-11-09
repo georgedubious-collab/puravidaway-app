@@ -8,7 +8,7 @@ import { formatScheduledAt } from "@/lib/dates";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { DriverHeader } from "../DriverHeader";
 
-export const metadata: Metadata = { title: "Your trips | PuraVidaWay Drivers", robots: { index: false, follow: false } };
+export const metadata: Metadata = { title: "Your trips | Costa Rica Private Transfers Drivers", robots: { index: false, follow: false } };
 
 export default function DriverTripsPage() {
   return (

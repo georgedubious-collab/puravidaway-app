@@ -4,7 +4,7 @@ import { Suspense } from "react";
 import { requireRole } from "@/lib/auth";
 
 export const metadata: Metadata = {
-  title: "Admin | PuraVidaWay",
+  title: "Admin | Costa Rica Private Transfers",
   robots: { index: false, follow: false },
 };
 
@@ -34,8 +34,8 @@ async function AdminShell({ children }: { children: React.ReactNode }) {
       <header className="bg-emerald-950 text-white">
         <div className="max-w-6xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-4">
-            <Link href="/admin" className="font-extrabold text-lg">
-              PuraVidaWay <span className="text-amber-400">Admin</span>
+            <Link href="/admin" className="font-extrabold text-sm sm:text-lg leading-tight">
+              Costa Rica Private Transfers <span className="text-amber-400">Admin</span>
             </Link>
             <nav aria-label="Admin" className="flex flex-wrap gap-1 text-sm font-bold">
               {NAV.map((n) => (

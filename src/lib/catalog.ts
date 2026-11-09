@@ -1,5 +1,5 @@
 /**
- * PuraVidaWay catalog — source: docs/PROJECT.md §5.
+ * Costa Rica Private Transfers catalog — source: docs/PROJECT.md §5.
  *
  * Phase 2a: static TypeScript data so the storefront works end to end.
  * Phase 2b: these move to Supabase tables (sightseeing_stops, vehicle_classes,

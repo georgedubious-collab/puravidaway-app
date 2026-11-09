@@ -229,7 +229,7 @@ export function TransfersView({
   }
 
   const routeWhatsApp = whatsAppLink(
-    `Hi PuraVidaWay! I'm looking at a private transfer ${originName} → ${destName} on ${date} at ${formatTime12h(pickupTime)} (Costa Rica time) for ${pax} passengers${
+    `Hi! I'm looking at a private transfer ${originName} → ${destName} on ${date} at ${formatTime12h(pickupTime)} (Costa Rica time) for ${pax} passengers${
       selectedStops.length ? ` with stops at ${selectedStops.map((s) => s.name).join(", ")}` : ""
     }. ${
       mode === "bid" && offerValid

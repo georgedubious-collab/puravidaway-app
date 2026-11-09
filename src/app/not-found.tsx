@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { ErrorScreen } from "@/components/ErrorScreen";
 
 export const metadata: Metadata = {
-  title: "Page not found | PuraVidaWay",
+  title: "Page not found | Costa Rica Private Transfers",
 };
 
 export default function NotFound() {
@@ -11,7 +11,7 @@ export default function NotFound() {
       eyebrow="404 · Page not found"
       title="This road doesn't go anywhere"
       text="The page you were looking for has moved or never existed. Head back to the trip builder to plan your transfers, tours and stops."
-      whatsAppMessage="Hi PuraVidaWay! I followed a link that didn't work. Can you help me with my Costa Rica trip?"
+      whatsAppMessage="Hi! I followed a link that didn't work. Can you help me with my Costa Rica trip?"
     />
   );
 }

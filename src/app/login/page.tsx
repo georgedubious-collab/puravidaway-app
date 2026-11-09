@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { LoginForm } from "./LoginForm";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
-export const metadata: Metadata = { title: "Sign in | PuraVidaWay" };
+export const metadata: Metadata = { title: "Sign in | Costa Rica Private Transfers" };
 
 export default function LoginPage() {
   return (

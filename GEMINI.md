@@ -1,4 +1,4 @@
-# GEMINI.md — PuraVidaWay reviewer guide
+# GEMINI.md — Costa Rica Private Transfers reviewer guide
 
 Gemini's role in this project is **code review and second opinions**. Claude is the primary
 builder. Gemini does not push code; it reviews pull requests and flags problems.

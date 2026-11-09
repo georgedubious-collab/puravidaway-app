@@ -153,7 +153,7 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
           </dl>
           {phoneDigits && (
             <a
-              href={`https://wa.me/${phoneDigits}?text=${encodeURIComponent(`Hi ${guest.guest_name ?? ""}! This is PuraVidaWay about your trip request ${b.booking_ref}.`)}`}
+              href={`https://wa.me/${phoneDigits}?text=${encodeURIComponent(`Hi ${guest.guest_name ?? ""}! This is Costa Rica Private Transfers about your trip request ${b.booking_ref}.`)}`}
               target="_blank"
               rel="noreferrer"
               className="mt-4 inline-flex min-h-10 items-center rounded-lg bg-emerald-700 px-4 text-sm font-bold text-white"

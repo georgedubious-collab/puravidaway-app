@@ -1,6 +1,6 @@
 # Setting up Supabase (one time, ~15 minutes)
 
-Supabase is the database, login system and file storage for PuraVidaWay. The app keeps
+Supabase is the database, login system and file storage for Costa Rica Private Transfers. The app keeps
 working without it (it falls back to the built-in catalog), but logins, `/admin` and the
 pricing manager need it.
 
@@ -144,7 +144,7 @@ Every later admin or driver is promoted from inside `/admin`; this SQL step is o
 
 ## 6. Email with Resend (trip chat, request confirmations, login emails)
 1. Sign up at [resend.com](https://resend.com) (free: 3,000 emails a month).
-2. **Domains → Add domain** (the PuraVidaWay domain once bought) and add the DNS records it shows
+2. **Domains → Add domain** (the Costa Rica Private Transfers domain once bought) and add the DNS records it shows
    at your domain registrar. Until the domain is verified, Resend only delivers to the email
    address you signed up with, which is fine for testing.
 3. **API Keys → Create API key** (permission "Sending access"). Copy it.
@@ -153,7 +153,7 @@ Every later admin or driver is promoted from inside `/admin`; this SQL step is o
 | Vercel variable | Value |
 | :--- | :--- |
 | `RESEND_API_KEY` | the key from step 3 — **secret** |
-| `EMAIL_FROM` | `PuraVidaWay <hello@your-domain>` (after step 2; leave unset until then) |
+| `EMAIL_FROM` | `Costa Rica Private Transfers <hello@your-domain>` (after step 2; leave unset until then) |
 | `ADMIN_NOTIFY_EMAIL` | the team inbox that gets new requests and chat messages |
 | `NEXT_PUBLIC_SITE_URL` | `https://puravidaway-app.vercel.app` (later: your domain) |
 

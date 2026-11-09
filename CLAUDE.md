@@ -1,4 +1,4 @@
-# CLAUDE.md — PuraVidaWay
+# CLAUDE.md — Costa Rica Private Transfers
 
 ## First, read
 - `docs/PROJECT.md` — the single source of truth (product, stack, schema, pricing, roadmap).
@@ -38,7 +38,7 @@ plainly, avoid jargon, and never assume a dev-team workflow (no "ask your backen
 - Mobile-first responsive; the design reference is the original prototype (emerald/amber,
   Plus Jakarta Sans) — see `docs/PROJECT.md` §3.
 - Customer-facing text never names the owner, Costa Rica Travel Planner or La Familia Mágica
-  (brand separation, `docs/PROJECT.md` §10). Say "PuraVidaWay" or "our team".
+  (brand separation, `docs/PROJECT.md` §10). Say "Costa Rica Private Transfers" or "our team".
 - ICT permits are a per-driver badge, not a site-wide promise; see `docs/PROJECT.md` §10.
 - No secrets in the repo. Env vars live in Vercel and `.env.local` (gitignored).
 

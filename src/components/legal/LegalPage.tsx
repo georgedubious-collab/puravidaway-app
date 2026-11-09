@@ -29,7 +29,7 @@ export function LegalPage({
             <span className="w-9 h-9 rounded-xl bg-emerald-950 flex items-center justify-center text-amber-400">
               <Compass className="w-5 h-5" strokeWidth={2.5} aria-hidden />
             </span>
-            <span className="font-extrabold text-lg tracking-tight text-slate-900">PuraVidaWay</span>
+            <span className="font-extrabold text-sm sm:text-lg leading-tight tracking-tight text-slate-900">Costa Rica Private Transfers</span>
           </Link>
           <Link
             href="/"
@@ -60,7 +60,7 @@ export function LegalPage({
 
       <footer className="bg-emerald-950 text-emerald-200 text-sm">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-x-4">
-          <p>PuraVidaWay · Costa Rica</p>
+          <p>Costa Rica Private Transfers</p>
           <LegalLinks />
         </div>
       </footer>

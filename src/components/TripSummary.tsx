@@ -293,7 +293,7 @@ function Sent({
   contact: TripContact;
   onNewTrip: () => void;
 }) {
-  const message = `Hi PuraVidaWay! I just sent my trip request${refs.length ? ` (${refs.join(", ")})` : ""}. My name is ${contact.name}.`;
+  const message = `Hi! I just sent my trip request${refs.length ? ` (${refs.join(", ")})` : ""}. My name is ${contact.name}.`;
   return (
     <div className="space-y-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-5" role="status">
       <CheckCircle2 className="h-8 w-8 text-emerald-600" />

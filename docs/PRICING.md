@@ -75,7 +75,7 @@ price was made.
 - Costs: only "Essentials" fields are requested; about 1.5 US cents per quote after Google's free
   monthly allowance (~5,000 quotes / month free, checked 2026-11-09).
 
-Google Cloud setup (done by Jorge 2026-11-09, project "PuraVidaWay"): enable **Places API (New)**
+Google Cloud setup (done by Jorge 2026-11-09, project "Costa Rica Private Transfers"): enable **Places API (New)**
 and **Routes API**; one API key restricted to those two APIs (no application restriction, it is
 only used by our server); daily quota caps (~2,000 Places, ~1,000 Routes requests); a $10/month
 budget alert; the key in Vercel as `GOOGLE_MAPS_API_KEY` (Production + Preview) and in `.env.local`.
@@ -103,7 +103,7 @@ minimum $110.**
 
 What that gives on real routes:
 
-| Route | km / time | Daytrip Sedan | GetTransfer Comfort | **PuraVidaWay** | vs Daytrip | Driver keeps at 85% | Daytrip driver gets ~70% |
+| Route | km / time | Daytrip Sedan | GetTransfer Comfort | **Costa Rica Private Transfers** | vs Daytrip | Driver keeps at 85% | Daytrip driver gets ~70% |
 | :--- | :--- | ---: | ---: | ---: | ---: | ---: | ---: |
 | LIR → Tamarindo | 69 km / 1 h 30 | $136 | $119 | **$110** | 81% | $94 | $95 |
 | SJO → La Fortuna | 116 km / 2 h 30 | $161 | $106 | **$146** | 91% | $124 | $113 |

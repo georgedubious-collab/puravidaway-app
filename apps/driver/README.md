@@ -1,4 +1,6 @@
-# PuraVidaWay Partner (driver app)
+# Costa Rica Private Transfers Partner (driver app)
+
+App name on the phone: "CR Transfers Partner". App ID: `com.costaricaprivatetransfers.partner` (permanent once published).
 
 The drivers' mobile app, built with Expo (React Native + TypeScript). One codebase makes
 both the Android and the iPhone app. It lives next to the website but is its own project:
@@ -45,4 +47,4 @@ credentials); `eas build` explains the step the first time.
   in Expo Go; everything else does).
 - `npx tsc --noEmit` and `npx expo-doctor` must pass before a pull request.
 - Add libraries with `npx expo install <name>` so versions match the Expo SDK.
-- Customer- and driver-facing text says "PuraVidaWay" only (brand separation).
+- Customer- and driver-facing text says "Costa Rica Private Transfers" only (brand separation).

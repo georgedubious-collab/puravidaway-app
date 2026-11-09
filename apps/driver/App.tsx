@@ -24,7 +24,7 @@ const TABS: { id: Tab; label: string }[] = [
 ];
 
 /**
- * PuraVidaWay Partner (driver app). Four tabs and a trip screen; a small
+ * Costa Rica Private Transfers Partner (driver app). Four tabs and a trip screen; a small
  * hand-rolled navigator keeps the first version simple. Reading goes straight
  * to Supabase as the signed-in driver; actions go through the website's /api/v1.
  */
@@ -114,8 +114,8 @@ function Home({ session }: { session: Session }) {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: C.emeraldDark }} edges={["top"]}>
       <View style={{ paddingHorizontal: 16, paddingVertical: 12 }}>
-        <Text style={{ color: "#fff", fontSize: 18, fontWeight: "800" }}>
-          PuraVidaWay <Text style={{ color: "#FBBF24" }}>Partner</Text>
+        <Text style={{ color: "#fff", fontSize: 16, fontWeight: "800" }}>
+          Costa Rica Private Transfers <Text style={{ color: "#FBBF24" }}>Partner</Text>
         </Text>
       </View>
       <View style={{ flex: 1, backgroundColor: C.bg }}>

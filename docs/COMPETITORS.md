@@ -1,4 +1,4 @@
-# Competitors — who PuraVidaWay is built to beat
+# Competitors — who Costa Rica Private Transfers is built to beat
 
 > Jorge's standing instruction: **every product, pricing and UX decision is benchmarked
 > against Daytrip, GetTransfer and Welcome Pickups.** Read this before designing a feature.
@@ -6,7 +6,7 @@
 
 ## 1. Side by side
 
-| | **Daytrip** | **GetTransfer** | **Welcome Pickups** | **PuraVidaWay (target)** |
+| | **Daytrip** | **GetTransfer** | **Welcome Pickups** | **Costa Rica Private Transfers (target)** |
 | :--- | :--- | :--- | :--- | :--- |
 | Core product | Door-to-door intercity private transfers with curated sightseeing stops | Marketplace: traveler posts a trip, carriers bid | Airport pickups with meet-and-greet, plus in-destination add-ons | All three combined, Costa Rica only, plus 1-day tours and multi-day expeditions |
 | Pricing model | Fixed price per car, shown "from $X per person"; stops priced on driver distance + wait time; entrance fees extra | Set by competing carriers; traveler can name a price; claims no hidden markup | Fixed per ride, premium vs ride-share; includes meet-and-greet and flight tracking | Fixed route × vehicle price table **and** bid mode with the fixed price as reference |
@@ -38,7 +38,7 @@ The three platforms above aren't the only option a traveller sees. In Costa Rica
 | Payout | Weekly statement, paid ~3 days after the week closes | Card rides paid out later; Cash Direct paid same day by the passenger |
 | Driver tools | Driver app | 24/7 AI support, free dispatcher software, AI pricing tips |
 
-Implication: a simple, flat PuraVidaWay partner commission in the **12–15%** range, paid
+Implication: a simple, flat Costa Rica Private Transfers partner commission in the **12–15%** range, paid
 weekly, beats Daytrip outright and matches or beats most GetTransfer drivers without their
 tier maze. Final % is Jorge's call (PROJECT.md §9 #2).
 
@@ -121,7 +121,7 @@ Stops cost **~$20–29 per hour** of driver waiting, entrance fees **not** inclu
 $25/45 min, Carara $55/90 min, Poás $68/2 h) are in the same range or richer because they are
 guided — keep that difference visible.
 
-### Implications for PuraVidaWay
+### Implications for Costa Rica Private Transfers
 1. Transfer prices must be **per route × vehicle class**, never flat. Our flat $175 is ~$27 high
    on SJO→La Fortuna and ~$160 low on SJO→Tamarindo (vs Sedan).
 2. **Underserved corridors are where Daytrip is expensive:** Southern Pacific (MA→Uvita $317),
@@ -169,7 +169,7 @@ Takeaways:
 - GetTransfer's floors are **~55–65% of Daytrip** on long routes and close to Daytrip on short
   ones. They also follow distance smoothly (≈ $0.65–0.70/km for Comfort), with **no scarcity
   premium** — Puerto Jiménez ≈ Drake Bay, unlike Daytrip.
-- Their floor is roughly what a Daytrip driver *receives* (~70% of Daytrip retail). PuraVidaWay's
+- Their floor is roughly what a Daytrip driver *receives* (~70% of Daytrip retail). Costa Rica Private Transfers's
   retail should sit **between the two**: above GetTransfer's floor (they're a bidding lottery
   with cancellation risk), below Daytrip's retail.
 - Booking extras GetTransfer asks up front: flight number, **name on the sign**, children and
@@ -193,7 +193,7 @@ What the exact point does to price (Daytrip, Sedan, from SJO):
 - GetTransfer draws the **routed path on a map** and prices from it (SJO → Arenas del Mar shown
   as 162 km / 2 h 52).
 
-**Requirement for PuraVidaWay (replaces the 9-hub dropdown):**
+**Requirement for Costa Rica Private Transfers (replaces the 9-hub dropdown):**
 1. Pick-up and drop-off are **place search fields** (Google Places or Mapbox) restricted/biased to
    Costa Rica, with suggestions for hotels, docks, restaurants, operators and addresses; store
    name, address, lat/lng and place ID on the booking (schema: `origin_coords` /

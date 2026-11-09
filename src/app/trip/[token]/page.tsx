@@ -13,7 +13,7 @@ import { ENGLISH_LEVEL_LABEL, prefsSummary } from "@/lib/preferences";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export const metadata: Metadata = {
-  title: "Your trip | PuraVidaWay",
+  title: "Your trip | Costa Rica Private Transfers",
   robots: { index: false, follow: false },
 };
 
@@ -170,7 +170,7 @@ export default async function TripPage({ params }: { params: Promise<{ token: st
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-950 text-amber-400">
               <Compass className="h-5 w-5" strokeWidth={2.5} aria-hidden />
             </span>
-            <span className="text-lg font-extrabold tracking-tight text-slate-900">PuraVidaWay</span>
+            <span className="text-lg font-extrabold tracking-tight text-slate-900">Costa Rica Private Transfers</span>
           </Link>
         </div>
       </header>
