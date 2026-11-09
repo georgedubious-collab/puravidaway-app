@@ -3,6 +3,10 @@
 Every merged change gets one line: `YYYY-MM-DD — <AI or Jorge> — <what changed>`.
 Newest entries first. AIs: read the top of this file before starting work.
 
+- 2026-11-08 — Claude — COMPETITORS.md: corrected Welcome Pickups (it does operate at SJO); new
+  §1a local alternatives (shared shuttles ~$64 pp, local private vans, Uber/DiDi, rental cars) and
+  where we win; §5 checklist now shows today's status and which PR closes each gap.
+
 - 2026-11-08 — Claude — New `docs/PRICING.md`: ride pricing analysis and recommendation. Exact
   place search + road distance/time, a per-km + per-hour formula with minimum fare, vehicle and
   area factors (incl. a new Economy class with a Spanish-speaking driver), stops priced as wait +
