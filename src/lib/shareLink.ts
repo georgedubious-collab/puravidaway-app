@@ -16,7 +16,7 @@
  * links from route pages keep working.
  */
 import { HUBS, type HubId } from "./catalog";
-import { areaOf, cleanPlaceLabel, hubPlace, inCostaRica, isGooglePlaceId, isHubPlace, nearestHub, type RidePlace } from "./places";
+import { areaOf, cleanPlaceLabel, hubPlace, inCostaRica, isNearMainAirport, isGooglePlaceId, isHubPlace, nearestHub, type RidePlace } from "./places";
 import type { CatalogData } from "./catalogModel";
 import { isValidPickupTime, isValidYmd } from "./dates";
 
@@ -73,7 +73,9 @@ function readPlace(params: { get(name: string): string | null }, key: "from" | "
   const point = { lat, lng };
   if (!label || !Number.isFinite(lat) || !Number.isFinite(lng) || !inCostaRica(point)) return undefined;
   const area = areaOf(point);
-  return { id: v, label, ...point, hub: nearestHub(point), ...(area ? { area } : {}) };
+  // "Air=1" only changes which promises are shown; it never affects the price.
+  const airport = params.get(`${key}Air`) === "1" && isNearMainAirport(point);
+  return { id: v, label, ...point, hub: nearestHub(point), ...(area ? { area } : {}), ...(airport ? { airport: true } : {}) };
 }
 
 function writePlace(q: URLSearchParams, key: "from" | "to", p: RidePlace) {
@@ -81,10 +83,13 @@ function writePlace(q: URLSearchParams, key: "from" | "to", p: RidePlace) {
     q.set(key, p.hub);
     q.delete(`${key}Name`);
     q.delete(`${key}At`);
+    q.delete(`${key}Air`);
   } else {
     q.set(key, p.id);
     q.set(`${key}Name`, p.label);
     q.set(`${key}At`, `${p.lat.toFixed(5)},${p.lng.toFixed(5)}`);
+    if (p.airport) q.set(`${key}Air`, "1");
+    else q.delete(`${key}Air`);
   }
 }
 

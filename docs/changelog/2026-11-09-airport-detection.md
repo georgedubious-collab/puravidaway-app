@@ -1,0 +1,1 @@
+- 2026-11-09 — Claude — Airport pickups are recognised by Google's place type (airport) instead of distance, so hotels and car-rental offices next to SJO / LIR are treated as ordinary pickups.
