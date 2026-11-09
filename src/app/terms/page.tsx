@@ -5,9 +5,9 @@ import { whatsAppLink } from "@/lib/cart";
 import { CARRIER_NOTE } from "@/lib/trust";
 
 export const metadata: Metadata = {
-  title: "Terms of Service | PuraVidaWay",
+  title: "Terms of Service | Costa Rica Private Transfers",
   description:
-    "The terms for booking private transfers, sightseeing stops, day tours and multi-day expeditions in Costa Rica through PuraVidaWay.",
+    "The terms for booking private transfers, sightseeing stops, day tours and multi-day expeditions in Costa Rica through Costa Rica Private Transfers.",
 };
 
 export default function TermsPage() {
@@ -16,7 +16,7 @@ export default function TermsPage() {
       title="Terms of Service"
       intro={
         <p>
-          These terms apply when you plan, request or book a trip through PuraVidaWay. Please read
+          These terms apply when you plan, request or book a trip through Costa Rica Private Transfers. Please read
           them together with our <Link href="/cancellation">Cancellation policy</Link> and{" "}
           <Link href="/privacy">Privacy Policy</Link>. By sending a trip request you accept them.
         </p>
@@ -24,9 +24,9 @@ export default function TermsPage() {
     >
       <LegalSection id="who" title="1. Who we are">
         <p>
-          PuraVidaWay is an online booking platform for private transfers with sightseeing stops,
+          Costa Rica Private Transfers is an online booking platform for private transfers with sightseeing stops,
           1-day private tours and multi-day expeditions in Costa Rica. The platform is operated by{" "}
-          <strong>{LEGAL_ENTITY_PLACEHOLDER}</strong> (“PuraVidaWay”, “we”, “our team”).
+          <strong>{LEGAL_ENTITY_PLACEHOLDER}</strong> (“Costa Rica Private Transfers”, “we”, “our team”).
         </p>
         <p>
           {CARRIER_NOTE} We select and check our partner drivers (interview, criminal and driving
@@ -237,7 +237,7 @@ export default function TermsPage() {
       <LegalSection id="contact" title="13. Contact">
         <p>
           Message our team on{" "}
-          <a href={whatsAppLink("Hi PuraVidaWay! I have a question about your terms.")} target="_blank" rel="noopener noreferrer">
+          <a href={whatsAppLink("Hi! I have a question about your terms.")} target="_blank" rel="noopener noreferrer">
             WhatsApp
           </a>
           , in your trip chat, or through this website. Operator: {LEGAL_ENTITY_PLACEHOLDER}.

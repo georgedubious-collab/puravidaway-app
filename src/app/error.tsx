@@ -20,7 +20,7 @@ export default function ErrorPage({
       eyebrow="Something went wrong"
       title="We hit a bump in the road"
       text="This page didn't load properly. Please try again; if it keeps happening, message our team and we'll sort it out."
-      whatsAppMessage={`Hi PuraVidaWay! A page on your site showed an error${error.digest ? ` (code ${error.digest})` : ""}. Can you help?`}
+      whatsAppMessage={`Hi! A page on your site showed an error${error.digest ? ` (code ${error.digest})` : ""}. Can you help?`}
       action={
         <button
           type="button"

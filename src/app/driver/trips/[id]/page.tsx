@@ -16,7 +16,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { DriverHeader } from "../../DriverHeader";
 
-export const metadata: Metadata = { title: "Trip | PuraVidaWay Drivers", robots: { index: false, follow: false } };
+export const metadata: Metadata = { title: "Trip | Costa Rica Private Transfers Drivers", robots: { index: false, follow: false } };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

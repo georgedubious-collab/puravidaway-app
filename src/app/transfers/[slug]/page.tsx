@@ -25,7 +25,7 @@ export async function generateMetadata(
 ): Promise<Metadata> {
   const page = routePage((await params).slug);
   if (!page) return {};
-  const title = `${page.title} | PuraVidaWay`;
+  const title = `${page.title} | Costa Rica Private Transfers`;
   const path = `/transfers/${page.slug}`;
   // Setting openGraph/twitter here replaces the root ones, so carry over the
   // site-wide preview image (src/app/opengraph-image.tsx).
@@ -36,7 +36,7 @@ export async function generateMetadata(
     alternates: { canonical: path },
     openGraph: {
       type: "website",
-      siteName: "PuraVidaWay",
+      siteName: "Costa Rica Private Transfers",
       title,
       description: page.metaDescription,
       url: path,
@@ -95,7 +95,7 @@ export default async function RouteLandingPage({
             <span className="w-9 h-9 rounded-xl bg-emerald-950 flex items-center justify-center text-amber-400">
               <Compass className="w-5 h-5" strokeWidth={2.5} aria-hidden />
             </span>
-            <span className="font-extrabold text-lg tracking-tight text-slate-900">PuraVidaWay</span>
+            <span className="font-extrabold text-sm sm:text-lg leading-tight tracking-tight text-slate-900">Costa Rica Private Transfers</span>
           </Link>
           <Link
             href="/"
@@ -275,7 +275,7 @@ export default async function RouteLandingPage({
 
       <footer className="bg-emerald-950 text-emerald-200 text-sm">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-x-4">
-          <p>PuraVidaWay · Costa Rica</p>
+          <p>Costa Rica Private Transfers</p>
           <LegalLinks />
         </div>
       </footer>

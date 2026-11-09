@@ -140,7 +140,7 @@ export function cartWhatsAppMessage(
 ): string {
   const t = cartTotals(items, mode, feeBps);
   const lines = [
-    `Hi PuraVidaWay! I'd like to book this trip${clientName ? ` (${clientName})` : ""}:`,
+    `Hi! I'd like to book this trip${clientName ? ` (${clientName})` : ""}:`,
     "",
     ...items.map(
       (i, n) =>

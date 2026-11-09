@@ -173,7 +173,7 @@ export async function saveDriverProfile(_prev: FormState, fd: FormData): Promise
     const level = String(fd.get("english_level") ?? "");
     if (level !== "fluent" && level !== "basic") throw new InputError("Pick your English level.");
     if (bio && hasContactDetails(bio)) {
-      throw new InputError("Please keep phone numbers, emails and links out of your bio. Travellers book through PuraVidaWay.");
+      throw new InputError("Please keep phone numbers, emails and links out of your bio. Travellers book through Costa Rica Private Transfers.");
     }
     const supabase = await db();
     const up = await supabase.from("drivers").update({ bio, english_level: level }).eq("id", me.id).select("id");

@@ -211,7 +211,7 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
           }.`
         : `Payment: online in full, ${money(onlineCents)}. We send you a secure payment link once your trip is confirmed.`;
     const tripUrl = `${SITE_URL}/trip/${tripToken}`;
-    // One line per item, e.g. "PVW-10492 · 2026-11-22, 9:00 AM pickup · Ride: SJO Airport → Manuel Antonio".
+    // One line per item, e.g. "CRPT-10492 · 2026-11-22, 9:00 AM pickup · Ride: SJO Airport → Manuel Antonio".
     const itemLines = priced.map(({ spec, date, ride }, i) => {
       const what =
         spec.kind === "transfer"

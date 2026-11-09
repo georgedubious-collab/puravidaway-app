@@ -23,7 +23,7 @@ export function Header({
             <span className="w-9 h-9 shrink-0 rounded-xl bg-amber-400 flex items-center justify-center text-emerald-950">
               <Compass className="w-5 h-5" strokeWidth={2.5} aria-hidden />
             </span>
-            <span className="font-extrabold text-lg tracking-tight">PuraVidaWay</span>
+            <span className="font-extrabold text-sm sm:text-lg leading-tight tracking-tight">Costa Rica Private Transfers</span>
           </Link>
           <nav aria-label="App" className="hidden sm:flex items-center gap-1 text-sm font-bold">
             <Link
@@ -34,7 +34,7 @@ export function Header({
               Book
             </Link>
             <a
-              href={whatsAppLink("Hi PuraVidaWay! I have a question about my Costa Rica trip.")}
+              href={whatsAppLink("Hi! I have a question about my Costa Rica trip.")}
               target="_blank"
               rel="noopener noreferrer"
               className="px-4 py-2.5 rounded-lg text-emerald-100 hover:bg-emerald-800/60 inline-flex items-center gap-1.5"

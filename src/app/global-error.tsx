@@ -19,13 +19,13 @@ export default function GlobalError({
   return (
     <html lang="en" className="h-full antialiased">
       <body className="min-h-full flex flex-col bg-slate-50 text-slate-900 font-sans">
-        <title>Something went wrong | PuraVidaWay</title>
+        <title>Something went wrong | Costa Rica Private Transfers</title>
         <meta name="robots" content="noindex" />
         <ErrorScreen
           eyebrow="Something went wrong"
           title="We hit a bump in the road"
           text="The site didn't load properly. Please try again; if it keeps happening, message our team and we'll sort it out."
-          whatsAppMessage={`Hi PuraVidaWay! Your site showed an error${error.digest ? ` (code ${error.digest})` : ""}. Can you help?`}
+          whatsAppMessage={`Hi! Your site showed an error${error.digest ? ` (code ${error.digest})` : ""}. Can you help?`}
           action={
             <button
               type="button"

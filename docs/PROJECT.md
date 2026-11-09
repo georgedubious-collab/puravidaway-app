@@ -1,6 +1,9 @@
-# PuraVidaWay — Master Project Specification
+# Costa Rica Private Transfers — Master Project Specification
 
-> **This is the single source of truth for PuraVidaWay.** It merges and replaces
+> **Renamed 2026-11-09 (Jorge):** the brand is **Costa Rica Private Transfers** (domain `costaricaprivatetransfers.com`), formerly PuraVidaWay. Internal names keep the old one: the GitHub repo and Vercel project (`puravidaway-app`), the Google Cloud project, browser storage keys and log tags. Booking references are `CRPT-…` (older ones `PVW-…`). The changelog keeps the old name where it was written.
+
+
+> **This is the single source of truth for Costa Rica Private Transfers.** It merges and replaces
 > `Architecture.md`, `Database-Schema.md`, `Route-Pricing.md` and the Gemini-drafted
 > master spec (October 2026). If code and this document disagree, fix one of them in
 > the same pull request and log it in a changelog note (`docs/changelog/`).
@@ -15,7 +18,7 @@
 
 ---
 
-## 1. What PuraVidaWay is
+## 1. What Costa Rica Private Transfers is
 
 An all-in-one Costa Rica travel platform that combines four
 revenue engines in one booking flow and one cart:
@@ -33,7 +36,7 @@ revenue engines in one booking flow and one cart:
 Target market: travelers from the US, Canada and Europe. Sales are high-touch, with WhatsApp as
 the primary conversation channel.
 
-**Competitive benchmark (standing rule):** PuraVidaWay competes with **Daytrip**, **GetTransfer**
+**Competitive benchmark (standing rule):** Costa Rica Private Transfers competes with **Daytrip**, **GetTransfer**
 and **Welcome Pickups**. Every pricing, product and UX decision is checked against them — see
 `docs/COMPETITORS.md` for the analysis and the per-PR checklist.
 
@@ -155,7 +158,7 @@ Legal pages (`/terms`, `/privacy`, `/cancellation`) are linked from every footer
    rides/tours are cash and the expedition is online, labelled per item. The trip summary shows
    "Cash booking fee (10%) +$X" and the cash vs online amounts. The 20% deposit is retired.
 5. **WhatsApp concierge** — context-aware buttons (`route`, `cart`, `general`) that pre-fill the
-   route or cart contents into a WhatsApp message to the PuraVidaWay team.
+   route or cart contents into a WhatsApp message to the Costa Rica Private Transfers team.
 
 ### 4.2 Admin command center (`/admin`, admin role only — never public)
 1. **Bookings & dispatch** — incoming bookings, assign drivers, status changes.
@@ -308,7 +311,7 @@ Multipliers live in the database and are edited from the admin pricing manager.
 3. Approved drivers see open requests and bid within a **floor/ceiling** relative to the
    reference price.
 4. Client accepts one bid; the others are declined automatically.
-5. PuraVidaWay keeps a **platform commission** (% of the accepted bid), collected through Green Pay.
+5. Costa Rica Private Transfers keeps a **platform commission** (% of the accepted bid), collected through Green Pay.
 
 ### 6.4 Payments
 Decided by Jorge 2026-11-08 (replaces the 100% / 20% deposit rule):
@@ -366,7 +369,7 @@ The criminal record certificate must be issued ≤ 30 days before first approval
 approve button). Expiry warnings cover the licence, insurance, Dekra and Marchamo.
 
 ### 7.3 `bookings`
-`id` uuid PK · `booking_ref` text unique (e.g. `PVW-10492`) · `client_id` → `profiles.id` ·
+`id` uuid PK · `booking_ref` text unique (e.g. `CRPT-10492`) · `client_id` → `profiles.id` ·
 `service_type` (`transfer` | `day_tour` | `expedition`) · `catalog_item_id` (nullable; day tour or
 expedition) · `origin` text (place name + address) · `origin_coords` jsonb (`lat`, `lng`,
 `place_id`, `town`, and `route` = the Google road km / minutes the price was made from, null
@@ -459,7 +462,7 @@ and `season_for_date(date)` returns the season for a travel date.
 | **2d. Checkout** | Part 1: trip requests saved online (server re-prices every item, guest name/email/WhatsApp, booking refs) + `/admin/bookings` dispatch (status, driver + vehicle, amount received, internal notes). Part 2: Green Pay (online in full; cash to the driver + 10% fee is built, 2026-11-08), webhooks, confirmation emails | **Part 1 built (PR #15)**; payment options built; Green Pay needs credentials |
 | **3. Job board & GPS** | Driver job board with fixed payouts (replaces public bidding); driver on-duty GPS broadcast to admin Leaflet map | **Job board built 2026-11-09** (`/driver/jobs`, migration 0017): the team posts a booking as "Open for drivers", drivers send offers (suggested payout or 70–130% of it), the team accepts one on the booking page, where offers are ranked (same-day return trip first, then the driver's rating — travellers are emailed to rate 1–5 stars from their trip page when a trip is marked completed, a comment counts double, `driver_reviews` + `drivers.rating_avg/rating_count`, migration 0019 — then drivers based near the pickup — `drivers.home_hub`, migration 0018 — then price, then fewer trips; `src/lib/matching.ts`) and refresh live; drivers never see the client's price. Drivers see "Return trip" / "Starts in your area" badges on the job board. Rides sent in "Driver bids" mode with an offer of 70%+ of the fixed price go to the board automatically; approved drivers are emailed each new job (`src/lib/jobAlerts.ts`) and the traveller is emailed when an offer is accepted. Drivers mark their own trips **Start trip** / **Complete trip** on the trip page (`driver_set_trip_status()`, migration 0024; from 3 h before pickup), and completing one asks the traveller for a rating at once (`src/lib/reviewRequest.ts`). Settlements (migration 0025): `/admin/payouts` lists completed, unsettled trips per driver (online: pay the payout; cash: the driver collected price + fee and owes the difference) with "Mark settled" (`bookings.driver_settled_at`); drivers see `/driver/earnings` and, on cash trips, how much to collect (`my_trips().cash_to_collect`, the one case where a driver sees the client's price). Push notifications come with the driver app (Phase 5); email today. GPS planned |
 | **4. Chat & CRM** | Tri-party trip chat (traveller via private trip link, assigned driver, team) with Resend email notifications; HubSpot sync; SMS / WhatsApp Business API | **Chat built (PR #17)**, polling every 8 s; HubSpot and SMS planned |
-| **5. Mobile apps** | Driver app (GPS, push notifications, camera) first, then Client app, for App Store / Google Play; plan in §11 | **Required before launch (Jorge, 2026-11-09).** Groundwork started: `device_tokens` + Expo push sender (migration 0026, `src/lib/push.ts`), pushes for new jobs and accepted offers. Driver flows already exist as database functions the app can call directly (`driver_jobs`, `my_trips`, `offer_job`, `driver_set_trip_status`, `register_device`). `/api/v1` (2026-11-09) covers what the server must do for the apps: driver offers, withdraw, trip start/complete and trip chat, each calling the same server action as the website; the apps send their Supabase session as a bearer token (`bearerToken()` in `src/lib/supabase/server.ts`). **Driver app first version built 2026-11-09 in `apps/driver/`** (Expo SDK 58, its own project, ignored by Vercel; see its README): email-code sign-in, jobs and offers, trips with start/complete, navigation and chat, earnings, profile, push. Not yet: document / photo upload, on-duty GPS; not yet run on a phone. During development the apps are private test builds under La Familia Mágica's store accounts; they are published publicly only under the new PuraVidaWay company. Store accounts (§11.6) are the long pole |
+| **5. Mobile apps** | Driver app (GPS, push notifications, camera) first, then Client app, for App Store / Google Play; plan in §11 | **Required before launch (Jorge, 2026-11-09).** Groundwork started: `device_tokens` + Expo push sender (migration 0026, `src/lib/push.ts`), pushes for new jobs and accepted offers. Driver flows already exist as database functions the app can call directly (`driver_jobs`, `my_trips`, `offer_job`, `driver_set_trip_status`, `register_device`). `/api/v1` (2026-11-09) covers what the server must do for the apps: driver offers, withdraw, trip start/complete and trip chat, each calling the same server action as the website; the apps send their Supabase session as a bearer token (`bearerToken()` in `src/lib/supabase/server.ts`). **Driver app first version built 2026-11-09 in `apps/driver/`** (Expo SDK 58, its own project, ignored by Vercel; see its README): email-code sign-in, jobs and offers, trips with start/complete, navigation and chat, earnings, profile, push. Not yet: document / photo upload, on-duty GPS; not yet run on a phone. During development the apps are private test builds under La Familia Mágica's store accounts; they are published publicly only under the new Costa Rica Private Transfers company. Store accounts (§11.6) are the long pole |
 
 ---
 
@@ -522,10 +525,10 @@ and `season_for_date(date)` returns the season for a travel date.
     notifications through Resend is the main channel; WhatsApp stays as an option. SMS later.
 12. **Mobile framework:** decided (Jorge, 2026-10-14): **Expo (React Native)** for both apps
     (§11.2). Capacitor was rejected (weak background GPS, App Store risk as "just a website").
-13. **One app or two:** decided (Jorge, 2026-10-14): **two store listings**, "PuraVidaWay" for
-    travellers and "PuraVidaWay Partner" for drivers, built from one codebase (§11.1).
-14. **Store publisher:** plan (Jorge, 2026-10-14): a **new Costa Rican S.A.** for PuraVidaWay
-    (legal name to confirm, ideally "PuraVidaWay S.A."). The same company should hold the D-U-N-S
+13. **One app or two:** decided (Jorge, 2026-10-14): **two store listings**, "Costa Rica Private Transfers" for
+    travellers and "Costa Rica Private Transfers Partner" for drivers, built from one codebase (§11.1).
+14. **Store publisher:** plan (Jorge, 2026-10-14): a **new Costa Rican S.A.** for Costa Rica Private Transfers
+    (legal name to confirm, ideally "Costa Rica Private Transfers S.A."). The same company should hold the D-U-N-S
     number, Apple and Google accounts, Green Pay merchant account, bank account and domain. It must
     not be Jorge personally or Costa Rica Travel Planner, or the store would show that name as the
     seller (brand separation, §10). Check ICT / tax registration needs with the notary.
@@ -560,10 +563,10 @@ Rules for every AI:
   (`YYYY-MM-DD — <AI> — <what changed>`); they are folded into `docs/CHANGELOG.md` in a separate
   PR (see `docs/changelog/README.md`).
 - Address the founder as **Jorge Li**.
-- **Brand separation (decided 2026-10-14):** PuraVidaWay is a separate public brand. Nothing a
+- **Brand separation (decided 2026-10-14):** Costa Rica Private Transfers is a separate public brand. Nothing a
   customer or driver can see (UI copy, page metadata, WhatsApp messages, emails, legal pages)
   may name the owner, Costa Rica Travel Planner, La Familia Mágica or Jorge's Daytrip profile.
-  Use "PuraVidaWay" or "our team".
+  Use "Costa Rica Private Transfers" or "our team".
 - **Driver wording:** describe partner drivers as hand-picked, independent local partners who are
   interviewed, background-checked (criminal and driving records) and submit vehicle information
   and proof of insurance. Show the ICT permit as a per-driver badge, never as a blanket claim.
@@ -581,7 +584,7 @@ Rules for every AI:
 
 ### 11.1 Two apps, two jobs
 
-| | **PuraVidaWay Partner** (driver app) | **PuraVidaWay** (client app) |
+| | **Costa Rica Private Transfers Partner** (driver app) | **Costa Rica Private Transfers** (client app) |
 | :--- | :--- | :--- |
 | Users | Approved partner drivers (`driver` role) | Travellers (`client` role and guests with a trip link) |
 | Why an app at all | Things the website can't do reliably: **background GPS** while on duty (§4.2 #5), **push notifications** for new requests, bids and chat, **camera** for KYC documents and vehicle photos | **Push notifications** (driver assigned, pickup reminder, new chat message) and being findable in the stores |
@@ -673,7 +676,7 @@ These take weeks, so they can start before any app code:
    location for drivers, photos/documents for KYC).
 7. **Reviewer test logins**: a demo traveller and a demo approved driver with sample trips, so
    store reviewers can get past the login screen.
-8. Store names, icons and screenshots say **PuraVidaWay** only (brand separation, §10).
+8. Store names, icons and screenshots say **Costa Rica Private Transfers** only (brand separation, §10).
 
 ### 11.7 Order of work
 

@@ -14,7 +14,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { DriverHeader } from "../DriverHeader";
 import { offerJob, withdrawOffer } from "./actions";
 
-export const metadata: Metadata = { title: "Open jobs | PuraVidaWay Drivers", robots: { index: false, follow: false } };
+export const metadata: Metadata = { title: "Open jobs | Costa Rica Private Transfers Drivers", robots: { index: false, follow: false } };
 
 export default function DriverJobsPage() {
   return (

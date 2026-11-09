@@ -14,7 +14,7 @@ export function SignIn() {
 
   async function sendCode() {
     const e = email.trim().toLowerCase();
-    if (!/^\S+@\S+\.\S+$/.test(e)) return setError("Enter the email you use as a PuraVidaWay driver.");
+    if (!/^\S+@\S+\.\S+$/.test(e)) return setError("Enter the email you use as a Costa Rica Private Transfers driver.");
     setBusy(true);
     setError("");
     // Drivers apply on the website first; the app never creates accounts.
@@ -35,8 +35,8 @@ export function SignIn() {
   return (
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={[S.screen, { backgroundColor: C.emeraldDark }]}>
       <View style={{ flex: 1, justifyContent: "center", padding: 24, gap: 14 }}>
-        <Text style={{ color: "#fff", fontSize: 28, fontWeight: "800" }}>
-          PuraVidaWay <Text style={{ color: "#FBBF24" }}>Partner</Text>
+        <Text style={{ color: "#fff", fontSize: 24, fontWeight: "800" }}>
+          Costa Rica Private Transfers <Text style={{ color: "#FBBF24" }}>Partner</Text>
         </Text>
         <Text style={{ color: "#A7F3D0", fontSize: 15 }}>
           {sent ? "We emailed you a 6-digit code. Enter it here." : "Sign in with the email of your driver account."}

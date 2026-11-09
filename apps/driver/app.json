@@ -1,18 +1,18 @@
 {
   "expo": {
-    "name": "PuraVidaWay Partner",
-    "slug": "puravidaway-partner",
-    "scheme": "puravidawaypartner",
+    "name": "CR Transfers Partner",
+    "slug": "crpt-partner",
+    "scheme": "crptpartner",
     "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.puravidaway.partner"
+      "bundleIdentifier": "com.costaricaprivatetransfers.partner"
     },
     "android": {
-      "package": "com.puravidaway.partner",
+      "package": "com.costaricaprivatetransfers.partner",
       "adaptiveIcon": {
         "backgroundColor": "#022C22",
         "foregroundImage": "./assets/android-icon-foreground.png",

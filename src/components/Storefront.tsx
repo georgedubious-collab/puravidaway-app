@@ -227,14 +227,14 @@ export function Storefront({ today, catalog }: { today: string; catalog: Catalog
       <footer className="border-t border-slate-200 bg-white">
         <div className="max-w-[1440px] mx-auto px-4 py-6 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-500">
           <p>
-            © {today.slice(0, 4)} PuraVidaWay · Costa Rica ·{" "}
+            © {today.slice(0, 4)} Costa Rica Private Transfers ·{" "}
             <Link href="/driver" className="font-bold text-slate-600 hover:text-emerald-700">
-              Drive with PuraVidaWay
+              Drive with Costa Rica Private Transfers
             </Link>
           </p>
           <LegalLinks />
           <a
-            href={whatsAppLink("Hi PuraVidaWay! I have a question about planning a trip to Costa Rica.")}
+            href={whatsAppLink("Hi! I have a question about planning a trip to Costa Rica.")}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 font-bold text-emerald-700 hover:text-emerald-600"

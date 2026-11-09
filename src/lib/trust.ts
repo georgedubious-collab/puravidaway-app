@@ -2,7 +2,7 @@
  * Trust content shown across the storefront and route pages.
  *
  * Rules (docs/PROJECT.md §10):
- * - Only real reviews of PuraVidaWay rides, each linked to where it was posted.
+ * - Only real reviews of Costa Rica Private Transfers rides, each linked to where it was posted.
  *   Never reviews from Costa Rica Travel Planner, La Familia Mágica or Daytrip.
  * - Sections render nothing while their list is empty, so an empty list is the
  *   honest default until real reviews exist.
@@ -31,7 +31,7 @@ export interface RatingSource {
   url: string;
 }
 
-/** TODO(owner): add real PuraVidaWay reviews as they come in. */
+/** TODO(owner): add real Costa Rica Private Transfers reviews as they come in. */
 export const REVIEWS: Review[] = [];
 
 /**

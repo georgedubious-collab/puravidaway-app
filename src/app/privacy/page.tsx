@@ -4,9 +4,9 @@ import { LEGAL_ENTITY_PLACEHOLDER, LegalPage, LegalSection } from "@/components/
 import { whatsAppLink } from "@/lib/cart";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy | PuraVidaWay",
+  title: "Privacy Policy | Costa Rica Private Transfers",
   description:
-    "What personal data PuraVidaWay collects when you request a Costa Rica trip or drive with us, why, who it is shared with, and how to access or delete it.",
+    "What personal data Costa Rica Private Transfers collects when you request a Costa Rica trip or drive with us, why, who it is shared with, and how to access or delete it.",
 };
 
 /*
@@ -20,7 +20,7 @@ export default function PrivacyPage() {
       title="Privacy Policy"
       intro={
         <p>
-          This policy explains what personal data PuraVidaWay collects, why, who receives it and the
+          This policy explains what personal data Costa Rica Private Transfers collects, why, who receives it and the
           rights you have. It covers travellers who request trips and partner drivers who apply to
           drive with us.
         </p>
@@ -29,7 +29,7 @@ export default function PrivacyPage() {
       <LegalSection id="controller" title="1. Who is responsible for your data">
         <p>
           The party responsible for your data (“responsable” under Costa Rica’s Ley 8968, “controller”
-          under the EU GDPR) is <strong>{LEGAL_ENTITY_PLACEHOLDER}</strong>, operating as PuraVidaWay.
+          under the EU GDPR) is <strong>{LEGAL_ENTITY_PLACEHOLDER}</strong>, operating as Costa Rica Private Transfers.
           You can reach our team as described in section 10.
         </p>
       </LegalSection>
@@ -233,7 +233,7 @@ export default function PrivacyPage() {
       <LegalSection id="contact" title="10. Contact and changes">
         <p>
           For privacy questions or requests, message our team on{" "}
-          <a href={whatsAppLink("Hi PuraVidaWay! I have a privacy request.")} target="_blank" rel="noopener noreferrer">
+          <a href={whatsAppLink("Hi! I have a privacy request.")} target="_blank" rel="noopener noreferrer">
             WhatsApp
           </a>{" "}
           or in your trip chat. Operator: {LEGAL_ENTITY_PLACEHOLDER}.

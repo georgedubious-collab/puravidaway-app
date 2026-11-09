@@ -37,7 +37,7 @@ import { DocumentUpload } from "./DocumentUpload";
 import { DriverHeader } from "./DriverHeader";
 
 export const metadata: Metadata = {
-  title: "Drive with PuraVidaWay",
+  title: "Drive with Costa Rica Private Transfers",
   robots: { index: false, follow: false },
 };
 
@@ -127,7 +127,7 @@ function Apply({ me }: { me: Profile }) {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-extrabold text-slate-900">Drive with PuraVidaWay</h1>
+        <h1 className="text-2xl font-extrabold text-slate-900">Drive with Costa Rica Private Transfers</h1>
         <p className="mt-2 text-slate-600">
           Partner drivers and transport companies receive private transfer and tour requests from
           travellers and choose which trips to take. Start with a few details about you; next you&apos;ll

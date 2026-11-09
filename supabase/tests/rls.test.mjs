@@ -326,7 +326,7 @@ await expectRows("job board shows the route town to town only", "admin",
   "select 1 from pg_proc where proname = 'driver_jobs' and pg_get_function_result(oid) ~ 'origin_town' and pg_get_function_result(oid) !~ 'origin_coords'", 1);
 await expectRows("visitor sees no bookings", "anon", "select * from public.bookings", 0);
 await expectBlocked("client cannot change own price", "client", "update public.bookings set total_price = 1", { affected: 0 });
-await expectRows("booking ref generated", "admin", "select * from public.bookings where booking_ref like 'PVW-1000%'", 2);
+await expectRows("booking ref generated", "admin", "select * from public.bookings where booking_ref like 'CRPT-1000%'", 2);
 
 // --- Trip requests (file 7) -------------------------------------------------------
 await expectOk("server saves the traveller's contact details", "server", `

@@ -7,7 +7,7 @@ import { balanceText, settlementUsd } from "@/lib/settlement";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { DriverHeader } from "../DriverHeader";
 
-export const metadata: Metadata = { title: "Earnings | PuraVidaWay Drivers", robots: { index: false, follow: false } };
+export const metadata: Metadata = { title: "Earnings | Costa Rica Private Transfers Drivers", robots: { index: false, follow: false } };
 
 export default function DriverEarningsPage() {
   return (

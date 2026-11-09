@@ -29,7 +29,7 @@ export function ErrorScreen({
             <span className="w-9 h-9 rounded-xl bg-amber-400 flex items-center justify-center text-emerald-950">
               <Compass className="w-5 h-5" strokeWidth={2.5} aria-hidden />
             </span>
-            <span className="font-extrabold text-lg tracking-tight">PuraVidaWay</span>
+            <span className="font-extrabold text-sm sm:text-lg leading-tight tracking-tight">Costa Rica Private Transfers</span>
           </Link>
         </div>
       </header>
@@ -65,7 +65,7 @@ export function ErrorScreen({
       </main>
 
       <footer className="bg-emerald-950 text-emerald-200 text-sm">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">PuraVidaWay · Costa Rica</div>
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">Costa Rica Private Transfers</div>
       </footer>
     </div>
   );
