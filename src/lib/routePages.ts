@@ -43,7 +43,7 @@ export const ROUTE_PAGES: RoutePage[] = [
       },
       {
         q: "Is the price per person?",
-        a: "No. The price is for the whole vehicle, so it stays the same whether you are one traveler or four.",
+        a: "No. The price is for the whole vehicle, so it stays the same whether you are one traveler or four. The \"per person\" figure shows what each traveler pays when the car is full.",
       },
       {
         q: "What happens to our luggage at the stops?",

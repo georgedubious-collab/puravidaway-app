@@ -104,6 +104,11 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
   6:00 until confirmed. Dates and times are shown in Costa Rica time everywhere
   (`formatScheduledAt()` in `src/lib/dates.ts`). Vehicle and stop cards show season-adjusted
   prices for the chosen date.
+- Competitor gaps (2026-11-08): per car + "from $X per person (N travellers)" on vehicle cards and
+  route pages; "Every ride includes" list (`RIDE_PROMISES`, `src/lib/trust.ts`); stop cards show
+  whether the park entrance is included (`park_fee_included`); after a ride is added, an inline
+  suggestion of 1–2 tours / expeditions in the drop-off region; the ride builder's choices are
+  kept in the address so rides can be shared (`src/lib/shareLink.ts`).
 - Seasons: peak = Dec 20–Jan 5 + Semana Santa (Palm Sunday → Easter); high = Dec–Apr; else green.
   Live from the `seasons` / `season_ranges` tables (edited at `/admin/pricing`); the same rule is
   the built-in fallback in code.
@@ -114,7 +119,9 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
 Layout (decided 2026-10-14): a booking **app first**, not a marketing site. The home page opens
 on the trip builder; the trip is a persistent sidebar on desktop and a bottom bar + drawer on
 phones. Marketing lives on separate route/tour landing pages (`/transfers/[slug]`) that rank on
-Google and pre-fill the builder via `?from=<hub>&to=<hub>`. Trust content (driver checks,
+Google and pre-fill the builder via `?from=<hub>&to=<hub>`. Shareable ride links (2026-11-08) add
+`&date=YYYY-MM-DD&time=HH:MM&pax=N&vehicle=<id>&stops=<id>,<id>`, all checked against the catalog
+on load; no personal details ever go in the address. Trust content (driver checks,
 guarantees, real reviews only) lives in `src/lib/trust.ts`.
 Legal pages (`/terms`, `/privacy`, `/cancellation`) are linked from every footer and under the
 "Send trip request" button, so the cancellation policy is visible before anyone pays.
@@ -122,8 +129,12 @@ Legal pages (`/terms`, `/privacy`, `/cancellation`) are linked from every footer
 1. **Transfers & Sightseeing** — exact pick-up/drop-off by map place search (hotel, dock,
    restaurant, address; see COMPETITORS.md §2d — *target; Phase 2a ships hub dropdowns*), date,
    passengers, Fixed Price vs Driver Bids
-   toggle, sightseeing stop cards, live route timeline with total duration, flight number or hotel
-   field, price breakdown.
+   toggle, sightseeing stop cards (duration, price, whether the park entrance is included), vehicle
+   cards with the price per car and "from $X per person (N travellers)", the "Every ride includes"
+   list (flight tracking on airport pickups, 60 min free waiting, child seats free on request, free
+   cancellation up to 24 h), live route timeline with total duration, flight number or hotel
+   field, price breakdown. After a ride is added, an inline, dismissible suggestion of 1–2 day
+   tours / expeditions in the drop-off region (Welcome Pickups-style).
 2. **1-Day Private Tours** — region filter, Smart En-Route Transfer upgrade (+$65).
 3. **Multi-Day Expeditions** — lodging tier selector, day-by-day itinerary.
 4. **Trip Cart & checkout** — combines transfers, stops, day tours and expeditions. Payment choice

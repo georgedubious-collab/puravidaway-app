@@ -4,7 +4,7 @@ import { MessageCircle, Route, Sun, Tent } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { HUBS, type HubId } from "@/lib/catalog";
+import type { HubId } from "@/lib/catalog";
 import type { CatalogData } from "@/lib/catalogModel";
 import { CatalogProvider } from "./CatalogContext";
 import {
@@ -15,7 +15,9 @@ import {
   type PaymentMode,
   whatsAppLink,
 } from "@/lib/cart";
+import { addDays } from "@/lib/dates";
 import { formatUSD } from "@/lib/pricing";
+import { parseRideLink } from "@/lib/shareLink";
 import { CartDrawer } from "./CartDrawer";
 import { DayToursView } from "./DayToursView";
 import { ExpeditionsView } from "./ExpeditionsView";
@@ -25,6 +27,7 @@ import { Toast, useToast } from "./Toast";
 import { TransfersView } from "./TransfersView";
 import { TripSummary, type TripContact, type TripState } from "./TripSummary";
 import { TrustPanel } from "./trust/TrustPanel";
+import { UpsellSuggestion, type Suggestion } from "./UpsellSuggestion";
 
 const STORAGE_KEY = "pvw-cart-v1";
 const MODE_KEY = "pvw-pay-mode";
@@ -37,19 +40,20 @@ const BUILDERS: { id: Builder; label: string; Icon: typeof Route }[] = [
   { id: "multiday", label: "Expedition", Icon: Tent },
 ];
 
-function hubParam(value: string | null): HubId | undefined {
-  return HUBS.some((h) => h.id === value) ? (value as HubId) : undefined;
-}
-
 /**
  * The booking app. Desktop (xl+): the trip sits in a sidebar next to the builder,
  * always visible. Smaller screens: a bottom bar opens the same trip in a drawer.
- * Route pages link here with ?from=SJO&to=ManuelAntonio to pre-fill a ride.
+ * Route pages link here with ?from=SJO&to=ManuelAntonio to pre-fill a ride; the
+ * ride builder keeps the full ride in the address (src/lib/shareLink.ts) so it can be shared.
  */
 export function Storefront({ today, catalog }: { today: string; catalog: CatalogData }) {
   const params = useSearchParams();
-  const initialOrigin = hubParam(params.get("from"));
-  const initialDestination = hubParam(params.get("to"));
+  // Read on every render: coming back to the Ride tab restores the ride from the address.
+  const rideInit = parseRideLink(params, catalog, today);
+  // "While you're there" suggestion after a ride is added (dismissible).
+  const [upsell, setUpsell] = useState<{ destination: HubId; date: string } | null>(null);
+  // The tour / expedition picked from a suggestion, highlighted in its tab.
+  const [focus, setFocus] = useState<{ suggestion: Suggestion; date: string; n: number } | null>(null);
 
   const [builder, setBuilder] = useState<Builder>("transfers");
   const [items, setItems] = useState<CartItem[]>([]);
@@ -97,6 +101,17 @@ export function Storefront({ today, catalog }: { today: string; catalog: Catalog
   function addItem(item: CartItem) {
     setItems((prev) => [...prev, item]);
     toast.show("Added to your trip");
+    if (item.spec?.kind === "transfer") {
+      setUpsell({ destination: item.spec.destination, date: item.date ? addDays(item.date, 1) : addDays(today, 15) });
+    } else {
+      setUpsell(null);
+    }
+  }
+  function pickSuggestion(s: Suggestion) {
+    if (!upsell) return;
+    setFocus((prev) => ({ suggestion: s, date: upsell.date, n: (prev?.n ?? 0) + 1 }));
+    setBuilder(s.kind === "day_tour" ? "daytours" : "multiday");
+    setUpsell(null);
   }
   const removeItem = (id: string) => setItems((prev) => prev.filter((i) => i.id !== id));
   const total = cartTotals(items, mode, catalog.cashFeeBps).totalCents;
@@ -170,12 +185,42 @@ export function Storefront({ today, catalog }: { today: string; catalog: Catalog
             <TransfersView
               today={today}
               onAdd={addItem}
-              initialOrigin={initialOrigin}
-              initialDestination={initialDestination}
+              initial={rideInit}
+              // Shown right under the "Add this ride" button, where the traveller is looking.
+              suggestion={
+                upsell && (
+                  <UpsellSuggestion
+                    destination={upsell.destination}
+                    date={upsell.date}
+                    onPick={pickSuggestion}
+                    onDismiss={() => setUpsell(null)}
+                  />
+                )
+              }
             />
           )}
-          {builder === "daytours" && <DayToursView today={today} onAdd={addItem} />}
-          {builder === "multiday" && <ExpeditionsView today={today} onAdd={addItem} />}
+          {builder === "daytours" && (
+            <DayToursView
+              key={focus?.suggestion.kind === "day_tour" ? `focus-${focus.n}` : "tours"}
+              today={today}
+              onAdd={addItem}
+              {...(focus?.suggestion.kind === "day_tour"
+                ? {
+                    initialRegion: catalog.dayTours.find((t) => t.id === focus.suggestion.id)?.region,
+                    initialDate: focus.date,
+                    highlightId: focus.suggestion.id,
+                  }
+                : {})}
+            />
+          )}
+          {builder === "multiday" && (
+            <ExpeditionsView
+              key={focus?.suggestion.kind === "expedition" ? `focus-${focus.n}` : "expeditions"}
+              today={today}
+              onAdd={addItem}
+              {...(focus?.suggestion.kind === "expedition" ? { initialDate: focus.date, highlightId: focus.suggestion.id } : {})}
+            />
+          )}
         </main>
       </div>
 

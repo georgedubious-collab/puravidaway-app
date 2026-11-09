@@ -1,15 +1,15 @@
-import { ArrowRight, Clock, Compass, Luggage, MapPin, Users } from "lucide-react";
+import { ArrowRight, Check, Clock, Compass, Luggage, Ticket, User, Users } from "lucide-react";
 import type { Metadata, ResolvingMetadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { LegalLinks } from "@/components/legal/LegalLinks";
 import { DriverStandards } from "@/components/trust/DriverStandards";
 import { Reviews } from "@/components/trust/Reviews";
-import { HUBS, routeMinutes, stopFitsRoute } from "@/lib/catalog";
+import { AIRPORT_HUBS, HUBS, routeMinutes, stopFitsRoute } from "@/lib/catalog";
 import { getCatalog } from "@/lib/catalogSource";
-import { applyMultiplier, formatDuration, formatUSD } from "@/lib/pricing";
+import { applyMultiplier, formatDuration, formatUSD, perPersonCents } from "@/lib/pricing";
 import { builderHref, fillFaq, relatedHref, ROUTE_PAGES, routePage } from "@/lib/routePages";
-import { guarantees } from "@/lib/trust";
+import { guarantees, ridePromises } from "@/lib/trust";
 
 export function generateStaticParams() {
   return ROUTE_PAGES.map((p) => ({ slug: p.slug }));
@@ -69,7 +69,13 @@ export default async function RouteLandingPage({
   const vehicles = fitting.length ? fitting : catalog.vehicles;
   const cheapest = vehicles.reduce((a, b) => (b.baseRateCents < a.baseRateCents ? b : a));
   const defaultSeason = catalog.seasons.find((x) => x.isDefault);
-  const fromCents = applyMultiplier(cheapest.baseRateCents, defaultSeason?.multiplierBps ?? 10000);
+  const carCents = (v: (typeof vehicles)[number]) => applyMultiplier(v.baseRateCents, defaultSeason?.multiplierBps ?? 10000);
+  const fromCents = carCents(cheapest);
+  // Daytrip-style "from $X per person": the class with the lowest price per seat, shared by a full car.
+  const perPerson = vehicles
+    .map((v) => ({ v, cents: perPersonCents(carCents(v), v.maxPax) }))
+    .reduce((a, b) => (b.cents < a.cents ? b : a));
+  const promises = ridePromises(AIRPORT_HUBS.includes(page.origin));
   const stops = catalog.stops.filter((s) => stopFitsRoute(s, page.origin, page.destination));
   const pct = (id: string) => {
     const season = catalog.seasons.find((x) => x.id === id);
@@ -112,15 +118,47 @@ export default async function RouteLandingPage({
           <p className="mt-4 text-lg leading-relaxed text-slate-600">{page.intro}</p>
           <dl className="mt-8 grid grid-cols-2 sm:grid-cols-4 gap-3">
             <Fact icon={<Clock className="w-4 h-4" />} label="Drive time" value={`≈ ${formatDuration(routeMinutes(page.origin, page.destination))}`} />
-            <Fact icon={<Users className="w-4 h-4" />} label="Private ride from" value={formatUSD(fromCents)} />
+            <Fact icon={<Users className="w-4 h-4" />} label="Private car from" value={formatUSD(fromCents)} />
+            <Fact
+              icon={<User className="w-4 h-4" />}
+              label="Per person from"
+              value={`${formatUSD(perPerson.cents)} (${perPerson.v.maxPax} travellers)`}
+            />
             <Fact icon={<Luggage className="w-4 h-4" />} label="Fits" value={cheapest.luggage} />
-            <Fact icon={<MapPin className="w-4 h-4" />} label="Price is for" value="The vehicle" />
           </dl>
           <p className="mt-3 text-sm text-slate-500">
-            {defaultSeason?.name ?? "Green season"} price, {cheapest.name}, up to {cheapest.maxPax} travelers.
+            {defaultSeason?.name ?? "Green season"} prices. The car price is for the whole vehicle: {cheapest.name}, up to{" "}
+            {cheapest.maxPax} travelers. &ldquo;Per person&rdquo; is the {perPerson.v.name} price shared by a full car of{" "}
+            {perPerson.v.maxPax}.
             {highPct > 0 ? ` December to April adds ${highPct}%` : ""}
             {peakPct > 0 ? `; Christmas–New Year and Easter week add ${peakPct}%.` : highPct > 0 ? "." : ""}
           </p>
+          <ul className="mt-6 grid gap-2 sm:grid-cols-2 text-sm">
+            {promises.map((p) => (
+              <li key={p.title} className="flex gap-2">
+                <Check className="w-4 h-4 mt-0.5 shrink-0 text-emerald-600" aria-hidden />
+                <span>
+                  <span className="font-bold text-slate-900">{p.title}.</span>{" "}
+                  <span className="text-slate-600">{p.text}</span>
+                  {p.href && (
+                    <>
+                      {" "}
+                      <Link href={p.href} className="font-semibold text-emerald-700 underline">
+                        Policy
+                      </Link>
+                    </>
+                  )}
+                </span>
+              </li>
+            ))}
+            <li className="flex gap-2">
+              <Check className="w-4 h-4 mt-0.5 shrink-0 text-emerald-600" aria-hidden />
+              <span>
+                <span className="font-bold text-slate-900">Luggage included.</span>{" "}
+                <span className="text-slate-600">Each vehicle lists how many suitcases it fits.</span>
+              </span>
+            </li>
+          </ul>
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-lg shadow-emerald-950/5">
@@ -162,6 +200,10 @@ export default async function RouteLandingPage({
                     <span className="block font-bold text-slate-900">{s.name}</span>
                     <span className="text-sm text-slate-500">
                       {formatDuration(s.durationMin)} · {s.description}
+                    </span>
+                    <span className="mt-1 flex items-center gap-1 text-xs font-semibold text-slate-600">
+                      <Ticket className="w-3.5 h-3.5" aria-hidden />
+                      {s.parkFeeIncluded ? "Park entrance included" : "Park entrance paid at the gate"}
                     </span>
                   </span>
                   <span className="font-extrabold text-emerald-700 whitespace-nowrap">

@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronRight, PlusCircle } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { seasonForYmd } from "@/lib/catalogModel";
 import { useCatalog } from "./CatalogContext";
 import { addDays } from "@/lib/dates";
@@ -11,11 +11,19 @@ import { formatUSD, quoteExpedition } from "@/lib/pricing";
 export function ExpeditionsView({
   today,
   onAdd,
+  initialDate,
+  highlightId,
 }: {
   today: string;
   onAdd: (item: CartItem) => void;
+  /** From a "while you're there" suggestion after adding a ride. */
+  initialDate?: string;
+  highlightId?: string;
 }) {
-  const [date, setDate] = useState(() => addDays(today, 30));
+  const [date, setDate] = useState(() => initialDate ?? addDays(today, 30));
+  useEffect(() => {
+    if (highlightId) document.getElementById(`expedition-${highlightId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [highlightId]);
   const [tiers, setTiers] = useState<Record<string, string>>({});
   const catalog = useCatalog();
   const season = seasonForYmd(date, catalog);
@@ -55,7 +63,10 @@ export function ExpeditionsView({
           return (
             <div
               key={exp.id}
-              className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 sm:p-6 grid grid-cols-1 lg:grid-cols-3 gap-6"
+              id={`expedition-${exp.id}`}
+              className={`bg-white rounded-2xl border shadow-sm p-5 sm:p-6 grid grid-cols-1 lg:grid-cols-3 gap-6 ${
+                exp.id === highlightId ? "border-amber-400 ring-2 ring-amber-300" : "border-slate-200"
+              }`}
             >
               <div className="lg:col-span-2">
                 <span className="text-[10px] uppercase tracking-wider font-extrabold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
