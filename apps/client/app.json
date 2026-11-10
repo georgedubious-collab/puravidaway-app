@@ -17,7 +17,7 @@
     "android": {
       "package": "com.costaricaprivatetransfers.app",
       "adaptiveIcon": {
-        "backgroundColor": "#022C22",
+        "backgroundColor": "#047857",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -33,8 +33,19 @@
         }
       ],
       "expo-web-browser",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#047857",
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 180
+        }
+      ]
     ],
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
     "extra": {
       "eas": {
         "projectId": "3beec35f-471f-4faa-abf5-f548ff348063"

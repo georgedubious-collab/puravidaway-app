@@ -55,3 +55,74 @@ export const TRAVELLER_STATUS: Record<Lang, Record<string, string>> = {
     cancelled: "Cancelado",
   },
 };
+
+/* Shapes returned by the website's /api/v1/client/quote and /tours (src/lib/appQuote.ts). */
+export interface Place {
+  id: string;
+  label: string;
+}
+export interface RideQuote {
+  base: Record<string, unknown>;
+  originLabel: string;
+  destinationLabel: string;
+  airportPickup: boolean;
+  minutes: number;
+  km: number | null;
+  ferries: number;
+  season: { name: string; percent: number };
+  cashFeeBps: number;
+  /** Lowest "Driver bids" offer. Older servers don't send it. */
+  minOfferCents?: number;
+  vehicles: {
+    id: string;
+    name: string;
+    badge: string;
+    maxPax: number;
+    luggage: string;
+    allowsStops: boolean;
+    spanishSpeakingDriver: boolean;
+    totalCents: number;
+    perPersonCents?: number;
+    perPersonShare?: number;
+  }[];
+  stops: { id: string; name: string; description: string; durationMin: number; cents: number; tourPerPersonCents?: number; entrance: string }[];
+}
+export interface Tour {
+  id: string;
+  name: string;
+  durationHours: number;
+  highlights: string[];
+  perPersonCents: number;
+  totalCents: number;
+  region?: string;
+  regionName?: string;
+  /** With the Smart En-Route Transfer. Older servers don't send it. */
+  totalWithUpgradeCents?: number;
+}
+
+/** The driver preferences the website sends (src/lib/preferences.ts RidePrefs). */
+export interface Prefs {
+  language: "english" | "spanish_ok";
+  wifi: boolean;
+  stroller: boolean;
+  childSeats: number;
+  pets: boolean;
+}
+
+/** What the traveller has chosen and is about to send. */
+export interface Chosen {
+  title: string;
+  detail: string;
+  date: string;
+  totalCents: number;
+  cashFeeBps: number;
+  spec: Record<string, unknown>;
+}
+
+/** What the "request sent" screen needs. */
+export interface Sent {
+  tripToken: string | null;
+  payOnline: boolean;
+  totalCents: number;
+  testCheckout: boolean;
+}

@@ -1,15 +1,17 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
-import { Text, TextInput, View } from "react-native";
-import { supabase } from "../supabase";
-import { C, S } from "../theme";
+import { View } from "react-native";
 import { useT } from "../i18n";
-import { Btn, Card, LinkBtn } from "../ui";
+import { supabase } from "../supabase";
+import { C, T } from "../theme";
+import { Btn, Card, Input, LinkBtn, Text } from "../ui";
 
 /**
  * No accounts and no passwords: a traveller proves an email is theirs with a
  * 6-digit code we send to it. Used when they send their first trip request
- * (Plan a trip) and when they come back to see their trips on another phone.
- * The code only reaches the inbox's owner, can't be reused and expires quickly.
+ * (the "Confirm your email" panel) and when they come back to see their trips
+ * on another phone. The code only reaches the inbox's owner, can't be reused
+ * and expires quickly.
  */
 export const validEmail = (e: string) => /^\S+@\S+\.\S+$/.test(e.trim());
 
@@ -30,19 +32,19 @@ export async function verifyCode(email: string, code: string, t: (en: string, es
 }
 
 /** The 6-digit code box. */
-export function CodeInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+export function CodeInput({ value, onChange, autoFocus }: { value: string; onChange: (v: string) => void; autoFocus?: boolean }) {
   const { t } = useT();
   return (
-    <TextInput
+    <Input
       accessibilityLabel={t("6-digit code", "Código de 6 dígitos")}
       value={value}
       onChangeText={(v) => onChange(v.replace(/\D/g, "").slice(0, 6))}
       placeholder="••••••"
-      placeholderTextColor={C.faint}
       keyboardType="number-pad"
       textContentType="oneTimeCode"
       autoComplete="one-time-code"
-      style={[S.input, { letterSpacing: 8, fontSize: 24, fontWeight: "800", textAlign: "center" }]}
+      autoFocus={autoFocus}
+      style={{ letterSpacing: 10, fontSize: 28, fontWeight: "800", textAlign: "center", minHeight: 68 }}
     />
   );
 }
@@ -78,8 +80,11 @@ export function SignInCard({ demoSent }: { demoSent?: string }) {
 
   return (
     <Card>
-      <Text style={S.h2}>{sent ? t("Enter your code", "Escriba su código") : t("Already booked?", "¿Ya reservó?")}</Text>
-      <Text style={S.muted}>
+      <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: C.emeraldTint, alignItems: "center", justifyContent: "center" }}>
+        <Ionicons name={sent ? "keypad-outline" : "mail-outline"} size={24} color={C.emerald} />
+      </View>
+      <Text style={T.h2}>{sent ? t("Enter your code", "Escriba su código") : t("Already booked?", "¿Ya reservó?")}</Text>
+      <Text style={T.body}>
         {sent
           ? t("We emailed a 6-digit code to ", "Enviamos un código de 6 dígitos a ") + email.trim().toLowerCase() + "."
           : t(
@@ -88,29 +93,27 @@ export function SignInCard({ demoSent }: { demoSent?: string }) {
             )}
       </Text>
       {!sent ? (
-        <TextInput
+        <Input
           accessibilityLabel={t("Email", "Correo electrónico")}
           value={email}
           onChangeText={setEmail}
           placeholder={t("you@example.com", "usted@ejemplo.com")}
-          placeholderTextColor={C.faint}
           autoCapitalize="none"
           autoCorrect={false}
           keyboardType="email-address"
           textContentType="emailAddress"
           autoComplete="email"
-          style={S.input}
         />
       ) : (
         <CodeInput value={code} onChange={setCode} />
       )}
-      {error ? <Text style={S.error}>{error}</Text> : null}
+      {error ? <Text style={{ color: C.red, fontWeight: "600", fontSize: 15, lineHeight: 21 }}>{error}</Text> : null}
       {!sent ? (
         <Btn label={t("Email me a code", "Enviarme un código")} icon="mail-outline" onPress={() => void send()} busy={busy} alt />
       ) : (
         <>
-          <Btn label={t("See my trips", "Ver mis viajes")} onPress={() => void verify()} busy={busy} disabled={code.length !== 6} color={C.emerald} />
-          <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+          <Btn label={t("See my trips", "Ver mis viajes")} onPress={() => void verify()} busy={busy} disabled={code.length !== 6} />
+          <View style={{ flexDirection: "row", justifyContent: "space-between", flexWrap: "wrap" }}>
             <LinkBtn label={t("Send a new code", "Enviar otro código")} onPress={() => void send()} disabled={busy} />
             <LinkBtn
               label={t("Different email", "Otro correo")}
