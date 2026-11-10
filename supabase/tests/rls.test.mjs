@@ -385,6 +385,30 @@ await expectOk("server forgets the drive time", "server",
   "update public.bookings set drive_minutes = null where id = '10000000-0000-0000-0000-000000000009'");
 await expectRows("no drive time: no arrival estimate", "driver",
   "select 1 from public.my_trips() where id = '10000000-0000-0000-0000-000000000009' and arrive_at is null", 1);
+// Migration 0036: drivers never see the client's price, only their payout (cash to collect is the one exception).
+await expectOk("server records a custom-offer note with the fixed price", "server",
+  "update public.bookings set client_notes = 'Offer; fixed price was $260.00' where id = '10000000-0000-0000-0000-000000000009'");
+await expectRows("assigned driver cannot read the client's price", "driver",
+  "select total_price from public.bookings where id = '10000000-0000-0000-0000-000000000009'", 0);
+await expectRows("assigned driver cannot read the price note", "driver",
+  "select client_notes from public.bookings where id = '10000000-0000-0000-0000-000000000009'", 0);
+await expectRows("no bookings policy lets the assigned driver read the row", "admin",
+  "select 1 from pg_policies where tablename = 'bookings' and cmd in ('SELECT', 'ALL') and coalesce(qual, '') ~ 'assigned_driver_id'", 0);
+await expectRows("assigned driver still reads the trip with stops, without stop prices", "driver",
+  `select 1 from public.my_trips() where id = '10000000-0000-0000-0000-000000000009'
+     and jsonb_array_length(sightseeing_stops) = 2 and sightseeing_stops->0->>'id' = 'tarcoles' and sightseeing_stops::text !~ 'price'`, 1);
+await expectRows("no cash to collect on a trip that isn't paid in cash", "driver",
+  "select 1 from public.my_trips() where id = '10000000-0000-0000-0000-000000000009' and cash_to_collect is null", 1);
+await expectOk("server lists stops with prices on the open job", "server",
+  "update public.bookings set sightseeing_stops = '[{\"id\":\"carara\",\"price\":123}]' where id = '10000000-0000-0000-0000-000000000001'");
+await expectRows("job board shows the stop without its price", "driver",
+  "select 1 from public.driver_jobs() where id = '10000000-0000-0000-0000-000000000001' and sightseeing_stops = '[{\"id\":\"carara\"}]'::jsonb", 1);
+await expectRows("drivers' functions never return the client's price columns", "admin",
+  "select 1 from pg_proc where proname in ('driver_jobs','my_trips','my_chat_unread','tracking_window') and pg_get_function_result(oid) ~ '(total_price|platform_fee|amount_paid|client_notes|company_costs|pricing_mode)'", 0);
+await expectOk("server resets the test job", "server",
+  "update public.bookings set sightseeing_stops = '[]' where id = '10000000-0000-0000-0000-000000000001'");
+await expectOk("server resets the test note", "server",
+  "update public.bookings set client_notes = 'Flight AA123' where id = '10000000-0000-0000-0000-000000000009'");
 await expectOk("server resets the test trip", "server",
   "update public.bookings set luggage_count = null, scheduled_at = null, sightseeing_stops = '[]' where id = '10000000-0000-0000-0000-000000000009'");
 
