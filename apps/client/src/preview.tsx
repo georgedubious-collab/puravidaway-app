@@ -70,19 +70,20 @@ const quote: RideQuote = {
   ferries: 0,
   season: { name: "High season", percent: 10 },
   cashFeeBps: 500,
+  minOfferCents: 5000,
   vehicles: [
-    { id: "economy", name: "Economy sedan", badge: "Best price", maxPax: 3, luggage: "2 large bags", allowsStops: false, spanishSpeakingDriver: true, totalCents: 14600 },
-    { id: "sedan", name: "Comfort SUV", badge: "Most popular", maxPax: 4, luggage: "4 large bags", allowsStops: true, spanishSpeakingDriver: false, totalCents: 16200 },
-    { id: "van", name: "Minivan", badge: "For groups", maxPax: 8, luggage: "8 large bags", allowsStops: true, spanishSpeakingDriver: false, totalCents: 19800 },
+    { id: "economy", name: "Economy sedan", badge: "Best price", maxPax: 3, luggage: "2 large bags", allowsStops: false, spanishSpeakingDriver: true, totalCents: 14600, perPersonCents: 4900, perPersonShare: 3 },
+    { id: "sedan", name: "Comfort SUV", badge: "Most popular", maxPax: 4, luggage: "4 large bags", allowsStops: true, spanishSpeakingDriver: false, totalCents: 16200, perPersonCents: 4100, perPersonShare: 4 },
+    { id: "van", name: "Minivan", badge: "For groups", maxPax: 8, luggage: "8 large bags", allowsStops: true, spanishSpeakingDriver: false, totalCents: 19800, perPersonCents: 2900, perPersonShare: 7 },
   ],
   stops: [
-    { id: "lapaz", name: "La Paz Waterfall Gardens", description: "Five waterfalls, a butterfly garden and rescued wildlife.", durationMin: 120, cents: 4000, entrance: "gate" },
-    { id: "sarchi", name: "Sarchí oxcart town", description: "Hand-painted oxcarts and a coffee break.", durationMin: 45, cents: 1500, entrance: "free" },
+    { id: "lapaz", name: "La Paz Waterfall Gardens", description: "Five waterfalls, a butterfly garden and rescued wildlife.", durationMin: 120, cents: 4000, tourPerPersonCents: 0, entrance: "gate" },
+    { id: "sarchi", name: "Sarchí oxcart town", description: "Hand-painted oxcarts and a coffee break.", durationMin: 45, cents: 4500, tourPerPersonCents: 1500, entrance: "free" },
   ],
 };
 const tours: Tour[] = [
-  { id: "arenal", name: "Arenal Volcano & Hot Springs", durationHours: 10, highlights: ["Hanging bridges walk with a naturalist guide", "La Fortuna waterfall", "Evening in the hot springs"], perPersonCents: 17000, totalCents: 34000 },
-  { id: "poas", name: "Poás Volcano & Coffee", durationHours: 7, highlights: ["Timed-entry tickets to the crater", "Coffee plantation tour and tasting"], perPersonCents: 12500, totalCents: 25000 },
+  { id: "arenal", name: "Arenal Volcano & Hot Springs", durationHours: 10, highlights: ["Hanging bridges walk with a naturalist guide", "La Fortuna waterfall", "Evening in the hot springs"], perPersonCents: 17000, totalCents: 34000, region: "Arenal", regionName: "La Fortuna / Arenal", totalWithUpgradeCents: 39500 },
+  { id: "poas", name: "Poás Volcano & Coffee", durationHours: 7, highlights: ["Timed-entry tickets to the crater", "Coffee plantation tour and tasting"], perPersonCents: 12500, totalCents: 25000, region: "Monteverde", regionName: "Monteverde & Río Celeste", totalWithUpgradeCents: 30500 },
 ];
 const chosen: Chosen = { title: "SJO Airport / San José → La Fortuna / Arenal", detail: "Comfort SUV, 2 travellers + 1 stop · pickup 9:00 AM", date: "2026-12-15", totalCents: 20200, cashFeeBps: 500, spec: {} };
 
