@@ -190,7 +190,7 @@ export function IconLine({ icon, text, color, small }: { icon: IconName; text: s
 }
 
 /** A tappable settings-style row: icon, title, optional detail, chevron. */
-export function ListRow({ icon, title, detail, onPress, tone, value }: { icon: IconName; title: string; detail?: string; onPress: () => void; tone?: "red"; value?: string }) {
+export function ListRow({ icon, title, detail, onPress, tone, value, badge }: { icon: IconName; title: string; detail?: string; onPress: () => void; tone?: "red"; value?: string; badge?: number }) {
   const fg = tone === "red" ? C.red : C.text;
   return (
     <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: 14, minHeight: 60, paddingVertical: 10, opacity: pressed ? 0.6 : 1 })}>
@@ -202,8 +202,18 @@ export function ListRow({ icon, title, detail, onPress, tone, value }: { icon: I
         {detail ? <Text style={T.small}>{detail}</Text> : null}
       </View>
       {value ? <Text style={T.small}>{value}</Text> : null}
+      {badge ? <CountBadge n={badge} /> : null}
       {tone === "red" ? null : <Ionicons name="chevron-forward" size={18} color={C.faint} />}
     </Pressable>
+  );
+}
+
+/** A small gold count, e.g. unread chat messages. */
+export function CountBadge({ n }: { n: number }) {
+  return (
+    <View accessibilityLabel={String(n)} style={{ minWidth: 24, height: 24, borderRadius: 12, paddingHorizontal: 7, backgroundColor: C.gold, alignItems: "center", justifyContent: "center" }}>
+      <Text style={{ fontSize: 13, fontWeight: "800", color: C.text }}>{n > 99 ? "99+" : String(n)}</Text>
+    </View>
   );
 }
 

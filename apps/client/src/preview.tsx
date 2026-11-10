@@ -43,7 +43,7 @@ const trips: AppTrip[] = [
     token: "demo",
     createdAt: at(-100),
     bookings: [
-      booking({ id: "b1", ref: "CRPT-1042", driverOnTheWay: true, driver, car, driverLocation: { lat: 10.0, lng: -84.2, recordedAt: at(0), etaAt: at(0.4), lateMin: null } }),
+      booking({ id: "b1", ref: "CRPT-1042", driverOnTheWay: true, driver, car, unreadChat: 2, driverLocation: { lat: 10.0, lng: -84.2, recordedAt: at(0), etaAt: at(0.4), lateMin: null } }),
       booking({ id: "b2", ref: "CRPT-1047", title: "Hotel Arenal Springs → Monteverde Lodge", scheduledAt: at(74), dueUsd: 168, paymentMode: "cash_driver", cashFeeUsd: 8, driver, car }),
       booking({ id: "b3", ref: "CRPT-1051", kind: "day_tour", title: "Manuel Antonio National Park Wildlife Walk", scheduledAt: at(120), status: "pending_bids", dueUsd: 340 }),
       booking({ id: "b4", ref: "CRPT-0988", title: "Liberia Airport → Tamarindo", scheduledAt: at(-400), status: "completed", driver, car }),
@@ -53,7 +53,20 @@ const trips: AppTrip[] = [
 const chat: ChatMessage[] = [
   { id: "m1", party: "driver", name: "Carlos", text: "Hello! I'm on my way. I'll be at the arrivals exit with a sign with your name.", at: at(-0.3), mine: false },
   { id: "m2", party: "client", name: "You", text: "Great, we just landed. See you soon!", at: at(-0.2), mine: true },
-  { id: "m3", party: "admin", name: "Costa Rica Private Transfers", text: "Welcome to Costa Rica! Message us here if you need anything.", at: at(-0.1), mine: false },
+  { id: "m3", party: "admin", name: "Our team", text: "Welcome to Costa Rica! Message us here if you need anything.", at: at(-0.1), mine: false },
+];
+const chatEs: ChatMessage[] = [
+  { id: "m1", party: "driver", name: "Carlos", text: "¡Hola! Voy en camino. Le espero en la salida de llegadas con un rótulo con su nombre.", at: at(-0.3), mine: false },
+  { id: "m2", party: "client", name: "Usted", text: "¡Perfecto, acabamos de aterrizar! Nos vemos.", at: at(-0.2), mine: true },
+  { id: "m3", party: "admin", name: "Nuestro equipo", text: "¡Bienvenidos a Costa Rica! Escríbanos aquí si necesitan algo.", at: at(-0.1), mine: false },
+];
+const chatHidden: ChatMessage[] = [
+  ...chat.slice(0, 2),
+  { id: "m4", party: "client", name: "You", text: "Can you WhatsApp me at [hidden]?", at: at(-0.05), mine: true },
+];
+const chatHiddenEs: ChatMessage[] = [
+  ...chatEs.slice(0, 2),
+  { id: "m4", party: "client", name: "Usted", text: "¿Me escribe al WhatsApp [oculto]?", at: at(-0.05), mine: true },
 ];
 
 const quote: RideQuote = {
@@ -170,6 +183,12 @@ const SCREENS: Record<string, Setup> = {
   rate: { routes: [tabs("Trips", "b4")] },
   "rate-sheet": { routes: [tabs("Trips", "b4"), { name: "Rate", params: { id: "b4" } }] },
   chat: { routes: [tabs("Trips", "b1"), { name: "Chat", params: { id: "b1" } }], demo: { chat } },
+  "chat-es": { routes: [tabs("Trips", "b1"), { name: "Chat", params: { id: "b1" } }], demo: { chat: chatEs } },
+  "chat-hidden": { routes: [tabs("Trips", "b1"), { name: "Chat", params: { id: "b1" } }], demo: { chat: chatHidden, chatNotice: true } },
+  "chat-hidden-es": { routes: [tabs("Trips", "b1"), { name: "Chat", params: { id: "b1" } }], demo: { chat: chatHiddenEs, chatNotice: true } },
+  "chat-draft": { routes: [tabs("Trips", "b1"), { name: "Chat", params: { id: "b1" } }], demo: { chat, chatDraft: "My number is 8888 1234" } },
+  "chat-closed-es": { routes: [tabs("Trips", "b4"), { name: "Chat", params: { id: "b4" } }], demo: { chat: chatEs, chatClosed: true } },
+  "chat-closed": { routes: [tabs("Trips", "b4"), { name: "Chat", params: { id: "b4" } }], demo: { chat, chatClosed: true } },
   "chat-empty": { routes: [tabs("Trips", "b3"), { name: "Chat", params: { id: "b3" } }], demo: { chat: [] } },
   // Account
   account: { routes: [tabs("Account")] },

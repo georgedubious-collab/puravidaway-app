@@ -49,6 +49,8 @@ export interface Trip {
   completed_at: string | null;
   /** When the driver tapped "I'm on my way". */
   en_route_at: string | null;
+  /** Unread chat messages from the traveller or our team (my_chat_unread(), added by the app). */
+  unread_chat?: number;
 }
 
 export interface Vehicle {
@@ -87,4 +89,16 @@ export interface ChatMessage {
   text: string;
   at: string;
   mine: boolean;
+}
+
+/** What GET / POST /api/v1/chat/<booking> answer (src/app/chat/actions.ts on the website). */
+export interface ChatAnswer {
+  messages: ChatMessage[];
+  /** False once the chat is read-only (48 hours after the trip, or cancelled). Older servers don't send it. */
+  open?: boolean;
+  closedNote?: string;
+  /** Set when the server hid contact details from the message just sent. */
+  notice?: string;
+  /** Our team's phone / WhatsApp number (digits). */
+  support?: string;
 }

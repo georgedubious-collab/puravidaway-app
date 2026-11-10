@@ -78,6 +78,7 @@ const trips: Trip[] = [
     destination_coords: { lat: 9.39, lng: -84.14, town: "ManuelAntonio" },
     flight_or_hotel_notes: "Flight UA1090, lands 1:35 PM",
     driver_payout: 168,
+    unread_chat: 2,
   }),
   trip({
     id: "t2",
@@ -193,6 +194,11 @@ const chat: ChatMessage[] = [
   { id: "m3", party: "admin", name: "Our team", text: "Child seats are installed. Have a great trip!", at: at(-1), mine: false },
 ];
 
+const chatHidden: ChatMessage[] = [
+  ...chat.slice(0, 2),
+  { id: "m4", party: "driver", name: "You", text: "If you need anything, WhatsApp me at [hidden]", at: at(-0.5), mine: true },
+];
+
 const CR_OFFSET_MS = 6 * H;
 const crDay = (h: number) => new Date(Date.now() + h * H - CR_OFFSET_MS).toISOString().slice(0, 10);
 
@@ -262,7 +268,10 @@ export function Preview() {
   };
   const section: Section =
     s === "jobs" || s === "calendar" || s === "earnings" || s === "documents" || s === "help" || s === "profile" ? s : s === "apply" ? "documents" : "trips";
-  const openTrip = s === "trip" ? trips[0] : s === "trip2" ? trips[1] : s === "trip3" ? trips[2] : undefined;
+  // Chat states: `chat` (trip scrolled to the chat), `chat-hidden` (notice after a number was hidden),
+  // `chat-draft` (warning before sending), `chat-closed` (read-only 48 h after the trip).
+  const chatShot = s === "chat" || s === "chat-hidden" || s === "chat-draft" || s === "chat-closed";
+  const openTrip = s === "trip" || chatShot ? trips[0] : s === "trip2" ? trips[1] : s === "trip3" ? trips[2] : undefined;
   const segment: Segment = segOverride ?? (s === "today" ? "today" : s === "past" ? "past" : "upcoming");
   const title = openTrip ? crDateTime(openTrip.scheduled_at, lang) : section === "trips" ? t(...SEGMENT_TITLE[segment]) : t(...SECTION_TITLE[section]);
   return (
@@ -272,7 +281,14 @@ export function Preview() {
         <Bar title={title} onMenu={() => setMenu(true)} onBack={openTrip ? noop : undefined} onBell={openTrip ? undefined : noop} bellCount={jobs.length} />
         <View style={{ flex: 1, backgroundColor: C.bg }}>
           {openTrip ? (
-            <TripDetail trip={openTrip} names={names} onChanged={done} demoChat={s === "trip" ? chat : []} demoSupport="50665000000" />
+            <TripDetail
+              trip={openTrip}
+              names={names}
+              onChanged={done}
+              demoChat={s === "chat-hidden" ? chatHidden : s === "trip" || chatShot ? chat : []}
+              demoChatState={{ closed: s === "chat-closed", notice: s === "chat-hidden", draft: s === "chat-draft" ? "Mi número es 8888 1234" : undefined }}
+              demoSupport="50665000000"
+            />
           ) : section === "trips" ? (
             <Trips trips={trips} names={names} loading={false} onRefresh={noop} onOpen={noop} segment={segment} onSegment={setSeg} />
           ) : section === "jobs" ? (

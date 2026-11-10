@@ -386,6 +386,7 @@ await expectOk("server saves preferences with a request", "server", `
 await expectRows("job board shows preferences and the driver message", "admin",
   "select 1 from pg_proc where proname = 'driver_jobs' and pg_get_function_result(oid) ~ 'preferences' and pg_get_function_result(oid) ~ 'driver_notes'", 1);
 
+const B = "'10000000-0000-0000-0000-000000000009'";
 // --- Trip chat with guests (file 9) --------------------------------------------------
 await expectOk("server posts a traveller message (no account)", "server", `
   insert into public.trip_chats (booking_id, sender_id, sender_role, message)
@@ -393,18 +394,27 @@ await expectOk("server posts a traveller message (no account)", "server", `
 await expectBlocked("only travellers can post without an account", "server", `
   insert into public.trip_chats (booking_id, sender_id, sender_role, message)
   values ('10000000-0000-0000-0000-000000000009', null, 'driver', 'x')`);
-await expectBlocked("traveller cannot share a phone number", "server", `
+// Migration 0034: contact details are hidden (not refused) and the original kept for admins.
+await expectOk("traveller's phone number is hidden, not refused", "server", `
   insert into public.trip_chats (booking_id, sender_id, sender_role, message)
-  values ('10000000-0000-0000-0000-000000000009', null, 'client', 'text me at 8888 1234')`);
-await expectOk("assigned driver replies", "driver", `
+  values (${B}, null, 'client', 'text me at 8888 1234')`);
+await expectRows("stored without the number", "admin",
+  "select 1 from public.trip_chats where message = 'text me at [hidden]'", 1);
+await as("server", "delete from public.trip_chats where message = 'text me at [hidden]'");
+await expectBlocked("assigned driver cannot write to the chat directly", "driver", `
   insert into public.trip_chats (booking_id, sender_id, sender_role, message)
-  values ('10000000-0000-0000-0000-000000000009', '${U.driver}', 'driver', 'Pura vida! I will be there at 1:45.')`);
-await expectBlocked("driver cannot share an email", "driver", `
+  values (${B}, '${U.driver}', 'driver', 'Pura vida!')`);
+await expectBlocked("admins cannot write to the chat directly either", "admin", `
   insert into public.trip_chats (booking_id, sender_id, sender_role, message)
-  values ('10000000-0000-0000-0000-000000000009', '${U.driver}', 'driver', 'mail me: a@b.com')`);
-await expectOk("team can share contact details", "admin", `
-  insert into public.trip_chats (booking_id, sender_id, sender_role, message)
-  values ('10000000-0000-0000-0000-000000000009', '${U.admin}', 'admin', 'Driver phone: +506 8888 1234')`);
+  values (${B}, '${U.admin}', 'admin', 'Hello')`);
+await expectBlocked("participants cannot edit messages", "driver", `
+  update public.trip_chats set message = 'x' where booking_id = ${B}`, { affected: 0 });
+await expectOk("server posts the driver's reply", "server",
+  `select public.post_chat_message(${B}, '${U.driver}', 'driver', 'Pura vida! I will be there at 1:45.', null, null)`);
+await expectOk("server posts for the team, who may share contact details", "server",
+  `select public.post_chat_message(${B}, '${U.admin}', 'admin', 'Driver phone: +506 8888 1234', null, null)`);
+await expectRows("team message is stored as written", "admin",
+  "select 1 from public.trip_chats where message = 'Driver phone: +506 8888 1234' and not flagged", 1);
 await expectRows("assigned driver reads the trip chat", "driver",
   "select * from public.trip_chats where booking_id = '10000000-0000-0000-0000-000000000009'", 3);
 await expectRows("other client cannot read it", "client2",
@@ -436,10 +446,10 @@ await expectRows("trip requests: three per email address", "server",
 await expectRows("chat flood guard: 8 a minute per side", "server",
   `select n from (select count(*) as n from public.trip_chats where booking_id = '10000000-0000-0000-0000-000000000009' and sender_role = 'client') t`, 1);
 for (let i = 0; i < 7; i++) {
-  await expectOk(`message ${i + 2} in a minute is fine`, "server", "select public.post_chat_message('10000000-0000-0000-0000-000000000009', null, 'client', 'hello " + i + "')");
+  await expectOk(`message ${i + 2} in a minute is fine`, "server", "select public.post_chat_message('10000000-0000-0000-0000-000000000009', null, 'client', 'hello " + i + "', null, null)");
 }
 await expectBlocked("ninth message in a minute is refused", "server",
-  "select public.post_chat_message('10000000-0000-0000-0000-000000000009', null, 'client', 'one more')");
+  "select public.post_chat_message('10000000-0000-0000-0000-000000000009', null, 'client', 'one more', null, null)");
 await expectRows("first email to a party is allowed", "server",
   "select 1 where public.claim_chat_email('10000000-0000-0000-0000-000000000009', 'admin')", 1);
 await expectRows("second email before they read is not", "server",
@@ -453,11 +463,44 @@ await expectRows("no email while they're reading", "server",
 await expectOk("dates are not phone numbers", "server", `
   insert into public.trip_chats (booking_id, sender_role, message)
   values ('10000000-0000-0000-0000-000000000009', 'client', 'We land 2026-10-20 or 21.10.2026 at 2pm')`);
-for (const m of ["8888_1234", "8888/1234", "pepe at gmail dot com", "instagram @pepe_tours"]) {
-  await expectBlocked(`blocked in chat: ${m}`, "driver", `
-    insert into public.trip_chats (booking_id, sender_id, sender_role, message)
-    values ('10000000-0000-0000-0000-000000000009', '${U.driver}', 'driver', '${m}')`);
+for (const m of ["8888_1234", "8888/1234", "mail a@b.com", "instagram @pepe_tours", "see www.x.com", "wa.me/50688881234"]) {
+  await expectRows(`hidden in chat: ${m}`, "server",
+    `select 1 where public.hide_contact_details('${m}') like '%[hidden]%'`, 1);
 }
+for (const m of ["We land 2026-10-20 or 21.10.2026 at 2pm", "Flight AA 1234 at 14:30", "4 adults, 2 kids", "2019-2024"]) {
+  await expectRows(`kept in chat: ${m}`, "server", `select 1 where public.hide_contact_details('${m}') = '${m}'`, 1);
+}
+// The server's filter hides first and passes the original along: admins only.
+await as("server", `update public.chat_reads set last_read_at = null, last_emailed_at = null where party = 'client'`);
+await db.exec(`update public.trip_chats set sent_at = now() - interval '2 minutes' where booking_id = ${B}`);
+await expectOk("server posts a filtered message with its original", "server",
+  `select public.post_chat_message(${B}, '${U.driver}', 'driver', 'call me on [hidden]', 'call me on ocho ocho ocho ocho 1234', '{phone}')`);
+await expectRows("message is marked flagged", "admin", "select 1 from public.trip_chats where flagged and message = 'call me on [hidden]'", 1);
+await expectRows("admin reads the original", "admin", "select 1 from public.contact_flags where original like '%ocho ocho%' and source = 'chat'", 1);
+await expectRows("driver cannot read originals", "driver", "select * from public.contact_flags", 0);
+await expectRows("traveller account cannot read originals", "client", "select * from public.contact_flags", 0);
+await expectRows("visitor cannot read originals", "anon", "select * from public.contact_flags", 0);
+await expectBlocked("driver cannot write flags", "driver",
+  `insert into public.contact_flags (booking_id, source, original) values (${B}, 'chat', 'x')`);
+await expectOk("admin marks a flag reviewed", "admin", `update public.contact_flags set reviewed_at = now(), reviewed_by = '${U.admin}'`);
+await expectBlocked("driver cannot mark flags reviewed", "driver", "update public.contact_flags set reviewed_at = null", { affected: 0 });
+await expectRows("driver sees unread messages for their trip", "driver",
+  `select 1 from public.my_chat_unread() where booking_id = ${B} and unread > 0`, 1);
+await expectRows("other client sees no unread counts", "client2", "select * from public.my_chat_unread()", 0);
+await expectRows("unread email waits 10 minutes", "server", "select * from public.claim_unread_chat_emails(interval '10 minutes')", 0);
+await db.exec(`update public.trip_chats set sent_at = now() - interval '15 minutes' where booking_id = ${B}`);
+await expectRows("then one email for the unread messages", "server", "select * from public.claim_unread_chat_emails(interval '10 minutes')", 1);
+await expectRows("and no second email until they read", "server", "select * from public.claim_unread_chat_emails(interval '10 minutes')", 0);
+await expectBlocked("drivers cannot claim chat emails", "driver", "select * from public.claim_unread_chat_emails(interval '0 minutes')");
+// Booking notes the assigned driver can read never keep contact details.
+await expectOk("server saves notes with a phone number", "server",
+  `update public.bookings set flight_or_hotel_notes = 'Hotel Diria, call 8888-1234', client_notes = 'mail ana@x.com' where id = ${B}`);
+await expectRows("booking row (which the assigned driver can read) keeps no contact details", "admin",
+  `select 1 from public.bookings where id = ${B} and flight_or_hotel_notes = 'Hotel Diria, call [hidden]' and client_notes = 'mail [hidden]'`, 1);
+await expectRows("admin keeps the original notes", "admin",
+  `select 1 from public.contact_flags where booking_id = ${B} and source = 'booking_notes'`, 2);
+await expectOk("server records a driver's language", "server", `update public.profiles set app_lang = 'en' where id = '${U.driver}'`);
+await expectBlocked("unknown language refused", "server", `update public.profiles set app_lang = 'fr' where id = '${U.driver}'`);
 
 // --- Bids -----------------------------------------------------------------------------
 // Offers go through offer_job(); see the job-board section below for the full flow.
@@ -675,9 +718,11 @@ await expectRows("trip is completed with both times recorded", "admin", `select 
 await expectBlocked("commission above 50% refused", "admin", "update public.pricing_settings set driver_commission_bps = 9000");
 
 // --- Trip chat --------------------------------------------------------------------------
-await expectOk("client messages on own trip", "client", `
+await expectBlocked("client cannot write to the chat directly", "client", `
   insert into public.trip_chats (booking_id, sender_id, sender_role, message)
   values ('10000000-0000-0000-0000-000000000001', '${U.client}', 'client', 'Hola!')`);
+await expectOk("server posts the client's message", "server",
+  `select public.post_chat_message('10000000-0000-0000-0000-000000000001', '${U.client}', 'client', 'Hola!', null, null)`);
 await expectBlocked("client cannot post as admin", "client", `
   insert into public.trip_chats (booking_id, sender_id, sender_role, message)
   values ('10000000-0000-0000-0000-000000000001', '${U.client}', 'admin', 'x')`);

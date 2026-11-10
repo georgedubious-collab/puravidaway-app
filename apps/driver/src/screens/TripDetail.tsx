@@ -8,7 +8,8 @@ import { crTime, plural, usd, vehicleLabel } from "../format";
 import { useT } from "../i18n";
 import { GOLD } from "../nav";
 import { C, R, S } from "../theme";
-import type { ChatMessage, Coords, Names, Trip } from "../types";
+import { hasContactDetails } from "../contact";
+import type { ChatAnswer, ChatMessage, Coords, Names, Trip } from "../types";
 import { Badge, Btn, Card, IconLine, LinkBtn, type IconName } from "../ui";
 import { InfoChip, TripIcons, tripFacts, tripStage, tripTitle } from "./Trips";
 
@@ -74,6 +75,7 @@ export function TripDetail({
   names,
   onChanged,
   demoChat,
+  demoChatState,
   demoSupport,
 }: {
   trip: Trip;
@@ -81,6 +83,8 @@ export function TripDetail({
   onChanged: () => Promise<void>;
   /** Sample messages for design previews; skips loading. */
   demoChat?: ChatMessage[];
+  /** Design previews: the chat closed, showing the "contact hidden" notice, or with a draft. */
+  demoChatState?: { closed?: boolean; notice?: boolean; draft?: string };
   /** Sample support WhatsApp for design previews; skips loading. */
   demoSupport?: string;
 }) {
@@ -241,6 +245,7 @@ export function TripDetail({
         </View>
       ) : null}
 
+      {teamWhatsapp ? <ContactRow phone={teamWhatsapp} /> : null}
       {teamWhatsapp || (active && goingTo) ? (
         <View style={{ flexDirection: "row", gap: 8 }}>
           {teamWhatsapp ? (
@@ -278,7 +283,7 @@ export function TripDetail({
       {active ? <Btn label={t(...next.button)} onPress={() => void step(next.id)} busy={busy} color={C.emerald} /> : null}
       {error ? <Text style={S.error}>{error}</Text> : null}
 
-      <Chat bookingId={trip.id} demo={demoChat} />
+      <Chat bookingId={trip.id} bookingRef={trip.booking_ref} demo={demoChat} demoState={demoChatState} support={teamWhatsapp} />
     </ScrollView>
   );
 }
@@ -361,21 +366,85 @@ function OutlineBtn({ icon, iconColor, label, a11y, onPress }: { icon: IconName;
   );
 }
 
-/** Trip chat through the server (same thread as the website), refreshed every 10 seconds. */
-function Chat({ bookingId, demo }: { bookingId: string; demo?: ChatMessage[] }) {
+/**
+ * Ways to reach people from a trip. Drivers never get the traveller's phone or email
+ * (Jorge, 2026-11-10): they write in the chat or call our team. A masked "Llamar al
+ * cliente" button (Twilio, a later PR) goes in this row, next to "Llamar a nuestro equipo".
+ */
+function ContactRow({ phone, compact }: { phone: string; compact?: boolean }) {
+  const { t } = useT();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={t("Llamar a nuestro equipo", "Call our team")}
+      onPress={() => void Linking.openURL("tel:+" + phone)}
+      style={({ pressed }) => ({
+        minHeight: compact ? 46 : 50,
+        flexDirection: "row",
+        gap: 8,
+        alignItems: "center",
+        justifyContent: "center",
+        borderRadius: R.control,
+        borderWidth: 1.5,
+        borderColor: C.emerald,
+        backgroundColor: pressed ? C.emeraldTint : C.card,
+      })}
+    >
+      <Ionicons name="call" size={18} color={C.emerald} />
+      <Text style={{ fontSize: 15, fontWeight: "800", color: C.emerald }}>{t("Llamar a nuestro equipo", "Call our team")}</Text>
+    </Pressable>
+  );
+}
+
+/**
+ * Trip chat with the traveller through the server (same thread as the website; our team
+ * reads it and can step in), refreshed every 10 seconds. The server hides phone numbers,
+ * emails and links before storing and says so; after 48 hours past the trip it is read-only.
+ */
+function Chat({
+  bookingId,
+  bookingRef,
+  demo,
+  demoState,
+  support,
+}: {
+  bookingId: string;
+  bookingRef: string;
+  demo?: ChatMessage[];
+  demoState?: { closed?: boolean; notice?: boolean; draft?: string };
+  support: string;
+}) {
+  const { t, lang } = useT();
   const [messages, setMessages] = useState<ChatMessage[]>(demo ?? []);
-  const [text, setText] = useState("");
+  const [text, setText] = useState(demoState?.draft ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const { t } = useT();
-  // The server names the team and the driver in English; show those two in the app's language.
+  const [open, setOpen] = useState(!demoState?.closed);
+  const [serverClosedNote, setClosedNote] = useState("");
+  const [serverNotice, setNotice] = useState("");
+  // Design previews show these in whichever language the preview switches to.
+  const closedNote =
+    serverClosedNote ||
+    (demoState?.closed ? t("Este chat se cerró 48 horas después del viaje. ¿Necesita algo? Contacte a nuestro equipo.", "This chat closed 48 hours after the trip. Need anything? Contact our team.") : "");
+  const notice =
+    serverNotice ||
+    (demoState?.notice ? t("Por su seguridad, los datos de contacto se ocultan. Use este chat o llame a nuestro equipo.", "For your safety, contact details are hidden. Use this chat or call our team.") : "");
+  // Older servers name the team in English; newer ones answer in the app's language (x-team-lang).
   const who = (name: string) => (name === "Our team" ? t("Nuestro equipo", "Our team") : name === "You" ? t("Usted", "You") : name);
+  // Older servers store "[hidden]"; show it in the app's language.
+  const shown = (s: string) => (lang === "es" ? s.split("[hidden]").join("[oculto]") : s);
+
+  const apply = useCallback((a: ChatAnswer) => {
+    setMessages(a.messages);
+    if (a.open !== undefined) setOpen(a.open);
+    setClosedNote(a.closedNote ?? "");
+  }, []);
 
   const load = useCallback(async () => {
     if (demo) return;
-    const res = await api<{ messages: ChatMessage[] }>("/chat/" + bookingId);
-    if (res.ok && res.data) setMessages(res.data.messages);
-  }, [bookingId, demo]);
+    const res = await api<ChatAnswer>("/chat/" + bookingId);
+    if (res.ok && res.data) apply(res.data);
+  }, [bookingId, demo, apply]);
 
   useEffect(() => {
     void load();
@@ -387,25 +456,28 @@ function Chat({ bookingId, demo }: { bookingId: string; demo?: ChatMessage[] }) 
     if (!text.trim()) return;
     setBusy(true);
     setError("");
-    const res = await api<{ messages: ChatMessage[] }>("/chat/" + bookingId, { text: text.trim() });
+    const res = await api<ChatAnswer>("/chat/" + bookingId, { text: text.trim() });
     setBusy(false);
     if (!res.ok || !res.data) return setError(res.error ?? t("No se pudo enviar.", "Couldn't send."));
-    setMessages(res.data.messages);
+    apply(res.data);
+    setNotice(res.data.notice ?? "");
     setText("");
   }
 
   return (
     <Card>
-      <Text style={S.h2}>Chat</Text>
-      <Text style={S.muted}>
-        {t(
-          "Con el cliente y nuestro equipo. No comparta números de teléfono ni enlaces aquí.",
-          "With the traveller and our team. Keep phone numbers and links out of it.",
+      <Text style={S.h2}>{t("Chat con el cliente", "Chat with the traveller")}</Text>
+      <IconLine
+        icon="shield-checkmark-outline"
+        color={C.emerald}
+        text={t(
+          "Nuestro equipo puede leer este chat. Los teléfonos, correos y enlaces se ocultan automáticamente.",
+          "Our team can read this chat. Phone numbers, emails and links are hidden automatically.",
         )}
-      </Text>
+      />
       {messages.length === 0 ? (
         <Text style={[S.muted, { fontStyle: "italic" }]}>
-          {t("Aún no hay mensajes. Preséntese y confirme la hora de recogida.", "No messages yet. Introduce yourself and confirm the pickup time.")}
+          {t("Aún no hay mensajes. Preséntese y confirme la hora y el lugar de recogida.", "No messages yet. Introduce yourself and confirm the pickup time and place.")}
         </Text>
       ) : null}
       {messages.map((m) => (
@@ -413,7 +485,9 @@ function Chat({ bookingId, demo }: { bookingId: string; demo?: ChatMessage[] }) 
           {!m.mine ? <Text style={[S.label, { marginLeft: 4 }]}>{who(m.name)}</Text> : null}
           <View
             style={{
-              backgroundColor: m.mine ? C.emerald : "#EEF1EF",
+              backgroundColor: m.mine ? C.emerald : m.party === "admin" ? "#FFF8E1" : "#EEF1EF",
+              borderWidth: m.party === "admin" && !m.mine ? 1 : 0,
+              borderColor: "#F6D77A",
               borderRadius: 18,
               borderBottomRightRadius: m.mine ? 4 : 18,
               borderBottomLeftRadius: m.mine ? 18 : 4,
@@ -421,26 +495,65 @@ function Chat({ bookingId, demo }: { bookingId: string; demo?: ChatMessage[] }) 
               paddingVertical: 9,
             }}
           >
-            <Text style={{ fontSize: 15, lineHeight: 20, color: m.mine ? "#fff" : C.text }}>{m.text}</Text>
+            <Text style={{ fontSize: 15, lineHeight: 20, color: m.mine ? "#fff" : C.text }}>{shown(m.text)}</Text>
           </View>
         </View>
       ))}
-      <View style={{ flexDirection: "row", gap: 8, alignItems: "flex-end", marginTop: 4 }}>
-        <TextInput
-          accessibilityLabel={t("Mensaje", "Message")}
-          value={text}
-          onChangeText={setText}
-          placeholder={t("Escriba un mensaje", "Write a message")}
-          placeholderTextColor={C.faint}
-          multiline
-          maxLength={2000}
-          style={[S.input, { flex: 1, borderRadius: 22, minHeight: 46 }]}
-        />
-        <View style={{ width: 52 }}>
-          <Btn label="" icon="send" onPress={() => void send()} busy={busy} disabled={!text.trim()} color={C.emerald} />
+      {notice ? (
+        <View accessibilityRole="alert" style={{ flexDirection: "row", gap: 8, backgroundColor: C.amberSoft, borderRadius: R.control, padding: 10 }}>
+          <Ionicons name="shield-checkmark" size={18} color={C.amber} />
+          <Text style={{ flex: 1, color: C.amber, fontWeight: "700", fontSize: 13.5 }}>{notice}</Text>
         </View>
-      </View>
+      ) : null}
+      {open ? (
+        <>
+          <View style={{ flexDirection: "row", gap: 8, alignItems: "flex-end", marginTop: 4 }}>
+            <TextInput
+              accessibilityLabel={t("Mensaje", "Message")}
+              value={text}
+              onChangeText={setText}
+              placeholder={t("Escriba un mensaje", "Write a message")}
+              placeholderTextColor={C.faint}
+              multiline
+              maxLength={2000}
+              style={[S.input, { flex: 1, borderRadius: 22, minHeight: 46 }]}
+            />
+            <View style={{ width: 52 }}>
+              <Btn label="" icon="send" onPress={() => void send()} busy={busy} disabled={!text.trim()} color={C.emerald} />
+            </View>
+          </View>
+          {hasContactDetails(text) ? (
+            <Text style={{ color: C.amber, fontSize: 12.5, fontWeight: "700" }}>
+              {t("Los teléfonos, correos y enlaces se ocultarán al enviar.", "Phone numbers, emails and links will be hidden when you send.")}
+            </Text>
+          ) : null}
+        </>
+      ) : (
+        <IconLine icon="lock-closed-outline" text={closedNote} />
+      )}
       {error ? <Text style={S.error}>{error}</Text> : null}
+      {support ? (
+        <View style={{ flexDirection: "row", gap: 8 }}>
+          <View style={{ flex: 1 }}>
+            <ContactRow phone={support} compact />
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t("Escribir a nuestro equipo por WhatsApp", "WhatsApp our team")}
+            onPress={() =>
+              void Linking.openURL(
+                "https://wa.me/" +
+                  support +
+                  "?text=" +
+                  encodeURIComponent(t("¡Hola! Soy conductor socio, sobre el viaje " + bookingRef + ".", "Hi! I'm a partner driver, about trip " + bookingRef + ".")),
+              )
+            }
+            style={({ pressed }) => ({ width: 52, minHeight: 46, borderRadius: R.control, borderWidth: 1.5, borderColor: C.border, alignItems: "center", justifyContent: "center", backgroundColor: pressed ? C.emeraldTint : C.card })}
+          >
+            <Ionicons name="logo-whatsapp" size={22} color="#128C7E" />
+          </Pressable>
+        </View>
+      ) : null}
     </Card>
   );
 }

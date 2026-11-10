@@ -268,8 +268,10 @@ Legal pages (`/terms`, `/privacy`, `/cancellation`) are linked from every footer
    INS commercial insurance, Dekra (RTV) inspection; **30-day expiry warnings**;
    Approve / Reject / Suspend.
 5. **Live GPS fleet map** (Phase 3) — on-duty drivers on a Leaflet map.
-6. **Tri-party chat oversight** (Phase 4) — client ↔ driver ↔ admin per booking, with the option
-   to bridge to WhatsApp.
+6. **Trip chat oversight** — every traveller ↔ driver thread is readable (and writable) on the
+   booking page; **"Mensajes marcados" / Flagged messages** (`/admin/flagged`) lists every message
+   or booking note where contact details were hidden, with the original text (admins only), a
+   "N times" mark for repeat senders and "Mark reviewed". See §4.5.
 
 ### 4.3 Driver portal (`/driver`, driver role)
 KYC document upload, view open booking requests, submit and manage bids, assigned trips,
@@ -280,6 +282,43 @@ Today travellers don't need an account: each trip request gets a private trip pa
 (`/trip/<code>`, linked in the confirmation email) with bookings, status, driver and chat.
 `/account` is planned for repeat travellers; `src/proxy.ts` already keeps its session fresh.
 Bookings, payment status and balance due, trip chat (Phase 4).
+
+### 4.5 Trip chat and contact privacy (Jorge, 2026-11-10)
+- **Drivers never see the traveller's phone or email.** Not on the driver portal, the driver app,
+  `/api/v1`, pushes or emails to drivers (the driver trip page used to show the phone from the day
+  before; removed). Drivers see the traveller's first name and talk to them in the trip chat, or call
+  our team. Admins keep full access. Booking fields the assigned driver can read
+  (`client_notes`, `flight_or_hotel_notes`, `driver_notes`) have contact details hidden on every
+  write (trigger `bookings_guard_notes`, migration 0034), the original kept for admins.
+- **One chat per booking** between the traveller and the currently assigned driver; our team reads
+  every thread and can write. Before a driver is assigned the traveller can already write (our team
+  answers). Open until **48 hours after the trip ends** (`completed_at`, or the pickup + 12 h, or +
+  the expedition's days, `src/lib/chatRules.ts`), then read-only for travellers and drivers; closed
+  at once if the booking is cancelled. Text only.
+- Shown in three places: the customer app (trip → Chat), the private trip page `/trip/<code>` (in
+  the trip's language) and the driver app / driver portal trip page. New messages are checked every
+  8–10 s while the chat is open (polling; travellers on the web have no account, so Supabase
+  Realtime isn't used). Unread badges: customer app (trip → Chat, `unreadChat` in
+  `/api/v1/client/trips`) and driver app trip cards (`my_chat_unread()`).
+- **Hide and flag:** the server replaces phone numbers (also spaced, dotted or written "ocho ocho…"),
+  emails (also "juan at gmail dot com"), links / domains and @handles or WhatsApp / Instagram /
+  Telegram / Facebook mentions with a handle or number by "[hidden]" ("[oculto]" for Spanish
+  readers) before storing (`src/lib/contactFilter.ts`, cases in `npm run test:filter`); the sender
+  sees "For your safety, contact details are hidden. Use this chat or call our team." The original
+  goes to `contact_flags` (admins only). The database applies a simpler copy as a backstop
+  (`hide_contact_details()`). Nobody can insert into `trip_chats` directly: every message goes
+  through the server (`sendChat()` / `POST /api/v1/chat/<booking>`). Our team's own messages are
+  not filtered.
+- **Notifications:** each new message pushes the other side in their language: travellers in
+  `trips.language`, drivers in Spanish unless they use the app or portal in English
+  (`profiles.app_lang`, saved when they open a chat). Travellers without the customer app get **one
+  email** once messages have stayed unread 10 minutes (then nothing more until they read), linking to
+  their trip page (`src/lib/chatEmails.ts`, `/api/cron/chat-unread`, run every 5 minutes by the
+  "Driver ETA check" GitHub Action). Drivers get an email only if no push reached a phone; the team
+  is emailed as before.
+- **"Call our team" / "Llamar a nuestro equipo"** (phone + WhatsApp, `NEXT_PUBLIC_WHATSAPP_NUMBER`)
+  under every chat and on the driver app trip screen. Later PRs: masked "Llamar al cliente" calling
+  (Twilio; the contact row is ready for it) and optional translation.
 
 ---
 
@@ -487,7 +526,15 @@ only) · `cash_fee` numeric(10,2) (cash booking fee snapshot, 0 unless `cash_dri
 
 ### 7.5 `trip_chats`
 `id` uuid PK · `booking_id` → `bookings.id` · `sender_id` → `profiles.id` · `sender_role`
-(`client` | `driver` | `admin`) · `message` text · `sent_at`
+(`client` | `driver` | `admin`) · `message` text (contact details from travellers and drivers
+already hidden) · `flagged` bool (something was hidden; migration 0034) · `sent_at`
+
+**`contact_flags`** (migration 0034, admins only): `id` · `booking_id` · `chat_id` (null for
+booking notes) · `source` (`chat` | `booking_notes`) · `field` (`client_notes` |
+`flight_or_hotel_notes` | `driver_notes`) · `sender_role` · `sender_id` · `original` text · `shown`
+text · `kinds` text[] (`phone`, `email`, `link`, `handle`) · `created_at` · `reviewed_at` ·
+`reviewed_by`. `profiles.app_lang` (`es` | `en`, migration 0034): the language a driver last used,
+for their pushes.
 
 ### 7.6 Catalog & pricing tables (new — needed for the admin pricing manager)
 Implemented in `supabase/migrations/`. Catalog ids are short text slugs (`suv`, `tarcoles`)
@@ -538,8 +585,11 @@ and `season_for_date(date)` returns the season for a travel date.
   the private trip-page code live in **`trips`**, readable only by admins and the server.
   `trips.language` (`en` | `es`, default `en`) is the language the request was sent in; the
   traveller's emails, push notifications and trip page follow it.
-- **trip_chats:** per booking; readable and writable only by the booking's client, assigned
-  driver and admins. Travellers post through the server after it checks their trip code; drivers and travellers can't send phone numbers, emails or links. `chat_reads`,
+- **trip_chats:** per booking; readable only by the booking's client, its currently assigned
+  driver and admins. **Nobody writes directly** (travellers, drivers and admins alike, migration
+  0034): the server posts every message through `post_chat_message()` after hiding contact details.
+  **contact_flags:** admins read and mark reviewed; only the server writes. **Drivers never get the
+  traveller's phone or email** (§4.5). `chat_reads`,
   `request_log` and the rate-limit functions are server-only. Approved drivers see **open** requests (`pending_bids`) only through the
   `open_trip_requests()` function: towns, date, vehicle, passengers and price, without the client's id,
   exact coordinates or flight/hotel notes, until a bid is accepted.
@@ -561,7 +611,7 @@ and `season_for_date(date)` returns the season for a travel date.
 | **2c. Driver KYC vault** | Driver sign-up, document upload, admin approval, 30-day expiry alerts | **Built (PRs #12–#14): `/driver` portal with several vehicles, `/admin/drivers` vault** |
 | **2d. Checkout** | Part 1: trip requests saved online (server re-prices every item, guest name/email/WhatsApp, booking refs) + `/admin/bookings` dispatch (status, driver + vehicle, amount received, internal notes). Part 2: Green Pay (online in full; cash to the driver + 10% fee is built, 2026-11-08), webhooks, confirmation emails | **Part 1 built (PR #15)**; payment options built; Green Pay needs credentials |
 | **3. Job board & GPS** | Driver job board with fixed payouts (replaces public bidding); driver on-duty GPS broadcast to admin Leaflet map | **Job board built 2026-11-09** (`/driver/jobs`, migration 0017): the team posts a booking as "Open for drivers", drivers send offers (suggested payout or 70–130% of it), the team accepts one on the booking page, where offers are ranked (same-day return trip first, then the driver's rating — travellers are emailed to rate 1–5 stars from their trip page when a trip is marked completed, a comment counts double, `driver_reviews` + `drivers.rating_avg/rating_count`, migration 0019 — then drivers based near the pickup — `drivers.home_hub`, migration 0018 — then price, then fewer trips; `src/lib/matching.ts`) and refresh live; drivers never see the client's price. Drivers see "Return trip" / "Starts in your area" badges on the job board. Rides sent in "Driver bids" mode with an offer of 70%+ of the fixed price go to the board automatically; approved drivers are emailed each new job (`src/lib/jobAlerts.ts`) and the traveller is emailed when an offer is accepted. Drivers mark their own trips **Start trip** / **Complete trip** on the trip page (`driver_set_trip_status()`, migration 0024; from 3 h before pickup), and completing one asks the traveller for a rating at once (`src/lib/reviewRequest.ts`). Settlements (migration 0025): `/admin/payouts` lists completed, unsettled trips per driver (online: pay the payout; cash: the driver collected price + fee and owes the difference) with "Mark settled" (`bookings.driver_settled_at`); drivers see `/driver/earnings` and, on cash trips, how much to collect (`my_trips().cash_to_collect`, the one case where a driver sees the client's price). Push notifications come with the driver app (Phase 5); email today. GPS planned |
-| **4. Chat & CRM** | Tri-party trip chat (traveller via private trip link, assigned driver, team) with Resend email notifications; HubSpot sync; SMS / WhatsApp Business API | **Chat built (PR #17)**, polling every 8 s; HubSpot and SMS planned |
+| **4. Chat & CRM** | Tri-party trip chat (traveller via private trip link, assigned driver, team) with Resend email notifications; HubSpot sync; SMS / WhatsApp Business API | **Chat built (PR #17)**, polling every 8 s; **privacy round 2026-11-10** (§4.5): traveller ↔ driver with the team reading, contact details hidden and flagged, pushes, batched unread email, read-only 48 h after the trip; HubSpot and SMS planned |
 | **5. Mobile apps** | Driver app (GPS, push notifications, camera) first, then Client app, for App Store / Google Play; plan in §11 | **Required before launch (Jorge, 2026-11-09).** Groundwork started: `device_tokens` + Expo push sender (migration 0026, `src/lib/push.ts`), pushes for new jobs and accepted offers. Driver flows already exist as database functions the app can call directly (`driver_jobs`, `my_trips`, `offer_job`, `driver_set_trip_status`, `register_device`). `/api/v1` (2026-11-09) covers what the server must do for the apps: driver offers, withdraw, trip start/complete and trip chat, each calling the same server action as the website; the apps send their Supabase session as a bearer token (`bearerToken()` in `src/lib/supabase/server.ts`). **Driver app first version built 2026-11-09 in `apps/driver/`** (Expo SDK 58, its own project, ignored by Vercel; see its README): email-code sign-in, jobs and offers, trips with start/complete, navigation and chat, earnings, profile, push. **Location sharing built 2026-11-09 (migration 0028):** with the driver's consent in the app (`drivers.location_consent_at`), the phone reports its position from 3 h before a pickup until the trip is completed, in the background too; `report_location()` refuses anything outside that window, only the latest position is kept (`driver_locations`), the team follows trips at `/admin/live`, and the travellers on that booking see it on their trip page and in their app (Jorge, 2026-11-09; the driver's consent text says so). **Driver steps and lateness (migration 0029):** "I'm on my way" (`bookings.en_route_at`, from 6 h before pickup; opens the tracking window and emails the traveller) → "Client picked up" → "Trip ended" (erases the position, closes the window). Before the pickup the app asks `/api/v1/driver/eta` every 5 minutes; the server estimates arrival from its stored position with Google live traffic (`src/lib/eta.ts`, every 5 min in the last hour, 10 before), shows it on `/admin/live`, and emails the team once if the driver would be more than 20 minutes late (`bookings.late_alert_at`). A GitHub Action (`eta-check.yml`, every 5 minutes, `CRON_SECRET`) runs the same check for every upcoming pickup via `/api/cron/eta`, so a driver who is parked, offline or never opened the app is still caught; with no position at all 60 minutes before pickup the team gets a "no driver location" alert. **Documents in the app (2026-11-09):** details, document photos by camera, vehicles, vehicle documents and photos, renewals (`apps/driver/src/screens/Documents.tsx`; routes `/api/v1/driver/details|profile|vehicles|vehicles/save|documents`). A new driver can do everything from the phone: the first sign-in creates the account, `/api/v1/driver/apply` starts the application, and documents can be photos or PDFs. **Calendar and help (migration 0032):** drivers block days in a calendar (`driver_unavailable`, `set_unavailable()`): no jobs shown, no offers, no job alerts that day, and the team sees "unavailable that day" when assigning; a Help screen has driver FAQs and support by WhatsApp and email (`/api/v1/support`). **Driver app layout (2026-11-10, Jorge approved the mockup):** the bottom tabs became a side menu (☰, `apps/driver/src/nav.tsx`, plain React Native Modal + Animated, no navigation library): profile card (name, "Independent driver" or the application status, ★ rating), Upcoming trips (the home screen), Offers (gold count of open jobs), Availability (the calendar), Earnings, Documents, My account, then Help, the language switch and Sign out. Trips are cards with a big date block, vehicle class, small icons (airport, stops, child seat; gold = needs attention: Drake Bay boat, Gulf of Nicoya ferry, cash to collect), the route, a countdown and the driver's payout; Upcoming / Today / Past views. The trip screen shows the route with each stop's time there, the travellers' requests, "You receive", Waze and a WhatsApp button to our team (never to the client), and the next step. First build installed on Jorge's Android phone 2026-11-09 (sign-in screen reached). During development the apps are private test builds under La Familia Mágica's store accounts; they are published publicly only under the new Costa Rica Private Transfers company. **Traveller app first version built 2026-11-09 in `apps/client/`** ("CR Transfers", `com.costaricaprivatetransfers.app`): no account needed (Jorge, 2026-11-09): the app opens on "Plan a trip" with prices for anyone; sending a request asks for name, WhatsApp and email and confirms the email with a 6-digit code (Supabase email OTP, which signs them in), and "Already booked?" in My trips / Account uses the same code to see trips on another phone; trips found by the booking email (`GET /api/v1/client/trips`, `src/lib/travellerTrips.ts`), driver and car, chat and rating with the trip's private code, "Plan a trip" opens the website, pushes for confirmed / on the way / rate (`sendPushToEmail`). Booking in the app (2026-11-09): rides (place search, vehicle, stops) and day tours priced by the server (`src/lib/appQuote.ts`, `/api/v1/client/quote|tours`), sent through `/api/v1/client/trip-request`; the app offers the same ride options as the website (fixed price or "Driver bids" with an offer, driver's language, child seats, Wi-Fi, stroller, pet, message for the driver, "from $X per person", the ride promises, and the tours' region filter and Smart En-Route Transfer), with a **test checkout** (`/api/v1/client/pay-test`, `payments.provider = 'test'`, migration 0030) that switches itself off when the site is made indexable for launch. Travellers see the driver's position and arrival estimate for their own booking while the driver is sharing it (app and trip page). **Traveller app v2 (2026-11-10, Jorge approved an Airbnb-style look and a proper navigation rebuild):** React Navigation native stacks with bottom tabs Explore / My trips / Account (native slide transitions, iPhone swipe-back, slide-up panels for place search, pickup time, tour date, the email code and the rating); a new Explore home ("Where to?", popular rides with "from $X" priced by the same quote API and cached on the phone for 12 h, day tours, the four true promises, "Your next trip"); booking as five steps (Where → When & who → Your ride → Make it yours → Review & send) sharing one booking store so going back keeps every choice and the price is only re-asked when route, date, travellers or stops change; Plus Jakarta Sans throughout; the "CR route" logo and new app icons; an image system (`apps/client/src/images.ts`) with designed placeholders until our own photos are added. Same API calls and payloads as v1. Not yet: real card payments, in-app account deletion. Store accounts (§11.6) are the long pole |
 
 ---

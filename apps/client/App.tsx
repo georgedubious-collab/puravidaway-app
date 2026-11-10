@@ -13,7 +13,7 @@ import { useEffect, useState } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { BookingProvider } from "./src/booking";
 import { LangProvider } from "./src/i18n";
-import { navigationRef, openTrip } from "./src/nav";
+import { navigationRef, openChat, openTrip } from "./src/nav";
 import { RootNavigator, navTheme } from "./src/Navigator";
 import { Preview } from "./src/preview";
 import { SessionProvider, useSession } from "./src/session";
@@ -85,6 +85,10 @@ function NotificationTaps() {
       if (data?.screen === "trip" && data.id) {
         void reload();
         openTrip(data.id);
+      }
+      if (data?.screen === "chat" && data.id) {
+        void reload();
+        openChat(data.id);
       }
     });
     return () => sub.remove();

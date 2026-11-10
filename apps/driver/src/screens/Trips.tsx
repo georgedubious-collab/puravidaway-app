@@ -267,6 +267,15 @@ function TripCard({ trip, names, lang, next, onPress }: { trip: Trip; names: Nam
           <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 5 }}>
             {vehicle ? <InfoChip icon="car-outline" text={vehicle} /> : null}
             <TripIcons trip={trip} />
+            {trip.unread_chat ? (
+              <View
+                accessibilityLabel={t(trip.unread_chat + " mensajes sin leer", trip.unread_chat + " unread messages")}
+                style={{ flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: GOLD, borderRadius: R.pill, paddingHorizontal: 8, paddingVertical: 3 }}
+              >
+                <Ionicons name="chatbubble" size={11} color={GOLD_INK} />
+                <Text style={{ fontSize: 11, fontWeight: "800", color: GOLD_INK }}>{trip.unread_chat}</Text>
+              </View>
+            ) : null}
             {next ? (
               <View
                 style={{ backgroundColor: trip.status === "in_progress" ? C.emerald : GOLD, borderRadius: R.pill, paddingHorizontal: 9, paddingVertical: 3 }}
