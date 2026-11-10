@@ -1,3 +1,5 @@
+import type { Lang } from "./i18n";
+
 /** What GET /api/v1/client/trips returns (see src/lib/travellerTrips.ts on the website). */
 export interface AppBooking {
   id: string;
@@ -35,11 +37,21 @@ export interface ChatMessage {
 }
 
 /** What travellers see for each booking status. */
-export const TRAVELLER_STATUS: Record<string, string> = {
-  pending_payment: "Request received · we're confirming availability",
-  pending_bids: "Finding your driver",
-  confirmed: "Confirmed",
-  in_progress: "On the road",
-  completed: "Completed",
-  cancelled: "Cancelled",
+export const TRAVELLER_STATUS: Record<Lang, Record<string, string>> = {
+  en: {
+    pending_payment: "Request received · we're confirming availability",
+    pending_bids: "Finding your driver",
+    confirmed: "Confirmed",
+    in_progress: "On the road",
+    completed: "Completed",
+    cancelled: "Cancelled",
+  },
+  es: {
+    pending_payment: "Solicitud recibida · estamos confirmando la disponibilidad",
+    pending_bids: "Buscando su conductor",
+    confirmed: "Confirmado",
+    in_progress: "En ruta",
+    completed: "Completado",
+    cancelled: "Cancelado",
+  },
 };

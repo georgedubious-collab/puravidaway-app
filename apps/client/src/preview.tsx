@@ -7,6 +7,7 @@ import { Checkout } from "./screens/Checkout";
 import { SignIn } from "./screens/SignIn";
 import { TripDetail } from "./screens/TripDetail";
 import { Trips } from "./screens/Trips";
+import { LangProvider, useT } from "./i18n";
 import { C } from "./theme";
 import type { AppBooking, AppTrip, ChatMessage } from "./types";
 
@@ -14,7 +15,8 @@ import type { AppBooking, AppTrip, ChatMessage } from "./types";
  * Design previews: every screen with made-up data, no sign-in and no network.
  * Only used when the app is started with EXPO_PUBLIC_PREVIEW=1 in a browser
  * (`?s=trips`, `empty`, `trip`, `trip2`, `rate`, `book`, `date`, `tours`,
- * `send`, `checkout`, `account`, `signin`). Never part of a phone build's flow.
+ * `send`, `checkout`, `account`, `signin`); add `&lang=es` for Spanish. Never
+ * part of a phone build's flow.
  */
 const H = 3600 * 1000;
 const at = (hoursFromNow: number) => new Date(Date.now() + hoursFromNow * H).toISOString();
@@ -85,7 +87,16 @@ const tours: Tour[] = [
 const chosen: Chosen = { title: "SJO Airport / San José → La Fortuna / Arenal", detail: "Comfort SUV, 2 travellers + 1 stop · pickup 9:00 AM", date: "2026-12-15", totalCents: 20200, cashFeeBps: 500, spec: {} };
 
 export function Preview() {
-  const s = new URLSearchParams(globalThis.location?.search ?? "").get("s") ?? "trips";
+  const params = new URLSearchParams(globalThis.location?.search ?? "");
+  return (
+    <LangProvider initial={params.get("lang") === "es" ? "es" : "en"}>
+      <PreviewScreen s={params.get("s") ?? "trips"} />
+    </LangProvider>
+  );
+}
+
+function PreviewScreen({ s }: { s: string }) {
+  const { t } = useT();
   if (s === "signin") {
     return (
       <SafeAreaProvider>
@@ -117,7 +128,7 @@ export function Preview() {
           ) : s === "tours" ? (
             <Book email="sarah@example.com" onBooked={noop} demo={{ kind: "tour", tours }} />
           ) : s === "send" ? (
-            <Book email="sarah@example.com" onBooked={noop} demo={{ chosen }} />
+            <Book email="sarah@example.com" onBooked={noop} demo={{ chosen: { ...chosen, detail: t(chosen.detail, "Comfort SUV, 2 viajeros + 1 parada · recogida 9:00 AM") } }} />
           ) : s === "checkout" ? (
             <Checkout tripToken="demo" payOnline totalCents={20200} testCheckout onDone={noop} />
           ) : s === "account" ? (

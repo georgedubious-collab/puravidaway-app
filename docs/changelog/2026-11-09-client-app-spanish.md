@@ -1,0 +1,1 @@
+- 2026-11-09 — Claude — Traveller app in Spanish: English stays the default, and a Costa Rica flag button (top right of every screen and on sign-in, plus a "Language / Idioma" row in Account) switches the whole app to Spanish and back; the choice is remembered on the phone. Server-sent texts (vehicle, tour and stop names, error messages) stay in English for now.

@@ -1,18 +1,26 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
+import { useT, type Lang } from "./i18n";
 import { C, R, S } from "./theme";
 
-const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const MONTHS = {
+  en: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
+  es: ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"],
+};
+const WEEKDAYS = { en: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], es: ["lun", "mar", "mié", "jue", "vie", "sáb", "dom"] };
+const DAYS = {
+  en: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+  es: ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"],
+};
 const ymd = (y: number, m: number, d: number) => y + "-" + String(m + 1).padStart(2, "0") + "-" + String(d).padStart(2, "0");
 
-/** "Tuesday, 15 December 2026" for a YYYY-MM-DD day. */
-export function longDate(day: string): string {
+/** "Tuesday, 15 December 2026" ("martes, 15 de diciembre de 2026") for a YYYY-MM-DD day. */
+export function longDate(day: string, lang: Lang = "en"): string {
   const d = new Date(day + "T00:00:00Z");
   if (Number.isNaN(d.getTime())) return day;
-  return DAYS[d.getUTCDay()] + ", " + d.getUTCDate() + " " + MONTHS[d.getUTCMonth()] + " " + d.getUTCFullYear();
+  if (lang === "es") return DAYS.es[d.getUTCDay()] + ", " + d.getUTCDate() + " de " + MONTHS.es[d.getUTCMonth()] + " de " + d.getUTCFullYear();
+  return DAYS.en[d.getUTCDay()] + ", " + d.getUTCDate() + " " + MONTHS.en[d.getUTCMonth()] + " " + d.getUTCFullYear();
 }
 
 /**
@@ -20,6 +28,7 @@ export function longDate(day: string): string {
  * and `min` are YYYY-MM-DD; days before `min` can't be chosen.
  */
 export function DatePicker({ label, value, min, onChange, startOpen }: { label: string; value: string; min: string; onChange: (day: string) => void; startOpen?: boolean }) {
+  const { lang, t } = useT();
   const [open, setOpen] = useState(Boolean(startOpen));
   const [year, setYear] = useState(Number(value.slice(0, 4)));
   const [month, setMonth] = useState(Number(value.slice(5, 7)) - 1);
@@ -41,26 +50,26 @@ export function DatePicker({ label, value, min, onChange, startOpen }: { label: 
       <Text style={S.label}>{label}</Text>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={label + ": " + longDate(value)}
+        accessibilityLabel={label + ": " + longDate(value, lang)}
         accessibilityState={{ expanded: open }}
         onPress={() => setOpen((o) => !o)}
         style={({ pressed }) => [S.input, { flexDirection: "row", alignItems: "center", gap: 10, borderColor: open ? C.emerald : C.border, opacity: pressed ? 0.7 : 1 }]}
       >
         <Ionicons name="calendar-outline" size={20} color={C.emerald} />
-        <Text style={{ flex: 1, fontSize: 16, fontWeight: "700", color: C.text }}>{longDate(value)}</Text>
+        <Text style={{ flex: 1, fontSize: 16, fontWeight: "700", color: C.text }}>{longDate(value, lang)}</Text>
         <Ionicons name={open ? "chevron-up" : "chevron-down"} size={18} color={C.faint} />
       </Pressable>
       {open ? (
         <View style={{ borderWidth: 1.5, borderColor: C.border, borderRadius: R.control, padding: 10, gap: 4 }}>
           <View style={S.row}>
-            <Arrow icon="chevron-back" label="Previous month" onPress={() => move(-1)} hidden={!canGoBack} />
+            <Arrow icon="chevron-back" label={t("Previous month", "Mes anterior")} onPress={() => move(-1)} hidden={!canGoBack} />
             <Text style={S.h2}>
-              {MONTHS[month]} {year}
+              {lang === "es" ? MONTHS.es[month].charAt(0).toUpperCase() + MONTHS.es[month].slice(1) : MONTHS.en[month]} {year}
             </Text>
-            <Arrow icon="chevron-forward" label="Next month" onPress={() => move(1)} />
+            <Arrow icon="chevron-forward" label={t("Next month", "Mes siguiente")} onPress={() => move(1)} />
           </View>
           <View style={{ flexDirection: "row" }}>
-            {WEEKDAYS.map((w) => (
+            {WEEKDAYS[lang].map((w) => (
               <Text key={w} style={[S.label, { flex: 1, textAlign: "center", letterSpacing: 0 }]}>
                 {w}
               </Text>
@@ -77,7 +86,7 @@ export function DatePicker({ label, value, min, onChange, startOpen }: { label: 
                   <Pressable
                     key={i}
                     accessibilityRole="button"
-                    accessibilityLabel={longDate(day)}
+                    accessibilityLabel={longDate(day, lang)}
                     accessibilityState={{ selected: on, disabled: off }}
                     disabled={off}
                     onPress={() => {

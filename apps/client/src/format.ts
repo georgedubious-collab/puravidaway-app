@@ -1,3 +1,5 @@
+import type { Lang } from "./i18n";
+
 /** Our towns, as on the website (ids come from the database). */
 export const TOWNS: Record<string, string> = {
   SJO: "SJO Airport / San José",
@@ -18,18 +20,21 @@ export function usd(n: number | string | null | undefined): string {
   return "$" + v.toLocaleString("en-US", { minimumFractionDigits: v % 1 === 0 ? 0 : 2, maximumFractionDigits: 2 });
 }
 
-const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const DAYS = { en: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"], es: ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"] };
+const MONTHS = {
+  en: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+  es: ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"],
+};
 const CR_OFFSET_MS = 6 * 3600 * 1000;
 
-/** "Wed 2 Dec · 2:00 PM" in Costa Rica time (UTC−6 all year, no daylight saving). */
-export function crDateTime(iso: string | null | undefined): string {
-  if (!iso) return "Time to confirm";
+/** "Wed 2 Dec · 2:00 PM" ("mié 2 dic · 2:00 PM") in Costa Rica time (UTC−6 all year, no daylight saving). */
+export function crDateTime(iso: string | null | undefined, lang: Lang = "en"): string {
+  if (!iso) return lang === "es" ? "Hora por confirmar" : "Time to confirm";
   const d = new Date(new Date(iso).getTime() - CR_OFFSET_MS);
   const h = d.getUTCHours();
   const m = String(d.getUTCMinutes()).padStart(2, "0");
   const hour = h % 12 === 0 ? 12 : h % 12;
-  return DAYS[d.getUTCDay()] + " " + d.getUTCDate() + " " + MONTHS[d.getUTCMonth()] + " · " + hour + ":" + m + " " + (h < 12 ? "AM" : "PM");
+  return DAYS[lang][d.getUTCDay()] + " " + d.getUTCDate() + " " + MONTHS[lang][d.getUTCMonth()] + " · " + hour + ":" + m + " " + (h < 12 ? "AM" : "PM");
 }
 
 export const STATUS_LABEL: Record<string, string> = {
@@ -41,4 +46,18 @@ export const STATUS_LABEL: Record<string, string> = {
   cancelled: "Cancelled",
 };
 
-export const plural = (n: number, word: string) => n + " " + word + (n === 1 ? "" : "s");
+/** Spanish singular / plural for the words the app counts. */
+const ES_WORDS: Record<string, [string, string]> = {
+  traveller: ["viajero", "viajeros"],
+  stop: ["parada", "paradas"],
+  star: ["estrella", "estrellas"],
+  seat: ["asiento", "asientos"],
+  hour: ["hora", "horas"],
+};
+
+/** "1 traveller / 3 travellers", or "1 viajero / 3 viajeros" in Spanish. */
+export function plural(n: number, word: string, lang: Lang = "en"): string {
+  const es = lang === "es" ? ES_WORDS[word] : undefined;
+  if (es) return n + " " + (n === 1 ? es[0] : es[1]);
+  return n + " " + word + (n === 1 ? "" : "s");
+}
