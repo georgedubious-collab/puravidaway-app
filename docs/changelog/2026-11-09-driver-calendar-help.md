@@ -1,0 +1,1 @@
+- 2026-11-09 — Claude — Driver app: availability calendar (migration 0032; blocked days hide jobs, refuse offers, skip job alerts and warn the team when assigning) and a Help screen with driver FAQs and support by WhatsApp and email (`/api/v1/support`, `DRIVER_SUPPORT_EMAIL`).

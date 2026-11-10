@@ -7,7 +7,9 @@ import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { registerForPush, unregisterPush } from "./src/push";
 import { LocationCard } from "./src/screens/LocationCard";
 import { stopTracking, syncTracking, type TrackingState } from "./src/tracking";
+import { Calendar } from "./src/screens/Calendar";
 import { Documents } from "./src/screens/Documents";
+import { Help } from "./src/screens/Help";
 import { Earnings } from "./src/screens/Earnings";
 import { Jobs } from "./src/screens/Jobs";
 import { Profile } from "./src/screens/Profile";
@@ -18,10 +20,11 @@ import { supabase } from "./src/supabase";
 import { C } from "./src/theme";
 import type { DriverInfo, Names, Trip, Vehicle } from "./src/types";
 
-type Tab = "jobs" | "trips" | "earnings" | "profile";
+type Tab = "jobs" | "trips" | "calendar" | "earnings" | "profile";
 const TABS: { id: Tab; label: string }[] = [
   { id: "jobs", label: "Jobs" },
   { id: "trips", label: "Trips" },
+  { id: "calendar", label: "Calendar" },
   { id: "earnings", label: "Earnings" },
   { id: "profile", label: "Profile" },
 ];
@@ -66,6 +69,7 @@ function Home({ session }: { session: Session }) {
   const [loading, setLoading] = useState(false);
   const [tracking, setTracking] = useState<TrackingState | null>(null);
   const [docsOpen, setDocsOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const askedToApply = useRef(false);
   const userId = session.user.id;
 
@@ -160,8 +164,12 @@ function Home({ session }: { session: Session }) {
             onOpen={setTripId}
             header={driver && !driver.location_consent_at ? <LocationCard consented={false} state={tracking} onChanged={loadDriver} /> : undefined}
           />
+        ) : tab === "calendar" ? (
+          <Calendar trips={trips} />
         ) : tab === "earnings" ? (
           <Earnings trips={trips} names={names} loading={loading} onRefresh={loadTrips} />
+        ) : helpOpen ? (
+          <Help onBack={() => setHelpOpen(false)} />
         ) : docsOpen ? (
           <Documents
             userId={userId}
@@ -175,6 +183,7 @@ function Home({ session }: { session: Session }) {
           <Profile
             email={session.user.email ?? ""}
             onDocuments={() => setDocsOpen(true)}
+            onHelp={() => setHelpOpen(true)}
             driver={driver}
             vehicles={vehicles}
             onSignOut={signOut}
@@ -192,12 +201,14 @@ function Home({ session }: { session: Session }) {
               onPress={() => {
                 setTab(t.id);
                 setDocsOpen(false);
+                setHelpOpen(false);
                 if (t.id !== "trips") setTripId(null);
+                if (t.id === "calendar") void loadTrips();
                 if (t.id === "trips" || t.id === "earnings") void loadTrips();
               }}
               style={{ flex: 1, minHeight: 52, alignItems: "center", justifyContent: "center" }}
             >
-              <Text style={{ fontWeight: "800", fontSize: 13, color: tab === t.id ? C.emerald : C.muted }}>{t.label}</Text>
+              <Text style={{ fontWeight: "800", fontSize: 12, color: tab === t.id ? C.emerald : C.muted }}>{t.label}</Text>
             </Pressable>
           ))}
         </View>
