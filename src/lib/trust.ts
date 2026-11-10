@@ -110,9 +110,31 @@ export const RIDE_PROMISES: RidePromise[] = [
   },
 ];
 
+/** Spanish version of RIDE_PROMISES for /es (same promises, same order; keep in sync). */
+export const RIDE_PROMISES_ES: RidePromise[] = [
+  {
+    title: "Seguimiento de vuelo",
+    text: "En las recogidas en aeropuerto seguimos su vuelo, para que un retraso no lo deje sin transporte.",
+    airportOnly: true,
+  },
+  {
+    title: "60 min de espera gratis",
+    text: "Su conductor espera hasta 60 minutos después de que aterrice su vuelo, o después de su hora de recogida.",
+  },
+  {
+    title: "Sillas para niños gratis a solicitud",
+    text: "Indíquenos cuántas necesita y las edades de los niños al reservar.",
+  },
+  {
+    title: "Cancelación gratis hasta 24 h antes",
+    text: "Cancele sin costo hasta 24 horas antes de la recogida.",
+    href: "/es/cancelacion",
+  },
+];
+
 /** Promises for a ride from this pickup (flight tracking only at airports). */
-export function ridePromises(pickupIsAirport: boolean): RidePromise[] {
-  return RIDE_PROMISES.filter((p) => !p.airportOnly || pickupIsAirport);
+export function ridePromises(pickupIsAirport: boolean, lang: "en" | "es" = "en"): RidePromise[] {
+  return (lang === "es" ? RIDE_PROMISES_ES : RIDE_PROMISES).filter((p) => !p.airportOnly || pickupIsAirport);
 }
 
 export interface Guarantee {
@@ -132,7 +154,33 @@ export interface Guarantee {
  *   booking fee from the database (pricing_settings, edited at /admin/pricing).
  *   Online payment isn't live yet, so never "pay now".
  */
-export function guarantees(cashFeeBps: number): Guarantee[] {
+export function guarantees(cashFeeBps: number, lang: "en" | "es" = "en"): Guarantee[] {
+  // Spanish for /es: the same five promises, in the same order (keep in sync).
+  if (lang === "es") {
+    return [
+      {
+        title: "Precio confirmado antes de pagar",
+        text: "Sin tarifas dinámicas, sin recargo por combustible y sin extras al llegar a su hotel.",
+      },
+      {
+        title: "Cancelación gratis hasta 24 h antes de la recogida",
+        text: "En traslados y tours de un día.",
+        href: "/es/cancelacion",
+      },
+      {
+        title: "Su conductor espera con su equipaje",
+        text: "El equipaje queda bajo llave en el vehículo mientras usted disfruta cada parada.",
+      },
+      {
+        title: "Pague en línea o en efectivo",
+        text: `Pague en línea el total (le enviamos un enlace seguro cuando su viaje esté confirmado), o pague a su conductor en efectivo en traslados y tours de un día, con un cargo por reserva en efectivo del ${formatBpsPercent(cashFeeBps)}.`,
+      },
+      {
+        title: "Una persona real en WhatsApp",
+        text: "Le responde nuestro equipo en Costa Rica, no un centro de llamadas.",
+      },
+    ];
+  }
   return [
     {
       title: "Price confirmed before you pay",

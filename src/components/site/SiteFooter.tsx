@@ -1,7 +1,7 @@
 import { Compass, Mail, MessageCircle } from "lucide-react";
 import Link from "next/link";
 import { whatsAppLink } from "@/lib/cart";
-import { t, type PublicLang } from "@/lib/publicLang";
+import { localizedHref, t, type PublicLang } from "@/lib/publicLang";
 import { CONTACT_EMAIL, SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/site";
 import { footerColumns } from "@/lib/siteNav";
 import { SOCIAL_LINKS } from "@/lib/social";
@@ -21,7 +21,7 @@ export function SiteFooter({ lang }: { lang: PublicLang }) {
     <footer className="bg-emerald-950 text-emerald-100 text-sm">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-12 grid gap-10 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,3fr)]">
         <div>
-          <Link href="/" className="inline-flex items-center gap-2.5">
+          <Link href={localizedHref("/", lang)} className="inline-flex items-center gap-2.5">
             <span className="w-9 h-9 rounded-xl bg-amber-400 flex items-center justify-center text-emerald-950">
               <Compass className="w-5 h-5" strokeWidth={2.5} aria-hidden />
             </span>

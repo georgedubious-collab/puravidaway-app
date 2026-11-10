@@ -3,12 +3,14 @@
 import { X } from "lucide-react";
 import { useEffect } from "react";
 import { useCatalog } from "./CatalogContext";
+import { useT } from "./PublicLangContext";
 import { TripSummary, type TripState } from "./TripSummary";
 import { TrustPanel } from "./trust/TrustPanel";
 
 /** Phone and tablet version of the trip sidebar. */
 export function CartDrawer({ open, trip, onClose }: { open: boolean; trip: TripState; onClose: () => void }) {
   const { cashFeeBps } = useCatalog();
+  const t = useT();
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -28,18 +30,18 @@ export function CartDrawer({ open, trip, onClose }: { open: boolean; trip: TripS
       />
       <aside
         aria-hidden={!open}
-        aria-label="Your trip"
+        aria-label={t("Your trip", "Su viaje")}
         inert={!open}
         className={`fixed top-0 right-0 h-full w-full max-w-md bg-slate-50 shadow-2xl z-50 transform transition-transform duration-300 flex flex-col ${
           open ? "translate-x-0" : "translate-x-full"
         }`}
       >
         <div className="p-4 bg-emerald-950 text-white flex items-center justify-between">
-          <h2 className="font-extrabold text-lg">Your trip</h2>
+          <h2 className="font-extrabold text-lg">{t("Your trip", "Su viaje")}</h2>
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close your trip"
+            aria-label={t("Close your trip", "Cerrar su viaje")}
             className="h-11 w-11 inline-flex items-center justify-center rounded-lg text-emerald-200 hover:text-white"
           >
             <X className="w-5 h-5" />

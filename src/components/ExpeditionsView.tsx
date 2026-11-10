@@ -4,6 +4,7 @@ import { ChevronRight, PlusCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { seasonForYmd } from "@/lib/catalogModel";
 import { useCatalog } from "./CatalogContext";
+import { useT } from "./PublicLangContext";
 import { addDays } from "@/lib/dates";
 import { newItemId, type CartItem } from "@/lib/cart";
 import { formatUSD, quoteExpedition } from "@/lib/pricing";
@@ -20,6 +21,7 @@ export function ExpeditionsView({
   initialDate?: string;
   highlightId?: string;
 }) {
+  const tr = useT();
   const [date, setDate] = useState(() => initialDate ?? addDays(today, 30));
   useEffect(() => {
     if (highlightId) document.getElementById(`expedition-${highlightId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -34,16 +36,20 @@ export function ExpeditionsView({
       <div className="bg-emerald-950 text-white rounded-2xl p-5 sm:p-6 shadow-lg flex flex-wrap items-end justify-between gap-4">
         <div>
           <span className="text-xs font-extrabold uppercase tracking-wider text-amber-400">
-            Our signature expeditions
+            {tr("Our signature expeditions", "Nuestras expediciones insignia")}
           </span>
-          <h2 className="text-2xl font-extrabold mt-1">Multi-day eco-expeditions & custom packages</h2>
+          <h2 className="text-2xl font-extrabold mt-1">
+            {tr("Multi-day eco-expeditions & custom packages", "Eco-expediciones de varios días y paquetes a la medida")}
+          </h2>
           <p className="text-xs text-emerald-200 mt-1 max-w-2xl">
-            All-inclusive logistics: SINAC park permits, Sierpe river boats, certified Corcovado
-            guides and private 4x4 transfers.
+            {tr(
+              "All-inclusive logistics: SINAC park permits, Sierpe river boats, certified Corcovado guides and private 4x4 transfers.",
+              "Logística todo incluido: permisos de parques del SINAC, lanchas por el río Sierpe, guías certificados de Corcovado y traslados privados en 4x4.",
+            )}
           </p>
         </div>
         <label className="text-xs font-bold">
-          <span className="block text-emerald-300 mb-1">Start date</span>
+          <span className="block text-emerald-300 mb-1">{tr("Start date", "Fecha de inicio")}</span>
           <input
             type="date"
             value={date}
@@ -70,7 +76,7 @@ export function ExpeditionsView({
             >
               <div className="lg:col-span-2">
                 <span className="text-[10px] uppercase tracking-wider font-extrabold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
-                  {exp.days} days / {exp.nights} nights
+                  {tr(`${exp.days} days / ${exp.nights} nights`, `${exp.days} días / ${exp.nights} noches`)}
                 </span>
                 <h3 className="text-lg font-extrabold text-slate-900 mt-2 leading-snug">{exp.name}</h3>
                 <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-600 mt-3">
@@ -82,13 +88,15 @@ export function ExpeditionsView({
                 </ul>
                 <details className="mt-4 group">
                   <summary className="text-xs font-bold text-emerald-700 cursor-pointer flex items-center gap-1 list-none">
-                    <ChevronRight className="w-4 h-4 transition group-open:rotate-90" /> Day-by-day
-                    itinerary
+                    <ChevronRight className="w-4 h-4 transition group-open:rotate-90" />{" "}
+                    {tr("Day-by-day itinerary", "Itinerario día por día")}
                   </summary>
                   <ol className="mt-2 space-y-1.5 text-xs text-slate-700 pl-5">
                     {exp.itinerary.map((d) => (
                       <li key={d.day}>
-                        <strong>Day {d.day}:</strong> {d.title}
+                        <strong>
+                          {tr("Day", "Día")} {d.day}:
+                        </strong> {d.title}
                       </li>
                     ))}
                   </ol>
@@ -97,7 +105,7 @@ export function ExpeditionsView({
 
               <div className="bg-slate-50 rounded-xl p-4 flex flex-col">
                 <p className="text-[11px] uppercase tracking-wider font-bold text-slate-500 mb-2">
-                  Lodging tier
+                  {tr("Lodging tier", "Categoría de alojamiento")}
                 </p>
                 <div className="space-y-1.5">
                   {expTiers.map((t) => (
@@ -120,14 +128,14 @@ export function ExpeditionsView({
                         {t.name}
                       </span>
                       <span className="text-emerald-700 whitespace-nowrap">
-                        {t.surchargeCents ? `+${formatUSD(t.surchargeCents)}` : "included"}
+                        {t.surchargeCents ? `+${formatUSD(t.surchargeCents)}` : tr("included", "incluido")}
                       </span>
                     </label>
                   ))}
                 </div>
                 <div className="mt-auto pt-4">
                   <p className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">
-                    {season.multiplierBps !== 10000 ? season.name : "Total package"}
+                    {season.multiplierBps !== 10000 ? season.name : tr("Total package", "Total del paquete")}
                   </p>
                   <p className="text-2xl font-extrabold text-emerald-700">{formatUSD(total)}</p>
                   <button
@@ -145,7 +153,7 @@ export function ExpeditionsView({
                     }
                     className="w-full mt-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 transition"
                   >
-                    <PlusCircle className="w-4 h-4" /> Add expedition to your trip
+                    <PlusCircle className="w-4 h-4" /> {tr("Add expedition to your trip", "Agregar expedición a su viaje")}
                   </button>
                 </div>
               </div>

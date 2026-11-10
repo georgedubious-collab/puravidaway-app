@@ -173,7 +173,7 @@ export function AboutPage({ lang }: { lang: PublicLang }) {
         </ul>
         <div className="mt-8 flex flex-wrap gap-3">
           <Link
-            href="/"
+            href={localizedHref("/", lang)}
             className="min-h-12 px-5 rounded-xl bg-amber-400 hover:bg-amber-300 font-extrabold text-slate-950 inline-flex items-center gap-2"
           >
             {t(lang, "Plan a trip", "Planear un viaje")} <ArrowRight className="w-4 h-4" aria-hidden />

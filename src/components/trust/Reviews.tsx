@@ -1,11 +1,12 @@
 import { Star } from "lucide-react";
+import { t, type PublicLang } from "@/lib/publicLang";
 import { REVIEWS, visibleRatingSources, type Review } from "@/lib/trust";
 
 /**
  * Reviews section. Renders nothing until real reviews exist (src/lib/trust.ts).
  * Pass `route` to put reviews about that route first.
  */
-export function Reviews({ route }: { route?: string }) {
+export function Reviews({ route, lang = "en" }: { route?: string; lang?: PublicLang }) {
   if (REVIEWS.length === 0) return null;
   const ratings = visibleRatingSources();
   const sorted: Review[] = route
@@ -18,10 +19,14 @@ export function Reviews({ route }: { route?: string }) {
         <div className="flex flex-wrap items-end justify-between gap-5">
           <div>
             <h2 id="reviews" className="text-2xl sm:text-3xl font-extrabold text-slate-900">
-              What travelers say
+              {t(lang, "What travelers say", "Lo que dicen los viajeros")}
             </h2>
             <p className="mt-2 text-slate-600">
-              Every review comes from a completed ride and links to where it was posted.
+              {t(
+                lang,
+                "Every review comes from a completed ride and links to where it was posted.",
+                "Cada reseña proviene de un traslado realizado y enlaza al sitio donde se publicó.",
+              )}
             </p>
           </div>
           {ratings.length > 0 && (
@@ -39,7 +44,7 @@ export function Reviews({ route }: { route?: string }) {
                     <Star className="w-5 h-5 fill-amber-400 text-amber-500" aria-hidden />
                     {r.rating.toFixed(1)}
                   </span>
-                  <span className="block text-xs text-slate-500">{r.count} reviews</span>
+                  <span className="block text-xs text-slate-500">{r.count} {t(lang, "reviews", "reseñas")}</span>
                 </a>
               ))}
             </div>
@@ -53,7 +58,7 @@ export function Reviews({ route }: { route?: string }) {
               className="flex flex-col gap-4 rounded-2xl bg-slate-50 p-5"
             >
               <div className="flex items-center justify-between gap-2">
-                <span className="flex" role="img" aria-label="5 out of 5 stars">
+                <span className="flex" role="img" aria-label={t(lang, "5 out of 5 stars", "5 de 5 estrellas")}>
                   {Array.from({ length: 5 }, (_, i) => (
                     <Star key={i} className="w-4 h-4 fill-amber-400 text-amber-500" aria-hidden />
                   ))}

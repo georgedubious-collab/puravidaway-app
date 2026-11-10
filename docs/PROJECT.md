@@ -101,14 +101,16 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
 - Route landing pages (`/transfers/[slug]`, content in `src/lib/routePages.ts`): SJO → Manuel
   Antonio, La Fortuna/Arenal, Monteverde, Tamarindo, Puerto Viejo and Sierpe (Drake Bay boat);
   LIR → Tamarindo; La Fortuna → Monteverde and Manuel Antonio. "Other rides" links open the
-  matching landing page when one exists, otherwise the trip builder.
+  matching landing page when one exists, otherwise the trip builder. Each also exists in Spanish at
+  `/es/traslados/[slug]` (same slug, text in `src/lib/routePagesEs.ts`; both languages render
+  `src/components/site/pages/RouteLandingPage.tsx`).
 - Search engines (2026-11-08): **the whole site is `noindex` and `robots.txt` blocks all
   crawlers until `NEXT_PUBLIC_SITE_INDEXABLE=true` is set** (Vercel, Production only). Then
   `robots.txt` blocks only `/admin`, `/driver`, `/trip`, `/login`, `/auth`, `/api`, explicitly
   welcomes search and AI crawlers (Googlebot, Bingbot, GPTBot, OAI-SearchBot, PerplexityBot,
   ClaudeBot, Claude-SearchBot, Google-Extended) on everything else, and points to
-  `sitemap.xml` (home, route pages, the info pages in English and Spanish with hreflang,
-  `/terms`, `/privacy`, `/cancellation`).
+  `sitemap.xml` (home, route pages, info pages and legal pages, each in English and Spanish
+  with hreflang).
   `NEXT_PUBLIC_SITE_URL` (default `https://puravidaway-app.vercel.app`) sets canonical and
   link-preview URLs; the preview image is `src/app/opengraph-image.tsx`. Custom 404 and error
   pages (`not-found.tsx`, `error.tsx`, `global-error.tsx`). Vercel Web Analytics
@@ -135,17 +137,32 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
   `/api/v1` calls from the apps get English unless they send an `x-team-lang: es|en` header.
   The **driver app** is Spanish by default with English in Profile, and the **customer app** is
   English with a Costa Rica flag toggle for Spanish (branches `feat/driver-app-spanish` and
-  `feat/client-app-spanish`). Trip pages, legal pages, the booking app (home, route pages) and all
-  emails stay English. **Public website in Spanish (2026-11-09, site shell):** the info pages exist
-  in English and Spanish; Spanish lives under `/es` with Spanish slugs (`ES_PATHS` in
-  `src/lib/publicLang.ts`, the one list read by the language switch, hreflang links and the
-  sitemap). Spanish copy is neutral Latin American Spanish with "usted" and "conductor".
+  `feat/client-app-spanish`). The private trip page (`/trip/<code>`) and all emails stay English.
+  **Public website in Spanish (2026-11-10):** every public page exists in English and Spanish.
+  Spanish lives under `/es`: the booking storefront at `/es` (same `Storefront`, same trip-request
+  server action, `?tab=` and shared ride links work there too), route pages at
+  `/es/traslados/<slug>`, info pages with Spanish slugs, and legal pages at `/es/terminos`,
+  `/es/privacidad`, `/es/cancelacion` (faithful translations that say the English version
+  prevails; same lawyer review pending). `src/lib/publicLang.ts` (`ES_PATHS` + the route-page
+  prefix) is the one place read by the language switch, hreflang links and the sitemap. The
+  storefront gets its language from `PublicLangProvider` / `useT()`
+  (`src/components/PublicLangContext.tsx`); texts are written side by side as `t("English",
+  "Español")`. Catalog names from the database (vehicles, stops, tours, expeditions, lodging,
+  seasons) plus towns, regions and entrance labels are translated in code by item id in
+  `src/lib/catalogEs.ts` (`localizeCatalog()`): only the seeded items, and only while their
+  database text is still the original English, so anything added or reworded in `/admin/pricing`
+  shows as typed in both languages (Spanish fields in the admin editor are a later PR). Messages
+  the server sends back (trip request, place search) are translated for display in
+  `src/lib/serverMessagesEs.ts`. Spanish copy is neutral Latin American Spanish with "usted" and
+  "conductor".
 - **Site shell (2026-11-09):** every public page (home, `/transfers/*`, legal and info pages; not
   `/admin`, `/driver`, `/trip`, `/login`) shares `SiteHeader` (menu Transfers / Tours / Multi-day /
-  Help from `src/lib/siteNav.ts`, WhatsApp, an EN | ES switch shown only when the page has a
-  version in the other language, a phone menu) and `SiteFooter` (Company, Partners, Popular routes,
+  Help from `src/lib/siteNav.ts`, WhatsApp, a flag language button always visible in the bar, phones
+  included — Costa Rica flag + "ES" on English pages, US flag + "EN" on Spanish pages, like the
+  customer app; it opens the same page in the other language and keeps the query string
+  (`src/components/site/LangSwitch.tsx`) — and a phone menu) and `SiteFooter` (Company, Partners, Popular routes,
   Support, Legal, social icons, the TravelAgency structured data). The menu's Transfers / Tours /
-  Multi-day open the booking app on that tab (`/?tab=transfers|tours|multiday`). Destinations and
+  Multi-day open the booking app on that tab (`/?tab=transfers|tours|multiday`, `/es?tab=…` in Spanish). Destinations and
   Travel guides are commented placeholders in `siteNav.ts` for later PRs. Info pages (EN · ES):
   `/about` · `/es/nosotros`, `/how-it-works` · `/es/como-funciona`, `/our-drivers` ·
   `/es/nuestros-conductores`, `/faq` · `/es/preguntas-frecuentes` (FAQ content in `src/lib/faq.ts`,

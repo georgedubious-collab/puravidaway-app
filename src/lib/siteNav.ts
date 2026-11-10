@@ -1,10 +1,12 @@
 /**
  * Navigation of the public website: the header menu and the footer columns.
  * Hrefs are ENGLISH paths; localizedHref() (src/lib/publicLang.ts) turns them
- * into the Spanish page when one exists. Labels are per language.
+ * into the Spanish page (every public page has one; /driver stays as it is).
+ * Labels are per language.
  */
 import { localizedHref, type PublicLang } from "./publicLang";
 import { ROUTE_PAGES } from "./routePages";
+import { localizeRoutePage } from "./routePagesEs";
 
 export interface NavLink {
   id: string;
@@ -60,10 +62,13 @@ export function footerColumns(lang: PublicLang): FooterColumn[] {
     },
     {
       title: es ? "Rutas populares" : "Popular routes",
-      // Route pages are English only for now.
       links: ROUTE_PAGES.slice(0, 6).map((p) => ({
-        label: p.title.replace(/^Private transfer from /, ""),
-        href: `/transfers/${p.slug}`,
+        label: es
+          ? localizeRoutePage(p, "es")
+              .title.replace(/^Traslado privado (del|de) /, "")
+              .replace(/^./, (c) => c.toUpperCase())
+          : p.title.replace(/^Private transfer from /, ""),
+        href: localizedHref(`/transfers/${p.slug}`, lang),
       })),
     },
     {

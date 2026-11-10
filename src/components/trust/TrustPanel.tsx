@@ -1,14 +1,22 @@
+"use client";
+
 import { Check, ShieldCheck, Star } from "lucide-react";
 import {
   CARRIER_NOTE,
+  CARRIER_NOTE_ES,
   DRIVER_CHECKS,
+  DRIVER_CHECKS_ES,
   guarantees,
   ICT_BADGE_NOTE,
+  ICT_BADGE_NOTE_ES,
   visibleRatingSources,
 } from "@/lib/trust";
+import { usePublicLang, useT } from "../PublicLangContext";
 
-/** Compact trust block that sits next to the send button. */
+/** Compact trust block that sits next to the send button (in the storefront's language). */
 export function TrustPanel({ cashFeeBps }: { cashFeeBps: number }) {
+  const lang = usePublicLang();
+  const t = useT();
   const ratings = visibleRatingSources();
   return (
     <div className="space-y-3 text-sm">
@@ -25,7 +33,7 @@ export function TrustPanel({ cashFeeBps }: { cashFeeBps: number }) {
               <Star className="w-4 h-4 fill-amber-400 text-amber-500" aria-hidden />
               {r.rating.toFixed(1)}
               <span className="font-medium text-slate-600">
-                · {r.count} {r.name} reviews
+                · {t(`${r.count} ${r.name} reviews`, `${r.count} reseñas en ${r.name}`)}
               </span>
             </a>
           ))}
@@ -33,7 +41,7 @@ export function TrustPanel({ cashFeeBps }: { cashFeeBps: number }) {
       )}
 
       <ul className="space-y-2">
-        {guarantees(cashFeeBps).map((g) => (
+        {guarantees(cashFeeBps, lang).map((g) => (
           <li key={g.title} className="flex gap-2">
             <Check className="w-4 h-4 mt-0.5 shrink-0 text-emerald-600" aria-hidden />
             <span>
@@ -43,7 +51,7 @@ export function TrustPanel({ cashFeeBps }: { cashFeeBps: number }) {
                 <>
                   {" "}
                   <a href={g.href} className="font-semibold text-emerald-700 underline">
-                    Policy
+                    {t("Policy", "Política")}
                   </a>
                 </>
               )}
@@ -55,20 +63,25 @@ export function TrustPanel({ cashFeeBps }: { cashFeeBps: number }) {
       <details className="group rounded-xl border border-slate-200 bg-white">
         <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-3 font-bold text-slate-900">
           <ShieldCheck className="w-4 h-4 text-emerald-600" aria-hidden />
-          How we pick our drivers
+          {t("How we pick our drivers", "Cómo elegimos a nuestros conductores")}
           <span className="ml-auto text-slate-400 group-open:rotate-180 transition" aria-hidden>
             ▾
           </span>
         </summary>
         <div className="px-3 pb-3 space-y-2 text-slate-600">
-          <p>Before their first ride with us, every partner driver:</p>
+          <p>
+            {t(
+              "Before their first ride with us, every partner driver:",
+              "Antes de su primer viaje con nosotros, cada conductor asociado:",
+            )}
+          </p>
           <ul className="list-disc pl-5 space-y-1">
-            {DRIVER_CHECKS.map((c) => (
+            {t(DRIVER_CHECKS, DRIVER_CHECKS_ES).map((c) => (
               <li key={c}>{c}</li>
             ))}
           </ul>
-          <p>{ICT_BADGE_NOTE}</p>
-          <p className="text-xs text-slate-500">{CARRIER_NOTE}</p>
+          <p>{t(ICT_BADGE_NOTE, ICT_BADGE_NOTE_ES)}</p>
+          <p className="text-xs text-slate-500">{t(CARRIER_NOTE, CARRIER_NOTE_ES)}</p>
         </div>
       </details>
     </div>

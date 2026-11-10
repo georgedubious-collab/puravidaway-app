@@ -1,8 +1,8 @@
 import { HtmlLang } from "@/components/site/HtmlLang";
 
 /**
- * Spanish public pages (/es/…). Only pages listed in ES_PATHS (src/lib/publicLang.ts)
- * live here. The wrapper marks the content as Spanish in the server HTML; HtmlLang
+ * Spanish public pages (/es/…): the Spanish version of every public page (home,
+ * route pages, info and legal pages; the list is in src/lib/publicLang.ts). The wrapper marks the content as Spanish in the server HTML; HtmlLang
  * also switches <html lang> once the page loads (the root layout is shared with
  * /admin and /driver and stays lang="en").
  */

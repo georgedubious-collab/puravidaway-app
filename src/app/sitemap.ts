@@ -1,31 +1,27 @@
 import type { MetadataRoute } from "next";
-import { BILINGUAL_PATHS, ES_PATHS } from "@/lib/publicLang";
+import { BILINGUAL_PATHS, esPathOf } from "@/lib/publicLang";
 import { ROUTE_PAGES } from "@/lib/routePages";
 import { LEGAL_PATHS, SITE_URL } from "@/lib/site";
 
+type Entry = MetadataRoute.Sitemap[number];
+
+/**
+ * Every public page exists in English and Spanish: one entry per language,
+ * each listing both versions (hreflang) with English as x-default.
+ */
+function bilingual(enPath: string, rest: Pick<Entry, "changeFrequency" | "priority">): Entry[] {
+  const esPath = esPathOf(enPath);
+  const url = (p: string) => `${SITE_URL}${p}`;
+  if (!esPath) return [{ url: url(enPath), ...rest }];
+  const languages = { en: url(enPath), es: url(esPath), "x-default": url(enPath) };
+  return [enPath, esPath].map((p) => ({ url: url(p), ...rest, alternates: { languages } }));
+}
+
 export default function sitemap(): MetadataRoute.Sitemap {
-  // Pages in English and Spanish: one entry per language, each listing both (hreflang).
-  const bilingual = BILINGUAL_PATHS.flatMap((en) => {
-    const languages = { en: `${SITE_URL}${en}`, es: `${SITE_URL}${ES_PATHS[en]}`, "x-default": `${SITE_URL}${en}` };
-    return [en, ES_PATHS[en]].map((path) => ({
-      url: `${SITE_URL}${path}`,
-      changeFrequency: "monthly" as const,
-      priority: 0.6,
-      alternates: { languages },
-    }));
-  });
   return [
-    { url: `${SITE_URL}/`, changeFrequency: "weekly", priority: 1 },
-    ...ROUTE_PAGES.map((p) => ({
-      url: `${SITE_URL}/transfers/${p.slug}`,
-      changeFrequency: "monthly" as const,
-      priority: 0.8,
-    })),
-    ...bilingual,
-    ...LEGAL_PATHS.map((path) => ({
-      url: `${SITE_URL}${path}`,
-      changeFrequency: "yearly" as const,
-      priority: 0.3,
-    })),
+    ...bilingual("/", { changeFrequency: "weekly", priority: 1 }),
+    ...ROUTE_PAGES.flatMap((p) => bilingual(`/transfers/${p.slug}`, { changeFrequency: "monthly", priority: 0.8 })),
+    ...BILINGUAL_PATHS.flatMap((p) => bilingual(p, { changeFrequency: "monthly", priority: 0.6 })),
+    ...LEGAL_PATHS.flatMap((p) => bilingual(p, { changeFrequency: "yearly", priority: 0.3 })),
   ];
 }

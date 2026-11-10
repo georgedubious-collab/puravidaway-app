@@ -3,7 +3,10 @@
 import { Loader2, MapPin, Plane } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import { AIRPORT_HUBS, HUBS } from "@/lib/catalog";
-import { hubPlace, type RidePlace } from "@/lib/places";
+import { hubName } from "@/lib/catalogEs";
+import { hubPlace, isHubPlace, type RidePlace } from "@/lib/places";
+import { localizeServerMessage } from "@/lib/serverMessagesEs";
+import { usePublicLang, useT } from "./PublicLangContext";
 
 interface Suggestion {
   placeId: string;
@@ -32,6 +35,10 @@ export function PlaceInput({
   value: RidePlace;
   onChange: (p: RidePlace) => void;
 }) {
+  const lang = usePublicLang();
+  const t = useT();
+  // Our towns are named in the page's language; a typed place keeps Google's name.
+  const shown = isHubPlace(value) ? hubName(value.hub, lang) : value.label;
   const id = useId();
   const listId = `${id}-list`;
   const [open, setOpen] = useState(false);
@@ -46,8 +53,11 @@ export function PlaceInput({
 
   const query = open ? text.trim() : "";
   // Just opened (text is still the current place): list every town.
-  const browsing = query === "" || query === value.label;
-  const hubs = HUBS.filter((h) => browsing || fold(h.name).includes(fold(query)));
+  const browsing = query === "" || query === shown;
+  // Match the name in either language ("airport" and "aeropuerto" both find SJO).
+  const hubs = HUBS.filter(
+    (h) => browsing || fold(h.name).includes(fold(query)) || fold(hubName(h.id, lang)).includes(fold(query)),
+  );
   const wantGoogle = open && !browsing && query.length >= 3 && !searchOff;
   const google = wantGoogle && found.q === query ? found.items : [];
   const searching = wantGoogle && found.q !== query;
@@ -126,7 +136,12 @@ export function PlaceInput({
     }
   }
 
-  const error = pickError || (google.length === 0 && found.q === query ? found.error : "");
+  const rawError = pickError || (google.length === 0 && found.q === query ? found.error : "");
+  const CLIENT_ES: Record<string, string> = {
+    "Search isn't available right now.": "La búsqueda no está disponible en este momento.",
+    "We couldn't find that place.": "No pudimos encontrar ese lugar.",
+  };
+  const error = rawError ? (lang === "es" ? (CLIENT_ES[rawError] ?? localizeServerMessage(rawError, lang)) : rawError) : "";
 
   return (
     <div className="relative">
@@ -145,10 +160,10 @@ export function PlaceInput({
           aria-autocomplete="list"
           aria-activedescendant={open && active >= 0 ? `${id}-opt-${active}` : undefined}
           autoComplete="off"
-          value={open ? text : value.label}
-          placeholder="Airport, town, hotel or address"
+          value={open ? text : shown}
+          placeholder={t("Airport, town, hotel or address", "Aeropuerto, pueblo, hotel o dirección")}
           onFocus={(e) => {
-            setText(value.label);
+            setText(shown);
             setOpen(true);
             setActive(-1);
             setPickError("");
@@ -183,7 +198,9 @@ export function PlaceInput({
               <li key={isHub ? o.place.id : o.s.placeId} role="presentation">
                 {first && (
                   <p className="px-3 pt-2 pb-1 text-[10px] uppercase tracking-wider font-extrabold text-slate-400">
-                    {isHub ? "Our towns & airports" : "Hotels, places & addresses"}
+                    {isHub
+                      ? t("Our towns & airports", "Nuestros destinos y aeropuertos")
+                      : t("Hotels, places & addresses", "Hoteles, lugares y direcciones")}
                   </p>
                 )}
                 <div
@@ -200,7 +217,7 @@ export function PlaceInput({
                     <MapPin className="w-4 h-4 mt-0.5 shrink-0 text-emerald-600" aria-hidden />
                   )}
                   <span className="min-w-0">
-                    <span className="block font-semibold truncate">{isHub ? o.place.label : o.s.main}</span>
+                    <span className="block font-semibold truncate">{isHub ? hubName(o.place.hub, lang) : o.s.main}</span>
                     {!isHub && o.s.secondary && <span className="block text-xs text-slate-500 truncate">{o.s.secondary}</span>}
                   </span>
                 </div>
@@ -208,10 +225,14 @@ export function PlaceInput({
             );
           })}
           {wantGoogle && !searching && google.length === 0 && !error && (
-            <li className="px-3 py-2 text-xs text-slate-500">No places found. Try a hotel name, town or address.</li>
+            <li className="px-3 py-2 text-xs text-slate-500">
+              {t("No places found. Try a hotel name, town or address.", "No encontramos lugares. Pruebe con el nombre de un hotel, un pueblo o una dirección.")}
+            </li>
           )}
           {browsing && !searchOff && (
-            <li className="px-3 py-2 text-xs text-slate-500">Or type a hotel, dock, restaurant or address.</li>
+            <li className="px-3 py-2 text-xs text-slate-500">
+              {t("Or type a hotel, dock, restaurant or address.", "O escriba un hotel, muelle, restaurante o dirección.")}
+            </li>
           )}
           {error && <li className="px-3 py-2 text-xs font-semibold text-red-700">{error}</li>}
           {google.length > 0 && (

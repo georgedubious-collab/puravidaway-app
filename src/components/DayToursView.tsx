@@ -3,6 +3,8 @@
 import { Clock, PlusCircle, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 import { EN_ROUTE_UPGRADE_CENTS, REGION_NAMES, perPersonTierCents, type Region } from "@/lib/catalog";
+import { regionName } from "@/lib/catalogEs";
+import { usePublicLang, useT } from "./PublicLangContext";
 import { seasonForYmd } from "@/lib/catalogModel";
 import { useCatalog } from "./CatalogContext";
 import { addDays } from "@/lib/dates";
@@ -23,6 +25,9 @@ export function DayToursView({
   initialDate?: string;
   highlightId?: string;
 }) {
+  const lang = usePublicLang();
+  const tr = useT();
+  const travellers = (n: number) => tr(`${n} traveller${n > 1 ? "s" : ""}`, `${n} viajero${n > 1 ? "s" : ""}`);
   const [region, setRegion] = useState<Region | "ALL">(initialRegion ?? "ALL");
   const [date, setDate] = useState(() => initialDate ?? addDays(today, 14));
   useEffect(() => {
@@ -44,43 +49,49 @@ export function DayToursView({
       <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-slate-200 flex flex-wrap items-end justify-between gap-4">
         <div>
           <span className="text-xs font-extrabold uppercase tracking-wider text-emerald-700 flex items-center gap-1">
-            <ShieldCheck className="w-4 h-4" /> Local naturalist guides
+            <ShieldCheck className="w-4 h-4" /> {tr("Local naturalist guides", "Guías naturalistas locales")}
           </span>
-          <h2 className="text-2xl font-extrabold text-slate-900">1-Day Private Costa Rica Tours</h2>
+          <h2 className="text-2xl font-extrabold text-slate-900">{tr("1-Day Private Costa Rica Tours", "Tours privados de un día en Costa Rica")}</h2>
           <p className="text-xs text-slate-600 mt-1 max-w-xl">
-            Upgrade any tour with a <strong>Smart En-Route Transfer (from +{formatUSD(fromUpgradeCents)})</strong>:
-            get picked up in one town and dropped off at your next hotel.
+            {tr("Upgrade any tour with a", "Mejore cualquier tour con un")}{" "}
+            <strong>
+              Smart En-Route Transfer ({tr("from", "desde")} +{formatUSD(fromUpgradeCents)})
+            </strong>
+            {tr(
+              ": get picked up in one town and dropped off at your next hotel.",
+              ": lo recogemos en un pueblo y lo dejamos en su siguiente hotel.",
+            )}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <select
-            aria-label="Region"
+            aria-label={tr("Region", "Región")}
             value={region}
             onChange={(e) => setRegion(e.target.value as Region | "ALL")}
             className="border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold bg-slate-50"
           >
-            <option value="ALL">All regions</option>
+            <option value="ALL">{tr("All regions", "Todas las regiones")}</option>
             {(Object.keys(REGION_NAMES) as Region[]).map((r) => (
               <option key={r} value={r}>
-                {REGION_NAMES[r]}
+                {regionName(r, lang)}
               </option>
             ))}
           </select>
           <select
-            aria-label="Travellers"
+            aria-label={tr("Travellers", "Viajeros")}
             value={pax}
             onChange={(e) => setPax(Number(e.target.value))}
             className="border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold bg-slate-50"
           >
             {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
               <option key={n} value={n}>
-                {n} traveller{n > 1 ? "s" : ""}
+                {travellers(n)}
               </option>
             ))}
           </select>
           <input
             type="date"
-            aria-label="Tour date"
+            aria-label={tr("Tour date", "Fecha del tour")}
             value={date}
             onChange={(e) => setDate(e.target.value)}
             className="border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold bg-slate-50"
@@ -102,11 +113,15 @@ export function DayToursView({
               }`}
             >
               <span className="text-[10px] uppercase tracking-wider font-extrabold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full self-start">
-                {REGION_NAMES[t.region]}
+                {regionName(t.region, lang)}
               </span>
               <h3 className="text-base font-extrabold text-slate-900 mt-2 leading-snug">{t.name}</h3>
               <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
-                <Clock className="w-3.5 h-3.5" /> {t.durationHours} hours · private · guide, entrances &amp; lunch included
+                <Clock className="w-3.5 h-3.5" />{" "}
+                {tr(
+                  `${t.durationHours} hours · private · guide, entrances & lunch included`,
+                  `${String(t.durationHours).replace(".", ",")} horas · privado · guía, entradas y almuerzo incluidos`,
+                )}
               </p>
               <ul className="text-xs text-slate-600 mt-3 space-y-1">
                 {t.highlights.map((h) => (
@@ -124,8 +139,11 @@ export function DayToursView({
                   className="mt-0.5 accent-emerald-600"
                 />
                 <span>
-                  <strong>Smart En-Route Transfer</strong> (+{formatUSD(t.enRouteUpgradeCents ?? EN_ROUTE_UPGRADE_CENTS)}) — end
-                  the day at your next hotel instead of returning.
+                  <strong>Smart En-Route Transfer</strong> (+{formatUSD(t.enRouteUpgradeCents ?? EN_ROUTE_UPGRADE_CENTS)}) —{" "}
+                  {tr(
+                    "end the day at your next hotel instead of returning.",
+                    "termine el día en su siguiente hotel en lugar de regresar.",
+                  )}
                 </span>
               </label>
 
@@ -136,8 +154,8 @@ export function DayToursView({
                   </p>
                   <p className="text-xl font-extrabold text-emerald-700">{formatUSD(total)}</p>
                   <p className="text-[11px] font-semibold text-slate-600">
-                    {formatUSD(perPerson)} per person · {pax} traveller{pax > 1 ? "s" : ""}
-                    {pax < 4 ? ` · cheaper per person from 4` : ""}
+                    {formatUSD(perPerson)} {tr("per person", "por persona")} · {travellers(pax)}
+                    {pax < 4 ? tr(` · cheaper per person from 4`, ` · más económico por persona desde 4`) : ""}
                   </p>
                 </div>
                 <button
@@ -147,7 +165,10 @@ export function DayToursView({
                       kind: "day_tour",
                       id: newItemId(),
                       title: t.name,
-                      detail: `${t.durationHours}h private tour, ${pax} traveller${pax > 1 ? "s" : ""}${upgrade ? " + Smart En-Route Transfer" : ""}`,
+                      detail: tr(
+                        `${t.durationHours}h private tour, ${pax} traveller${pax > 1 ? "s" : ""}${upgrade ? " + Smart En-Route Transfer" : ""}`,
+                        `Tour privado de ${String(t.durationHours).replace(".", ",")} h, ${travellers(pax)}${upgrade ? " + Smart En-Route Transfer" : ""}`,
+                      ),
                       date,
                       totalCents: total,
                       spec: { kind: "day_tour", tourId: t.id, upgrade, pax },
@@ -155,7 +176,7 @@ export function DayToursView({
                   }
                   className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2.5 rounded-xl text-xs flex items-center gap-1.5 transition"
                 >
-                  <PlusCircle className="w-4 h-4" /> Add
+                  <PlusCircle className="w-4 h-4" /> {tr("Add", "Agregar")}
                 </button>
               </div>
             </div>

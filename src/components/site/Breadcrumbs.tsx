@@ -1,6 +1,6 @@
 import { ChevronRight } from "lucide-react";
 import Link from "next/link";
-import { t, type PublicLang } from "@/lib/publicLang";
+import { localizedHref, t, type PublicLang } from "@/lib/publicLang";
 import { SITE_URL } from "@/lib/site";
 import { JsonLd } from "./JsonLd";
 
@@ -11,11 +11,11 @@ export interface Crumb {
 }
 
 /**
- * Visible breadcrumbs + BreadcrumbList JSON-LD. "Home" is added first; it is the
- * booking app at "/" in both languages until a Spanish home page exists.
+ * Visible breadcrumbs + BreadcrumbList JSON-LD. "Home" is added first: the
+ * booking app, "/" in English and "/es" in Spanish.
  */
 export function Breadcrumbs({ lang, items, currentPath }: { lang: PublicLang; items: Crumb[]; currentPath: string }) {
-  const all: Crumb[] = [{ label: t(lang, "Home", "Inicio"), href: "/" }, ...items];
+  const all: Crumb[] = [{ label: t(lang, "Home", "Inicio"), href: localizedHref("/", lang) }, ...items];
   return (
     <>
       <nav aria-label={t(lang, "Breadcrumb", "Ruta de navegación")} className="text-sm text-slate-500">

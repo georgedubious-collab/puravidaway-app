@@ -1,26 +1,11 @@
-import { redirect } from "next/navigation";
-import { connection } from "next/server";
-import { SiteFooter } from "@/components/site/SiteFooter";
-import { Storefront } from "@/components/Storefront";
-import { getCatalog } from "@/lib/catalogSource";
-import { todayInCostaRica } from "@/lib/dates";
+import type { Metadata } from "next";
+import { HomePage } from "@/components/site/pages/HomePage";
+import { bilingualAlternates } from "@/lib/publicLang";
 
-// Rendered on every request: default travel dates and season pricing depend
-// on today's date in Costa Rica, and the full page must be in the HTML for
-// search engines and for visitors before JavaScript loads.
-export default async function HomePage({
-  searchParams,
-}: {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-}) {
-  await connection();
-  // A sign-in link that fell back to the Site URL lands here with ?code=…
-  const { code, next } = await searchParams;
-  if (typeof code === "string" && code) {
-    const keep = typeof next === "string" ? `&next=${encodeURIComponent(next)}` : "";
-    redirect(`/auth/callback?code=${encodeURIComponent(code)}${keep}`);
-  }
-  const today = todayInCostaRica();
-  const catalog = await getCatalog();
-  return <Storefront today={today} catalog={catalog} footer={<SiteFooter lang="en" />} />;
+// Title, description and link previews come from the root layout; this adds the
+// canonical link and the hreflang pair with the Spanish home page (/es).
+export const metadata: Metadata = { alternates: bilingualAlternates("/", "en") };
+
+export default function Page({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  return <HomePage lang="en" searchParams={searchParams} />;
 }
