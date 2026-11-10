@@ -31,6 +31,12 @@
       ],
       "expo-web-browser",
       "expo-font"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "3beec35f-471f-4faa-abf5-f548ff348063"
+      }
+    },
+    "owner": "costa-rica-private-transfers"
   }
 }
