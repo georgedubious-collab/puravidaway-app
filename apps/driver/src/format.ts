@@ -23,8 +23,7 @@ const TOWNS_ES: Record<string, string> = {
 };
 /** All towns as [id, name] in the given language (for choice chips). */
 export const townList = (lang: Lang = "es"): [string, string][] => Object.keys(TOWNS).map((id) => [id, townName(id, lang)]);
-export const townName = (id: string | null | undefined, lang: Lang = "es") =>
-  id ? ((lang === "es" ? TOWNS_ES[id] : undefined) ?? TOWNS[id] ?? id) : "—";
+export const townName = (id: string | null | undefined, lang: Lang = "es") => (id ? ((lang === "es" ? TOWNS_ES[id] : undefined) ?? TOWNS[id] ?? id) : "—");
 
 /** A short town name for tight spots (the Profile's "Your base"); the same in both languages except Drake Bay. */
 const TOWNS_SHORT: Record<string, string> = { SJO: "San José", LIR: "Liberia", Arenal: "La Fortuna", Sierpe: "Sierpe", SouthNicoya: "Nicoya" };
@@ -52,6 +51,56 @@ export function crDateTime(iso: string | null | undefined, lang: Lang = "es"): s
   return DAYS[lang][d.getUTCDay()] + " " + d.getUTCDate() + " " + MONTHS[lang][d.getUTCMonth()] + " · " + hour + ":" + m + " " + (h < 12 ? "AM" : "PM");
 }
 
+/** "8:30 AM" in Costa Rica time (the same in both languages, like crDateTime). */
+export function crTime(iso: string): string {
+  const d = new Date(new Date(iso).getTime() - CR_OFFSET_MS);
+  const h = d.getUTCHours();
+  const hour = h % 12 === 0 ? 12 : h % 12;
+  return hour + ":" + String(d.getUTCMinutes()).padStart(2, "0") + " " + (h < 12 ? "AM" : "PM");
+}
+
+/** The trip card's date block: month, day number and time, in Costa Rica time. */
+export function crDateParts(iso: string | null | undefined, lang: Lang = "es"): { month: string; day: string; time: string } | null {
+  if (!iso) return null;
+  const d = new Date(new Date(iso).getTime() - CR_OFFSET_MS);
+  return { month: MONTHS[lang][d.getUTCMonth()], day: String(d.getUTCDate()), time: crTime(iso) };
+}
+
+/** The Costa Rica calendar day of a moment, "2026-11-13" (for "today" filters). */
+export const crDayKey = (iso: string | number | Date): string => new Date(new Date(iso).getTime() - CR_OFFSET_MS).toISOString().slice(0, 10);
+/** Today's Costa Rica calendar day. */
+export const crToday = (): string => crDayKey(Date.now());
+
+/** "Sale en 3 h 23 min" / "Departs in 1 day 22 h"; "Recogida hace 20 min" once the time has passed. */
+export function departsIn(iso: string | null | undefined, lang: Lang = "es", now = Date.now()): string {
+  const es = lang === "es";
+  if (!iso) return es ? "Hora por confirmar" : "Time to confirm";
+  const diff = new Date(iso).getTime() - now;
+  const mins = Math.round(Math.abs(diff) / 60000);
+  const days = Math.floor(mins / 1440);
+  const hours = Math.floor((mins % 1440) / 60);
+  const m = mins % 60;
+  let span: string;
+  if (days >= 3) span = days + (es ? " días" : " days");
+  else if (days >= 1) span = days + (es ? (days === 1 ? " día" : " días") : days === 1 ? " day" : " days") + (hours ? " " + hours + " h" : "");
+  else if (hours >= 1) span = hours + " h" + (m ? " " + m + " min" : "");
+  else span = m + " min";
+  if (diff < 0) return es ? "Recogida hace " + span : "Pickup was " + span + " ago";
+  return (es ? "Sale en " : "Departs in ") + span;
+}
+
+/** Short vehicle class names for chips (ids from the vehicle_classes table). */
+const VEHICLE_SHORT: Record<string, [string, string]> = {
+  economy: ["Sedán económico", "Economy sedan"],
+  sedan: ["Sedán", "Sedan"],
+  suv: ["SUV", "SUV"],
+  "4x4": ["4x4", "4x4"],
+  van: ["Van", "Van"],
+  sierpe_combo: ["4x4 + bote", "4x4 + boat"],
+};
+export const vehicleLabel = (id: string | null | undefined, lang: Lang = "es"): string | null =>
+  id ? (VEHICLE_SHORT[id]?.[lang === "en" ? 1 : 0] ?? id) : null;
+
 export const STATUS_LABEL: Record<Lang, Record<string, string>> = {
   en: {
     pending_payment: "New request",
@@ -75,5 +124,4 @@ export const STATUS_LABEL: Record<Lang, Record<string, string>> = {
  * "1 pasajero" / "3 pasajeros". Each language gets its own singular and plural, so
  * multi-word Spanish works too: plural(n, ["viaje completado", "viajes completados"], ["completed trip", "completed trips"], lang).
  */
-export const plural = (n: number, es: [string, string], en: [string, string], lang: Lang = "es") =>
-  n + " " + (lang === "en" ? en : es)[n === 1 ? 0 : 1];
+export const plural = (n: number, es: [string, string], en: [string, string], lang: Lang = "es") => n + " " + (lang === "en" ? en : es)[n === 1 ? 0 : 1];

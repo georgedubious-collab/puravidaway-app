@@ -5,7 +5,7 @@ import { townShort } from "../format";
 import { useT } from "../i18n";
 import { C, S } from "../theme";
 import type { DriverInfo, Vehicle } from "../types";
-import { Badge, Card, Chip, Divider, ListRow, ScreenTitle } from "../ui";
+import { Badge, Card, Chip, Divider, ListRow } from "../ui";
 
 /** Approval status as [Spanish, English]. */
 const KYC: Record<string, [string, string]> = {
@@ -42,7 +42,6 @@ export function Profile({
   const kyc = driver ? KYC[driver.kyc_status] : undefined;
   return (
     <ScrollView style={S.screen} contentContainerStyle={S.pad}>
-      <ScreenTitle title={t("Perfil", "Profile")} />
       <Card>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
           <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: C.emeraldDark, alignItems: "center", justifyContent: "center" }}>

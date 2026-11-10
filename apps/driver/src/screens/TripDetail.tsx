@@ -1,14 +1,16 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Linking from "expo-linking";
-import { useCallback, useEffect, useState } from "react";
-import { ScrollView, Text, TextInput, View } from "react-native";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { api } from "../api";
-import { crDateTime, plural, usd } from "../format";
+import { SITE_URL } from "../config";
+import { crTime, plural, usd, vehicleLabel } from "../format";
 import { useT } from "../i18n";
+import { GOLD } from "../nav";
 import { C, R, S } from "../theme";
 import type { ChatMessage, Coords, Names, Trip } from "../types";
-import { Back, Badge, Btn, Card, IconLine } from "../ui";
-import { tripStage, tripTitle } from "./Trips";
+import { Badge, Btn, Card, IconLine, LinkBtn, type IconName } from "../ui";
+import { InfoChip, TripIcons, tripFacts, tripStage, tripTitle } from "./Trips";
 
 type StepId = "en_route" | "in_progress" | "completed";
 /** Each text as [Spanish, English]. */
@@ -63,37 +65,52 @@ function target(text: string | null, coords: Coords | null): Target | null {
 const waze = (t: Target) =>
   t.lat != null ? "https://waze.com/ul?ll=" + t.lat + "," + t.lng + "&navigate=yes" : "https://waze.com/ul?q=" + encodeURIComponent(t.label) + "&navigate=yes";
 const gmaps = (t: Target) =>
-  "https://www.google.com/maps/dir/?api=1&travelmode=driving&dir_action=navigate&destination=" + encodeURIComponent(t.lat != null ? t.lat + "," + t.lng : t.label);
+  "https://www.google.com/maps/dir/?api=1&travelmode=driving&dir_action=navigate&destination=" +
+  encodeURIComponent(t.lat != null ? t.lat + "," + t.lng : t.label);
 
-/** One trip: the next step, where to go, the details, and the chat with the traveller and the team. */
+/** One trip: the chips, the route with its stops, the travellers, the payout, the next step and the chat. */
 export function TripDetail({
   trip,
   names,
-  onBack,
   onChanged,
   demoChat,
+  demoSupport,
 }: {
   trip: Trip;
   names: Names;
-  onBack: () => void;
   onChanged: () => Promise<void>;
   /** Sample messages for design previews; skips loading. */
   demoChat?: ChatMessage[];
+  /** Sample support WhatsApp for design previews; skips loading. */
+  demoSupport?: string;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [teamWhatsapp, setTeamWhatsapp] = useState(demoSupport ?? "");
   const { t, lang } = useT();
   const pickup = trip.service_type === "transfer" ? target(trip.origin, trip.origin_coords) : null;
   const dropoff = trip.service_type === "transfer" ? target(trip.destination, trip.destination_coords) : null;
-  const stops = (trip.sightseeing_stops ?? []).map((s) => names.stops[s.id] ?? s.id).join(", ");
+  const stopList = (trip.sightseeing_stops ?? []).map((s) => ({ name: names.stops[s.id] ?? s.id, minutes: names.stopMinutes?.[s.id] }));
   const cash = trip.cash_to_collect == null ? 0 : Number(trip.cash_to_collect);
   const stage = tripStage(trip, lang);
+  const facts = tripFacts(trip);
+  const vehicle = vehicleLabel(trip.vehicle_class, lang);
+  const prefs = (trip.preferences ?? {}) as { language?: string; childSeats?: number; wifi?: boolean; stroller?: boolean; pets?: boolean };
   const active = trip.status === "confirmed" || trip.status === "in_progress";
   // I'm on my way → Client picked up → Trip ended.
   const nextIndex = trip.status === "in_progress" ? 2 : trip.en_route_at ? 1 : 0;
   const next = STEPS[nextIndex];
   // Before the pickup the driver needs the pickup; after it, the drop-off.
   const goingTo = trip.status === "in_progress" ? dropoff : pickup;
+
+  // Our team's WhatsApp (the same number as Help). Travellers are reached through the trip chat.
+  useEffect(() => {
+    if (demoSupport !== undefined) return;
+    void fetch(SITE_URL + "/api/v1/support")
+      .then((r) => r.json() as Promise<{ whatsapp?: string }>)
+      .then((d) => setTeamWhatsapp(d.whatsapp ?? ""))
+      .catch(() => {});
+  }, [demoSupport]);
 
   async function step(id: StepId) {
     setBusy(true);
@@ -104,20 +121,90 @@ export function TripDetail({
     await onChanged();
   }
 
+  const asked: string[] = [];
+  if (prefs.language === "english") asked.push(t("Conductor que habla inglés", "English-speaking driver"));
+  if (prefs.language === "spanish_ok") asked.push(t("Español o inglés básico está bien", "Spanish or basic English is fine"));
+  if (prefs.childSeats) asked.push(plural(prefs.childSeats, ["silla de niño", "sillas de niño"], ["child seat", "child seats"], lang));
+  if (prefs.wifi) asked.push("Wi-Fi");
+  if (prefs.stroller) asked.push(t("Coche de bebé", "Stroller"));
+  if (prefs.pets) asked.push(t("Viaja con una mascota", "Travelling with a pet"));
+
   return (
-    <ScrollView style={S.screen} contentContainerStyle={S.pad} keyboardShouldPersistTaps="handled">
-      <Back label={t("Sus viajes", "Your trips")} onPress={onBack} />
-      <View style={{ gap: 6 }}>
-        <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
-          <Badge text={stage.text} tone={stage.tone} />
-          <Text style={S.muted}>{trip.booking_ref}</Text>
+    <ScrollView style={S.screen} contentContainerStyle={{ padding: 12, paddingBottom: 32, gap: 10 }} keyboardShouldPersistTaps="handled">
+      <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
+        <Badge text={stage.text} tone={stage.tone} />
+        {vehicle ? <InfoChip icon="car-outline" text={vehicle} /> : null}
+        {facts.stops ? <InfoChip icon="camera-outline" text={plural(facts.stops, ["parada", "paradas"], ["stop", "stops"], lang)} /> : null}
+        {trip.passenger_count ? <InfoChip icon="people-outline" text={String(trip.passenger_count)} /> : null}
+        {facts.seats ? <InfoChip icon="happy-outline" text={plural(facts.seats, ["silla de niño", "sillas de niño"], ["child seat", "child seats"], lang)} /> : null}
+        <TripIcons trip={trip} detail />
+        <Text style={[S.muted, { fontSize: 12 }]}>{trip.booking_ref}</Text>
+      </View>
+
+      <Section title={t("Ruta", "Route")}>
+        {trip.service_type !== "transfer" ? <Text style={S.h2}>{tripTitle(trip, names)}</Text> : null}
+        <View style={{ gap: 0 }}>
+          {pickup ? (
+            <Stop
+              kind="start"
+              title={pickup.label}
+              sub={t("Recogida", "Pickup") + (trip.scheduled_at ? " · " + crTime(trip.scheduled_at) : "")}
+              last={!stopList.length && !dropoff}
+            />
+          ) : null}
+          {stopList.map((s, i) => (
+            <Stop
+              key={i}
+              kind="mid"
+              title={s.name}
+              sub={s.minutes ? t("Parada ", "Stop ") + duration(s.minutes) : t("Parada", "Stop")}
+              last={i === stopList.length - 1 && !dropoff}
+            />
+          ))}
+          {dropoff ? <Stop kind="end" title={dropoff.label} sub={t("Destino", "Drop-off")} last /> : null}
         </View>
-        <Text style={[S.title, { fontSize: 24 }]}>{tripTitle(trip, names)}</Text>
-        <Text style={S.muted}>{crDateTime(trip.scheduled_at, lang) + t(" · hora de Costa Rica", " · Costa Rica time")}</Text>
+        {pickup?.note || dropoff?.note ? <IconLine icon="boat-outline" text={t(...(pickup?.note ?? dropoff?.note)!)} color={C.amber} /> : null}
+        {facts.ferry ? (
+          <IconLine
+            icon="boat-outline"
+            text={t("Ruta con ferry por el golfo de Nicoya: revise el horario del ferry.", "Ferry route across the Gulf of Nicoya: check the ferry times.")}
+            color={C.amber}
+          />
+        ) : null}
+        {active && goingTo ? (
+          <LinkBtn label={t("Abrir en Google Maps", "Open in Google Maps")} icon="map-outline" onPress={() => void Linking.openURL(gmaps(goingTo))} />
+        ) : null}
+      </Section>
+
+      <Section title={t("Pasajeros", "Travellers")}>
+        {trip.passenger_count ? <Row label={t("Pasajeros", "Travellers")} value={String(trip.passenger_count)} /> : null}
+        {trip.flight_or_hotel_notes ? <Row label={t("Vuelo / hotel", "Flight / hotel")} value={trip.flight_or_hotel_notes} /> : null}
+        {asked.length ? <Row label={t("Pidió", "Asked for")} value={asked.join("\n")} /> : null}
+        {trip.driver_notes ? <Row label={t("Nota", "Note")} value={"“" + trip.driver_notes + "”"} /> : null}
+        {!trip.passenger_count && !trip.flight_or_hotel_notes && !asked.length && !trip.driver_notes ? (
+          <Text style={S.muted}>{t("Sin detalles adicionales.", "No extra details.")}</Text>
+        ) : null}
+      </Section>
+
+      <View style={[S.card, { gap: 8 }]}>
+        <View style={S.row}>
+          <Text style={[S.text, { color: C.muted }]}>{t("Usted recibe", "You receive")}</Text>
+          <Text style={S.money}>{trip.driver_payout == null ? "—" : usd(trip.driver_payout)}</Text>
+        </View>
+        {cash > 0 ? (
+          <View style={{ backgroundColor: C.amberSoft, borderRadius: R.control, padding: 12 }}>
+            <Text style={{ color: C.amber, fontWeight: "800" }}>
+              {t("Cobre " + usd(cash) + " en efectivo al cliente", "Collect " + usd(cash) + " in cash from the traveller")}
+            </Text>
+            <Text style={{ color: C.amber, fontSize: 13 }}>
+              {t("Usted se queda con su pago; el resto se liquida cada semana.", "You keep your payout; the rest is settled weekly.")}
+            </Text>
+          </View>
+        ) : null}
       </View>
 
       {active ? (
-        <Card>
+        <View style={[S.card, { gap: 8 }]}>
           <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
             {STEPS.map((s, i) => (
               <View key={s.id} style={{ flex: 1, alignItems: "center", gap: 4 }}>
@@ -149,55 +236,128 @@ export function TripDetail({
               </View>
             ))}
           </View>
-          <Text style={[S.h2, { marginTop: 6 }]}>{t(...next.title)}</Text>
+          <Text style={[S.h2, { marginTop: 4 }]}>{t(...next.title)}</Text>
           <Text style={S.muted}>{t(...next.help)}</Text>
-          <Btn label={t(...next.button)} onPress={() => void step(next.id)} busy={busy} color={C.emerald} />
-          {error ? <Text style={S.error}>{error}</Text> : null}
-        </Card>
-      ) : null}
-
-      {active && goingTo ? (
-        <Card>
-          <Text style={S.label}>{trip.status === "in_progress" ? t("Destino", "Drop-off") : t("Recogida", "Pickup")}</Text>
-          <Text style={S.h2}>{goingTo.label}</Text>
-          {goingTo.note ? <IconLine icon="boat-outline" text={t(...goingTo.note)} color={C.amber} /> : null}
-          <View style={{ flexDirection: "row", gap: 8 }}>
-            <View style={{ flex: 1 }}>
-              <Btn label="Waze" icon="navigate" onPress={() => void Linking.openURL(waze(goingTo))} color={C.sky} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Btn label="Google Maps" icon="map-outline" alt onPress={() => void Linking.openURL(gmaps(goingTo))} />
-            </View>
-          </View>
-          {trip.status !== "in_progress" && dropoff ? <Text style={S.muted}>{t("Luego a: ", "Then to: ") + dropoff.label}</Text> : null}
-        </Card>
-      ) : null}
-
-      <Card>
-        <View style={S.row}>
-          <Text style={S.label}>{t("Su pago", "Your payout")}</Text>
-          <Text style={S.money}>{trip.driver_payout == null ? "—" : usd(trip.driver_payout)}</Text>
         </View>
-        {cash > 0 ? (
-          <View style={{ backgroundColor: C.amberSoft, borderRadius: R.control, padding: 12 }}>
-            <Text style={{ color: C.amber, fontWeight: "800" }}>
-              {t("Cobre " + usd(cash) + " en efectivo al cliente", "Collect " + usd(cash) + " in cash from the traveller")}
-            </Text>
-            <Text style={{ color: C.amber, fontSize: 13 }}>
-              {t("Usted se queda con su pago; el resto se liquida cada semana.", "You keep your payout; the rest is settled weekly.")}
-            </Text>
-          </View>
-        ) : null}
-        {trip.passenger_count ? (
-          <IconLine icon="people-outline" text={plural(trip.passenger_count, ["pasajero", "pasajeros"], ["passenger", "passengers"], lang)} />
-        ) : null}
-        {stops ? <IconLine icon="camera-outline" text={t("Paradas: ", "Stops: ") + stops} /> : null}
-        {trip.flight_or_hotel_notes ? <IconLine icon="airplane-outline" text={trip.flight_or_hotel_notes} /> : null}
-        {trip.driver_notes ? <IconLine icon="chatbox-ellipses-outline" text={"“" + trip.driver_notes + "”"} /> : null}
-      </Card>
+      ) : null}
+
+      {teamWhatsapp || (active && goingTo) ? (
+        <View style={{ flexDirection: "row", gap: 8 }}>
+          {teamWhatsapp ? (
+            <OutlineBtn
+              icon="logo-whatsapp"
+              iconColor="#128C7E"
+              label={t("Ayuda", "Help")}
+              a11y={t("Escribir a nuestro equipo por WhatsApp", "WhatsApp our team")}
+              onPress={() =>
+                void Linking.openURL(
+                  "https://wa.me/" +
+                    teamWhatsapp +
+                    "?text=" +
+                    encodeURIComponent(
+                      t(
+                        "¡Hola! Soy conductor socio, sobre el viaje " + trip.booking_ref + ".",
+                        "Hi! I'm a partner driver, about trip " + trip.booking_ref + ".",
+                      ),
+                    ),
+                )
+              }
+            />
+          ) : null}
+          {active && goingTo ? (
+            <OutlineBtn
+              icon="navigate"
+              iconColor={C.sky}
+              label="Waze"
+              a11y={trip.status === "in_progress" ? t("Waze al destino", "Waze to the drop-off") : t("Waze a la recogida", "Waze to the pickup")}
+              onPress={() => void Linking.openURL(waze(goingTo))}
+            />
+          ) : null}
+        </View>
+      ) : null}
+      {active ? <Btn label={t(...next.button)} onPress={() => void step(next.id)} busy={busy} color={C.emerald} /> : null}
+      {error ? <Text style={S.error}>{error}</Text> : null}
 
       <Chat bookingId={trip.id} demo={demoChat} />
     </ScrollView>
+  );
+}
+
+/** "1 h 30 min" / "45 min". */
+const duration = (min: number) => (min >= 60 ? Math.floor(min / 60) + " h" + (min % 60 ? " " + (min % 60) + " min" : "") : min + " min");
+
+/** A white card with a small uppercase heading. */
+function Section({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <View style={[S.card, { gap: 10 }]}>
+      <Text style={S.label}>{title}</Text>
+      {children}
+    </View>
+  );
+}
+
+/** A label on the left, its value on the right. */
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={{ flexDirection: "row", gap: 12, alignItems: "flex-start" }}>
+      <Text style={[S.text, { color: C.muted, width: 104 }]}>{label}</Text>
+      <Text style={[S.text, { color: C.text, fontWeight: "700", flex: 1, textAlign: "right" }]}>{value}</Text>
+    </View>
+  );
+}
+
+/**
+ * One place on the route: an emerald ring for the pickup, gold rings for the stops
+ * on the way, a solid emerald dot for the drop-off, joined by a thin line.
+ */
+function Stop({ kind, title, sub, last }: { kind: "start" | "mid" | "end"; title: string; sub: string; last?: boolean }) {
+  return (
+    <View style={{ flexDirection: "row", gap: 12 }}>
+      <View style={{ width: 14, alignItems: "center" }}>
+        <View
+          style={{
+            width: 14,
+            height: 14,
+            borderRadius: 7,
+            marginTop: 3,
+            borderWidth: 3,
+            borderColor: kind === "mid" ? GOLD : C.emerald,
+            backgroundColor: kind === "end" ? C.emerald : C.card,
+          }}
+        />
+        {last ? null : <View style={{ flex: 1, width: 2, backgroundColor: C.border, marginVertical: 2 }} />}
+      </View>
+      <View style={{ flex: 1, paddingBottom: last ? 0 : 14 }}>
+        <Text style={{ fontSize: 15, fontWeight: "700", color: C.text }}>{title}</Text>
+        <Text style={{ fontSize: 12.5, color: C.muted }}>{sub}</Text>
+      </View>
+    </View>
+  );
+}
+
+/** A white, outlined half-width button (WhatsApp, Waze). */
+function OutlineBtn({ icon, iconColor, label, a11y, onPress }: { icon: IconName; iconColor: string; label: string; a11y: string; onPress: () => void }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={a11y}
+      onPress={onPress}
+      style={({ pressed }) => ({
+        flex: 1,
+        minHeight: 50,
+        flexDirection: "row",
+        gap: 8,
+        alignItems: "center",
+        justifyContent: "center",
+        borderRadius: R.control,
+        borderWidth: 1.5,
+        borderColor: C.border,
+        backgroundColor: pressed ? C.emeraldTint : C.card,
+      })}
+    >
+      <Ionicons name={icon} size={20} color={iconColor} />
+      <Text style={{ fontSize: 15, fontWeight: "800", color: C.text }}>{label}</Text>
+    </Pressable>
   );
 }
 
@@ -238,7 +398,10 @@ function Chat({ bookingId, demo }: { bookingId: string; demo?: ChatMessage[] }) 
     <Card>
       <Text style={S.h2}>Chat</Text>
       <Text style={S.muted}>
-        {t("Con el cliente y nuestro equipo. No comparta números de teléfono ni enlaces aquí.", "With the traveller and our team. Keep phone numbers and links out of it.")}
+        {t(
+          "Con el cliente y nuestro equipo. No comparta números de teléfono ni enlaces aquí.",
+          "With the traveller and our team. Keep phone numbers and links out of it.",
+        )}
       </Text>
       {messages.length === 0 ? (
         <Text style={[S.muted, { fontStyle: "italic" }]}>

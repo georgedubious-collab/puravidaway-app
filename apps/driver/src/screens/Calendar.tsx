@@ -5,7 +5,7 @@ import { useT } from "../i18n";
 import { supabase } from "../supabase";
 import { C, S } from "../theme";
 import type { Trip } from "../types";
-import { Card, IconLine, ScreenTitle, type IconName } from "../ui";
+import { Card, IconLine, type IconName } from "../ui";
 
 const MONTHS = {
   en: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
@@ -89,10 +89,9 @@ export function Calendar({ trips, demoBlocked }: { trips: Trip[]; /** Sample blo
 
   return (
     <ScrollView style={S.screen} contentContainerStyle={S.pad}>
-      <ScreenTitle
-        title={t("Calendario", "Calendar")}
-        subtitle={t("Toque un día para bloquearlo cuando no pueda trabajar. Tóquelo otra vez para abrirlo.", "Tap a day to block it when you can't work. Tap it again to open it.")}
-      />
+      <Text style={S.muted}>
+        {t("Toque un día para bloquearlo cuando no pueda trabajar. Tóquelo otra vez para abrirlo.", "Tap a day to block it when you can't work. Tap it again to open it.")}
+      </Text>
       <Card>
         <View style={S.row}>
           <RoundBtn icon="chevron-back" label={t("Mes anterior", "Previous month")} onPress={() => move(-1)} hidden={thisMonth} />
@@ -181,8 +180,8 @@ export function Calendar({ trips, demoBlocked }: { trips: Trip[]; /** Sample blo
         <IconLine
           icon="alert-circle-outline"
           text={t(
-            "Un día con un viaje confirmado no se puede bloquear aquí. Si no puede hacer un viaje, contacte a soporte de inmediato (Perfil → Ayuda) para que podamos reasignarlo.",
-            "A day with a confirmed trip can't be blocked here. If you can't do a trip, contact support right away (Profile → Help) so we can reassign it.",
+            "Un día con un viaje confirmado no se puede bloquear aquí. Si no puede hacer un viaje, contacte a soporte de inmediato (menú ☰ → Ayuda) para que podamos reasignarlo.",
+            "A day with a confirmed trip can't be blocked here. If you can't do a trip, contact support right away (☰ menu → Help) so we can reassign it.",
           )}
         />
       </Card>

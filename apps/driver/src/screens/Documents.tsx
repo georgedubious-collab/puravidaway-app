@@ -7,7 +7,7 @@ import { useT } from "../i18n";
 import { supabase } from "../supabase";
 import { C, S } from "../theme";
 import { pickAndUpload, type UploadSource, type UploadTarget } from "../upload";
-import { Back, Badge, Btn, Card, Chip, IconLine, ScreenTitle } from "../ui";
+import { Badge, Btn, Card, Chip, IconLine } from "../ui";
 
 /** Each text as [Spanish, English]. */
 type Pair = [string, string];
@@ -87,12 +87,10 @@ const str = (v: string | number | null | undefined) => (v === null || v === unde
  */
 export function Documents({
   userId,
-  onBack,
   onChanged,
   demo,
 }: {
   userId: string;
-  onBack: () => void;
   onChanged: () => void;
   /** Sample data for design previews; skips loading. */
   demo?: { driver: DriverRow | null; vehicles: VehicleRow[]; me: Fields };
@@ -171,7 +169,6 @@ export function Documents({
   if (driver === null) {
     return (
       <ScrollView style={S.screen} contentContainerStyle={S.pad}>
-        <Back label={t("Perfil", "Profile")} onPress={onBack} />
         <Apply
           me={me}
           set={(k, t) => setMe((m) => ({ ...m, [k]: t }))}
@@ -196,8 +193,6 @@ export function Documents({
 
   return (
     <ScrollView style={S.screen} contentContainerStyle={S.pad} keyboardShouldPersistTaps="handled">
-      <Back label={t("Perfil", "Profile")} onPress={onBack} />
-      <ScreenTitle title={t("Documentos y vehículos", "Documents and vehicles")} />
       <Badge
         text={t("Solicitud: ", "Application: ") + status(driver.kyc_status)}
         tone={driver.kyc_status === "approved" ? undefined : driver.kyc_status === "pending" ? "amber" : "red"}
