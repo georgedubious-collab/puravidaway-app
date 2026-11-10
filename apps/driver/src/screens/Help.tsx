@@ -12,14 +12,14 @@ const FAQ: { q: [string, string]; a: [string, string] }[] = [
   {
     q: ["¿Cómo consigo viajes?", "How do I get trips?"],
     a: [
-      "Los trabajos disponibles aparecen en la pestaña Trabajos y le llega una notificación por cada uno nuevo. Cada trabajo muestra un pago sugerido. Envíe una oferta por ese monto o por el suyo, y nuestro equipo elige un chofer. Le avisamos si el viaje es suyo; luego aparece en Viajes.",
+      "Los trabajos disponibles aparecen en la pestaña Trabajos y le llega una notificación por cada uno nuevo. Cada trabajo muestra un pago sugerido. Envíe una oferta por ese monto o por el suyo, y nuestro equipo elige un conductor. Le avisamos si el viaje es suyo; luego aparece en Viajes.",
       "Open jobs appear in the Jobs tab and you get a notification for each new one. Each job shows a suggested payout. Send an offer at that amount or your own, and our team picks a driver. You're notified if the trip is yours; it then appears under Trips.",
     ],
   },
   {
     q: ["¿A quién eligen para un trabajo?", "Who gets chosen for a job?"],
     a: [
-      "Nuestro equipo mira primero a los choferes que ya tienen un viaje que termina cerca de la recogida ese día, luego las calificaciones, luego a los choferes con base cerca de la recogida y luego la oferta. Mantener una buena calificación e indicar dónde está su base (Perfil → Documentos y vehículos) le ayudan.",
+      "Nuestro equipo mira primero a los conductores que ya tienen un viaje que termina cerca de la recogida ese día, luego las calificaciones, luego a los conductores con base cerca de la recogida y luego la oferta. Mantener una buena calificación e indicar dónde está su base (Perfil → Documentos y vehículos) le ayudan.",
       "Our team looks first at drivers who already have a trip ending near the pickup that day, then at ratings, then at drivers based near the pickup, then at the offer. Keeping your rating high and setting where you're based (Profile → Documents and vehicles) both help.",
     ],
   },
@@ -33,7 +33,7 @@ const FAQ: { q: [string, string]; a: [string, string] }[] = [
   {
     q: ["¿Por qué la app comparte mi ubicación?", "Why does the app share my location?"],
     a: [
-      'Desde 3 horas antes de una recogida (o desde que toca "Voy en camino") hasta que termina el viaje, su ubicación se comparte con nuestro equipo y con los clientes que usted lleva, para coordinar las recogidas y que todos sepan cuándo va a llegar. No se comparte nada en ningún otro momento, y solo se guarda su última posición. Puede dejar de compartir en Perfil, pero a los choferes que lo hacen quizá no se les asignen viajes.',
+      'Desde 3 horas antes de una recogida (o desde que toca "Voy en camino") hasta que termina el viaje, su ubicación se comparte con nuestro equipo y con los clientes que usted lleva, para coordinar las recogidas y que todos sepan cuándo va a llegar. No se comparte nada en ningún otro momento, y solo se guarda su última posición. Puede dejar de compartir en Perfil, pero a los conductores que lo hacen quizá no se les asignen viajes.',
       "From 3 hours before a pickup (or from when you tap \"I'm on my way\") until you end the trip, your location is shared with our team and with the travellers you're driving, so pickups can be coordinated and everyone knows when you'll arrive. Nothing is shared at any other time, and only your latest position is kept. You can stop sharing in Profile, but drivers who do may not be assigned trips.",
     ],
   },
@@ -47,7 +47,7 @@ const FAQ: { q: [string, string]; a: [string, string] }[] = [
   {
     q: ["¿Cómo funcionan las calificaciones?", "How do ratings work?"],
     a: [
-      "Después de cada viaje se le pide al cliente que lo califique de 1 a 5 estrellas. Una calificación con un comentario escrito cuenta doble. A los choferes mejor calificados se les ofrecen más viajes. Puede ver su calificación en Perfil.",
+      "Después de cada viaje se le pide al cliente que lo califique de 1 a 5 estrellas. Una calificación con un comentario escrito cuenta doble. A los conductores mejor calificados se les ofrecen más viajes. Puede ver su calificación en Perfil.",
       "After each trip the traveller is asked to rate you from 1 to 5 stars. A rating with a written comment counts double. Better-rated drivers are offered more trips. You can see your rating in Profile.",
     ],
   },
@@ -100,7 +100,7 @@ export function Help({ onBack, demoSupport }: { onBack: () => void; /** Sample c
       <Back label={t("Perfil", "Profile")} onPress={onBack} />
       <ScreenTitle title={t("Ayuda", "Help")} subtitle={t("Respuestas rápidas, y nuestro equipo cuando necesite a una persona.", "Quick answers, and our team when you need a person.")} />
       <Card>
-        <Text style={S.h2}>{t("Soporte para choferes", "Driver support")}</Text>
+        <Text style={S.h2}>{t("Soporte para conductores", "Driver support")}</Text>
         <Text style={S.muted}>{t("Para cualquier urgencia el día de un viaje, use WhatsApp.", "For anything urgent on the day of a trip, use WhatsApp.")}</Text>
         {support?.whatsapp ? (
           <Btn
@@ -108,7 +108,7 @@ export function Help({ onBack, demoSupport }: { onBack: () => void; /** Sample c
             icon="logo-whatsapp"
             onPress={() =>
               void Linking.openURL(
-                "https://wa.me/" + support.whatsapp + "?text=" + encodeURIComponent(t("¡Hola! Soy chofer socio y necesito ayuda.", "Hi! I'm a partner driver and I need help.")),
+                "https://wa.me/" + support.whatsapp + "?text=" + encodeURIComponent(t("¡Hola! Soy conductor socio y necesito ayuda.", "Hi! I'm a partner driver and I need help.")),
               )
             }
             color="#128C7E"
@@ -119,7 +119,7 @@ export function Help({ onBack, demoSupport }: { onBack: () => void; /** Sample c
             label={t("Escribirnos un correo", "Email us")}
             icon="mail-outline"
             alt
-            onPress={() => void Linking.openURL("mailto:" + support.email + "?subject=" + encodeURIComponent(t("Soporte para choferes", "Driver support")))}
+            onPress={() => void Linking.openURL("mailto:" + support.email + "?subject=" + encodeURIComponent(t("Soporte para conductores", "Driver support")))}
           />
         ) : null}
         {support?.email ? <Text style={[S.muted, { textAlign: "center" }]}>{support.email}</Text> : null}

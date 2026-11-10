@@ -125,7 +125,7 @@ export function LocationCard({
       )}
       <Text style={S.muted}>
         {t(
-          "Nuestro equipo y sus clientes siguen el viaje con ella, así que a los choferes que dejan de compartir quizá no se les asignen viajes.",
+          "Nuestro equipo y sus clientes siguen el viaje con ella, así que a los conductores que dejan de compartir quizá no se les asignen viajes.",
           "Our team and your travellers follow the trip with it, so drivers who stop sharing may not be assigned rides.",
         )}
       </Text>

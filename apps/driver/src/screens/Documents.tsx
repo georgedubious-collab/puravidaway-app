@@ -21,7 +21,7 @@ const DRIVER_DOCS: { key: string; label: Pair; hint?: Pair }[] = [
   {
     key: "ict_permit",
     label: ["Permiso ICT de transporte turístico", "ICT tourist-transport permit"],
-    hint: ["Opcional. Los choferes que lo tienen reciben una insignia ICT.", "Optional. Drivers who have it get an ICT badge."],
+    hint: ["Opcional. Los conductores que lo tienen reciben una insignia ICT.", "Optional. Drivers who have it get an ICT badge."],
   },
 ];
 const VEHICLE_DOCS: { key: string; label: Pair }[] = [
@@ -547,7 +547,7 @@ function Apply({
       <Text style={S.h2}>{t("Maneje con Costa Rica Private Transfers", "Drive with Costa Rica Private Transfers")}</Text>
       <Text style={S.muted}>
         {t(
-          "Los choferes socios y las empresas de transporte reciben solicitudes de traslados privados y tours, y eligen qué viajes tomar. Empiece con su nombre y su WhatsApp; después agregará sus documentos y vehículos, y nuestro equipo lo contactará para una entrevista corta.",
+          "Los conductores socios y las empresas de transporte reciben solicitudes de traslados privados y tours, y eligen qué viajes tomar. Empiece con su nombre y su WhatsApp; después agregará sus documentos y vehículos, y nuestro equipo lo contactará para una entrevista corta.",
           "Partner drivers and transport companies receive private transfer and tour requests and choose which trips to take. Start with your name and WhatsApp; next you'll add your documents and vehicles, and our team will contact you for a short interview.",
         )}
       </Text>
@@ -581,7 +581,7 @@ function Apply({
         </View>
         <Text style={[S.text, { flex: 1 }]}>
           {t(
-            "Trabajo como chofer independiente o empresa de transporte. Tengo, y mantendré al día, las licencias, permisos y seguros que exige la ley para los viajes que acepte, y la información que doy es verdadera.",
+            "Trabajo como conductor independiente o empresa de transporte. Tengo, y mantendré al día, las licencias, permisos y seguros que exige la ley para los viajes que acepte, y la información que doy es verdadera.",
             "I work as an independent driver or transport company. I hold, and will keep current, the licences, permits and insurance the law requires for the trips I accept, and the information I give is true.",
           )}
         </Text>

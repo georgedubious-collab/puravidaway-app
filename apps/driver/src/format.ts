@@ -63,7 +63,7 @@ export const STATUS_LABEL: Record<Lang, Record<string, string>> = {
   },
   es: {
     pending_payment: "Solicitud nueva",
-    pending_bids: "Abierto a choferes",
+    pending_bids: "Abierto a conductores",
     confirmed: "Confirmado",
     in_progress: "En ruta",
     completed: "Completado",

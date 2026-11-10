@@ -105,7 +105,7 @@ export function Jobs({
                         "You can send offers once our team approves your profile and a vehicle. Add your documents under Profile.",
                       )
                     : t(
-                        "Postúlese como chofer en Perfil. Los trabajos se habilitan cuando nuestro equipo lo apruebe.",
+                        "Postúlese como conductor en Perfil. Los trabajos se habilitan cuando nuestro equipo lo apruebe.",
                         "Apply to drive under Profile. Jobs open up once our team approves you.",
                       )
                 }
@@ -230,10 +230,10 @@ function JobCard({
       {open ? (
         <View style={{ backgroundColor: C.amberSoft, borderRadius: 12, padding: 12, gap: 2 }}>
           <Text style={{ color: C.amber, fontWeight: "800" }}>{t("Su oferta: ", "Your offer: ") + usd(job.my_offer)}</Text>
-          <Text style={{ color: C.amber, fontSize: 13 }}>{t("Esperando a que nuestro equipo elija un chofer.", "Waiting for our team to pick a driver.")}</Text>
+          <Text style={{ color: C.amber, fontSize: 13 }}>{t("Esperando a que nuestro equipo elija un conductor.", "Waiting for our team to pick a driver.")}</Text>
         </View>
       ) : null}
-      {job.my_offer_status === "declined" ? <Text style={S.muted}>{t("Se eligió a otro chofer para este viaje.", "Another driver was chosen for this one.")}</Text> : null}
+      {job.my_offer_status === "declined" ? <Text style={S.muted}>{t("Se eligió a otro conductor para este viaje.", "Another driver was chosen for this one.")}</Text> : null}
 
       {canOffer && payout != null && vehicles.length > 0 ? (
         custom ? (
