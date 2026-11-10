@@ -10,12 +10,20 @@ Its own project: Vercel ignores this folder.
   how it's paid; "your driver is on the way".
 - **Trip:** the driver's first name, photo, rating, languages and car photos once assigned; the
   same chat as the trip page; a 1–5 star rating after the trip.
-- **Plan a trip:** opens the website's trip builder in an in-app browser.
+- **Plan a trip, in the app:** a private ride (type any hotel, airport or address; date, time,
+  travellers, vehicle, optional stops) or a day tour; contact details; pay online or cash. Every
+  price comes from the server (`/api/v1/client/quote`, `/tours`) and the request goes through the
+  same server action as the website (`/api/v1/client/trip-request`). Expeditions open the website.
+- **Test checkout:** "Pay (test)" marks the trip paid with a `provider = 'test'` payment; no card,
+  no money. Works only while the site is pre-launch (`src/lib/testCheckout.ts`); replace with
+  Green Pay before launch.
+- **Where the driver is:** a small map and arrival estimate on the trip, only while the driver
+  is sharing location for that booking (3 hours before pickup, or on the way, until the trip ends).
 - **Account:** WhatsApp, terms, privacy, cancellation policy, sign out.
 - **Push notifications:** ride confirmed with a driver, driver on the way, rating request.
 
-Not yet: building or paying for a trip inside the app (the website does both), account deletion
-inside the app (both stores require it before publishing), and the driver's live position.
+Not yet: real card payments, expeditions and "name your price" in the app, and account deletion
+inside the app (both stores require it before publishing).
 
 ## How it talks to the backend
 - `GET /api/v1/client/trips` returns the trips for the signed-in email (the server looks them up;

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Image, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { WebView } from "react-native-webview";
 import { api } from "../api";
 import { crDateTime, plural, usd } from "../format";
 import { C, S } from "../theme";
@@ -8,6 +9,14 @@ import { Badge, Btn, Card } from "../ui";
 
 /** One booking: status, what's due, the driver and car once assigned, the chat, and the rating after the trip. */
 export function TripDetail({ booking: b, token, onBack, onChanged }: { booking: AppBooking; token: string; onBack: () => void; onChanged: () => Promise<void> }) {
+  // While the driver is sharing their position, keep it fresh.
+  const live = Boolean(b.driverLocation) || b.driverOnTheWay;
+  useEffect(() => {
+    if (!live) return;
+    const t = setInterval(() => void onChanged(), 20000);
+    return () => clearInterval(t);
+  }, [live, onChanged]);
+  const loc = b.driverLocation;
   return (
     <ScrollView style={S.screen} contentContainerStyle={S.pad} keyboardShouldPersistTaps="handled">
       <Btn label="← Your trips" alt onPress={onBack} />
@@ -21,13 +30,36 @@ export function TripDetail({ booking: b, token, onBack, onChanged }: { booking: 
 
       {b.driverOnTheWay ? <Badge text={(b.driver?.firstName ?? "Your driver") + " is on the way to your pickup"} /> : null}
 
+      {loc && b.driver && (b.status === "confirmed" || b.status === "in_progress") ? (
+        <Card>
+          <Text style={S.h2}>{b.status === "in_progress" ? "You're on the road" : "Where " + b.driver.firstName + " is now"}</Text>
+          {b.status === "confirmed" && loc.etaAt ? (
+            <Text style={S.text}>Arriving at your pickup around {crDateTime(loc.etaAt).split(" · ").pop()} with current traffic.</Text>
+          ) : null}
+          <View style={{ height: 220, borderRadius: 10, overflow: "hidden", borderWidth: 1, borderColor: C.border }}>
+            <WebView
+              source={{
+                uri:
+                  "https://www.openstreetmap.org/export/embed.html?bbox=" +
+                  (loc.lng - 0.02) + "," + (loc.lat - 0.02) + "," + (loc.lng + 0.02) + "," + (loc.lat + 0.02) +
+                  "&layer=mapnik&marker=" + loc.lat + "," + loc.lng,
+              }}
+              scrollEnabled={false}
+            />
+          </View>
+          <Text style={S.muted}>Updates by itself. Shown from 3 hours before your pickup until the trip ends.</Text>
+        </Card>
+      ) : null}
+
       <Card>
-        <Text style={S.label}>{b.paymentMode === "cash_driver" ? "To pay your driver in cash" : "To pay online"}</Text>
+        <Text style={S.label}>{b.paymentMode === "cash_driver" ? "To pay your driver in cash" : b.dueUsd > 0 ? "To pay online" : "Paid"}</Text>
         <Text style={S.money}>{usd(b.dueUsd)}</Text>
         <Text style={S.muted}>
           {b.paymentMode === "cash_driver"
             ? "Includes the " + usd(b.cashFeeUsd) + " cash booking fee."
-            : "We send you a secure payment link once your trip is confirmed."}
+            : b.dueUsd > 0
+              ? "We send you a secure payment link once your trip is confirmed."
+              : "Thank you, this trip is paid."}
         </Text>
         {b.passengers ? <Text style={S.muted}>{plural(b.passengers, "traveller")}</Text> : null}
       </Card>

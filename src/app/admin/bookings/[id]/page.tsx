@@ -38,6 +38,9 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
   if (!b) notFound();
 
   const { data: note } = await supabase.from("booking_admin_notes").select("notes").eq("booking_id", b.id).maybeSingle();
+  // Payments from the pre-launch test checkout are not real money.
+  const { data: testPays } = await supabase.from("payments").select("id").eq("booking_id", b.id).eq("provider", "test").limit(1);
+  const testPaid = Boolean(testPays?.length);
   // Drivers' offers from the job board, with who they are and how much work they've had.
   const { data: offers } = await supabase.from("bids").select("*").eq("booking_id", b.id).order("created_at").returns<OfferRow[]>();
   const offerDriverIds = [...new Set((offers ?? []).map((o) => o.driver_id))];
@@ -199,7 +202,7 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
             {b.driver_notes && <Item k="Message for driver" v={b.driver_notes} />}
             <Item k="Price" v={`${usd(b.total_price)}${b.pricing_mode === "bid" ? " (client's offer)" : ""}`} />
             <Item k="Payment" v={paymentText} />
-            <Item k="Received" v={usd(b.amount_paid)} />
+            <Item k="Received" v={`${usd(b.amount_paid)}${testPaid ? " · TEST checkout, no money was charged" : ""}`} />
           </dl>
         </section>
       </div>

@@ -9,6 +9,8 @@ import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { api } from "./src/api";
 import { SITE_URL } from "./src/config";
 import { registerForPush, unregisterPush } from "./src/push";
+import { Book } from "./src/screens/Book";
+import { Checkout } from "./src/screens/Checkout";
 import { SignIn } from "./src/screens/SignIn";
 import { TripDetail } from "./src/screens/TripDetail";
 import { Trips } from "./src/screens/Trips";
@@ -26,8 +28,9 @@ const TABS: { id: Tab; label: string }[] = [
 
 /**
  * Costa Rica Private Transfers (traveller app). Travellers sign in with the email
- * they booked with and see their trips, their driver and car, the chat and the
- * rating; planning and paying for a new trip opens the website.
+ * they book with and see their trips, their driver and car (and where the driver
+ * is around the pickup), the chat and the rating, and can plan, send and pay for
+ * a ride or day tour in the app (test checkout until card payments are connected).
  */
 export default function App() {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
@@ -60,6 +63,8 @@ function Home({ session }: { session: Session }) {
   const [whatsapp, setWhatsapp] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  // After a request is sent from the app: the "sent / pay" screen.
+  const [sent, setSent] = useState<{ tripToken: string | null; payOnline: boolean; totalCents: number; testCheckout: boolean } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -90,7 +95,7 @@ function Home({ session }: { session: Session }) {
   }, [load]);
 
   const open = openId ? trips.flatMap((t) => t.bookings.map((b) => ({ t, b }))).find((x) => x.b.id === openId) : undefined;
-  const book = () => void WebBrowser.openBrowserAsync(SITE_URL);
+  const book = () => setTab("book");
 
   async function signOut() {
     await unregisterPush();
@@ -110,22 +115,23 @@ function Home({ session }: { session: Session }) {
             {error ? <Text style={[S.error, { padding: 16 }]}>{error}</Text> : null}
             <Trips trips={trips} loading={loading} onRefresh={load} onOpen={setOpenId} onBook={book} />
           </>
+        ) : tab === "book" && sent ? (
+          <Checkout
+            {...sent}
+            onDone={() => {
+              setSent(null);
+              setTab("trips");
+              void load();
+            }}
+          />
         ) : tab === "book" ? (
-          <ScrollView style={S.screen} contentContainerStyle={S.pad}>
-            <Text style={S.h1}>Plan a trip</Text>
-            <Card>
-              <Text style={S.h2}>Private rides, day tours and expeditions</Text>
-              <Text style={S.text}>
-                Type any hotel, airport or address in Costa Rica and get a fixed price for a private ride, add sightseeing stops on the way, or
-                pick a guided day tour.
-              </Text>
-              <Text style={S.muted}>
-                Planning opens our website. Send your request with the email you&apos;re signed in with ({session.user.email}) and the trip
-                appears here in the app.
-              </Text>
-              <Btn label="Plan a trip" onPress={book} color={C.emerald} />
-            </Card>
-          </ScrollView>
+          <Book
+            email={session.user.email ?? ""}
+            onBooked={(tripToken, payOnline, totalCents, testCheckout) => {
+              setSent({ tripToken, payOnline, totalCents, testCheckout });
+              void load();
+            }}
+          />
         ) : (
           <ScrollView style={S.screen} contentContainerStyle={S.pad}>
             <Text style={S.h1}>Account</Text>
@@ -151,6 +157,7 @@ function Home({ session }: { session: Session }) {
               onPress={() => {
                 setTab(t.id);
                 setOpenId(null);
+                if (t.id !== "book") setSent(null);
                 if (t.id === "trips") void load();
               }}
               style={{ flex: 1, minHeight: 52, alignItems: "center", justifyContent: "center" }}

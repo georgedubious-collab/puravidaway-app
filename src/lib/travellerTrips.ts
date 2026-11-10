@@ -9,7 +9,8 @@ import { createSupabaseAdminClient } from "./supabase/admin";
  * they are by signing in with the email they booked with, and the server then
  * looks up the trips sent with that email. Only traveller-safe fields are
  * returned, the same ones the private trip page shows: never the driver's
- * documents, phone, payout or location.
+ * documents, phone or payout. The driver's position is included only while
+ * they are sharing it for that traveller's own booking.
  */
 export interface AppBooking {
   id: string;
@@ -27,6 +28,11 @@ export interface AppBooking {
   driver: { firstName: string; bio: string | null; english: string | null; ict: boolean; photo: string | null; rating: string | null } | null;
   car: { name: string; color: string | null; plate: string | null; seats: number | null; photos: string[] } | null;
   myRating: number | null;
+  /**
+   * Where the driver is, while they are sharing location for THIS booking (from 3 hours
+   * before the pickup, or once on the way, until the trip ends). Null otherwise.
+   */
+  driverLocation: { lat: number; lng: number; recordedAt: string; etaAt: string | null; lateMin: number | null } | null;
 }
 
 export interface AppTrip {
@@ -62,7 +68,10 @@ export async function tripsForEmail(email: string): Promise<{ trips: AppTrip[]; 
   const driverIds = [...new Set(shown.map((b) => b.assigned_driver_id as string))];
   const vehicleIds = [...new Set(shown.map((b) => b.assigned_vehicle_id as string).filter(Boolean))];
 
-  const [drivers, vehicles, reviews, catalog] = await Promise.all([
+  const [locations, drivers, vehicles, reviews, catalog] = await Promise.all([
+    driverIds.length
+      ? db.from("driver_locations").select("driver_id, booking_id, lat, lng, recorded_at, eta_at, late_min").in("driver_id", driverIds)
+      : Promise.resolve({ data: [] }),
     driverIds.length
       ? db.from("drivers").select("id, bio, english_level, ict_permit_number, documents, rating_avg, rating_count, profiles!drivers_id_fkey(full_name)").in("id", driverIds)
       : Promise.resolve({ data: [] }),
@@ -96,6 +105,14 @@ export async function tripsForEmail(email: string): Promise<{ trips: AppTrip[]; 
     const { data } = await db.storage.from("driver-kyc-docs").createSignedUrls(paths, 3600);
     for (const s of data ?? []) if (s.path && s.signedUrl) urls[s.path] = s.signedUrl;
   }
+
+  type L = { driver_id: string; booking_id: string | null; lat: number; lng: number; recorded_at: string; eta_at: string | null; late_min: number | null };
+  // The position row names the booking it is being shared for, so a traveller only ever
+  // sees the driver while that driver is on the way to, or driving, their own trip.
+  const locationFor = (bookingId: string, driverId: string | null): AppBooking["driverLocation"] => {
+    const l = ((locations.data ?? []) as L[]).find((x) => x.driver_id === driverId && x.booking_id === bookingId);
+    return l ? { lat: l.lat, lng: l.lng, recordedAt: l.recorded_at, etaAt: l.eta_at, lateMin: l.late_min } : null;
+  };
 
   const view = (b: (typeof rows)[number]): AppBooking => {
     const visible = shown.includes(b);
@@ -137,6 +154,7 @@ export async function tripsForEmail(email: string): Promise<{ trips: AppTrip[]; 
           }
         : null,
       myRating: (reviews.data as { booking_id: string; stars: number }[] | null)?.find((r) => r.booking_id === b.id)?.stars ?? null,
+      driverLocation: locationFor(b.id, visible ? (b.assigned_driver_id as string) : null),
     };
   };
 

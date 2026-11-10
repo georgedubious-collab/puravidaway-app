@@ -14,6 +14,8 @@ export interface AppBooking {
   driver: { firstName: string; bio: string | null; english: string | null; ict: boolean; photo: string | null; rating: string | null } | null;
   car: { name: string; color: string | null; plate: string | null; seats: number | null; photos: string[] } | null;
   myRating: number | null;
+  /** Where the driver is, only while they share location for this booking. */
+  driverLocation: { lat: number; lng: number; recordedAt: string; etaAt: string | null; lateMin: number | null } | null;
 }
 
 export interface AppTrip {

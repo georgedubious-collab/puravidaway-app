@@ -1,0 +1,150 @@
+import "server-only";
+import { HUBS, perPersonTierCents, stopFitsRoute } from "./catalog";
+import { seasonForYmd } from "./catalogModel";
+import { getCatalog } from "./catalogSource";
+import { isValidYmd, todayInCostaRica } from "./dates";
+import { MapsError, resolvePlace, rideRoute } from "./googleMaps";
+import { isAirportPickup, isHubPlace } from "./places";
+import { applyMultiplier, quoteDayTour, quoteTransfer } from "./pricing";
+
+/**
+ * Prices for the traveller app. The app never calculates a price itself: it
+ * sends the places, date, travellers and chosen stops, and shows what comes
+ * back. The same functions price the website, and the server prices the trip
+ * again when the request is sent.
+ */
+export interface RideQuote {
+  /** The pieces of the trip item the app sends back when booking. */
+  base: {
+    origin: string;
+    destination: string;
+    originPlace?: { id: string; label: string };
+    destinationPlace?: { id: string; label: string };
+  };
+  originLabel: string;
+  destinationLabel: string;
+  airportPickup: boolean;
+  minutes: number;
+  km: number | null;
+  ferries: number;
+  season: { name: string; percent: number };
+  cashFeeBps: number;
+  vehicles: {
+    id: string;
+    name: string;
+    badge: string;
+    maxPax: number;
+    luggage: string;
+    allowsStops: boolean;
+    spanishSpeakingDriver: boolean;
+    /** Exact total for this vehicle with the chosen stops (stops ignored where the vehicle doesn't allow them). */
+    totalCents: number;
+  }[];
+  stops: { id: string; name: string; description: string; durationMin: number; cents: number; entrance: string }[];
+}
+
+export class QuoteError extends Error {}
+
+export async function rideQuote(input: { from: string; to: string; date: string; pax: number; stopIds: string[] }): Promise<RideQuote> {
+  const today = todayInCostaRica();
+  if (!isValidYmd(input.date) || input.date < today) throw new QuoteError("Pick a travel date from today onwards.");
+  if (!Number.isInteger(input.pax) || input.pax < 1 || input.pax > 10) throw new QuoteError("Choose 1 to 10 travellers.");
+  let origin, destination, route;
+  try {
+    [origin, destination] = await Promise.all([resolvePlace(input.from), resolvePlace(input.to)]);
+    if (origin.id === destination.id) throw new QuoteError("Pick a different drop-off.");
+    route = await rideRoute(origin, destination);
+  } catch (e) {
+    if (e instanceof MapsError || e instanceof QuoteError) throw new QuoteError(e.message);
+    throw e;
+  }
+  const catalog = await getCatalog();
+  const season = seasonForYmd(input.date, catalog);
+  const fits = catalog.stops.filter((s) => stopFitsRoute(s, origin.hub, destination.hub));
+  const stopIds = input.stopIds.filter((id) => fits.some((s) => s.id === id));
+  const vehicles = catalog.vehicles.filter(
+    (v) => v.maxPax >= input.pax && (!v.onlyForHubs || v.onlyForHubs.includes(origin.hub) || v.onlyForHubs.includes(destination.hub)),
+  );
+  // Our town names for hubs; the looked-up label for typed places.
+  const label = (p: typeof origin) => (isHubPlace(p) ? (HUBS.find((h) => h.id === p.hub)?.name ?? p.label) : p.label);
+
+  const quotes = vehicles.map((v) => ({
+    v,
+    q: quoteTransfer({
+      origin: origin.hub,
+      destination: destination.hub,
+      vehicleId: v.id,
+      stopIds: v.allowsStops ? stopIds : [],
+      season,
+      catalog,
+      route,
+      pax: input.pax,
+    }),
+  }));
+  const first = quotes[0]?.q;
+  return {
+    base: {
+      origin: origin.hub,
+      destination: destination.hub,
+      ...(isHubPlace(origin) ? {} : { originPlace: { id: origin.id, label: origin.label } }),
+      ...(isHubPlace(destination) ? {} : { destinationPlace: { id: destination.id, label: destination.label } }),
+    },
+    originLabel: label(origin),
+    destinationLabel: label(destination),
+    airportPickup: isAirportPickup(origin),
+    minutes: first?.driveMinutes ?? 0,
+    km: route ? Math.round(route.km) : null,
+    ferries: route?.ferries ?? 0,
+    season: { name: season.name, percent: Math.round((season.multiplierBps - 10000) / 100) },
+    cashFeeBps: catalog.cashFeeBps,
+    vehicles: quotes.map(({ v, q }) => ({
+      id: v.id,
+      name: v.name,
+      badge: v.badge,
+      maxPax: v.maxPax,
+      luggage: v.luggage,
+      allowsStops: v.allowsStops,
+      spanishSpeakingDriver: v.spanishSpeakingDriver,
+      totalCents: q.totalCents,
+    })),
+    stops: fits.map((s) => ({
+      id: s.id,
+      name: s.name,
+      description: s.description,
+      durationMin: s.durationMin,
+      cents: applyMultiplier(s.priceCents + s.tourPerPersonCents * input.pax, season.multiplierBps),
+      entrance: s.entrance,
+    })),
+  };
+}
+
+export interface TourQuote {
+  id: string;
+  name: string;
+  region: string;
+  durationHours: number;
+  highlights: string[];
+  perPersonCents: number;
+  totalCents: number;
+}
+
+/** Day tours with the total for this group and date. */
+export async function tourQuotes(date: string, pax: number): Promise<{ tours: TourQuote[]; cashFeeBps: number }> {
+  const today = todayInCostaRica();
+  if (!isValidYmd(date) || date < today) throw new QuoteError("Pick a date from today onwards.");
+  if (!Number.isInteger(pax) || pax < 1 || pax > 10) throw new QuoteError("Choose 1 to 10 travellers.");
+  const catalog = await getCatalog();
+  const season = seasonForYmd(date, catalog);
+  return {
+    cashFeeBps: catalog.cashFeeBps,
+    tours: catalog.dayTours.map((t) => ({
+      id: t.id,
+      name: t.name,
+      region: t.region,
+      durationHours: t.durationHours,
+      highlights: t.highlights,
+      perPersonCents: applyMultiplier(perPersonTierCents(t.perPerson, pax), season.multiplierBps),
+      totalCents: quoteDayTour(t.id, false, pax, season, catalog),
+    })),
+  };
+}

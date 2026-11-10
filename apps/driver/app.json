@@ -32,7 +32,7 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Costa Rica Private Transfers shares your location with our team from 3 hours before a pickup until you complete the trip, so we can coordinate pickups.",
+          "locationAlwaysAndWhenInUsePermission": "Costa Rica Private Transfers shares your location with our team and your travellers from 3 hours before a pickup until you end the trip, so pickups can be coordinated.",
           "locationWhenInUsePermission": "Costa Rica Private Transfers uses your location to coordinate pickups during your trips.",
           "isIosBackgroundLocationEnabled": true,
           "isAndroidBackgroundLocationEnabled": true
