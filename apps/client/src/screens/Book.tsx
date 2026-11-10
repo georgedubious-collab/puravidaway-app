@@ -1,18 +1,20 @@
+import { Ionicons } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { api } from "../api";
 import { SITE_URL } from "../config";
 import { TOWNS, plural, usd } from "../format";
-import { C, S } from "../theme";
-import { Badge, Btn, Card } from "../ui";
+import { DatePicker, longDate } from "../DatePicker";
+import { C, R, S } from "../theme";
+import { Back, Badge, Btn, Card, Chip, Divider, IconLine, LinkBtn, ScreenTitle, type IconName } from "../ui";
 
 /* Shapes returned by the website's /api/v1/client/quote and /tours (src/lib/appQuote.ts). */
-interface Place {
+export interface Place {
   id: string;
   label: string;
 }
-interface RideQuote {
+export interface RideQuote {
   base: Record<string, unknown>;
   originLabel: string;
   destinationLabel: string;
@@ -25,7 +27,7 @@ interface RideQuote {
   vehicles: { id: string; name: string; badge: string; maxPax: number; luggage: string; allowsStops: boolean; spanishSpeakingDriver: boolean; totalCents: number }[];
   stops: { id: string; name: string; description: string; durationMin: number; cents: number; entrance: string }[];
 }
-interface Tour {
+export interface Tour {
   id: string;
   name: string;
   durationHours: number;
@@ -34,7 +36,7 @@ interface Tour {
   totalCents: number;
 }
 /** What the traveller has chosen and is about to send. */
-interface Chosen {
+export interface Chosen {
   title: string;
   detail: string;
   date: string;
@@ -59,6 +61,8 @@ const time12 = (t: string) => {
 };
 /** Today + n days in Costa Rica (UTC−6), as YYYY-MM-DD. */
 const crDatePlus = (n: number) => new Date(Date.now() - 6 * 3600000 + n * 86400000).toISOString().slice(0, 10);
+/** Form labels read as sentences; the small capitals are kept for section labels. */
+const FIELD_LABEL = { fontSize: 13, fontWeight: "600", color: C.body } as const;
 const validDate = (d: string) => /^\d{4}-\d{2}-\d{2}$/.test(d) && !Number.isNaN(new Date(d + "T00:00:00Z").getTime());
 
 /**
@@ -66,55 +70,69 @@ const validDate = (d: string) => /^\d{4}-\d{2}-\d{2}$/.test(d) && !Number.isNaN(
  * address, with optional stops) or a day tour. Every price comes from the
  * server; the app only shows it and sends the choice back.
  */
-export function Book({ email, onBooked }: { email: string; onBooked: (tripToken: string | null, payOnline: boolean, totalCents: number, testCheckout: boolean) => void }) {
-  const [kind, setKind] = useState<"ride" | "tour">("ride");
+export function Book({
+  email,
+  onBooked,
+  demo,
+}: {
+  email: string;
+  onBooked: (tripToken: string | null, payOnline: boolean, totalCents: number, testCheckout: boolean) => void;
+  /** Sample prices for design previews; skips loading. */
+  demo?: { kind?: "ride" | "tour"; to?: Place; quote?: RideQuote; tours?: Tour[]; chosen?: Chosen; pickDate?: boolean };
+}) {
+  const [kind, setKind] = useState<"ride" | "tour">(demo?.kind ?? "ride");
   const [date, setDate] = useState(crDatePlus(14));
   const [pax, setPax] = useState(2);
-  const [chosen, setChosen] = useState<Chosen | null>(null);
+  const [chosen, setChosen] = useState<Chosen | null>(demo?.chosen ?? null);
 
+  if (chosen) {
+    return (
+      <ScrollView style={S.screen} contentContainerStyle={S.pad} keyboardShouldPersistTaps="handled">
+        <Send chosen={chosen} email={email} onBack={() => setChosen(null)} onBooked={onBooked} />
+      </ScrollView>
+    );
+  }
   return (
     <ScrollView style={S.screen} contentContainerStyle={S.pad} keyboardShouldPersistTaps="handled">
-      <Text style={S.h1}>Plan a trip</Text>
-      {chosen ? (
-        <Send chosen={chosen} email={email} onBack={() => setChosen(null)} onBooked={onBooked} />
-      ) : (
-        <>
-          <View style={{ flexDirection: "row", gap: 8 }}>
-            <Chip label="Private ride" on={kind === "ride"} onPress={() => setKind("ride")} />
-            <Chip label="Day tour" on={kind === "tour"} onPress={() => setKind("tour")} />
-          </View>
-          <Card>
-            <Text style={S.label}>Travel date (YYYY-MM-DD)</Text>
-            <TextInput accessibilityLabel="Travel date" value={date} onChangeText={setDate} placeholder="2026-12-15" keyboardType="numbers-and-punctuation" style={S.input} />
-            {!validDate(date) ? <Text style={S.error}>Enter the date as year-month-day, e.g. 2026-12-15.</Text> : null}
+      <ScreenTitle title="Plan a trip" subtitle="Private rides and day tours with hand-picked local drivers." />
+      <View style={{ flexDirection: "row", backgroundColor: "#E6ECE8", borderRadius: R.control, padding: 4 }} accessibilityRole="tablist">
+        <Segment label="Private ride" icon="car-outline" on={kind === "ride"} onPress={() => setKind("ride")} />
+        <Segment label="Day tour" icon="trail-sign-outline" on={kind === "tour"} onPress={() => setKind("tour")} />
+      </View>
+      <Card>
+        <DatePicker label="Travel date" value={validDate(date) ? date : crDatePlus(14)} min={crDatePlus(1)} onChange={setDate} startOpen={demo?.pickDate} />
+        <View style={[S.row, { marginTop: 6 }]}>
+          <View style={{ flex: 1 }}>
             <Text style={S.label}>Travellers</Text>
-            <View style={[S.row, { justifyContent: "flex-start" }]}>
-              <Step label="−" onPress={() => setPax((p) => Math.max(1, p - 1))} />
-              <Text style={[S.h2, { minWidth: 110, textAlign: "center" }]}>{plural(pax, "traveller")}</Text>
-              <Step label="+" onPress={() => setPax((p) => Math.min(10, p + 1))} />
-            </View>
-          </Card>
-          {kind === "ride" ? <Ride date={date} pax={pax} onChoose={setChosen} /> : <Tours date={date} pax={pax} onChoose={setChosen} />}
-          <Btn label="Multi-day expeditions (website)" alt onPress={() => void WebBrowser.openBrowserAsync(SITE_URL)} />
-        </>
-      )}
+            <Text style={S.muted}>Children count too</Text>
+          </View>
+          <Step icon="remove" label="One fewer traveller" onPress={() => setPax((p) => Math.max(1, p - 1))} disabled={pax <= 1} />
+          <Text style={{ fontSize: 22, fontWeight: "800", color: C.text, minWidth: 28, textAlign: "center" }}>{pax}</Text>
+          <Step icon="add" label="One more traveller" onPress={() => setPax((p) => Math.min(10, p + 1))} disabled={pax >= 10} />
+        </View>
+      </Card>
+      {kind === "ride" ? <Ride date={date} pax={pax} onChoose={setChosen} demo={demo} /> : <Tours date={date} pax={pax} onChoose={setChosen} demo={demo?.tours} />}
+      <View style={{ alignItems: "center" }}>
+        <LinkBtn label="Multi-day expeditions are on our website" icon="open-outline" onPress={() => void WebBrowser.openBrowserAsync(SITE_URL)} />
+      </View>
     </ScrollView>
   );
 }
 
-function Ride({ date, pax, onChoose }: { date: string; pax: number; onChoose: (c: Chosen) => void }) {
+function Ride({ date, pax, onChoose, demo }: { date: string; pax: number; onChoose: (c: Chosen) => void; demo?: { to?: Place; quote?: RideQuote } }) {
   const [from, setFrom] = useState<Place | null>(HUBS[0]);
-  const [to, setTo] = useState<Place | null>(null);
+  const [to, setTo] = useState<Place | null>(demo?.to ?? null);
   const [time, setTime] = useState("09:00");
   const [stopIds, setStopIds] = useState<string[]>([]);
   const [vehicleId, setVehicleId] = useState("sedan");
   const [notes, setNotes] = useState("");
-  const [quote, setQuote] = useState<RideQuote | null>(null);
+  const [quote, setQuote] = useState<RideQuote | null>(demo?.quote ?? null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const stopsKey = stopIds.join(",");
 
   const load = useCallback(async () => {
+    if (demo) return;
     if (!from || !to || !validDate(date)) return setQuote(null);
     setBusy(true);
     setError("");
@@ -125,7 +143,7 @@ function Ride({ date, pax, onChoose }: { date: string; pax: number; onChoose: (c
       return setError(res.error ?? "We couldn't price that ride.");
     }
     setQuote(res.data.quote);
-  }, [from, to, date, pax, stopsKey]);
+  }, [from, to, date, pax, stopsKey, demo]);
 
   useEffect(() => {
     void load();
@@ -161,85 +179,100 @@ function Ride({ date, pax, onChoose }: { date: string; pax: number; onChoose: (c
   return (
     <>
       <Card>
-        <PlaceField label="Pickup" value={from} onChange={setFrom} />
-        <PlaceField label="Drop-off" value={to} onChange={setTo} />
-        <Text style={S.label}>Pickup time (Costa Rica time)</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+        <PlaceField label="Pickup" icon="radio-button-on-outline" value={from} onChange={setFrom} />
+        <PlaceField label="Drop-off" icon="location" value={to} onChange={setTo} />
+        <Text style={[S.label, { marginTop: 6 }]}>Pickup time · Costa Rica time</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }} style={{ marginHorizontal: -16 }} contentOffset={{ x: Math.max(0, TIMES.indexOf(time) * 106 - 8), y: 0 }}>
+          <View style={{ width: 8 }} />
           {TIMES.map((t) => (
-            <Chip key={t} label={time12(t)} on={t === time} onPress={() => setTime(t)} small />
+            <Chip key={t} label={time12(t)} on={t === time} onPress={() => setTime(t)} />
           ))}
+          <View style={{ width: 8 }} />
         </ScrollView>
       </Card>
       {error ? <Text style={S.error}>{error}</Text> : null}
-      {busy && !quote ? <Text style={S.muted}>Checking the road distance…</Text> : null}
+      {busy && !quote ? <IconLine icon="hourglass-outline" text="Checking the road distance…" /> : null}
+      {!quote && !busy && !error ? <IconLine icon="information-circle-outline" text="Choose your drop-off to see the price. It's a fixed price for the whole car, not per person." /> : null}
       {quote ? (
         <>
-          <Text style={S.muted}>
-            About {Math.floor(quote.minutes / 60)} h {quote.minutes % 60} min
-            {quote.km != null ? " · " + quote.km + " km" : ""}
-            {quote.ferries ? " · ferry fares included" : ""}
-            {quote.season.percent ? " · " + quote.season.name + " " + (quote.season.percent > 0 ? "+" : "") + quote.season.percent + "%" : ""}
-          </Text>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+            <Badge text={"About " + Math.floor(quote.minutes / 60) + " h " + (quote.minutes % 60) + " min"} tone="grey" icon="time-outline" />
+            {quote.km != null ? <Badge text={quote.km + " km"} tone="grey" icon="speedometer-outline" /> : null}
+            {quote.ferries ? <Badge text="Ferry fares included" tone="sky" icon="boat-outline" /> : null}
+            {quote.season.percent ? <Badge text={quote.season.name + " " + (quote.season.percent > 0 ? "+" : "") + quote.season.percent + "%"} tone="amber" icon="sunny-outline" /> : null}
+          </View>
           {quote.vehicles.length === 0 ? <Text style={S.error}>No vehicle for {pax} travellers on this route. Message us on WhatsApp.</Text> : null}
-          {quote.vehicles.map((v) => (
-            <Pressable
-              key={v.id}
-              accessibilityRole="radio"
-              accessibilityState={{ selected: v.id === vehicle?.id }}
-              onPress={() => setVehicleId(v.id)}
-              style={[S.card, v.id === vehicle?.id ? { borderColor: C.emerald, borderWidth: 2, backgroundColor: "#ECFDF5" } : null]}
-            >
-              <Badge text={v.badge} tone="amber" />
-              <View style={S.row}>
-                <Text style={[S.h2, { flex: 1 }]}>{v.name}</Text>
+          {quote.vehicles.length ? <Text style={[S.label, { marginTop: 4 }]}>Choose your vehicle</Text> : null}
+          {quote.vehicles.map((v) => {
+            const on = v.id === vehicle?.id;
+            return (
+              <Pressable
+                key={v.id}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: on }}
+                onPress={() => setVehicleId(v.id)}
+                style={({ pressed }) => [S.card, { borderWidth: 2, borderColor: on ? C.emerald : "transparent", flexDirection: "row", alignItems: "center", gap: 12 }, pressed ? { opacity: 0.75 } : null]}
+              >
+                <Ionicons name={on ? "radio-button-on" : "radio-button-off"} size={24} color={on ? C.emerald : C.faint} />
+                <View style={{ flex: 1, gap: 4 }}>
+                  <Text style={S.h2}>{v.name}</Text>
+                  <Text style={S.muted}>
+                    Up to {v.maxPax} · {v.luggage}
+                    {v.allowsStops ? "" : " · direct ride, no stops"}
+                  </Text>
+                  <Badge text={v.badge} tone="amber" />
+                </View>
                 <Text style={S.money}>{cents(v.totalCents)}</Text>
-              </View>
-              <Text style={S.muted}>
-                Up to {v.maxPax} · {v.luggage}
-                {v.allowsStops ? "" : " · direct ride, no stops"}
-              </Text>
-            </Pressable>
-          ))}
+              </Pressable>
+            );
+          })}
           {quote.stops.length > 0 ? (
             <Card>
-              <Text style={S.h2}>Add a stop (optional)</Text>
-              {!stopsOn ? <Text style={S.muted}>{vehicle?.name} is a direct ride. Choose another vehicle to add stops.</Text> : null}
+              <Text style={S.h2}>Add a stop on the way</Text>
+              <Text style={S.muted}>{stopsOn ? "Optional. Your driver waits while you visit." : (vehicle?.name ?? "This vehicle") + " is a direct ride. Choose another vehicle to add stops."}</Text>
               {stopsOn
-                ? quote.stops.map((s) => {
+                ? quote.stops.map((s, i) => {
                     const on = stopIds.includes(s.id);
                     return (
-                      <Pressable
-                        key={s.id}
-                        accessibilityRole="checkbox"
-                        accessibilityState={{ checked: on }}
-                        onPress={() => setStopIds((p) => (on ? p.filter((x) => x !== s.id) : [...p, s.id]))}
-                        style={{ borderWidth: 2, borderColor: on ? C.emerald : C.border, backgroundColor: on ? "#ECFDF5" : "#fff", borderRadius: 12, padding: 12, gap: 2 }}
-                      >
-                        <Text style={[S.text, { fontWeight: "800" }]}>
-                          {on ? "✓ " : ""}
-                          {s.name}
-                        </Text>
-                        <Text style={S.muted}>{s.description}</Text>
-                        <Text style={{ fontWeight: "800", color: C.emerald }}>
-                          +{cents(s.cents)} · adds {s.durationMin} min
-                        </Text>
-                        <Text style={S.muted}>{ENTRANCE[s.entrance] ?? ""}</Text>
-                      </Pressable>
+                      <View key={s.id}>
+                        {i > 0 ? <Divider /> : null}
+                        <Pressable
+                          accessibilityRole="checkbox"
+                          accessibilityState={{ checked: on }}
+                          onPress={() => setStopIds((p) => (on ? p.filter((x) => x !== s.id) : [...p, s.id]))}
+                          style={({ pressed }) => ({ flexDirection: "row", gap: 12, paddingVertical: 12, opacity: pressed ? 0.6 : 1 })}
+                        >
+                          <Ionicons name={on ? "checkbox" : "square-outline"} size={24} color={on ? C.emerald : C.faint} />
+                          <View style={{ flex: 1, gap: 3 }}>
+                            <View style={S.row}>
+                              <Text style={{ fontSize: 15, fontWeight: "800", color: C.text, flex: 1 }}>{s.name}</Text>
+                              <Text style={{ fontWeight: "800", color: C.emerald }}>+{cents(s.cents)}</Text>
+                            </View>
+                            <Text style={S.muted}>{s.description}</Text>
+                            <Text style={S.muted}>
+                              Adds {s.durationMin} min{ENTRANCE[s.entrance] ? " · " + ENTRANCE[s.entrance] : ""}
+                            </Text>
+                          </View>
+                        </Pressable>
+                      </View>
                     );
                   })
                 : null}
             </Card>
           ) : null}
           <Card>
-            <Text style={S.label}>{quote.airportPickup ? "Flight number, so we can track it" : "Flight number or hotel name (optional)"}</Text>
-            <TextInput accessibilityLabel="Flight number or hotel" value={notes} onChangeText={setNotes} maxLength={200} placeholder="e.g. AA 1234" style={S.input} />
+            <Text style={FIELD_LABEL}>{quote.airportPickup ? "Flight number, so we can track it" : "Flight number or hotel name (optional)"}</Text>
+            <TextInput accessibilityLabel="Flight number or hotel" value={notes} onChangeText={setNotes} maxLength={200} placeholder="e.g. AA 1234" placeholderTextColor={C.faint} style={S.input} />
             {vehicle ? (
               <>
-                <View style={S.row}>
-                  <Text style={S.h2}>Total private ride</Text>
-                  <Text style={S.money}>{cents(vehicle.totalCents)}</Text>
+                <View style={[S.row, { marginTop: 6 }]}>
+                  <View>
+                    <Text style={S.label}>Total</Text>
+                    <Text style={S.muted}>For the whole car, taxes included</Text>
+                  </View>
+                  <Text style={[S.money, { fontSize: 30 }]}>{cents(vehicle.totalCents)}</Text>
                 </View>
-                <Btn label="Continue" onPress={choose} busy={busy} color={C.emerald} />
+                <Btn label="Continue" icon="arrow-forward" onPress={choose} busy={busy} color={C.emerald} />
               </>
             ) : null}
           </Card>
@@ -249,12 +282,12 @@ function Ride({ date, pax, onChoose }: { date: string; pax: number; onChoose: (c
   );
 }
 
-function Tours({ date, pax, onChoose }: { date: string; pax: number; onChoose: (c: Chosen) => void }) {
-  const [tours, setTours] = useState<Tour[] | null>(null);
+function Tours({ date, pax, onChoose, demo }: { date: string; pax: number; onChoose: (c: Chosen) => void; demo?: Tour[] }) {
+  const [tours, setTours] = useState<Tour[] | null>(demo ?? null);
   const [fee, setFee] = useState(0);
   const [error, setError] = useState("");
   useEffect(() => {
-    if (!validDate(date)) return;
+    if (demo || !validDate(date)) return;
     let live = true;
     void api<{ tours: Tour[]; cashFeeBps: number }>("/client/tours?date=" + date + "&pax=" + pax).then((res) => {
       if (!live) return;
@@ -266,27 +299,35 @@ function Tours({ date, pax, onChoose }: { date: string; pax: number; onChoose: (
     return () => {
       live = false;
     };
-  }, [date, pax]);
+  }, [date, pax, demo]);
   return (
     <>
       {error ? <Text style={S.error}>{error}</Text> : null}
       {(tours ?? []).map((t) => (
         <Card key={t.id}>
-          <Text style={S.h2}>{t.name}</Text>
-          <Text style={S.muted}>{t.durationHours} hours · private · guide, entrances and lunch included</Text>
+          <Text style={[S.h2, { fontSize: 19 }]}>{t.name}</Text>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+            <Badge text={t.durationHours + " hours"} tone="grey" icon="time-outline" />
+            <Badge text="Private" tone="grey" icon="lock-closed-outline" />
+            <Badge text="Guide, entrances and lunch included" icon="restaurant-outline" />
+          </View>
           {t.highlights.map((h) => (
-            <Text key={h} style={S.text}>
-              • {h}
-            </Text>
+            <View key={h} style={{ flexDirection: "row", gap: 8 }}>
+              <Ionicons name="checkmark" size={18} color={C.emerald} style={{ marginTop: 1 }} />
+              <Text style={[S.text, { flex: 1 }]}>{h}</Text>
+            </View>
           ))}
+          <Divider />
           <View style={S.row}>
-            <Text style={S.muted}>
-              {cents(t.perPersonCents)} per person · {plural(pax, "traveller")}
-            </Text>
-            <Text style={S.money}>{cents(t.totalCents)}</Text>
+            <View>
+              <Text style={S.label}>{plural(pax, "traveller")}</Text>
+              <Text style={S.muted}>{cents(t.perPersonCents)} per person</Text>
+            </View>
+            <Text style={[S.money, { fontSize: 28 }]}>{cents(t.totalCents)}</Text>
           </View>
           <Btn
             label="Choose this tour"
+            color={C.emerald}
             onPress={() =>
               onChoose({
                 title: t.name,
@@ -342,48 +383,82 @@ function Send({
 
   return (
     <>
-      <Btn label="← Change the trip" alt onPress={onBack} />
-      <Card>
-        <Text style={S.label}>{chosen.date}</Text>
+      <Back label="Change the trip" onPress={onBack} />
+      <ScreenTitle title="Almost there" />
+      <Card tone="emerald">
+        <Text style={S.label}>{longDate(chosen.date)}</Text>
         <Text style={S.h2}>{chosen.title}</Text>
         <Text style={S.muted}>{chosen.detail}</Text>
       </Card>
       <Card>
         <Text style={S.h2}>Your details</Text>
-        <Text style={S.label}>Full name</Text>
+        <Text style={FIELD_LABEL}>Full name</Text>
         <TextInput accessibilityLabel="Full name" value={name} onChangeText={setName} autoComplete="name" style={S.input} />
-        <Text style={S.label}>Mobile / WhatsApp, with country code</Text>
-        <TextInput accessibilityLabel="Mobile number" value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="+1 555 123 4567" style={S.input} />
-        <Text style={S.muted}>Confirmations go to {email}.</Text>
+        <Text style={[FIELD_LABEL, { marginTop: 4 }]}>Mobile / WhatsApp, with country code</Text>
+        <TextInput accessibilityLabel="Mobile number" value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="+1 555 123 4567" placeholderTextColor={C.faint} style={S.input} />
+        <IconLine icon="mail-outline" text={"Confirmations go to " + email + "."} />
       </Card>
       <Card>
         <Text style={S.h2}>How would you like to pay?</Text>
-        <Chip label={"Online in full · " + cents(chosen.totalCents)} on={mode === "full_100"} onPress={() => setMode("full_100")} />
-        <Chip
-          label={"Cash to the driver · " + cents(chosen.totalCents + fee) + " (includes " + chosen.cashFeeBps / 100 + "% cash booking fee)"}
+        <PayOption icon="card-outline" title="Online in full" detail="Pay securely by card" price={cents(chosen.totalCents)} on={mode === "full_100"} onPress={() => setMode("full_100")} />
+        <PayOption
+          icon="cash-outline"
+          title="Cash to the driver"
+          detail={"Includes the " + chosen.cashFeeBps / 100 + "% cash booking fee"}
+          price={cents(chosen.totalCents + fee)}
           on={mode === "cash_driver"}
           onPress={() => setMode("cash_driver")}
         />
-        <View style={S.row}>
-          <Text style={S.h2}>Total</Text>
-          <Text style={S.money}>{cents(total)}</Text>
+        <View style={[S.row, { marginTop: 6 }]}>
+          <Text style={S.label}>Total</Text>
+          <Text style={[S.money, { fontSize: 30 }]}>{cents(total)}</Text>
         </View>
         {error ? <Text style={S.error}>{error}</Text> : null}
         <Btn
           label={mode === "full_100" ? "Send request and pay" : "Send request"}
+          icon="paper-plane-outline"
           onPress={send}
           busy={busy}
           disabled={!name.trim() || phone.replace(/\D/g, "").length < 7}
           color={C.emerald}
         />
-        <Text style={S.muted}>Free cancellation up to 24 hours before pickup. Our team confirms your driver and pickup time.</Text>
+        <IconLine icon="shield-checkmark-outline" text="Free cancellation up to 24 hours before pickup. Our team confirms your driver and pickup time." />
       </Card>
     </>
   );
 }
 
+function PayOption({ icon, title, detail, price, on, onPress }: { icon: IconName; title: string; detail: string; price: string; on: boolean; onPress: () => void }) {
+  return (
+    <Pressable
+      accessibilityRole="radio"
+      accessibilityState={{ selected: on }}
+      onPress={onPress}
+      style={({ pressed }) => ({
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 12,
+        borderWidth: 2,
+        borderColor: on ? C.emerald : C.border,
+        backgroundColor: on ? C.emeraldTint : "#fff",
+        borderRadius: R.control,
+        padding: 12,
+        opacity: pressed ? 0.7 : 1,
+      })}
+    >
+      <Ionicons name={icon} size={22} color={on ? C.emerald : C.muted} />
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontSize: 15, fontWeight: "800", color: C.text }}>{title}</Text>
+        <Text style={S.muted}>{detail}</Text>
+      </View>
+      <Text style={{ fontSize: 16, fontWeight: "800", color: C.text }}>{price}</Text>
+      <Ionicons name={on ? "radio-button-on" : "radio-button-off"} size={22} color={on ? C.emerald : C.faint} />
+    </Pressable>
+  );
+}
+
 /** A place box: our towns at once, hotels and addresses as you type (through our server, Costa Rica only). */
-function PlaceField({ label, value, onChange }: { label: string; value: Place | null; onChange: (p: Place | null) => void }) {
+function PlaceField({ label, icon, value, onChange }: { label: string; icon: IconName; value: Place | null; onChange: (p: Place | null) => void }) {
   const [text, setText] = useState(value?.label ?? "");
   const [open, setOpen] = useState(false);
   const [found, setFound] = useState<{ placeId: string; main: string; secondary: string }[]>([]);
@@ -422,27 +497,46 @@ function PlaceField({ label, value, onChange }: { label: string; value: Place | 
 
   const hubs = HUBS.filter((h) => q.length < 2 || q === value?.label || h.label.toLowerCase().includes(q.toLowerCase()));
   return (
-    <View style={{ gap: 4 }}>
+    <View style={{ gap: 6 }}>
       <Text style={S.label}>{label}</Text>
-      <TextInput
-        accessibilityLabel={label}
-        value={text}
-        onFocus={() => setOpen(true)}
-        onChangeText={(t) => {
-          setText(t);
-          setOpen(true);
-          if (value) onChange(null);
-        }}
-        placeholder="Airport, town, hotel or address"
-        autoCorrect={false}
-        style={S.input}
-      />
+      <View style={[S.input, { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 0, borderColor: open ? C.emerald : C.border }]}>
+        <Ionicons name={icon} size={18} color={C.emerald} />
+        <TextInput
+          accessibilityLabel={label}
+          value={text}
+          onFocus={() => setOpen(true)}
+          onChangeText={(t) => {
+            setText(t);
+            setOpen(true);
+            if (value) onChange(null);
+          }}
+          placeholder="Airport, town, hotel or address"
+          placeholderTextColor={C.faint}
+          autoCorrect={false}
+          style={{ flex: 1, fontSize: 16, color: C.text, paddingVertical: 12 }}
+        />
+        {text ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={"Clear " + label.toLowerCase()}
+            hitSlop={10}
+            onPress={() => {
+              setText("");
+              setOpen(true);
+              if (value) onChange(null);
+            }}
+          >
+            <Ionicons name="close-circle" size={18} color={C.faint} />
+          </Pressable>
+        ) : null}
+      </View>
       {error ? <Text style={S.error}>{error}</Text> : null}
       {open ? (
-        <View style={{ borderWidth: 1, borderColor: C.border, borderRadius: 10, backgroundColor: "#fff" }}>
+        <View style={{ borderWidth: 1.5, borderColor: C.border, borderRadius: R.control, backgroundColor: "#fff", overflow: "hidden" }}>
           {hubs.map((h) => (
             <Option
               key={h.id}
+              icon={h.id === "hub:SJO" || h.id === "hub:LIR" ? "airplane-outline" : "location-outline"}
               main={h.label}
               onPress={() => {
                 onChange(h);
@@ -451,7 +545,7 @@ function PlaceField({ label, value, onChange }: { label: string; value: Place | 
               }}
             />
           ))}
-          {q.length >= 3 && q !== value?.label ? found.map((s) => <Option key={s.placeId} main={s.main} secondary={s.secondary} onPress={() => void pickGoogle(s)} />) : null}
+          {q.length >= 3 && q !== value?.label ? found.map((s) => <Option key={s.placeId} icon="business-outline" main={s.main} secondary={s.secondary} onPress={() => void pickGoogle(s)} />) : null}
           {found.length > 0 ? <Text style={[S.muted, { textAlign: "right", padding: 6, fontSize: 10 }]}>Powered by Google</Text> : null}
         </View>
       ) : null}
@@ -459,39 +553,46 @@ function PlaceField({ label, value, onChange }: { label: string; value: Place | 
   );
 }
 
-function Option({ main, secondary, onPress }: { main: string; secondary?: string; onPress: () => void }) {
-  return (
-    <Pressable accessibilityRole="button" onPress={onPress} style={{ paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "#F1F5F9" }}>
-      <Text style={[S.text, { fontWeight: "700" }]}>{main}</Text>
-      {secondary ? <Text style={S.muted}>{secondary}</Text> : null}
-    </Pressable>
-  );
-}
-
-function Chip({ label, on, onPress, small }: { label: string; on: boolean; onPress: () => void; small?: boolean }) {
+function Option({ icon, main, secondary, onPress }: { icon: IconName; main: string; secondary?: string; onPress: () => void }) {
   return (
     <Pressable
-      accessibilityRole="radio"
-      accessibilityState={{ selected: on }}
+      accessibilityRole="button"
       onPress={onPress}
-      style={{
-        borderWidth: 2,
-        borderColor: on ? C.emerald : C.border,
-        backgroundColor: on ? C.emeraldSoft : "#fff",
-        borderRadius: 10,
-        paddingHorizontal: small ? 10 : 14,
-        paddingVertical: small ? 8 : 12,
-      }}
+      style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 12, minHeight: 48, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: "#F1F4F2", backgroundColor: pressed ? C.emeraldTint : "#fff" })}
     >
-      <Text style={{ fontWeight: "700", color: C.text, fontSize: small ? 13 : 14 }}>{label}</Text>
+      <Ionicons name={icon} size={18} color={C.muted} />
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontSize: 15, fontWeight: "700", color: C.text }}>{main}</Text>
+        {secondary ? <Text style={S.muted}>{secondary}</Text> : null}
+      </View>
     </Pressable>
   );
 }
 
-function Step({ label, onPress }: { label: string; onPress: () => void }) {
+function Segment({ label, icon, on, onPress }: { label: string; icon: IconName; on: boolean; onPress: () => void }) {
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={label === "+" ? "One more traveller" : "One fewer traveller"} onPress={onPress} style={[S.btnAlt, { minWidth: 48 }]}>
-      <Text style={S.btnAltText}>{label}</Text>
+    <Pressable
+      accessibilityRole="tab"
+      accessibilityState={{ selected: on }}
+      onPress={onPress}
+      style={{ flex: 1, flexDirection: "row", gap: 8, minHeight: 44, alignItems: "center", justifyContent: "center", borderRadius: 11, backgroundColor: on ? "#fff" : "transparent" }}
+    >
+      <Ionicons name={icon} size={18} color={on ? C.emerald : C.muted} />
+      <Text style={{ fontWeight: "800", fontSize: 15, color: on ? C.emerald : C.muted }}>{label}</Text>
+    </Pressable>
+  );
+}
+
+function Step({ icon, label, onPress, disabled }: { icon: "add" | "remove"; label: string; onPress: () => void; disabled?: boolean }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: Boolean(disabled) }}
+      onPress={disabled ? undefined : onPress}
+      style={({ pressed }) => ({ width: 46, height: 46, borderRadius: 23, backgroundColor: C.emeraldTint, alignItems: "center", justifyContent: "center", opacity: disabled ? 0.35 : pressed ? 0.6 : 1 })}
+    >
+      <Ionicons name={icon} size={22} color={C.emerald} />
     </Pressable>
   );
 }

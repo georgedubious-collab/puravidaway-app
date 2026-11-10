@@ -22,8 +22,15 @@
       "predictiveBackGestureEnabled": false
     },
     "plugins": [
-      ["expo-notifications", { "color": "#059669", "defaultChannel": "trips" }],
-      "expo-web-browser"
+      [
+        "expo-notifications",
+        {
+          "color": "#059669",
+          "defaultChannel": "trips"
+        }
+      ],
+      "expo-web-browser",
+      "expo-font"
     ]
   }
 }
