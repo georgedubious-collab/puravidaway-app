@@ -33,6 +33,11 @@ export function applyMultiplier(cents: number, multiplierBps: number): number {
   return Math.round((cents * multiplierBps) / 10000);
 }
 
+/** A price rounded to whole dollars ("$590"), for tour and multi-day cards. The trip summary keeps the exact amount. */
+export function formatUSDWhole(cents: number): string {
+  return formatUSD(Math.round(cents / 100) * 100);
+}
+
 export function formatUSD(cents: number): string {
   return new Intl.NumberFormat("en-US", {
     style: "currency",

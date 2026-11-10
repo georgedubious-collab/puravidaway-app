@@ -100,6 +100,7 @@ export function HowItWorksPage({ lang, cashFeeBps }: { lang: PublicLang; cashFee
     <PublicPage
       lang={lang}
       current="how"
+      photo="route-27-highway"
       path={localizedHref(HOW_PATH, lang)}
       crumbs={[{ label: t(lang, "How it works", "Cómo funciona") }]}
       eyebrow={t(lang, "How it works", "Cómo funciona")}
@@ -129,15 +130,15 @@ export function HowItWorksPage({ lang, cashFeeBps }: { lang: PublicLang; cashFee
       </PageSection>
 
       <PageSection id="included" tone="white" title={t(lang, "Every ride includes", "Cada viaje incluye")}>
-        <div className="overflow-x-auto rounded-2xl border border-slate-200">
+        <div className="overflow-hidden rounded-2xl border border-slate-200">
           <table className="w-full text-left text-[15px]">
             <tbody>
               {included.map(([k, v]) => (
-                <tr key={k} className="border-b border-slate-200 last:border-0">
-                  <th scope="row" className="w-44 sm:w-60 bg-slate-50 p-4 align-top font-bold text-slate-900">
+                <tr key={k} className="block sm:table-row border-b border-slate-200 last:border-0">
+                  <th scope="row" className="block sm:table-cell sm:w-60 bg-slate-50 px-4 pt-3 pb-1 sm:p-4 align-top font-bold text-slate-900">
                     {k}
                   </th>
-                  <td className="p-4 text-slate-700">{v}</td>
+                  <td className="block sm:table-cell px-4 pt-1 pb-3 sm:p-4 bg-slate-50 sm:bg-white text-slate-700">{v}</td>
                 </tr>
               ))}
             </tbody>

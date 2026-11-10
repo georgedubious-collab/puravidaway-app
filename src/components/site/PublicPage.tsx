@@ -1,5 +1,7 @@
+import type { PhotoId } from "@/lib/photos";
 import type { PublicLang } from "@/lib/publicLang";
 import { Breadcrumbs, type Crumb } from "./Breadcrumbs";
+import { Photo } from "./Photo";
 import { SiteFooter } from "./SiteFooter";
 import { SiteHeader } from "./SiteHeader";
 
@@ -16,6 +18,7 @@ export function PublicPage({
   eyebrow,
   title,
   lead,
+  photo,
   children,
 }: {
   lang: PublicLang;
@@ -27,6 +30,8 @@ export function PublicPage({
   title: string;
   /** The short, direct answer shown under the H1 (what answer engines quote). */
   lead: React.ReactNode;
+  /** One picture for the page (src/lib/photos.ts): beside the text on desktop, under it on phones. */
+  photo?: PhotoId;
   children: React.ReactNode;
 }) {
   return (
@@ -36,13 +41,26 @@ export function PublicPage({
         <section className="bg-white border-b border-slate-200">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-5 pb-10 sm:pb-14">
             <Breadcrumbs lang={lang} items={crumbs} currentPath={path} />
-            {eyebrow && <p className="mt-6 text-xs font-bold uppercase tracking-widest text-emerald-700">{eyebrow}</p>}
-            <h1
-              className={`${eyebrow ? "mt-2" : "mt-6"} text-3xl sm:text-5xl font-extrabold tracking-tight text-slate-900 leading-[1.08] max-w-3xl`}
-            >
-              {title}
-            </h1>
-            <div className="mt-4 text-lg leading-relaxed text-slate-600 max-w-3xl">{lead}</div>
+            <div className={photo ? "lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,440px)] lg:gap-10 lg:items-center" : ""}>
+              <div>
+                {eyebrow && <p className="mt-6 text-xs font-bold uppercase tracking-widest text-emerald-700">{eyebrow}</p>}
+                <h1
+                  className={`${eyebrow ? "mt-2" : "mt-6"} text-3xl sm:text-5xl font-extrabold tracking-tight text-slate-900 leading-[1.08] max-w-3xl`}
+                >
+                  {title}
+                </h1>
+                <div className="mt-4 text-lg leading-relaxed text-slate-600 max-w-3xl">{lead}</div>
+              </div>
+              {photo && (
+                <Photo
+                  id={photo}
+                  lang={lang}
+                  priority
+                  sizes="(min-width: 1024px) 440px, 100vw"
+                  className="mt-6 lg:mt-6 aspect-[16/9] lg:aspect-[3/2] rounded-2xl"
+                />
+              )}
+            </div>
           </div>
         </section>
         {children}

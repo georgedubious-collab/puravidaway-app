@@ -168,14 +168,31 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
   the server sends back (trip request, place search) are translated for display in
   `src/lib/serverMessagesEs.ts`. Spanish copy is neutral Latin American Spanish with "usted" and
   "conductor".
+- **Logo (2026-11-10):** the "CR route" mark (the letters C and R drawn as one road with two gold
+  dots; emerald `#047857` + gold `#F5B301` on light backgrounds, white + `#FBBF24` on dark) with
+  the wordmark "COSTA RICA" over "Private Transfers". One component, `src/components/brand/Logo.tsx`,
+  is used by the site header and footer, the trip page, login, the admin and driver headers and the
+  error / 404 screens. The same drawing is in `src/app/icon.svg`, `apple-icon.png` and `favicon.ico`
+  (white mark on an emerald rounded square), in the link-preview image (`src/app/opengraph-image.tsx`)
+  and in `public/brand/`: `logo-email.png` (email header, loaded from `NEXT_PUBLIC_SITE_URL` because
+  mail apps don't show SVG), `logo-mark-1024.png` (profile picture for Facebook / Instagram /
+  TikTok), `logo-lockup-white-1600x500.png` and `logo-lockup-green-1600x500.png` (covers), and
+  `logo-mark.svg`. Change them together.
+- **Photos (2026-11-10):** every picture goes through the registry `src/lib/photos.ts` (file, alt
+  text in English and Spanish, focal point, credit) and the `Photo` component
+  (`src/components/site/Photo.tsx`, `next/image`, AVIF / WebP). Files are in `public/photos/`,
+  metadata-free. An entry without a file shows a drawn placeholder (Arenal, Monteverde, Drake Bay,
+  Corcovado, Poás, all vehicle classes) until a real photo is added with one registry line. The
+  rules (own photos only, never shared with any other business, a photo shows what its caption
+  says, no people / plates / metadata) and the list of published photos are in `docs/PHOTOS.md`.
 - **Site shell (2026-11-09):** every public page (home, `/transfers/*`, legal and info pages; not
-  `/admin`, `/driver`, `/trip`, `/login`) shares `SiteHeader` (menu Transfers / Tours / Multi-day /
+  `/admin`, `/driver`, `/trip`, `/login`) shares `SiteHeader` (menu Transfers / Day tours / Multi-day trips /
   Help from `src/lib/siteNav.ts`, WhatsApp, a flag language button always visible in the bar, phones
   included — Costa Rica flag + "ES" on English pages, US flag + "EN" on Spanish pages, like the
   customer app; it opens the same page in the other language and keeps the query string
   (`src/components/site/LangSwitch.tsx`) — and a phone menu) and `SiteFooter` (Company, Partners, Popular routes,
-  Support, Legal, social icons, the TravelAgency structured data). The menu's Transfers / Tours /
-  Multi-day open the booking app on that tab (`/?tab=transfers|tours|multiday`, `/es?tab=…` in Spanish). Destinations and
+  Support, Legal, social icons, the TravelAgency structured data). The menu's Transfers / Day tours /
+  Multi-day trips open the booking app on that tab (`/?tab=transfers|tours|multiday`, `/es?tab=…` in Spanish). Destinations and
   Travel guides are commented placeholders in `siteNav.ts` for later PRs. Info pages (EN · ES):
   `/about` · `/es/nosotros`, `/how-it-works` · `/es/como-funciona`, `/our-drivers` ·
   `/es/nuestros-conductores`, `/faq` · `/es/preguntas-frecuentes` (FAQ content in `src/lib/faq.ts`,
@@ -193,7 +210,26 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
 ### 4.1 Customer storefront (public)
 Layout (decided 2026-10-14): a booking **app first**, not a marketing site. The home page opens
 on the trip builder; the trip is a persistent sidebar on desktop and a bottom bar + drawer on
-phones. Marketing lives on separate route/tour landing pages (`/transfers/[slug]`) that rank on
+phones.
+First screen and builder (2026-11-10, design review): a hero photo under a dark-green overlay with
+the H1 "Private transfers across Costa Rica", one line ("Fixed price per car. Free cancellation up
+to 24 h. Add sightseeing stops on the way.") and a compact form card: tabs Transfers / Day tours /
+Multi-day trips (phones only; on wide screens the header menu does this), From, To, Date + Pickup
+time, Travellers and one amber "See prices" button that scrolls to the vehicles; the pre-filled
+SJO → Manuel Antonio route is labelled "Example route — change it to yours" (`src/components/BuilderHero.tsx`).
+Under it a trust strip of four true claims (`trustStrip()` in `src/lib/trust.ts`). The ride
+builder then runs in numbered steps: 2 vehicle (with "How do you want your price? Fixed price now /
+Name your price (drivers bid)"), 3 sightseeing stops (folded to three cards with "Show all"), 4
+extras (folded, all optional), 5 the live summary (sticky on desktop). While the trip is empty, phones
+get a pinned bar "route · vehicle · $price · Add to trip"; once something is added it becomes the
+"Your trip · N items · $ · Review & book" bar. Below the builder: Popular routes (the route pages,
+with green-season "from" prices from `src/lib/routePrices.ts`), How it works in three steps, the
+road and wildlife photos, and a four-question FAQ teaser. Customer-facing names everywhere:
+Transfers / Day tours / Multi-day trips (Traslados / Tours de un día / Viajes de varios días).
+Catalog wording that isn't a confirmed fact is replaced at display time (`CLAIM_REPLACEMENTS` in
+`src/lib/catalogEs.ts`): the SUV badge "Most popular" shows as "Roomy for 4 + bags" and the
+multi-day item "24/7 WhatsApp concierge" as "WhatsApp support"; the database rows should be edited
+in /admin/pricing. Marketing lives on separate route/tour landing pages (`/transfers/[slug]`) that rank on
 Google and pre-fill the builder via `?from=<hub>&to=<hub>`. Shareable ride links (2026-11-08) add
 `&date=YYYY-MM-DD&time=HH:MM&pax=N&vehicle=<id>&stops=<id>,<id>`, all checked against the catalog
 on load; no personal details ever go in the address. Trust content (driver checks,
@@ -219,7 +255,7 @@ Legal pages (`/terms`, `/privacy`, `/cancellation`) are linked from every footer
    are **online in full only** (SINAC permits, boats and lodges are prepaid); in a mixed cart the
    rides/tours are cash and the expedition is online, labelled per item. The trip summary shows
    "Cash booking fee (10%) +$X" and the cash vs online amounts. The 20% deposit is retired.
-5. **WhatsApp concierge** — context-aware buttons (`route`, `cart`, `general`) that pre-fill the
+5. **WhatsApp support** — context-aware buttons (`route`, `cart`, `general`) that pre-fill the
    route or cart contents into a WhatsApp message to the Costa Rica Private Transfers team.
 
 ### 4.2 Admin command center (`/admin`, admin role only — never public)

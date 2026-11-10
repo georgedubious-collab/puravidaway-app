@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
-import { Car, CheckCircle2, Compass, Languages, ShieldCheck } from "lucide-react";
+import { Car, CheckCircle2, Languages, ShieldCheck } from "lucide-react";
+import { Logo } from "@/components/brand/Logo";
 import { ChatBox } from "@/components/ChatBox";
 import { HtmlLang } from "@/components/site/HtmlLang";
 import { CostaRicaFlag, UsFlag } from "@/components/site/LangSwitch";
@@ -214,11 +215,8 @@ export default async function TripPage({ params, searchParams }: Props) {
       {lang === "es" && <HtmlLang lang="es" />}
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-3">
-          <Link href={t("/", "/es")} className="flex items-center gap-2.5">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-950 text-amber-400">
-              <Compass className="h-5 w-5" strokeWidth={2.5} aria-hidden />
-            </span>
-            <span className="text-lg font-extrabold tracking-tight text-slate-900">Costa Rica Private Transfers</span>
+          <Link href={t("/", "/es")} aria-label="Costa Rica Private Transfers" className="flex min-h-11 items-center">
+            <Logo on="light" />
           </Link>
           <Link
             href={`/trip/${token}?lang=${other}`}

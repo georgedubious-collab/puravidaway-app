@@ -19,8 +19,8 @@ export interface NavLink {
 export const PRIMARY_NAV: NavLink[] = [
   // The booking app (home) opens on the matching tab: ?tab=transfers|tours|multiday (Storefront.tsx).
   { id: "transfers", label: { en: "Transfers", es: "Traslados" }, href: "/?tab=transfers" },
-  { id: "tours", label: { en: "Tours", es: "Tours" }, href: "/?tab=tours" },
-  { id: "multiday", label: { en: "Multi-day", es: "Varios días" }, href: "/?tab=multiday" },
+  { id: "tours", label: { en: "Day tours", es: "Tours de un día" }, href: "/?tab=tours" },
+  { id: "multiday", label: { en: "Multi-day trips", es: "Viajes de varios días" }, href: "/?tab=multiday" },
   // LATER PRs: add these when their index pages exist (keep the order Transfers → Help):
   // { id: "destinations", label: { en: "Destinations", es: "Destinos" }, href: "/destinations" },
   // { id: "guides", label: { en: "Travel guides", es: "Guías de viaje" }, href: "/guides" },

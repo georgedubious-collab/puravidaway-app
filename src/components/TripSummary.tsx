@@ -14,7 +14,7 @@ import {
   type CartItem,
   type PaymentMode,
 } from "@/lib/cart";
-import { DEFAULT_PICKUP_TIME, formatTime12h } from "@/lib/dates";
+import { DEFAULT_PICKUP_TIME, formatShortDate, formatTime12h } from "@/lib/dates";
 import { formatBpsPercent, formatUSD } from "@/lib/pricing";
 import { localizedHref, type PublicLang } from "@/lib/publicLang";
 import { localizeServerMessage } from "@/lib/serverMessagesEs";
@@ -45,7 +45,9 @@ export interface TripState {
   onNewTrip: () => void;
 }
 
-const field = "mt-1 w-full min-h-11 border border-slate-300 rounded-xl px-3 text-base sm:text-sm font-semibold text-slate-900";
+const field = "mt-1 w-full min-h-11 border border-slate-300 rounded-xl px-3 text-base font-semibold text-slate-900";
+
+type FieldErrors = Partial<Record<"name" | "email" | "phone", string>>;
 
 /**
  * The trip: its legs in date order, payment choice and sending the request.
@@ -65,15 +67,53 @@ export function TripSummary({ trip }: { trip: TripState }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [website, setWebsite] = useState(""); // spam trap, hidden from people
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
   if (trip.sentRefs) return <Sent refs={trip.sentRefs} tripToken={trip.sentTripToken} contact={contact} onNewTrip={trip.onNewTrip} />;
 
-  const set = (k: keyof TripContact) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+  const set = (k: keyof TripContact) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     onContact({ ...contact, [k]: e.target.value });
+    if (k !== "notes" && fieldErrors[k]) setFieldErrors({ ...fieldErrors, [k]: undefined });
+  };
+  const fieldProps = (k: "name" | "email" | "phone") => ({
+    name: k,
+    value: contact[k],
+    onChange: set(k),
+    "aria-invalid": Boolean(fieldErrors[k]),
+    "aria-describedby": fieldErrors[k] ? `trip-${k}-error` : undefined,
+    className: `${field} ${fieldErrors[k] ? "border-red-600 bg-red-50" : ""}`,
+  });
+  const fieldError = (k: "name" | "email" | "phone") =>
+    fieldErrors[k] ? (
+      <span id={`trip-${k}-error`} role="alert" className="mt-1 block text-sm font-semibold text-red-700">
+        {fieldErrors[k]}
+      </span>
+    ) : null;
 
-  function send(e: React.FormEvent) {
+  // Inline messages under each field instead of the browser's own bubbles (the form is noValidate).
+  function validate(): FieldErrors {
+    const errs: FieldErrors = {};
+    if (contact.name.trim().length < 2) errs.name = t("Please enter your full name.", "Por favor, escriba su nombre completo.");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(contact.email.trim()))
+      errs.email = t("Please enter a valid email, like name@example.com.", "Por favor, escriba un correo válido, como nombre@ejemplo.com.");
+    if (contact.phone.replace(/\D/g, "").length < 7)
+      errs.phone = t(
+        "Please enter your mobile number with the country code, like +1 555 123 4567.",
+        "Por favor, escriba su número de celular con el código de país, como +506 8888 8888.",
+      );
+    return errs;
+  }
+
+  function send(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
+    const errs = validate();
+    setFieldErrors(errs);
+    const first = (["name", "email", "phone"] as const).find((k) => errs[k]);
+    if (first) {
+      e.currentTarget.querySelector<HTMLInputElement>(`[name="${first}"]`)?.focus();
+      return;
+    }
     startTransition(async () => {
       const res = await submitTripRequest({
         items: items.map((i) => ({ id: i.id, date: i.date, totalCents: i.totalCents, spec: i.spec })),
@@ -97,8 +137,8 @@ export function TripSummary({ trip }: { trip: TripState }) {
       {legs.length === 0 ? (
         <p className="rounded-xl border-2 border-dashed border-slate-300 p-5 text-center text-sm text-slate-500">
           {t(
-            "Your trip is empty. Add a ride, a day tour or an expedition and it will show up here.",
-            "Su viaje está vacío. Agregue un traslado, un tour de un día o una expedición y aparecerá aquí.",
+            "Your trip is empty. Add a transfer, a day tour or a multi-day trip and it will show up here.",
+            "Su viaje está vacío. Agregue un traslado, un tour de un día o un viaje de varios días y aparecerá aquí.",
           )}
         </p>
       ) : (
@@ -121,7 +161,7 @@ export function TripSummary({ trip }: { trip: TripState }) {
               <div className="text-right shrink-0">
                 <p className="text-sm font-extrabold text-emerald-700">{formatUSD(item.totalCents)}</p>
                 {showPerItemPayment && (
-                  <p className="text-[11px] font-bold text-slate-500">
+                  <p className="text-xs font-bold text-slate-600">
                     {itemPaymentMode(item.kind, mode) === "cash_driver"
                       ? t(
                           `Cash · +${formatUSD(itemCashFeeCents(item, mode, cashFeeBps))} fee`,
@@ -134,7 +174,7 @@ export function TripSummary({ trip }: { trip: TripState }) {
                   type="button"
                   onClick={() => onRemove(item.id)}
                   aria-label={t(`Remove ${item.title}`, `Quitar ${item.title}`)}
-                  className="mt-1 inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600"
+                  className="mt-1 inline-flex h-11 w-11 items-center justify-center rounded-lg text-slate-500 hover:bg-red-50 hover:text-red-700"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
@@ -144,7 +184,7 @@ export function TripSummary({ trip }: { trip: TripState }) {
         </ol>
       )}
 
-      <form onSubmit={send} className="space-y-3">
+      <form onSubmit={send} noValidate className="space-y-3">
         <fieldset className="space-y-2">
           <legend className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">
             {t("How would you like to pay?", "¿Cómo desea pagar?")}
@@ -190,8 +230,8 @@ export function TripSummary({ trip }: { trip: TripState }) {
           {hasExpedition && (
             <p className="text-xs text-slate-600">
               {t(
-                "Expeditions are paid online in full: park permits, boats and lodges are booked and paid in advance.",
-                "Las expediciones se pagan en línea en su totalidad: los permisos de parques, las lanchas y los lodges se reservan y pagan por adelantado.",
+                "Multi-day trips are paid online in full: park permits, boats and lodges are booked and paid in advance.",
+                "Los viajes de varios días se pagan en línea en su totalidad: los permisos de parques, las lanchas y los lodges se reservan y pagan por adelantado.",
               )}
             </p>
           )}
@@ -234,23 +274,24 @@ export function TripSummary({ trip }: { trip: TripState }) {
             <legend className="px-1 text-xs font-bold uppercase tracking-wider text-slate-500">{t("Your details", "Sus datos")}</legend>
             <label className="block text-xs font-bold text-slate-600">
               {t("Full name", "Nombre completo")}
-              <input required value={contact.name} onChange={set("name")} autoComplete="name" className={field} />
+              <input required autoComplete="name" {...fieldProps("name")} />
+              {fieldError("name")}
             </label>
             <label className="block text-xs font-bold text-slate-600">
               {t("Email", "Correo electrónico")}
-              <input required type="email" value={contact.email} onChange={set("email")} autoComplete="email" className={field} />
+              <input required type="email" inputMode="email" autoComplete="email" {...fieldProps("email")} />
+              {fieldError("email")}
             </label>
             <label className="block text-xs font-bold text-slate-600">
               {t("Mobile number (with country code)", "Número de celular (con código de país)")}
               <input
                 required
                 type="tel"
-                value={contact.phone}
-                onChange={set("phone")}
                 autoComplete="tel"
                 placeholder="+1 555 123 4567"
-                className={field}
+                {...fieldProps("phone")}
               />
+              {fieldError("phone")}
             </label>
             <label className="block text-xs font-bold text-slate-600">
               {t("Anything we should know? (optional)", "¿Algo que debamos saber? (opcional)")}
@@ -260,7 +301,7 @@ export function TripSummary({ trip }: { trip: TripState }) {
                 rows={2}
                 maxLength={1000}
                 placeholder={t("Flight number, hotel, child seats, luggage…", "Número de vuelo, hotel, sillas para niños, equipaje…")}
-                className="mt-1 w-full border border-slate-300 rounded-xl p-3 text-base sm:text-sm text-slate-900"
+                className="mt-1 w-full border border-slate-300 rounded-xl p-3 text-base text-slate-900"
               />
             </label>
             <label aria-hidden className="hidden">
@@ -285,9 +326,9 @@ export function TripSummary({ trip }: { trip: TripState }) {
         </button>
         <p className="text-xs text-slate-500 text-center">
           {t("By sending this request you agree to our", "Al enviar esta solicitud usted acepta nuestros")}{" "}
-          <Link href={localizedHref("/terms", lang)} target="_blank" className="font-semibold text-emerald-700 underline">{t("Terms", "Términos")}</Link>,{" "}
-          <Link href={localizedHref("/privacy", lang)} target="_blank" className="font-semibold text-emerald-700 underline">{t("Privacy Policy", "la Política de privacidad")}</Link> {t("and", "y")}{" "}
-          <Link href={localizedHref("/cancellation", lang)} target="_blank" className="font-semibold text-emerald-700 underline">{t("Cancellation policy", "la Política de cancelación")}</Link>.
+          <Link href={localizedHref("/terms", lang)} target="_blank" className="inline-flex min-h-11 items-center font-semibold text-emerald-700 underline">{t("Terms", "Términos")}</Link>,{" "}
+          <Link href={localizedHref("/privacy", lang)} target="_blank" className="inline-flex min-h-11 items-center font-semibold text-emerald-700 underline">{t("Privacy Policy", "la Política de privacidad")}</Link> {t("and", "y")}{" "}
+          <Link href={localizedHref("/cancellation", lang)} target="_blank" className="inline-flex min-h-11 items-center font-semibold text-emerald-700 underline">{t("Cancellation policy", "la Política de cancelación")}</Link>.
         </p>
         <p className="text-xs text-slate-500 text-center">
           {t(
@@ -386,15 +427,15 @@ function Sent({
 }
 
 const KIND_LABEL: Record<CartItem["kind"], string> = {
-  transfer: "Ride",
+  transfer: "Transfer",
   day_tour: "Day tour",
-  expedition: "Expedition",
+  expedition: "Multi-day trip",
 };
 
 const KIND_LABEL_ES: Record<CartItem["kind"], string> = {
   transfer: "Traslado",
   day_tour: "Tour de un día",
-  expedition: "Expedición",
+  expedition: "Viaje de varios días",
 };
 
 /** Date order, then pickup time for rides on the same day. */
@@ -404,7 +445,5 @@ function legKey(i: CartItem): string {
 
 function formatLegDate(iso: string, lang: PublicLang): string {
   if (!iso) return lang === "es" ? "Fecha por confirmar" : "Date to confirm";
-  const d = new Date(`${iso}T12:00:00`);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString(lang === "es" ? "es-CR" : "en-US", { weekday: "short", day: "numeric", month: "short" });
+  return formatShortDate(iso, lang);
 }

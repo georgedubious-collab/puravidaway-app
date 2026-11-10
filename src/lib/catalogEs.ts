@@ -63,7 +63,7 @@ export const ENTRANCE_LABEL_ES: Record<StopEntrance, string> = {
 const VEHICLES_ES: Record<string, { name: string; badge: string; luggage: string }> = {
   economy: { name: "Sedán Económico", badge: "Conductor de habla hispana · traslado directo", luggage: "3 maletas" },
   sedan: { name: "Sedán Estándar", badge: "Mejor precio", luggage: "3 maletas" },
-  suv: { name: "SUV Confort Estándar", badge: "El más popular", luggage: "4 maletas" },
+  suv: { name: "SUV Confort Estándar", badge: "Amplio para 4 + equipaje", luggage: "4 maletas" },
   "4x4": { name: "4x4 Ejecutivo (Prado / Fortuner)", badge: "Caminos de Osa / Monteverde", luggage: "4 maletas" },
   van: { name: "Toyota HiAce / Hyundai Staria privada", badge: "Familias y grupos", luggage: "10 maletas" },
   sierpe_combo: {
@@ -139,7 +139,7 @@ const EXPEDITIONS_ES: Record<string, { name: string; includes: string[]; itinera
       "Cruce en lancha por el lago Arenal",
       "Puentes colgantes de Monteverde",
       "Tour guiado en Manuel Antonio",
-      "Asistencia por WhatsApp 24/7",
+      "Asistencia por WhatsApp",
     ],
     itinerary: [
       "SJO → La Fortuna con parada en el volcán Poás",
@@ -195,12 +195,35 @@ export function entranceLabel(entrance: StopEntrance, lang: PublicLang): string 
 }
 
 /**
+ * Catalog texts we no longer show as written, replaced at display time
+ * (docs/PROJECT.md §10: only claims that are true and confirmed):
+ * - "Most popular" (no booking data behind it) → a factual label.
+ * - "24/7 WhatsApp concierge" (round-the-clock staffing isn't confirmed) → "WhatsApp support".
+ * The database rows still hold the old text: edit them in /admin/pricing and
+ * these lines become no-ops. The Spanish texts above already use the new wording.
+ */
+const CLAIM_REPLACEMENTS: Record<string, string> = {
+  "Most popular": "Roomy for 4 + bags",
+  "24/7 WhatsApp concierge": "WhatsApp support",
+};
+
+function withFactualClaims(catalog: CatalogData): CatalogData {
+  const fix = (s: string) => CLAIM_REPLACEMENTS[s] ?? s;
+  return {
+    ...catalog,
+    vehicles: catalog.vehicles.map((v) => ({ ...v, badge: fix(v.badge) })),
+    expeditions: catalog.expeditions.map((e) => ({ ...e, includes: e.includes.map(fix) })),
+  };
+}
+
+/**
  * The catalog with its customer-facing text in `lang`. Prices, ids and
  * everything else are untouched, so pricing works exactly the same. English
  * returns the same object.
  */
-export function localizeCatalog(catalog: CatalogData, lang: PublicLang): CatalogData {
-  if (lang !== "es") return catalog;
+export function localizeCatalog(rawCatalog: CatalogData, lang: PublicLang): CatalogData {
+  if (lang !== "es") return withFactualClaims(rawCatalog);
+  const catalog = rawCatalog;
   return {
     ...catalog,
     vehicles: catalog.vehicles.map((v) => {

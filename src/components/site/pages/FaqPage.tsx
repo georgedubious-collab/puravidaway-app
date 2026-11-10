@@ -61,11 +61,11 @@ export function FaqPage({ lang, cashFeeBps }: { lang: PublicLang; cashFeeBps: nu
                 {g.title[lang]}
               </h2>
               <div className="mt-4 space-y-3">
-                {g.items.map((item) => (
-                  <details key={item.id} id={`q-${item.id}`} className="group rounded-2xl border border-slate-200 bg-white" open>
-                    <summary className="cursor-pointer list-none p-5 font-extrabold text-slate-900 flex items-start justify-between gap-4">
+                {g.items.map((item, i) => (
+                  <details key={item.id} id={`q-${item.id}`} className="group rounded-2xl border border-slate-200 bg-white" open={i === 0}>
+                    <summary className="min-h-14 cursor-pointer list-none px-5 py-4 font-extrabold text-slate-900 flex items-center justify-between gap-4 [&::-webkit-details-marker]:hidden">
                       <h3 className="text-base">{item.q[lang]}</h3>
-                      <span aria-hidden className="text-emerald-600 text-xl leading-none group-open:rotate-45 transition">+</span>
+                      <span aria-hidden className="text-emerald-700 text-2xl leading-none group-open:rotate-45 transition">+</span>
                     </summary>
                     <p className="px-5 pb-5 -mt-1 leading-relaxed text-slate-600">{faqAnswer(item, lang, cashFeeBps)}</p>
                   </details>

@@ -83,7 +83,7 @@ export function ChatBox({
   return (
     <div id={`chat-${bookingId}`} className="rounded-xl border border-slate-200 bg-white">
       <ol ref={list} aria-live="polite" className="max-h-80 space-y-2 overflow-y-auto p-3">
-        {messages === null && <li className="text-sm text-slate-400">{es ? "Cargando mensajes…" : "Loading messages…"}</li>}
+        {messages === null && <li className="text-sm text-slate-500">{es ? "Cargando mensajes…" : "Loading messages…"}</li>}
         {messages?.length === 0 && (
           <li className="text-sm text-slate-500">{intro ?? (es ? "Aún no hay mensajes. ¡Salude!" : "No messages yet. Say hello!")}</li>
         )}
@@ -98,7 +98,7 @@ export function ChatBox({
                     : "bg-slate-100 text-slate-900"
               }`}
             >
-              <p className={`text-[11px] font-bold ${m.mine ? "text-emerald-100" : "text-slate-500"}`}>
+              <p className={`text-xs font-bold ${m.mine ? "text-emerald-100" : "text-slate-500"}`}>
                 {m.mine ? (es ? "Usted" : "You") : es ? (NAMES_ES[m.name] ?? m.name) : m.name} · {formatTime(m.at, lang)}
               </p>
               <p className="whitespace-pre-wrap break-words">{m.text}</p>

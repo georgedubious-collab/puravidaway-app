@@ -1,4 +1,5 @@
 import { ImageResponse } from "next/og";
+import { LOGO_COLORS, logoMarkPaths } from "@/components/brand/Logo";
 import { SITE_NAME, SITE_TAGLINE } from "@/lib/site";
 
 // Link-preview image for WhatsApp, Facebook, X etc. Uses the built-in font only.
@@ -21,24 +22,15 @@ export default function OpengraphImage() {
           color: "#ffffff",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
-          <div
-            style={{
-              width: 88,
-              height: 88,
-              borderRadius: 24,
-              background: "#fbbf24",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "#022c22",
-              fontSize: 56,
-              fontWeight: 800,
-            }}
-          >
-            P
+        {/* The logo: "CR route" mark + wordmark (same drawing as src/components/brand/Logo.tsx). */}
+        <div style={{ display: "flex", alignItems: "center", gap: 28 }}>
+          <svg width="177" height="120" viewBox="4 13 57.5 39">
+            {logoMarkPaths(LOGO_COLORS.white, LOGO_COLORS.goldOnDark)}
+          </svg>
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            <div style={{ fontSize: 26, fontWeight: 700, letterSpacing: 8, color: "#fcd34d" }}>COSTA RICA</div>
+            <div style={{ fontSize: 64, fontWeight: 800, letterSpacing: -1, lineHeight: 1.1 }}>Private Transfers</div>
           </div>
-          <div style={{ fontSize: 64, fontWeight: 800, letterSpacing: -1 }}>{SITE_NAME}</div>
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>

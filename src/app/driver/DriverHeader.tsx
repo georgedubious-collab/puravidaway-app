@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Logo } from "@/components/brand/Logo";
 import { TeamLangToggle } from "@/components/TeamLangToggle";
 import { makeT } from "@/lib/teamLang";
 import { getTeamLang } from "@/lib/teamLangServer";
@@ -11,8 +12,9 @@ export async function DriverHeader() {
     <header lang={lang} className="bg-emerald-950 text-white">
       <div className="max-w-3xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-4">
-          <Link href="/" className="font-extrabold text-sm sm:text-lg leading-tight">
-            Costa Rica Private Transfers <span className="text-amber-400">{t("Conductores", "Drivers")}</span>
+          <Link href="/" aria-label={`Costa Rica Private Transfers ${t("Conductores", "Drivers")}`} className="flex min-h-11 items-center gap-2.5">
+            <Logo on="dark" />
+            <span className="text-xs font-extrabold uppercase tracking-wider text-amber-400">{t("Conductores", "Drivers")}</span>
           </Link>
           <nav aria-label={t("Conductor", "Driver")} className="flex flex-wrap gap-1 text-sm font-bold">
             <Link href="/driver" className="px-3 py-2.5 rounded-lg text-emerald-100 hover:bg-emerald-800/60">

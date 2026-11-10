@@ -14,6 +14,12 @@ import "server-only";
 
 export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://puravidaway-app.vercel.app").replace(/\/$/, "");
 export const ADMIN_EMAIL = process.env.ADMIN_NOTIFY_EMAIL || "";
+/**
+ * The logo in every email's header: a PNG served by the site (public/brand/logo-email.png,
+ * 560 × 120 shown at 280 × 60), because Gmail and Outlook don't show SVG. If a mail
+ * app blocks images, the alt text shows the name in the same dark green.
+ */
+export const EMAIL_LOGO_URL = `${SITE_URL}/brand/logo-email.png`;
 
 export interface Email {
   to: string;
@@ -36,7 +42,7 @@ function html(e: Email): string {
     : "";
   const tagline = e.lang === "es" ? "Traslados, tours y expediciones" : "Transfers, tours and expeditions";
   return `<div${e.lang === "es" ? ' lang="es"' : ""} style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:560px;margin:0 auto;padding:24px">
-<p style="font-size:20px;font-weight:800;color:#022c22;margin:0 0 20px">Costa Rica Private Transfers</p>${paras}${btn}
+<p style="margin:0 0 20px"><a href="${SITE_URL}/" style="text-decoration:none"><img src="${EMAIL_LOGO_URL}" width="280" height="60" alt="Costa Rica Private Transfers" style="display:block;border:0;outline:none;height:60px;width:280px;max-width:100%;font-size:20px;font-weight:800;color:#022c22"></a></p>${paras}${btn}
 <p style="font-size:12px;color:#64748b;margin-top:28px">Costa Rica Private Transfers · ${tagline}</p></div>`;
 }
 

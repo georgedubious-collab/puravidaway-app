@@ -84,6 +84,7 @@ export function OurDriversPage({ lang }: { lang: PublicLang }) {
     <PublicPage
       lang={lang}
       current="drivers"
+      photo="gulf-sunset-ferry"
       path={localizedHref(DRIVERS_PATH, lang)}
       crumbs={[{ label: t(lang, "Our drivers & safety", "Nuestros conductores") }]}
       eyebrow={t(lang, "Our drivers & safety", "Conductores y seguridad")}
@@ -101,9 +102,9 @@ export function OurDriversPage({ lang }: { lang: PublicLang }) {
       <DriverStandards lang={lang} />
 
       <PageSection id="documents" title={t(lang, "Documents we check", "Documentos que revisamos")}>
-        <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
           <table className="w-full text-left text-[15px]">
-            <thead className="bg-slate-50 text-sm text-slate-600">
+            <thead className="hidden sm:table-header-group bg-slate-50 text-sm text-slate-600">
               <tr>
                 <th scope="col" className="p-4 font-bold">{t(lang, "Document", "Documento")}</th>
                 <th scope="col" className="p-4 font-bold">{t(lang, "What we check", "Qué revisamos")}</th>
@@ -111,9 +112,9 @@ export function OurDriversPage({ lang }: { lang: PublicLang }) {
             </thead>
             <tbody>
               {docs.map(([k, v]) => (
-                <tr key={k} className="border-t border-slate-200">
-                  <th scope="row" className="p-4 align-top font-bold text-slate-900">{k}</th>
-                  <td className="p-4 text-slate-700">{v}</td>
+                <tr key={k} className="block sm:table-row border-t first:border-t-0 sm:first:border-t border-slate-200">
+                  <th scope="row" className="block sm:table-cell px-4 pt-3 pb-1 sm:p-4 align-top font-bold text-slate-900">{k}</th>
+                  <td className="block sm:table-cell px-4 pt-0 pb-3 sm:p-4 text-slate-700">{v}</td>
                 </tr>
               ))}
             </tbody>

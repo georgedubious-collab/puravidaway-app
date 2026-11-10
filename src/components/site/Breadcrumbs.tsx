@@ -22,7 +22,7 @@ export function Breadcrumbs({ lang, items, currentPath }: { lang: PublicLang; it
         <ol className="flex flex-wrap items-center gap-1">
           {all.map((c, i) => (
             <li key={`${c.label}-${i}`} className="inline-flex items-center gap-1">
-              {i > 0 && <ChevronRight className="w-3.5 h-3.5 text-slate-400" aria-hidden />}
+              {i > 0 && <ChevronRight className="w-3.5 h-3.5 text-slate-500" aria-hidden />}
               {c.href && i < all.length - 1 ? (
                 <Link href={c.href} className="font-semibold hover:text-emerald-700 hover:underline">
                   {c.label}

@@ -1,11 +1,12 @@
 "use client";
 
-import { Compass, Menu, MessageCircle, X } from "lucide-react";
+import { Menu, MessageCircle, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { whatsAppLink } from "@/lib/cart";
 import { localizedHref, t, type PublicLang } from "@/lib/publicLang";
 import { DRAWER_NAV, PRIMARY_NAV } from "@/lib/siteNav";
+import { Logo } from "../brand/Logo";
 import { LangSwitch } from "./LangSwitch";
 
 /**
@@ -40,17 +41,14 @@ export function SiteHeader({
 
   return (
     <header className="bg-emerald-950 text-white sticky top-0 z-40 shadow-lg border-b border-emerald-800">
-      <div className="max-w-[1440px] mx-auto px-4 py-2.5 flex items-center justify-between gap-2 sm:gap-3">
+      <div className="max-w-[1440px] mx-auto px-3 sm:px-4 py-2.5 flex items-center justify-between gap-2 sm:gap-3">
         <div className="flex items-center gap-6 min-w-0">
           <Link
             href={localizedHref("/", lang)}
-            className="flex items-center gap-2.5 min-w-0"
+            className="flex items-center min-h-11 min-w-0"
             aria-label={t(lang, "Costa Rica Private Transfers — home", "Costa Rica Private Transfers — inicio")}
           >
-            <span className="w-9 h-9 shrink-0 rounded-xl bg-amber-400 flex items-center justify-center text-emerald-950">
-              <Compass className="w-5 h-5" strokeWidth={2.5} aria-hidden />
-            </span>
-            <span className="font-extrabold text-sm sm:text-lg leading-tight tracking-tight">Costa Rica Private Transfers</span>
+            <Logo on="dark" />
           </Link>
           <nav aria-label={t(lang, "Main", "Principal")} className="hidden lg:flex items-center gap-1 text-sm font-bold">
             {PRIMARY_NAV.map((n) => (
@@ -68,7 +66,7 @@ export function SiteHeader({
           </nav>
         </div>
 
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
           {/* Always in the bar, phones included: the flag button to the other language. */}
           <LangSwitch lang={lang} />
           <div className="hidden lg:flex items-center gap-1.5">

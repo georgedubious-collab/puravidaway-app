@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import Link from "next/link";
+import { Logo } from "@/components/brand/Logo";
 import { LoginForm } from "./LoginForm";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
@@ -9,6 +11,9 @@ export default function LoginPage() {
   return (
     <main className="flex-1 flex items-center justify-center px-4 py-16 bg-slate-50">
       <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <Link href="/" aria-label="Costa Rica Private Transfers — home" className="mb-5 inline-flex min-h-11 items-center">
+          <Logo on="light" />
+        </Link>
         <h1 className="text-2xl font-extrabold text-slate-900">Sign in</h1>
         {isSupabaseConfigured ? (
           <Suspense fallback={null}>

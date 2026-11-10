@@ -1,6 +1,7 @@
-import { Compass, MessageCircle } from "lucide-react";
+import { MessageCircle } from "lucide-react";
 import Link from "next/link";
 import { whatsAppLink } from "@/lib/cart";
+import { Logo } from "./brand/Logo";
 
 /**
  * Shared look for the 404, error and global-error pages: storefront colours,
@@ -25,11 +26,8 @@ export function ErrorScreen({
     <div className="flex-1 flex flex-col bg-slate-50 min-h-screen">
       <header className="bg-emerald-950 text-white border-b border-emerald-800">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center">
-          <Link href="/" className="flex items-center gap-2.5">
-            <span className="w-9 h-9 rounded-xl bg-amber-400 flex items-center justify-center text-emerald-950">
-              <Compass className="w-5 h-5" strokeWidth={2.5} aria-hidden />
-            </span>
-            <span className="font-extrabold text-sm sm:text-lg leading-tight tracking-tight">Costa Rica Private Transfers</span>
+          <Link href="/" aria-label="Costa Rica Private Transfers — home" className="flex items-center min-h-11">
+            <Logo on="dark" />
           </Link>
         </div>
       </header>
