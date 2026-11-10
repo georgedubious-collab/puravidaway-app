@@ -168,6 +168,16 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
   the server sends back (trip request, place search) are translated for display in
   `src/lib/serverMessagesEs.ts`. Spanish copy is neutral Latin American Spanish with "usted" and
   "conductor".
+- **Logo (2026-11-10):** the "CR route" mark (the letters C and R drawn as one road with two gold
+  dots; emerald `#047857` + gold `#F5B301` on light backgrounds, white + `#FBBF24` on dark) with
+  the wordmark "COSTA RICA" over "Private Transfers". One component, `src/components/brand/Logo.tsx`,
+  is used by the site header and footer, the trip page, login, the admin and driver headers and the
+  error / 404 screens. The same drawing is in `src/app/icon.svg`, `apple-icon.png` and `favicon.ico`
+  (white mark on an emerald rounded square), in the link-preview image (`src/app/opengraph-image.tsx`)
+  and in `public/brand/`: `logo-email.png` (email header, loaded from `NEXT_PUBLIC_SITE_URL` because
+  mail apps don't show SVG), `logo-mark-1024.png` (profile picture for Facebook / Instagram /
+  TikTok), `logo-lockup-white-1600x500.png` and `logo-lockup-green-1600x500.png` (covers), and
+  `logo-mark.svg`. Change them together.
 - **Site shell (2026-11-09):** every public page (home, `/transfers/*`, legal and info pages; not
   `/admin`, `/driver`, `/trip`, `/login`) shares `SiteHeader` (menu Transfers / Tours / Multi-day /
   Help from `src/lib/siteNav.ts`, WhatsApp, a flag language button always visible in the bar, phones

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
+import { Logo } from "@/components/brand/Logo";
 import { TeamLangToggle } from "@/components/TeamLangToggle";
 import { requireRole } from "@/lib/auth";
 import { getTeamLang } from "@/lib/teamLangServer";
@@ -38,8 +39,9 @@ async function AdminShell({ children }: { children: React.ReactNode }) {
       <header className="bg-emerald-950 text-white">
         <div className="max-w-6xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-4">
-            <Link href="/admin" className="font-extrabold text-sm sm:text-lg leading-tight">
-              Costa Rica Private Transfers <span className="text-amber-400">Admin</span>
+            <Link href="/admin" aria-label="Costa Rica Private Transfers Admin" className="flex min-h-11 items-center gap-2.5">
+              <Logo on="dark" />
+              <span className="text-xs font-extrabold uppercase tracking-wider text-amber-400">Admin</span>
             </Link>
             <nav aria-label="Admin" className="flex flex-wrap gap-1 text-sm font-bold">
               {NAV.map((n) => (
