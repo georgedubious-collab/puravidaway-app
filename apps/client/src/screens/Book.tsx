@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { api } from "../api";
 import { SITE_URL } from "../config";
@@ -127,8 +127,8 @@ export function Book({
       </ScrollView>
     );
   }
-  return (
-    <ScrollView style={S.screen} contentContainerStyle={S.pad} keyboardShouldPersistTaps="handled">
+  const header = (
+    <>
       <ScreenTitle title={t("Plan a trip", "Planear un viaje")} subtitle={t("Private rides and day tours with hand-picked local drivers.", "Traslados privados y tours de un día con conductores locales seleccionados.")} />
       <View style={{ flexDirection: "row", backgroundColor: "#E6ECE8", borderRadius: R.control, padding: 4 }} accessibilityRole="tablist">
         <Segment label={t("Private ride", "Traslado privado")} icon="car-outline" on={kind === "ride"} onPress={() => setKind("ride")} />
@@ -146,15 +146,43 @@ export function Book({
           <Step icon="add" label={t("One more traveller", "Un viajero más")} onPress={() => setPax((p) => Math.min(10, p + 1))} disabled={pax >= 10} />
         </View>
       </Card>
-      {kind === "ride" ? <Ride date={date} pax={pax} onChoose={setChosen} demo={demo} /> : <Tours date={date} pax={pax} onChoose={setChosen} demo={demo?.tours} />}
+    </>
+  );
+  const after = (
+    <>
       <View style={{ alignItems: "center" }}>
         <LinkBtn label={t("Multi-day expeditions are on our website", "Las expediciones de varios días están en nuestro sitio web")} icon="open-outline" onPress={() => void WebBrowser.openBrowserAsync(SITE_URL)} />
       </View>
+    </>
+  );
+  // The ride form has a bar pinned to the bottom with the total and Continue, so it scrolls itself.
+  if (kind === "ride") return <Ride date={date} pax={pax} onChoose={setChosen} demo={demo} header={header} after={after} />;
+  return (
+    <ScrollView style={S.screen} contentContainerStyle={S.pad} keyboardShouldPersistTaps="handled">
+      {header}
+      <Tours date={date} pax={pax} onChoose={setChosen} demo={demo?.tours} />
+      {after}
     </ScrollView>
   );
 }
 
-function Ride({ date, pax, onChoose, demo }: { date: string; pax: number; onChoose: (c: Chosen) => void; demo?: { to?: Place; quote?: RideQuote } }) {
+function Ride({
+  date,
+  pax,
+  onChoose,
+  demo,
+  header,
+  after,
+}: {
+  date: string;
+  pax: number;
+  onChoose: (c: Chosen) => void;
+  demo?: { to?: Place; quote?: RideQuote };
+  /** Title, ride/tour switch, date and travellers (from Book). */
+  header: ReactNode;
+  /** The expeditions link (from Book). */
+  after: ReactNode;
+}) {
   const { lang, t } = useT();
   const [from, setFrom] = useState<Place | null>(HUBS[0]);
   const [to, setTo] = useState<Place | null>(demo?.to ?? null);
@@ -253,7 +281,9 @@ function Ride({ date, pax, onChoose, demo }: { date: string; pax: number; onChoo
   }
 
   return (
-    <>
+    <View style={S.screen}>
+      <ScrollView style={S.screen} contentContainerStyle={[S.pad, vehicle && quote ? { paddingBottom: 120 } : null]} keyboardShouldPersistTaps="handled">
+        {header}
       <Card>
         <PlaceField label={t("Pickup", "Recogida")} icon="radio-button-on-outline" value={from} onChange={setFrom} />
         <PlaceField label={t("Drop-off", "Destino")} icon="location" value={to} onChange={setTo} />
@@ -450,22 +480,35 @@ function Ride({ date, pax, onChoose, demo }: { date: string; pax: number; onChoo
           <Card>
             <Text style={FIELD_LABEL}>{quote.airportPickup ? t("Flight number, so we can track it", "Número de vuelo, para darle seguimiento") : t("Flight number or hotel name (optional)", "Número de vuelo o nombre del hotel (opcional)")}</Text>
             <TextInput accessibilityLabel={t("Flight number or hotel", "Número de vuelo u hotel")} value={notes} onChangeText={setNotes} maxLength={200} placeholder={t("e.g. AA 1234", "p. ej. AA 1234")} placeholderTextColor={C.faint} style={S.input} />
-            {vehicle ? (
-              <>
-                <View style={[S.row, { marginTop: 6 }]}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={S.label}>{mode === "bid" ? t("Your offer", "Su oferta") : "Total"}</Text>
-                    <Text style={S.muted}>{t("For the whole car, taxes included", "Por todo el vehículo, impuestos incluidos")}</Text>
-                  </View>
-                  <Text style={[S.money, { fontSize: 30 }]}>{mode === "bid" && !offerValid ? "—" : cents(itemCents)}</Text>
-                </View>
-                <Btn label={t("Continue", "Continuar")} icon="arrow-forward" onPress={choose} busy={busy} disabled={!canContinue} color={C.emerald} />
-              </>
-            ) : null}
           </Card>
         </>
       ) : null}
-    </>
+        {after}
+      </ScrollView>
+      {quote && vehicle ? (
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 12,
+            paddingHorizontal: 16,
+            paddingVertical: 10,
+            backgroundColor: "#fff",
+            borderTopWidth: 1,
+            borderTopColor: C.border,
+          }}
+        >
+          <View style={{ flex: 1 }}>
+            <Text style={S.label}>{mode === "bid" ? t("Your offer", "Su oferta") : t("Total · " + vehicle.name, "Total · " + vehicle.name)}</Text>
+            <Text style={{ fontSize: 24, fontWeight: "800", color: C.emerald, letterSpacing: -0.5 }}>{mode === "bid" && !offerValid ? "—" : cents(itemCents)}</Text>
+            <Text style={{ fontSize: 11, color: C.muted }}>{t("For the whole car, taxes included", "Por todo el vehículo, impuestos incluidos")}</Text>
+          </View>
+          <View style={{ minWidth: 150 }}>
+            <Btn label={t("Continue", "Continuar")} icon="arrow-forward" onPress={choose} busy={busy} disabled={!canContinue} color={C.emerald} />
+          </View>
+        </View>
+      ) : null}
+    </View>
   );
 }
 

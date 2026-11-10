@@ -15,11 +15,12 @@ export interface ApiResult<T = unknown> {
 export async function api<T = unknown>(path: string, body?: Record<string, unknown>): Promise<ApiResult<T>> {
   try {
     const { data } = await supabase.auth.getSession();
+    // Prices and tours are public, so a traveller who isn't signed in can still plan a trip;
+    // the server refuses the calls that need a signed-in email.
     const token = data.session?.access_token;
-    if (!token) return { ok: false, error: "Please sign in again." };
     const res = await fetch(SITE_URL + "/api/v1" + path, {
       method: body ? "POST" : "GET",
-      headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+      headers: { ...(token ? { Authorization: "Bearer " + token } : {}), "Content-Type": "application/json" },
       body: body ? JSON.stringify(body) : undefined,
     });
     const json = (await res.json().catch(() => null)) as (T & { ok?: boolean; error?: string }) | null;
