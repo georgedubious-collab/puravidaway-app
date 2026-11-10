@@ -70,8 +70,9 @@ export function TransfersView({
   const [notes, setNotes] = useState("");
   const [prefs, setPrefs] = useState<RidePrefs>(DEFAULT_PREFS);
   const [driverNotes, setDriverNotes] = useState("");
-  // "How many bags?" — optional; "" = not said (the driver sees nothing).
-  const [bags, setBags] = useState("");
+  // "How many bags?" — "" = not changed: we count 2 per traveller (1 large suitcase + 1 carry-on).
+  const [bagsPick, setBags] = useState("");
+  const bags = bagsPick === "" ? String(Math.min(pax * 2, MAX_BAGS)) : bagsPick;
   const driverNotesBlocked = hasContactDetails(driverNotes);
   const [offer, setOffer] = useState("165");
 
@@ -145,7 +146,7 @@ export function TransfersView({
   );
   const effectivePrefs: RidePrefs = spanishDriver ? { ...prefs, language: "spanish_ok" } : prefs;
   // "4 bags" / "4 maletas" for the trip summary and the extras line, once the traveller says.
-  const bagWords = bags === "" ? [] : [Number(bags) === 1 ? t("1 bag", "1 maleta") : t(`${bags} bags`, `${bags} maletas`)];
+  const bagWords = [Number(bags) === 1 ? t("1 bag", "1 maleta") : t(`${bags} bags`, `${bags} maletas`)];
   const stopsKey = effectiveStopIds.join(",");
 
   // Shareable link: mirror the ride choices in the address bar (debounced), never personal details.
@@ -266,7 +267,7 @@ export function TransfersView({
         notes: notes.trim() || undefined,
         prefs: effectivePrefs,
         driverNotes: driverNotes.trim() || undefined,
-        ...(bags === "" ? {} : { bags: Number(bags) }),
+        bags: Number(bags),
       },
     });
   }
@@ -673,14 +674,13 @@ export function TransfersView({
               <label className="mb-4 flex min-h-11 items-center gap-3 rounded-xl border border-slate-200 pl-3 pr-1 py-1">
                 <span className="min-w-0">
                   <span className="block text-sm font-bold text-slate-700">{t("How many bags?", "¿Cuántas maletas?")}</span>
-                  <span className="block text-sm text-slate-600">{t("Suitcases and large backpacks", "Maletas y mochilas grandes")}</span>
+                  <span className="block text-sm text-slate-600">{t("1 large suitcase + 1 carry-on per person. Change it if you bring more or less.", "1 maleta grande y 1 de mano por persona. Cámbielo si lleva más o menos.")}</span>
                 </span>
                 <select
                   value={bags}
                   onChange={(e) => setBags(e.target.value)}
                   className="ml-auto min-h-11 min-w-16 rounded-lg border border-slate-300 bg-white px-2 text-base font-bold"
                 >
-                  <option value="">—</option>
                   {Array.from({ length: MAX_BAGS + 1 }, (_, n) => (
                     <option key={n} value={String(n)}>
                       {n}
