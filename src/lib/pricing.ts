@@ -42,10 +42,12 @@ export function formatUSD(cents: number): string {
   }).format(cents / 100);
 }
 
-export function formatDuration(minutes: number): string {
+/** "2 hrs 30 min"; Spanish pages get "2 h 30 min". */
+export function formatDuration(minutes: number, lang: "en" | "es" = "en"): string {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
   if (h === 0) return `${m} min`;
+  if (lang === "es") return m === 0 ? `${h} h` : `${h} h ${m} min`;
   if (m === 0) return `${h} hr${h > 1 ? "s" : ""}`;
   return `${h} hr ${m} min`;
 }

@@ -2,11 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { LegalPage, LegalSection } from "@/components/legal/LegalPage";
 import { whatsAppLink } from "@/lib/cart";
+import { bilingualAlternates } from "@/lib/publicLang";
 
 export const metadata: Metadata = {
   title: "Cancellation & Refund Policy | Costa Rica Private Transfers",
   description:
     "Free cancellation up to 24 hours before pickup for Costa Rica transfers and day tours; clear refund rules for multi-day expeditions.",
+  alternates: bilingualAlternates("/cancellation", "en"),
 };
 
 /*

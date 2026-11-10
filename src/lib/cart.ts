@@ -137,8 +137,31 @@ export function cartWhatsAppMessage(
   mode: PaymentMode,
   feeBps: number,
   clientName?: string,
+  lang: "en" | "es" = "en",
 ): string {
   const t = cartTotals(items, mode, feeBps);
+  if (lang === "es") {
+    return [
+      `¡Hola! Quisiera reservar este viaje${clientName ? ` (${clientName})` : ""}:`,
+      "",
+      ...items.map(
+        (i, n) =>
+          `${n + 1}. ${i.title}\n   ${i.detail}\n   Fecha: ${i.date || "por definir"}${
+            i.spec?.kind === "transfer" ? `, recogida ${formatTime12h(i.spec.pickupTime, "es")} (hora de Costa Rica)` : ""
+          } — ${formatUSD(i.totalCents)}${
+            mode === "cash_driver" ? (cashAllowed(i.kind) ? " (efectivo al conductor)" : " (en línea, el total)") : ""
+          }`,
+      ),
+      "",
+      ...(t.cashFeeCents > 0 ? [`Cargo por reserva en efectivo (${formatBpsPercent(feeBps)}): +${formatUSD(t.cashFeeCents)}`] : []),
+      `Total: ${formatUSD(t.totalCents)}`,
+      t.cashCents > 0
+        ? `Quisiera pagar al conductor en efectivo (${formatUSD(t.cashCents)})${
+            t.onlineCents > 0 ? ` y pagar la expedición en línea en su totalidad (${formatUSD(t.onlineCents)})` : ""
+          }.`
+        : "Quisiera pagar en línea el total cuando el viaje esté confirmado.",
+    ].join("\n");
+  }
   const lines = [
     `Hi! I'd like to book this trip${clientName ? ` (${clientName})` : ""}:`,
     "",

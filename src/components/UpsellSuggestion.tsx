@@ -1,11 +1,13 @@
 "use client";
 
 import { Sparkles, X } from "lucide-react";
-import { EXPEDITION_REGIONS, HUB_REGION, HUBS, REGION_NAMES, type HubId } from "@/lib/catalog";
+import { EXPEDITION_REGIONS, HUB_REGION, type HubId } from "@/lib/catalog";
+import { hubName, regionName } from "@/lib/catalogEs";
 import { seasonForYmd, type CatalogData } from "@/lib/catalogModel";
 import { applyMultiplier, formatUSD, quoteExpedition } from "@/lib/pricing";
 import { perPersonTierCents } from "@/lib/catalog";
 import { useCatalog } from "./CatalogContext";
+import { usePublicLang, useT } from "./PublicLangContext";
 
 export interface Suggestion {
   kind: "day_tour" | "expedition";
@@ -68,26 +70,30 @@ export function UpsellSuggestion({
   onDismiss: () => void;
 }) {
   const catalog = useCatalog();
+  const lang = usePublicLang();
+  const t = useT();
   const list = suggestionsFor(destination, date, catalog);
   if (!list.length) return null;
   const region = HUB_REGION[destination];
-  const place = region ? REGION_NAMES[region] : HUBS.find((h) => h.id === destination)?.name;
+  const place = region ? regionName(region, lang) : hubName(destination, lang);
   return (
     <aside
-      aria-label="Suggestions for your trip"
+      aria-label={t("Suggestions for your trip", "Sugerencias para su viaje")}
       className="relative rounded-2xl border border-amber-300 bg-amber-50 p-4 pr-12"
     >
       <button
         type="button"
         onClick={onDismiss}
-        aria-label="Hide suggestions"
+        aria-label={t("Hide suggestions", "Ocultar sugerencias")}
         className="absolute right-1.5 top-1.5 inline-flex h-11 w-11 items-center justify-center rounded-lg text-slate-500 hover:text-slate-800"
       >
         <X className="h-4 w-4" />
       </button>
       <p className="flex items-center gap-1.5 text-sm font-extrabold text-slate-900">
         <Sparkles className="h-4 w-4 text-amber-600" aria-hidden />
-        {region ? `While you're in ${place}` : "Make the most of your trip"}
+        {region
+          ? t(`While you're in ${place}`, `Mientras esté en ${place}`)
+          : t("Make the most of your trip", "Aproveche su viaje al máximo")}
       </p>
       <ul className="mt-2 grid gap-2 sm:grid-cols-2">
         {list.map((s) => (
@@ -98,7 +104,9 @@ export function UpsellSuggestion({
               className="w-full min-h-11 rounded-xl border border-amber-200 bg-white px-3 py-2 text-left hover:border-emerald-500"
             >
               <span className="block text-[11px] font-bold uppercase tracking-wider text-emerald-700">
-                {s.kind === "day_tour" ? `1-day tour · from ${formatUSD(s.fromCents)} per person` : `Expedition · from ${formatUSD(s.fromCents)}`}
+                {s.kind === "day_tour"
+                  ? t(`1-day tour · from ${formatUSD(s.fromCents)} per person`, `Tour de un día · desde ${formatUSD(s.fromCents)} por persona`)
+                  : t(`Expedition · from ${formatUSD(s.fromCents)}`, `Expedición · desde ${formatUSD(s.fromCents)}`)}
               </span>
               <span className="block text-sm font-bold text-slate-900">{s.name}</span>
             </button>

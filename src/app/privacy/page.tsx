@@ -2,11 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { LEGAL_ENTITY_PLACEHOLDER, LegalPage, LegalSection } from "@/components/legal/LegalPage";
 import { whatsAppLink } from "@/lib/cart";
+import { bilingualAlternates } from "@/lib/publicLang";
 
 export const metadata: Metadata = {
   title: "Privacy Policy | Costa Rica Private Transfers",
   description:
     "What personal data Costa Rica Private Transfers collects when you request a Costa Rica trip or drive with us, why, who it is shared with, and how to access or delete it.",
+  alternates: bilingualAlternates("/privacy", "en"),
 };
 
 /*

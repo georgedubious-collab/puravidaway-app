@@ -2,10 +2,13 @@
 
 import { Luggage, Route, Sun, Tent } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { HubId } from "@/lib/catalog";
 import type { CatalogData } from "@/lib/catalogModel";
+import { localizeCatalog } from "@/lib/catalogEs";
+import { t as pick, type PublicLang } from "@/lib/publicLang";
 import { CatalogProvider } from "./CatalogContext";
+import { PublicLangProvider } from "./PublicLangContext";
 import {
   cartTotals,
   type CartItem,
@@ -34,10 +37,10 @@ type Builder = "transfers" | "daytours" | "multiday";
 /** ?tab= values used by the site menu (src/lib/siteNav.ts). */
 const TAB_PARAM: Record<string, Builder> = { transfers: "transfers", tours: "daytours", multiday: "multiday" };
 
-const BUILDERS: { id: Builder; label: string; Icon: typeof Route }[] = [
-  { id: "transfers", label: "Ride", Icon: Route },
-  { id: "daytours", label: "Day tour", Icon: Sun },
-  { id: "multiday", label: "Expedition", Icon: Tent },
+const BUILDERS: { id: Builder; label: Record<PublicLang, string>; Icon: typeof Route }[] = [
+  { id: "transfers", label: { en: "Ride", es: "Traslado" }, Icon: Route },
+  { id: "daytours", label: { en: "Day tour", es: "Tour de un día" }, Icon: Sun },
+  { id: "multiday", label: { en: "Expedition", es: "Expedición" }, Icon: Tent },
 ];
 
 /**
@@ -45,17 +48,25 @@ const BUILDERS: { id: Builder; label: string; Icon: typeof Route }[] = [
  * always visible. Smaller screens: a bottom bar opens the same trip in a drawer.
  * Route pages link here with ?from=SJO&to=ManuelAntonio to pre-fill a ride; the
  * ride builder keeps the full ride in the address (src/lib/shareLink.ts) so it can be shared.
+ * The same storefront serves / (English) and /es (Spanish): `lang` reaches every
+ * part through PublicLangProvider, and the catalog's names are shown in that language.
  */
 export function Storefront({
   today,
-  catalog,
+  catalog: rawCatalog,
   footer,
+  lang = "en",
 }: {
   today: string;
   catalog: CatalogData;
+  /** "es" on /es. */
+  lang?: PublicLang;
   /** The site footer, rendered on the server by the page. */
   footer?: React.ReactNode;
 }) {
+  const t = <T,>(en: T, es: T): T => pick(lang, en, es);
+  // Same prices and ids; vehicle, stop, tour… names in the page's language.
+  const catalog = useMemo(() => localizeCatalog(rawCatalog, lang), [rawCatalog, lang]);
   const params = useSearchParams();
   // Read on every render: coming back to the Ride tab restores the ride from the address.
   const rideInit = parseRideLink(params, catalog, today);
@@ -117,7 +128,7 @@ export function Storefront({
 
   function addItem(item: CartItem) {
     setItems((prev) => [...prev, item]);
-    toast.show("Added to your trip");
+    toast.show(t("Added to your trip", "Agregado a su viaje"));
     if (item.spec?.kind === "transfer") {
       setUpsell({ destination: item.spec.destination, date: item.date ? addDays(item.date, 1) : addDays(today, 15) });
     } else {
@@ -153,20 +164,24 @@ export function Storefront({
   };
 
   return (
+    <PublicLangProvider lang={lang}>
     <CatalogProvider catalog={catalog}>
       <SiteHeader
-        lang="en"
+        lang={lang}
         current={builder === "daytours" ? "tours" : builder}
         extra={
           // The trip button only shows below xl, where the trip sidebar is hidden.
           <button
             type="button"
             onClick={() => setCartOpen(true)}
-            aria-label={`Open your trip, ${items.length} item${items.length === 1 ? "" : "s"}`}
+            aria-label={t(
+              `Open your trip, ${items.length} item${items.length === 1 ? "" : "s"}`,
+              `Abrir su viaje, ${items.length} elemento${items.length === 1 ? "" : "s"}`,
+            )}
             className="xl:hidden shrink-0 min-h-11 bg-emerald-800 hover:bg-emerald-700 text-white px-3 rounded-xl text-sm font-bold flex items-center gap-2 transition"
           >
             <Luggage className="w-4 h-4" aria-hidden />
-            <span className="hidden sm:inline">Your trip</span>
+            <span className="hidden sm:inline">{t("Your trip", "Su viaje")}</span>
             {items.length > 0 ? (
               <span className="bg-amber-400 text-slate-950 px-2 py-0.5 rounded-full text-xs font-extrabold">
                 {formatUSD(total)}
@@ -182,7 +197,7 @@ export function Storefront({
           className="hidden xl:block xl:sticky xl:top-20 xl:max-h-[calc(100vh-6rem)] xl:overflow-y-auto space-y-5 pb-4"
         >
           <h2 id="trip-heading" className="text-xl font-extrabold text-slate-900">
-            Your trip
+            {t("Your trip", "Su viaje")}
           </h2>
           <TripSummary trip={trip} />
           <div className="border-t border-slate-200 pt-5">
@@ -193,10 +208,10 @@ export function Storefront({
         <main className={`min-w-0 space-y-5 ${items.length ? "pb-24 xl:pb-0" : ""}`}>
           <div
             role="group"
-            aria-label="What do you want to add?"
+            aria-label={t("What do you want to add?", "¿Qué desea agregar?")}
             className="flex flex-wrap items-center gap-2"
           >
-            <span className="text-sm font-bold text-slate-600 mr-1">Add to your trip:</span>
+            <span className="text-sm font-bold text-slate-600 mr-1">{t("Add to your trip:", "Agregar a su viaje:")}</span>
             {BUILDERS.map(({ id, label, Icon }) => {
               const active = builder === id;
               return (
@@ -212,7 +227,7 @@ export function Storefront({
                   }`}
                 >
                   <Icon className="w-4 h-4" aria-hidden />
-                  {label}
+                  {label[lang]}
                 </button>
               );
             })}
@@ -268,7 +283,10 @@ export function Storefront({
           <div className="max-w-3xl mx-auto flex items-center justify-between gap-3">
             <div>
               <p className="text-xs text-slate-500">
-                Your trip · {items.length} item{items.length === 1 ? "" : "s"}
+                {t(
+                  `Your trip · ${items.length} item${items.length === 1 ? "" : "s"}`,
+                  `Su viaje · ${items.length} elemento${items.length === 1 ? "" : "s"}`,
+                )}
               </p>
               <p className="text-xl font-extrabold text-slate-900">{formatUSD(total)}</p>
             </div>
@@ -277,7 +295,7 @@ export function Storefront({
               onClick={() => setCartOpen(true)}
               className="min-h-12 px-5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold"
             >
-              Review &amp; book
+              {t("Review & book", "Revisar y reservar")}
             </button>
           </div>
         </div>
@@ -286,5 +304,6 @@ export function Storefront({
       <CartDrawer open={cartOpen} trip={trip} onClose={() => setCartOpen(false)} />
       <Toast message={toast.message} />
     </CatalogProvider>
+    </PublicLangProvider>
   );
 }

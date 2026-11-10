@@ -145,8 +145,8 @@ export function HowItWorksPage({ lang, cashFeeBps }: { lang: PublicLang; cashFee
         </div>
         <p className="mt-4 text-sm text-slate-600">
           {t(lang, "Full rules, including multi-day trips:", "Reglas completas, incluidos los viajes de varios días:")}{" "}
-          <Link href="/cancellation" className="font-semibold text-emerald-700 underline">
-            {t(lang, "Cancellation policy", "Política de cancelación (en inglés)")}
+          <Link href={localizedHref("/cancellation", lang)} className="font-semibold text-emerald-700 underline">
+            {t(lang, "Cancellation policy", "Política de cancelación")}
           </Link>
         </p>
       </PageSection>
@@ -154,7 +154,7 @@ export function HowItWorksPage({ lang, cashFeeBps }: { lang: PublicLang; cashFee
       <PageSection id="start" title={t(lang, "Ready to plan?", "¿Listo para planear?")}>
         <div className="flex flex-wrap gap-3">
           <Link
-            href="/"
+            href={localizedHref("/", lang)}
             className="min-h-12 px-5 rounded-xl bg-amber-400 hover:bg-amber-300 font-extrabold text-slate-950 inline-flex items-center gap-2"
           >
             {t(lang, "Plan a trip", "Planear un viaje")} <ArrowRight className="w-4 h-4" aria-hidden />

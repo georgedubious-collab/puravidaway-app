@@ -2,12 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { LEGAL_ENTITY_PLACEHOLDER, LegalPage, LegalSection } from "@/components/legal/LegalPage";
 import { whatsAppLink } from "@/lib/cart";
+import { bilingualAlternates } from "@/lib/publicLang";
 import { CARRIER_NOTE } from "@/lib/trust";
 
 export const metadata: Metadata = {
   title: "Terms of Service | Costa Rica Private Transfers",
   description:
     "The terms for booking private transfers, sightseeing stops, day tours and multi-day expeditions in Costa Rica through Costa Rica Private Transfers.",
+  alternates: bilingualAlternates("/terms", "en"),
 };
 
 export default function TermsPage() {

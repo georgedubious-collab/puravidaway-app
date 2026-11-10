@@ -1,5 +1,5 @@
 import type { Metadata, ResolvingMetadata } from "next";
-import { bilingualAlternates, ES_PATHS, type PublicLang } from "./publicLang";
+import { bilingualAlternates, esPathOf, type PublicLang } from "./publicLang";
 import { SITE_NAME } from "./site";
 
 /**
@@ -14,7 +14,7 @@ export async function bilingualMetadata(
 ): Promise<Metadata> {
   const inherited = await parent;
   const fullTitle = `${title} | ${SITE_NAME}`;
-  const url = lang === "es" ? (ES_PATHS[enPath] ?? enPath) : enPath;
+  const url = lang === "es" ? (esPathOf(enPath) ?? enPath) : enPath;
   return {
     title: fullTitle,
     description,

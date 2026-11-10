@@ -1,4 +1,6 @@
+import { localizedHref } from "@/lib/publicLang";
 import { ROUTE_PAGES } from "@/lib/routePages";
+import { localizeRoutePage } from "@/lib/routePagesEs";
 import { CONTACT_EMAIL, SITE_NAME, SITE_URL } from "@/lib/site";
 
 /**
@@ -32,12 +34,19 @@ Key facts:
 ## Popular routes
 ${ROUTE_PAGES.map((p) => `- [${p.title}](${u(`/transfers/${p.slug}`)}): ${p.metaDescription}`).join("\n")}
 
-## Spanish
+## Spanish (every page above has a Spanish version under /es)
+- [Reservar un traslado, tour o viaje de varios días](${u("/es")}): planificador de viajes con precios
 - [Quiénes somos](${u("/es/nosotros")})
 - [Cómo funciona](${u("/es/como-funciona")})
 - [Nuestros conductores](${u("/es/nuestros-conductores")})
 - [Preguntas frecuentes](${u("/es/preguntas-frecuentes")})
 - [Contacto](${u("/es/contacto")})
+- [Política de cancelación](${u("/es/cancelacion")})
+- [Términos del servicio](${u("/es/terminos")})
+- [Política de privacidad](${u("/es/privacidad")})
+
+## Rutas populares (español)
+${ROUTE_PAGES.map((p) => `- [${localizeRoutePage(p, "es").title}](${u(localizedHref(`/transfers/${p.slug}`, "es"))})`).join("\n")}
 `;
   return new Response(text, { headers: { "Content-Type": "text/plain; charset=utf-8" } });
 }

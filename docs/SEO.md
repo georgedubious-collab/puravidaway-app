@@ -51,7 +51,8 @@ Cancellation) · Legal · Social icons (shown once each account exists) · App b
 apps are in the stores).
 
 **Languages:** English at the root, Spanish under `/es` with hreflang (Jorge, 2026-11-09:
-Spanish now). More languages later (Daytrip and the Rezdy operators win partly through them).
+Spanish now). Since 2026-11-10 every public page has its Spanish version (storefront `/es`, route
+pages `/es/traslados/<slug>`, info and legal pages); every new page must ship in both languages. More languages later (Daytrip and the Rezdy operators win partly through them).
 
 ## 4. Build order (one PR each)
 

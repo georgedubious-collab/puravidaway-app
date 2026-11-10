@@ -2,10 +2,13 @@
 
 import { Camera, Car, Check, ExternalLink, Gavel, Languages, Link2, MapPin, MessageCircle, PlusCircle, Ticket, Users } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ENTRANCE_LABEL, stopFitsRoute, stopTotalCents } from "@/lib/catalog";
+import { stopFitsRoute, stopTotalCents } from "@/lib/catalog";
+import { entranceLabel, hubName } from "@/lib/catalogEs";
 import { seasonForYmd } from "@/lib/catalogModel";
 import { useCatalog } from "./CatalogContext";
 import { PlaceInput } from "./PlaceInput";
+import { usePublicLang, useT } from "./PublicLangContext";
+import { localizeServerMessage } from "@/lib/serverMessagesEs";
 import { hubPlace, isAirportPickup, isHubPlace, mapsDirectionsUrl, needsRoute, type RidePlace, type RideRoute } from "@/lib/places";
 import { newItemId, whatsAppLink, type CartItem } from "@/lib/cart";
 import { DEFAULT_PICKUP_TIME, PICKUP_TIMES, addDays, formatTime12h } from "@/lib/dates";
@@ -14,6 +17,12 @@ import { MAX_SHARED_PAX, rideLinkQuery, type RideLinkState } from "@/lib/shareLi
 import { MIN_OFFER_USD } from "@/lib/tripRequest";
 import { ridePromises } from "@/lib/trust";
 import { DEFAULT_PREFS, LANGUAGE_LABEL, hasContactDetails, prefsSummary, type DriverLanguage, type RidePrefs } from "@/lib/preferences";
+
+/** Spanish wording of LANGUAGE_LABEL for the /es storefront. */
+const LANGUAGE_LABEL_ES: Record<DriverLanguage, string> = {
+  english: "Conductor que habla inglés",
+  spanish_ok: "Español o inglés básico está bien",
+};
 
 type PricingMode = "fixed" | "bid";
 
@@ -33,6 +42,9 @@ export function TransfersView({
   /** "While you're there" suggestions after a ride is added, shown under the add button. */
   suggestion?: React.ReactNode;
 }) {
+  const lang = usePublicLang();
+  const t = useT();
+  const routeFailed = t("We couldn't work out this route. Please try again.", "No pudimos calcular esta ruta. Por favor, inténtelo de nuevo.");
   const [originPlace, setOriginPlace] = useState<RidePlace>(initial.origin ?? hubPlace("SJO"));
   const [destPlace, setDestPlace] = useState<RidePlace>(initial.destination ?? hubPlace("ManuelAntonio"));
   // Our town for each end (a typed place's nearest town): area factor, stops, vehicles.
@@ -66,14 +78,14 @@ export function TransfersView({
         setRouteState(
           d.route
             ? { key: routeKey, route: d.route }
-            : { key: routeKey, error: d.error ?? "We couldn't work out this route. Please try again." },
+            : { key: routeKey, error: d.error ? localizeServerMessage(d.error, lang) : routeFailed },
         ),
       )
       .catch(() => {
-        if (!ctrl.signal.aborted) setRouteState({ key: routeKey, error: "We couldn't work out this route. Please try again." });
+        if (!ctrl.signal.aborted) setRouteState({ key: routeKey, error: routeFailed });
       });
     return () => ctrl.abort();
-  }, [routeKey, originPlace.id, destPlace.id]);
+  }, [routeKey, originPlace.id, destPlace.id, lang, routeFailed]);
   const route = routeKey && routeState.key === routeKey ? (routeState.route ?? null) : null;
   const routeError = routeKey && routeState.key === routeKey ? routeState.error : undefined;
   const routeLoading = Boolean(routeKey) && routeState.key !== routeKey;
@@ -129,7 +141,7 @@ export function TransfersView({
       skipFirstSync.current = false;
       return;
     }
-    const t = window.setTimeout(() => {
+    const timer = window.setTimeout(() => {
       const q = rideLinkQuery(
         { origin: originPlace, destination: destPlace, date, pickupTime, pax, vehicleId: effectiveVehicleId, stopIds: stopsKey ? stopsKey.split(",") : [] },
         window.location.search,
@@ -138,7 +150,7 @@ export function TransfersView({
         window.history.replaceState(null, "", `${window.location.pathname}?${q}${window.location.hash}`);
       }
     }, 400);
-    return () => window.clearTimeout(t);
+    return () => window.clearTimeout(timer);
   }, [originPlace, destPlace, date, pickupTime, pax, effectiveVehicleId, stopsKey]);
 
   async function copyLink() {
@@ -179,8 +191,12 @@ export function TransfersView({
 
   // SJO / LIR pickups, picked from the list or typed: flight tracking and free waiting apply.
   const airportPickup = isAirportPickup(originPlace);
-  const originName = originPlace.label;
-  const destName = destPlace.label;
+  // Our towns are named in the page's language; a typed place keeps the name Google gave it.
+  const nameOf = (p: RidePlace) => (isHubPlace(p) ? hubName(p.hub, lang) : p.label);
+  const originName = nameOf(originPlace);
+  const destName = nameOf(destPlace);
+  const paxWord = (n: number) => t(`${n} passenger${n > 1 ? "s" : ""}`, `${n} pasajero${n > 1 ? "s" : ""}`);
+  const duration = (min: number) => formatDuration(min, lang);
   const vehicle = catalog.vehicles.find((v) => v.id === effectiveVehicleId)!;
   const selectedStops = catalog.stops.filter((s) => effectiveStopIds.includes(s.id));
   const cantAdd = !priceReady || noVehicleFits || (mode === "bid" && !offerValid) || driverNotesBlocked;
@@ -195,18 +211,27 @@ export function TransfersView({
 
   function addToCart() {
     if (cantAdd) return;
+    const names = selectedStops.map((s) => s.name).join(", ");
     const stopsText = selectedStops.length
-      ? ` + ${selectedStops.length} stop${selectedStops.length > 1 ? "s" : ""} (${selectedStops.map((s) => s.name).join(", ")})`
+      ? t(
+          ` + ${selectedStops.length} stop${selectedStops.length > 1 ? "s" : ""} (${names})`,
+          ` + ${selectedStops.length} parada${selectedStops.length > 1 ? "s" : ""} (${names})`,
+        )
       : "";
+    const paxText = t(`${pax} pax`, paxWord(pax));
+    const prefWords = prefsSummary(effectivePrefs, lang);
     onAdd({
       kind: "transfer",
       id: newItemId(),
       title: `${originName} → ${destName}`,
       detail:
         (mode === "bid"
-          ? `Driver bid request — your offer covers the ride${selectedStops.length ? " + stops" : ""} (fixed price would be ${formatUSD(quote.totalCents)}), ${pax} pax${stopsText}${notes ? ` — ${notes}` : ""}`
-          : `${vehicle.name}, ${pax} pax${stopsText}${notes ? ` — ${notes}` : ""}`
-        ) + (prefsSummary(effectivePrefs).length ? ` · ${prefsSummary(effectivePrefs).join(", ")}` : ""),
+          ? t(
+              `Driver bid request — your offer covers the ride${selectedStops.length ? " + stops" : ""} (fixed price would be ${formatUSD(quote.totalCents)}), ${paxText}${stopsText}${notes ? ` — ${notes}` : ""}`,
+              `Solicitud de ofertas de conductores — su oferta cubre el traslado${selectedStops.length ? " + paradas" : ""} (el precio fijo sería ${formatUSD(quote.totalCents)}), ${paxText}${stopsText}${notes ? ` — ${notes}` : ""}`,
+            )
+          : `${vehicle.name}, ${paxText}${stopsText}${notes ? ` — ${notes}` : ""}`
+        ) + (prefWords.length ? ` · ${prefWords.join(", ")}` : ""),
       date,
       totalCents: itemTotalCents,
       spec: {
@@ -229,15 +254,26 @@ export function TransfersView({
   }
 
   const routeWhatsApp = whatsAppLink(
-    `Hi! I'm looking at a private transfer ${originName} → ${destName} on ${date} at ${formatTime12h(pickupTime)} (Costa Rica time) for ${pax} passengers${
-      selectedStops.length ? ` with stops at ${selectedStops.map((s) => s.name).join(", ")}` : ""
-    }. ${
-      mode === "bid" && offerValid
-        ? `I'd like to offer ${formatUSD(offerCents)} for the ride${selectedStops.length ? " including the stops" : ""} (fixed price shows ${price(quote.totalCents)}).`
-        : priceReady
-          ? `Quoted ${formatUSD(quote.totalCents)}.`
-          : ""
-    } Can you confirm availability?`,
+    t(
+      `Hi! I'm looking at a private transfer ${originName} → ${destName} on ${date} at ${formatTime12h(pickupTime)} (Costa Rica time) for ${pax} passengers${
+        selectedStops.length ? ` with stops at ${selectedStops.map((s) => s.name).join(", ")}` : ""
+      }. ${
+        mode === "bid" && offerValid
+          ? `I'd like to offer ${formatUSD(offerCents)} for the ride${selectedStops.length ? " including the stops" : ""} (fixed price shows ${price(quote.totalCents)}).`
+          : priceReady
+            ? `Quoted ${formatUSD(quote.totalCents)}.`
+            : ""
+      } Can you confirm availability?`,
+      `¡Hola! Estoy viendo un traslado privado ${originName} → ${destName} el ${date} a las ${formatTime12h(pickupTime, "es")} (hora de Costa Rica) para ${paxWord(pax)}${
+        selectedStops.length ? ` con paradas en ${selectedStops.map((s) => s.name).join(", ")}` : ""
+      }. ${
+        mode === "bid" && offerValid
+          ? `Quisiera ofrecer ${formatUSD(offerCents)} por el traslado${selectedStops.length ? ", paradas incluidas" : ""} (el precio fijo indica ${price(quote.totalCents)}).`
+          : priceReady
+            ? `Precio cotizado: ${formatUSD(quote.totalCents)}.`
+            : ""
+      } ¿Me pueden confirmar la disponibilidad?`,
+    ),
   );
 
   return (
@@ -246,21 +282,26 @@ export function TransfersView({
       <div className="bg-gradient-to-r from-emerald-900 via-emerald-800 to-teal-900 rounded-2xl p-5 sm:p-6 text-white shadow-xl">
         <div className="max-w-3xl">
           <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider bg-amber-400/20 text-amber-300 border border-amber-400/30 px-3 py-1 rounded-full mb-3">
-            Sightseeing transfers + driver bidding
+            {t("Sightseeing transfers + driver bidding", "Paradas turísticas + ofertas de conductores")}
           </span>
           <h1 className="text-2xl sm:text-3xl font-extrabold leading-tight">
-            Book a private Costa Rica transfer, or turn the drive into an adventure
+            {t(
+              "Book a private Costa Rica transfer, or turn the drive into an adventure",
+              "Reserve un traslado privado en Costa Rica, o convierta el trayecto en una aventura",
+            )}
           </h1>
           <p className="text-emerald-100 text-sm mt-2">
-            Add curated wildlife, waterfall or volcano stops along your route, or name your price and
-            let local partner drivers bid on your ride.
+            {t(
+              "Add curated wildlife, waterfall or volcano stops along your route, or name your price and let local partner drivers bid on your ride.",
+              "Agregue paradas seleccionadas de vida silvestre, cataratas o volcanes a lo largo de su ruta, o proponga su precio y deje que conductores locales asociados hagan ofertas por su traslado.",
+            )}
           </p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-6 bg-white/10 backdrop-blur-md p-4 rounded-xl border border-white/15">
-          <PlaceInput label="Pickup" value={originPlace} onChange={setOriginPlace} />
-          <PlaceInput label="Drop-off" value={destPlace} onChange={setDestPlace} />
-          <Field label="Travel date">
+          <PlaceInput label={t("Pickup", "Recogida")} value={originPlace} onChange={setOriginPlace} />
+          <PlaceInput label={t("Drop-off", "Destino")} value={destPlace} onChange={setDestPlace} />
+          <Field label={t("Travel date", "Fecha del viaje")}>
             <input
               type="date"
               value={date}
@@ -268,24 +309,27 @@ export function TransfersView({
               className="w-full bg-white text-slate-900 rounded-lg px-3 py-2.5 text-sm font-semibold"
             />
           </Field>
-          <Field label="Pickup time (Costa Rica time)">
+          <Field label={t("Pickup time (Costa Rica time)", "Hora de recogida (hora de Costa Rica)")}>
             <select
               value={pickupTime}
               onChange={(e) => setPickupTime(e.target.value)}
               aria-describedby="pickup-time-hint"
               className="w-full bg-white text-slate-900 rounded-lg px-3 py-2.5 text-sm font-semibold"
             >
-              {PICKUP_TIMES.map((t) => (
-                <option key={t} value={t}>
-                  {formatTime12h(t)}
+              {PICKUP_TIMES.map((pt) => (
+                <option key={pt} value={pt}>
+                  {formatTime12h(pt, lang)}
                 </option>
               ))}
             </select>
             <span id="pickup-time-hint" className="block mt-1 text-[11px] text-emerald-100">
-              For airport pickups, enter your flight&apos;s landing time.
+              {t(
+                "For airport pickups, enter your flight's landing time.",
+                "Para recogidas en aeropuerto, indique la hora de aterrizaje de su vuelo.",
+              )}
             </span>
           </Field>
-          <Field label="Passengers">
+          <Field label={t("Passengers", "Pasajeros")}>
             <select
               value={pax}
               onChange={(e) => setPax(Number(e.target.value))}
@@ -293,17 +337,17 @@ export function TransfersView({
             >
               {Array.from({ length: MAX_SHARED_PAX }, (_, i) => i + 1).map((n) => (
                 <option key={n} value={n}>
-                  {n} passenger{n > 1 ? "s" : ""}
+                  {paxWord(n)}
                 </option>
               ))}
             </select>
           </Field>
-          <Field label="Pricing mode" group>
+          <Field label={t("Pricing mode", "Tipo de precio")} group>
             <div className="grid grid-cols-2 bg-emerald-950/80 p-1 rounded-lg border border-emerald-700">
               {(
                 [
-                  ["fixed", "Fixed price"],
-                  ["bid", "Driver bids"],
+                  ["fixed", t("Fixed price", "Precio fijo")],
+                  ["bid", t("Driver bids", "Ofertas de conductores")],
                 ] as [PricingMode, string][]
               ).map(([m, label]) => (
                 <button
@@ -322,12 +366,12 @@ export function TransfersView({
         </div>
         {samePlace && (
           <p className="mt-3 text-xs font-semibold text-amber-300">
-            Pick a different drop-off to see prices.
+            {t("Pick a different drop-off to see prices.", "Elija un destino diferente para ver los precios.")}
           </p>
         )}
         {routeLoading && (
           <p className="mt-3 text-xs font-semibold text-emerald-100" aria-live="polite">
-            Checking the road distance…
+            {t("Checking the road distance…", "Verificando la distancia por carretera…")}
           </p>
         )}
         {routeError && (
@@ -344,24 +388,33 @@ export function TransfersView({
             <div className="flex items-start justify-between gap-3 mb-3">
               <div>
                 <h2 className="font-extrabold text-base text-slate-900 flex items-center gap-2">
-                  <Camera className="w-5 h-5 text-emerald-600" /> Add a stop (optional extra)
+                  <Camera className="w-5 h-5 text-emerald-600" /> {t("Add a stop (optional extra)", "Agregar una parada (extra opcional)")}
                 </h2>
                 <p className="text-xs text-slate-500">
-                  Paid extras on the road between your pickup and drop-off. Your driver waits with
-                  your luggage in a locked vehicle while you explore.
+                  {t(
+                    "Paid extras on the road between your pickup and drop-off. Your driver waits with your luggage in a locked vehicle while you explore.",
+                    "Extras con costo en el camino entre su recogida y su destino. Su conductor espera con su equipaje en el vehículo cerrado con llave mientras usted explora.",
+                  )}
                 </p>
               </div>
               <span className="text-xs font-bold bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full whitespace-nowrap">
-                {effectiveStopIds.length} added
+                {effectiveStopIds.length} {t("added", effectiveStopIds.length === 1 ? "agregada" : "agregadas")}
               </span>
             </div>
             {!stopsAllowed ? (
               <p className="text-sm text-slate-600 rounded-xl bg-slate-50 border border-slate-200 p-3">
-                {selectedVehicle?.name ?? "This vehicle"} is a direct ride without stops. Choose another
-                vehicle below to add sightseeing stops.
+                {t(
+                  `${selectedVehicle?.name ?? "This vehicle"} is a direct ride without stops. Choose another vehicle below to add sightseeing stops.`,
+                  `${selectedVehicle?.name ?? "Este vehículo"} es un traslado directo sin paradas. Elija otro vehículo abajo para agregar paradas turísticas.`,
+                )}
               </p>
             ) : availableStops.length === 0 ? (
-              <p className="text-sm text-slate-500">No stops on this route yet. Ask us on WhatsApp if you have one in mind.</p>
+              <p className="text-sm text-slate-500">
+                {t(
+                  "No stops on this route yet. Ask us on WhatsApp if you have one in mind.",
+                  "Aún no hay paradas en esta ruta. Escríbanos por WhatsApp si tiene alguna en mente.",
+                )}
+              </p>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {availableStops.map((s) => {
@@ -382,16 +435,22 @@ export function TransfersView({
                       <p className="text-xs text-slate-500 mt-1">{s.description}</p>
                       <p className="text-xs font-extrabold text-emerald-700 mt-2">
                         +{formatUSD(seasonal(stopTotalCents(s, pax)))}
-                        {s.tourPerPersonCents > 0 ? ` for ${pax} traveller${pax > 1 ? "s" : ""}` : ""} · adds {formatDuration(s.durationMin)}
+                        {s.tourPerPersonCents > 0
+                          ? t(` for ${pax} traveller${pax > 1 ? "s" : ""}`, ` para ${pax} viajero${pax > 1 ? "s" : ""}`)
+                          : ""}{" "}
+                        · {t("adds", "agrega")} {duration(s.durationMin)}
                       </p>
                       {s.tourPerPersonCents > 0 && (
                         <p className="text-[11px] text-slate-500">
-                          Guided visit {formatUSD(seasonal(s.tourPerPersonCents))} per person + {formatUSD(seasonal(s.priceCents))} driver time
+                          {t(
+                            `Guided visit ${formatUSD(seasonal(s.tourPerPersonCents))} per person + ${formatUSD(seasonal(s.priceCents))} driver time`,
+                            `Visita guiada ${formatUSD(seasonal(s.tourPerPersonCents))} por persona + ${formatUSD(seasonal(s.priceCents))} por el tiempo del conductor`,
+                          )}
                         </p>
                       )}
                       <p className="text-[11px] font-semibold text-slate-600 mt-1 flex items-center gap-1">
                         <Ticket className="w-3.5 h-3.5" aria-hidden />
-                        {ENTRANCE_LABEL[s.entrance]}
+                        {entranceLabel(s.entrance, lang)}
                       </p>
                     </button>
                   );
@@ -404,7 +463,7 @@ export function TransfersView({
           {mode === "fixed" ? (
             <Card>
               <h2 className="font-extrabold text-base text-slate-900 mb-3 flex items-center gap-2">
-                <Car className="w-5 h-5 text-emerald-600" /> Select your private vehicle
+                <Car className="w-5 h-5 text-emerald-600" /> {t("Select your private vehicle", "Elija su vehículo privado")}
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {availableVehicles.map((v) => {
@@ -426,17 +485,20 @@ export function TransfersView({
                       </span>
                       <p className="text-sm font-extrabold text-slate-900 mt-2">{v.name}</p>
                       <p className="text-xs text-slate-500 flex items-center gap-1 mt-1">
-                        <Users className="w-3.5 h-3.5" /> Up to {v.maxPax} · {v.luggage}
+                        <Users className="w-3.5 h-3.5" /> {t("Up to", "Hasta")} {v.maxPax} · {v.luggage}
                       </p>
                       <p className="text-lg font-extrabold text-emerald-700 mt-2">
                         {price(carCents(v))}{" "}
-                        <span className="text-xs font-bold text-slate-500">per car</span>
+                        <span className="text-xs font-bold text-slate-500">{t("per car", "por vehículo")}</span>
                       </p>
                       <p className="text-xs font-semibold text-slate-600">
-                        from {price(perPersonCents(carCents(v), v.maxPax))} per person ({perPersonShare(v.maxPax)} travellers)
+                        {t(
+                          `from ${price(perPersonCents(carCents(v), v.maxPax))} per person (${perPersonShare(v.maxPax)} travellers)`,
+                          `desde ${price(perPersonCents(carCents(v), v.maxPax))} por persona (${perPersonShare(v.maxPax)} viajeros)`,
+                        )}
                       </p>
                       {ferry > 0 && (
-                        <p className="text-[11px] font-semibold text-slate-600">Ferry fares included</p>
+                        <p className="text-[11px] font-semibold text-slate-600">{t("Ferry fares included", "Tarifas del ferry incluidas")}</p>
                       )}
                       {seasonPct !== 0 && (
                         <p className="text-[11px] font-bold text-amber-700">
@@ -453,18 +515,21 @@ export function TransfersView({
           ) : (
             <div className="bg-white rounded-2xl p-5 shadow-sm border-2 border-amber-400">
               <span className="text-[11px] font-extrabold uppercase tracking-wider bg-amber-100 text-amber-900 px-2.5 py-0.5 rounded-full">
-                Driver marketplace
+                {t("Driver marketplace", "Mercado de conductores")}
               </span>
               <h2 className="font-extrabold text-base text-slate-900 mt-1 flex items-center gap-2">
-                <Gavel className="w-5 h-5 text-amber-600" /> Name your offer, compare driver bids
+                <Gavel className="w-5 h-5 text-amber-600" />{" "}
+                {t("Name your offer, compare driver bids", "Proponga su oferta y compare las ofertas de los conductores")}
               </h2>
               <p className="text-xs text-slate-500 mt-1">
-                Reference fixed price for this route: {price(quote.totalCents)}. Hand-picked
-                local partner drivers will bid on your request.
+                {t(
+                  `Reference fixed price for this route: ${price(quote.totalCents)}. Hand-picked local partner drivers will bid on your request.`,
+                  `Precio fijo de referencia para esta ruta: ${price(quote.totalCents)}. Conductores locales asociados, elegidos uno por uno, harán ofertas por su solicitud.`,
+                )}
               </p>
               <div className="flex flex-wrap items-center gap-2 mt-4">
                 <label htmlFor="bid-offer" className="text-xs font-semibold text-slate-600">
-                  Your offer (USD):
+                  {t("Your offer (USD):", "Su oferta (USD):")}
                 </label>
                 <input
                   id="bid-offer"
@@ -477,18 +542,25 @@ export function TransfersView({
               </div>
               {!offerValid && (
                 <p className="text-xs font-semibold text-red-600 mt-2">
-                  Enter an offer of at least {formatUSD(MIN_OFFER_USD * 100)}.
+                  {t(
+                    `Enter an offer of at least ${formatUSD(MIN_OFFER_USD * 100)}.`,
+                    `Ingrese una oferta de al menos ${formatUSD(MIN_OFFER_USD * 100)}.`,
+                  )}
                 </p>
               )}
               {offerIsLow && (
                 <p className="text-xs font-semibold text-amber-700 mt-2">
-                  That&apos;s well below the fixed price, so drivers may not accept it.
+                  {t(
+                    "That's well below the fixed price, so drivers may not accept it.",
+                    "Está muy por debajo del precio fijo, por lo que es posible que los conductores no la acepten.",
+                  )}
                 </p>
               )}
               <p className="text-xs text-slate-500 mt-3 bg-slate-50 rounded-lg p-3">
-                Add this request to your trip and send it. Your offer goes to our approved partner
-                drivers, our team confirms the best match, and you get an email with your
-                driver&apos;s profile and car. Nothing is charged until then.
+                {t(
+                  "Add this request to your trip and send it. Your offer goes to our approved partner drivers, our team confirms the best match, and you get an email with your driver's profile and car. Nothing is charged until then.",
+                  "Agregue esta solicitud a su viaje y envíela. Su oferta llega a nuestros conductores asociados aprobados, nuestro equipo confirma la mejor opción y usted recibe un correo con el perfil y el vehículo de su conductor. No se cobra nada hasta entonces.",
+                )}
               </p>
             </div>
           )}
@@ -496,10 +568,10 @@ export function TransfersView({
           {/* DRIVER & EXTRAS */}
           <Card>
             <h2 className="font-extrabold text-base text-slate-900 mb-3 flex items-center gap-2">
-              <Languages className="w-5 h-5 text-emerald-600" /> Your driver &amp; extras
+              <Languages className="w-5 h-5 text-emerald-600" /> {t("Your driver & extras", "Su conductor y extras")}
             </h2>
             <fieldset>
-              <legend className="text-xs font-bold text-slate-600 mb-2">Driver&apos;s language</legend>
+              <legend className="text-xs font-bold text-slate-600 mb-2">{t("Driver's language", "Idioma del conductor")}</legend>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {(Object.keys(LANGUAGE_LABEL) as DriverLanguage[]).map((l) => (
                   <label
@@ -515,25 +587,29 @@ export function TransfersView({
                       disabled={spanishDriver && l === "english"}
                       onChange={() => setPrefs({ ...prefs, language: l })}
                     />
-                    {LANGUAGE_LABEL[l]}
+                    {t(LANGUAGE_LABEL, LANGUAGE_LABEL_ES)[l]}
                   </label>
                 ))}
               </div>
               {spanishDriver && (
                 <p className="mt-2 text-xs text-slate-500">
-                  {selectedVehicle?.name} has a Spanish-speaking driver. For an English-speaking driver,
-                  choose the Standard Sedan or another vehicle.
+                  {t(
+                    `${selectedVehicle?.name} has a Spanish-speaking driver. For an English-speaking driver, choose the Standard Sedan or another vehicle.`,
+                    `${selectedVehicle?.name} tiene conductor de habla hispana. Si desea un conductor que hable inglés, elija el Sedán Estándar u otro vehículo.`,
+                  )}
                 </p>
               )}
             </fieldset>
             <fieldset className="mt-4">
-              <legend className="text-xs font-bold text-slate-600 mb-2">Extras (free, subject to availability)</legend>
+              <legend className="text-xs font-bold text-slate-600 mb-2">
+                {t("Extras (free, subject to availability)", "Extras (gratis, sujetos a disponibilidad)")}
+              </legend>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
                 {(
                   [
-                    ["wifi", "Wi-Fi on board"],
-                    ["stroller", "Stroller"],
-                    ["pets", "Travelling with a pet"],
+                    ["wifi", t("Wi-Fi on board", "Wi-Fi a bordo")],
+                    ["stroller", t("Stroller", "Coche de bebé")],
+                    ["pets", t("Travelling with a pet", "Viaja con una mascota")],
                   ] as const
                 ).map(([k, label]) => (
                   <label key={k} className="flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 px-3 font-semibold">
@@ -542,7 +618,7 @@ export function TransfersView({
                   </label>
                 ))}
                 <label className="flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 px-3 font-semibold">
-                  <span>Baby / child seats</span>
+                  <span>{t("Baby / child seats", "Sillas para bebés / niños")}</span>
                   <select
                     value={prefs.childSeats}
                     onChange={(e) => setPrefs({ ...prefs, childSeats: Number(e.target.value) })}
@@ -557,23 +633,34 @@ export function TransfersView({
                 </label>
               </div>
               {prefs.childSeats > 0 && (
-                <p className="mt-2 text-xs text-slate-500">Add the children&apos;s ages in the message below so the right seats come along.</p>
+                <p className="mt-2 text-xs text-slate-500">
+                  {t(
+                    "Add the children's ages in the message below so the right seats come along.",
+                    "Indique las edades de los niños en el mensaje de abajo para llevar las sillas adecuadas.",
+                  )}
+                </p>
               )}
             </fieldset>
             <label className="mt-4 block text-xs font-bold text-slate-600">
-              Message for your driver (optional)
+              {t("Message for your driver (optional)", "Mensaje para su conductor (opcional)")}
               <textarea
                 value={driverNotes}
                 onChange={(e) => setDriverNotes(e.target.value)}
                 rows={2}
                 maxLength={500}
-                placeholder="e.g. Kids are 2 and 5 · we'd love a stop for fresh fruit · large surfboard bag"
+                placeholder={t(
+                  "e.g. Kids are 2 and 5 · we'd love a stop for fresh fruit · large surfboard bag",
+                  "p. ej. Los niños tienen 2 y 5 años · nos gustaría parar a comprar fruta fresca · llevamos una tabla de surf grande",
+                )}
                 className="mt-1 w-full rounded-xl border border-slate-300 p-3 text-base sm:text-sm font-normal text-slate-900"
               />
             </label>
             {driverNotesBlocked && (
               <p role="alert" className="mt-2 text-xs font-semibold text-red-700">
-                Please leave out phone numbers, emails and links. Your driver gets your contact details once confirmed.
+                {t(
+                  "Please leave out phone numbers, emails and links. Your driver gets your contact details once confirmed.",
+                  "Por favor, no incluya teléfonos, correos ni enlaces. Su conductor recibe sus datos de contacto una vez confirmado.",
+                )}
               </p>
             )}
           </Card>
@@ -583,33 +670,36 @@ export function TransfersView({
         <div>
           <div className="bg-white rounded-2xl p-5 shadow-md border border-slate-200 lg:sticky lg:top-28">
             <h3 className="font-extrabold text-base text-slate-900 border-b border-slate-100 pb-3 flex items-center justify-between">
-              <span>Live route summary</span>
+              <span>{t("Live route summary", "Resumen de la ruta")}</span>
               <span className="text-xs bg-slate-100 text-slate-700 px-2.5 py-1 rounded-full font-bold">
-                {priceReady ? formatDuration(quote.totalMinutes) : "…"}
+                {priceReady ? duration(quote.totalMinutes) : "…"}
               </span>
             </h3>
 
             <ol className="my-4 space-y-3 text-xs">
-              <TimelineRow label={`Pickup · ${date} · ${formatTime12h(pickupTime)}`} text={originName} />
+              <TimelineRow label={`${t("Pickup", "Recogida")} · ${date} · ${formatTime12h(pickupTime, lang)}`} text={originName} />
               {selectedStops.map((s) => (
                 <TimelineRow
                   key={s.id}
-                  label={formatDuration(s.durationMin)}
+                  label={duration(s.durationMin)}
                   text={s.name}
                   accent
                 />
               ))}
-              <TimelineRow label="Drop-off" text={destName} />
+              <TimelineRow label={t("Drop-off", "Destino")} text={destName} />
             </ol>
             <p className="text-[11px] text-slate-500 -mt-2 mb-3">
               {priceReady ? (
                 <>
-                  Driving: {formatDuration(quote.driveMinutes)}
+                  {t("Driving:", "Conducción:")} {duration(quote.driveMinutes)}
                   {route?.ferries ? " incl. ferry" : ""}
-                  {route ? ` · ${Math.round(route.km)} km` : ""} · Stops: {formatDuration(quote.stopsMinutes)}
+                  {route ? ` · ${Math.round(route.km)} km` : ""} · {t("Stops:", "Paradas:")} {duration(quote.stopsMinutes)}
                 </>
               ) : (
-                "Choose your pickup and drop-off to see the drive time."
+                t(
+                  "Choose your pickup and drop-off to see the drive time.",
+                  "Elija su recogida y su destino para ver el tiempo de viaje.",
+                )
               )}
             </p>
             {route && (
@@ -619,7 +709,7 @@ export function TransfersView({
                 rel="noopener noreferrer"
                 className="-mt-1 mb-3 inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 underline"
               >
-                See the route on Google Maps <ExternalLink className="w-3 h-3" aria-hidden />
+                {t("See the route on Google Maps", "Ver la ruta en Google Maps")} <ExternalLink className="w-3 h-3" aria-hidden />
               </a>
             )}
 
@@ -627,17 +717,23 @@ export function TransfersView({
               type="text"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder={airportPickup ? "Flight number (e.g. AA 1234), so we can track it" : "Flight # or hotel name (e.g. AA 1234 / Arenas del Mar)"}
-              aria-label={airportPickup ? "Flight number" : "Flight number or hotel name"}
+              placeholder={
+                airportPickup
+                  ? t("Flight number (e.g. AA 1234), so we can track it", "Número de vuelo (p. ej. AA 1234), para darle seguimiento")
+                  : t("Flight # or hotel name (e.g. AA 1234 / Arenas del Mar)", "N.º de vuelo o nombre del hotel (p. ej. AA 1234 / Arenas del Mar)")
+              }
+              aria-label={
+                airportPickup ? t("Flight number", "Número de vuelo") : t("Flight number or hotel name", "Número de vuelo o nombre del hotel")
+              }
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-emerald-600"
             />
 
             <div className="mt-4 bg-slate-50 p-3.5 rounded-xl space-y-1.5 text-xs">
               {mode === "bid" ? (
                 <>
-                  <Row label="Fixed price (reference)" value={price(quote.totalCents)} />
+                  <Row label={t("Fixed price (reference)", "Precio fijo (referencia)")} value={price(quote.totalCents)} />
                   <div className="flex justify-between text-sm font-extrabold text-slate-900 pt-2 border-t border-slate-200">
-                    <span>Your offer</span>
+                    <span>{t("Your offer", "Su oferta")}</span>
                     <span className="text-amber-600 text-lg">
                       {offerValid ? formatUSD(offerCents) : "—"}
                     </span>
@@ -649,25 +745,28 @@ export function TransfersView({
                   <Row label={vehicle.name} value={price(seasonal(quote.baseCents))} />
                   {quote.stopsCents > 0 && (
                     <Row
-                      label="Stops (optional extras)"
+                      label={t("Stops (optional extras)", "Paradas (extras opcionales)")}
                       value={`+${price(quote.totalCents - quote.ferryCents - seasonal(quote.baseCents))}`}
                       green
                     />
                   )}
                   {quote.ferryCents > 0 && route && (
                     <Row
-                      label={`Ferry, ${route.ferries} crossing${route.ferries > 1 ? "s" : ""} (car, driver + ${pax} passenger${pax > 1 ? "s" : ""})`}
+                      label={t(
+                        `Ferry, ${route.ferries} crossing${route.ferries > 1 ? "s" : ""} (car, driver + ${pax} passenger${pax > 1 ? "s" : ""})`,
+                        `Ferry, ${route.ferries} cruce${route.ferries > 1 ? "s" : ""} (vehículo, conductor + ${paxWord(pax)})`,
+                      )}
                       value={`+${price(quote.ferryCents)}`}
                     />
                   )}
                   {seasonPct !== 0 && (
                     <p className="text-[11px] text-slate-500">
-                      Prices include {season.name} {seasonPct > 0 ? "+" : "−"}
+                      {t("Prices include", "Los precios incluyen")} {season.name} {seasonPct > 0 ? "+" : "−"}
                       {Math.abs(seasonPct)}%.
                     </p>
                   )}
                   <div className="flex justify-between text-sm font-extrabold text-slate-900 pt-2 border-t border-slate-200">
-                    <span>Total private ride</span>
+                    <span>{t("Total private ride", "Total del traslado privado")}</span>
                     <span className="text-emerald-700 text-lg">{price(quote.totalCents)}</span>
                   </div>
                 </>
@@ -676,8 +775,10 @@ export function TransfersView({
 
             {noVehicleFits && (
               <p className="mt-3 text-xs font-semibold text-amber-700">
-                No vehicle for {pax} passengers on this route online. Ask us on WhatsApp and we&apos;ll
-                arrange it.
+                {t(
+                  `No vehicle for ${pax} passengers on this route online. Ask us on WhatsApp and we'll arrange it.`,
+                  `No hay un vehículo en línea para ${paxWord(pax)} en esta ruta. Escríbanos por WhatsApp y lo organizamos.`,
+                )}
               </p>
             )}
             <button
@@ -687,7 +788,9 @@ export function TransfersView({
               className="w-full mt-4 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-extrabold py-3 rounded-xl shadow-md text-sm flex items-center justify-center gap-2 transition"
             >
               <PlusCircle className="w-4 h-4" />
-              {mode === "bid" ? "Add offer request to your trip" : "Add this ride to your trip"}
+              {mode === "bid"
+                ? t("Add offer request to your trip", "Agregar solicitud de oferta a su viaje")
+                : t("Add this ride to your trip", "Agregar este traslado a su viaje")}
             </button>
             <a
               href={routeWhatsApp}
@@ -695,17 +798,17 @@ export function TransfersView({
               rel="noopener noreferrer"
               className="w-full mt-2 border border-emerald-600 text-emerald-700 hover:bg-emerald-50 font-bold py-2.5 rounded-xl text-xs flex items-center justify-center gap-2 transition"
             >
-              <MessageCircle className="w-4 h-4" /> Ask about this route on WhatsApp
+              <MessageCircle className="w-4 h-4" /> {t("Ask about this route on WhatsApp", "Consultar por esta ruta en WhatsApp")}
             </a>
             <button
               type="button"
               onClick={copyLink}
               className="w-full mt-2 min-h-11 text-emerald-700 hover:text-emerald-600 font-bold text-xs flex items-center justify-center gap-2"
             >
-              <Link2 className="w-4 h-4" aria-hidden /> {copied ? "Link copied" : "Copy a link to this ride"}
+              <Link2 className="w-4 h-4" aria-hidden /> {copied ? t("Link copied", "Enlace copiado") : t("Copy a link to this ride", "Copiar el enlace de este traslado")}
             </button>
             <p className="sr-only" aria-live="polite">
-              {copied ? "Link copied" : ""}
+              {copied ? t("Link copied", "Enlace copiado") : ""}
             </p>
             {suggestion && <div className="mt-4">{suggestion}</div>}
           </div>
@@ -744,11 +847,13 @@ function Field({
 
 /** What every ride includes (src/lib/trust.ts RIDE_PROMISES); luggage is on each vehicle card. */
 function RidePromises({ airport }: { airport: boolean }) {
+  const lang = usePublicLang();
+  const t = useT();
   return (
     <div className="mt-4 border-t border-slate-100 pt-3">
-      <p className="text-xs font-bold text-slate-600 mb-2">Every ride includes</p>
+      <p className="text-xs font-bold text-slate-600 mb-2">{t("Every ride includes", "Cada traslado incluye")}</p>
       <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-slate-700">
-        {ridePromises(airport).map((p) => (
+        {ridePromises(airport, lang).map((p) => (
           <li key={p.title} className="flex items-start gap-1.5">
             <Check className="w-3.5 h-3.5 mt-0.5 shrink-0 text-emerald-600" aria-hidden />
             <span>
@@ -757,7 +862,7 @@ function RidePromises({ airport }: { airport: boolean }) {
                 <>
                   {" "}
                   <a href={p.href} className="font-semibold text-emerald-700 underline">
-                    Policy
+                    {t("Policy", "Política")}
                   </a>
                 </>
               )}

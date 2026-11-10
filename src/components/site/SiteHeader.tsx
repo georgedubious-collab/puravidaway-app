@@ -2,16 +2,17 @@
 
 import { Compass, Menu, MessageCircle, X } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { whatsAppLink } from "@/lib/cart";
-import { localizedHref, switchHref, t, type PublicLang } from "@/lib/publicLang";
+import { localizedHref, t, type PublicLang } from "@/lib/publicLang";
 import { DRAWER_NAV, PRIMARY_NAV } from "@/lib/siteNav";
+import { LangSwitch } from "./LangSwitch";
 
 /**
  * The public site's header, on every public page (home, route pages, legal and
- * info pages; not /admin, /driver, /trip or /login). Desktop: menu, WhatsApp and
- * the EN/ES switch in one bar. Phones: a menu button opens a panel under the bar.
+ * info pages; not /admin, /driver, /trip or /login). Desktop: menu, the language
+ * flag button and WhatsApp in one bar. Phones: the flag button stays in the bar
+ * next to the menu button, which opens a panel under the bar.
  * `extra` is page-specific (the booking app passes its "Your trip" button).
  */
 export function SiteHeader({
@@ -25,9 +26,6 @@ export function SiteHeader({
   extra?: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
-  const pathname = usePathname() ?? "/";
-  const other: PublicLang = lang === "es" ? "en" : "es";
-  const otherHref = switchHref(pathname, other);
   const wa = whatsAppLink(
     t(lang, "Hi! I have a question about my Costa Rica trip.", "¡Hola! Tengo una pregunta sobre mi viaje a Costa Rica."),
   );
@@ -40,25 +38,15 @@ export function SiteHeader({
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
-  const langSwitch = otherHref ? (
-    <Link
-      href={otherHref}
-      hrefLang={other}
-      lang={other}
-      className="min-h-11 px-3 rounded-lg inline-flex items-center gap-1 text-sm font-bold text-emerald-100 hover:bg-emerald-800/60"
-      aria-label={other === "es" ? "Ver esta página en español" : "View this page in English"}
-    >
-      <span className={lang === "en" ? "text-white" : "text-emerald-400"}>EN</span>
-      <span aria-hidden className="text-emerald-600">|</span>
-      <span className={lang === "es" ? "text-white" : "text-emerald-400"}>ES</span>
-    </Link>
-  ) : null;
-
   return (
     <header className="bg-emerald-950 text-white sticky top-0 z-40 shadow-lg border-b border-emerald-800">
-      <div className="max-w-[1440px] mx-auto px-4 py-2.5 flex items-center justify-between gap-3">
+      <div className="max-w-[1440px] mx-auto px-4 py-2.5 flex items-center justify-between gap-2 sm:gap-3">
         <div className="flex items-center gap-6 min-w-0">
-          <Link href="/" className="flex items-center gap-2.5 min-w-0" aria-label="Costa Rica Private Transfers — home">
+          <Link
+            href={localizedHref("/", lang)}
+            className="flex items-center gap-2.5 min-w-0"
+            aria-label={t(lang, "Costa Rica Private Transfers — home", "Costa Rica Private Transfers — inicio")}
+          >
             <span className="w-9 h-9 shrink-0 rounded-xl bg-amber-400 flex items-center justify-center text-emerald-950">
               <Compass className="w-5 h-5" strokeWidth={2.5} aria-hidden />
             </span>
@@ -81,8 +69,9 @@ export function SiteHeader({
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0">
+          {/* Always in the bar, phones included: the flag button to the other language. */}
+          <LangSwitch lang={lang} />
           <div className="hidden lg:flex items-center gap-1.5">
-            {langSwitch}
             <a
               href={wa}
               target="_blank"
@@ -131,7 +120,6 @@ export function SiteHeader({
               >
                 <MessageCircle className="w-5 h-5" aria-hidden /> {t(lang, "Chat on WhatsApp", "Escríbanos por WhatsApp")}
               </a>
-              {langSwitch}
             </div>
           </nav>
         </div>
