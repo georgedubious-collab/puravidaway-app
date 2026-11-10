@@ -7,7 +7,7 @@ import { BOOKING_STATUSES, usd } from "@/lib/bookings";
 import { formatScheduledAt } from "@/lib/dates";
 import { SITE_URL, sendEmail } from "@/lib/email";
 import { notifyDriversOfJobs } from "@/lib/jobAlerts";
-import { sendPush } from "@/lib/push";
+import { sendPush, sendPushToEmail } from "@/lib/push";
 import { requestDriverReview } from "@/lib/reviewRequest";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { InputError, runAction, type FormState } from "@/lib/forms/formState";
@@ -48,6 +48,7 @@ export async function acceptOffer(_prev: FormState, fd: FormData): Promise<FormS
       const when = b?.scheduled_at ? formatScheduledAt(b.scheduled_at) : "";
       if (guest?.guest_email) {
         const first = (who?.full_name ?? "Your driver").split(" ")[0];
+        await sendPushToEmail(guest.guest_email, { title: "Your ride is confirmed", body: `${first} will drive you · ${when}`, data: { screen: "trip", id: bookingId } });
         await sendEmail({
           to: guest.guest_email,
           subject: `Your ride is confirmed (${ref}) · ${when}`,

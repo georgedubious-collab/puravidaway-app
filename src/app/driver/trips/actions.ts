@@ -7,6 +7,7 @@ import { formatScheduledAt } from "@/lib/dates";
 import { ADMIN_EMAIL, SITE_URL, sendEmail } from "@/lib/email";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { InputError, runAction, type FormState } from "@/lib/forms/formState";
+import { sendPushToEmail } from "@/lib/push";
 import { requestDriverReview } from "@/lib/reviewRequest";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -39,6 +40,7 @@ export async function setTripStatus(_prev: FormState, fd: FormData): Promise<For
         const { data: trip } = await db.from("trips").select("guest_name, guest_email, access_token").eq("id", b.trip_id).maybeSingle();
         if (!trip?.guest_email) return;
         const first = (me.full_name ?? "Your driver").split(" ")[0];
+        await sendPushToEmail(trip.guest_email, { title: `${first} is on the way`, body: `Pickup ${formatScheduledAt(b.scheduled_at)}`, data: { screen: "trip", id } });
         await sendEmail({
           to: trip.guest_email,
           subject: `${first} is on the way (${ref})`,
