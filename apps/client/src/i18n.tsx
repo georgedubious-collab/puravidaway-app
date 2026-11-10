@@ -1,7 +1,9 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { Pressable, Text } from "react-native";
+import { Pressable, Text as Emoji } from "react-native";
+import { pick } from "./haptics";
 import { C } from "./theme";
+import { Text } from "./ui";
 
 /**
  * English by default; the flag button switches to Spanish and back. Strings are
@@ -60,13 +62,16 @@ export function LangToggle({ dark }: { dark?: boolean }) {
       accessibilityRole="button"
       accessibilityLabel={toEs ? "Cambiar a español" : "Switch to English"}
       hitSlop={8}
-      onPress={() => setLang(toEs ? "es" : "en")}
+      onPress={() => {
+        pick();
+        setLang(toEs ? "es" : "en");
+      }}
       style={({ pressed }) => ({
         flexDirection: "row",
         alignItems: "center",
-        gap: 5,
-        minHeight: 32,
-        paddingHorizontal: 10,
+        gap: 6,
+        minHeight: 36,
+        paddingHorizontal: 12,
         borderRadius: 999,
         borderWidth: 1.5,
         borderColor: dark ? "rgba(255,255,255,0.35)" : C.border,
@@ -74,8 +79,8 @@ export function LangToggle({ dark }: { dark?: boolean }) {
         opacity: pressed ? 0.6 : 1,
       })}
     >
-      <Text style={{ fontSize: 16 }}>{toEs ? "🇨🇷" : "🇺🇸"}</Text>
-      <Text style={{ fontSize: 12, fontWeight: "800", color: dark ? "#fff" : C.emeraldDark }}>{toEs ? "ES" : "EN"}</Text>
+      <Emoji style={{ fontSize: 16 }}>{toEs ? "🇨🇷" : "🇺🇸"}</Emoji>
+      <Text style={{ fontSize: 13, fontWeight: "700", color: dark ? "#fff" : C.text }}>{toEs ? "ES" : "EN"}</Text>
     </Pressable>
   );
 }
