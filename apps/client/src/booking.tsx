@@ -21,7 +21,7 @@ export interface BookingState {
   to: Place | null;
   date: string;
   pax: number;
-  /** "How many bags?" (suitcases and large backpacks); null until the traveller answers. Optional. */
+  /** "How many bags?"; null = not changed, so we count 2 per traveller (see bagsFor). */
   bags: number | null;
   time: string;
   vehicleId: string;
@@ -257,7 +257,7 @@ export function BookingProvider({
         ", " +
         plural(pax, "traveller", lang) +
         (pickedStops.length ? " + " + plural(pickedStops.length, "stop", lang) : "") +
-        (state.bags ? " · " + (state.bags === 1 ? t("1 bag", "1 maleta") : t(state.bags + " bags", state.bags + " maletas")) : "") +
+        " · " + (bagsFor(state) === 1 ? t("1 bag", "1 maleta") : t(bagsFor(state) + " bags", bagsFor(state) + " maletas")) +
         t(" · pickup ", " · recogida ") +
         time12(state.time) +
         (out.length ? " · " + out.join(", ") : ""),
@@ -276,7 +276,7 @@ export function BookingProvider({
         ...(state.notes.trim() ? { notes: state.notes.trim() } : {}),
         prefs: p,
         ...(state.driverNotes.trim() ? { driverNotes: state.driverNotes.trim() } : {}),
-        ...(state.bags != null ? { bags: state.bags } : {}),
+        bags: bagsFor(state),
       },
     };
     // pickedStops and p are derived from the listed values.
@@ -332,4 +332,9 @@ export function BookingProvider({
     demo: isDemo,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
+}
+
+/** Bags on this booking: the traveller's number, or 2 per traveller (1 large suitcase + 1 carry-on) by default. */
+export function bagsFor(state: { bags: number | null; pax: number }): number {
+  return state.bags ?? Math.min(state.pax * 2, 20);
 }
