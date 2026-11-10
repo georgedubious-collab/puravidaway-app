@@ -2,35 +2,47 @@ import { Ionicons } from "@expo/vector-icons";
 import { useCallback, useEffect, useState } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { api } from "../api";
-import { TOWNS } from "../format";
+import { townList } from "../format";
+import { useT } from "../i18n";
 import { supabase } from "../supabase";
 import { C, S } from "../theme";
 import { pickAndUpload, type UploadSource, type UploadTarget } from "../upload";
 import { Back, Badge, Btn, Card, Chip, IconLine, ScreenTitle } from "../ui";
 
+/** Each text as [Spanish, English]. */
+type Pair = [string, string];
 /** Same lists as the website (src/lib/driverKyc.ts). */
-const DRIVER_DOCS = [
-  { key: "driver_photo", label: "Your photo", hint: "A clear photo of your face for your profile." },
-  { key: "id_front", label: "Cédula or passport: front" },
-  { key: "id_back", label: "Cédula: back", hint: "For a passport, upload the photo page again." },
-  { key: "license", label: "Driver's licence", hint: "Front and back in one photo or PDF." },
-  { key: "criminal_record", label: "Criminal record certificate", hint: "Issued no more than 30 days ago." },
-  { key: "ict_permit", label: "ICT tourist-transport permit", hint: "Optional. Drivers who have it get an ICT badge." },
+const DRIVER_DOCS: { key: string; label: Pair; hint?: Pair }[] = [
+  { key: "driver_photo", label: ["Su foto", "Your photo"], hint: ["Una foto clara de su cara para su perfil.", "A clear photo of your face for your profile."] },
+  { key: "id_front", label: ["Cédula o pasaporte: frente", "Cédula or passport: front"] },
+  { key: "id_back", label: ["Cédula: reverso", "Cédula: back"], hint: ["Si es pasaporte, suba otra vez la página de la foto.", "For a passport, upload the photo page again."] },
+  { key: "license", label: ["Licencia de conducir", "Driver's licence"], hint: ["Frente y reverso en una sola foto o PDF.", "Front and back in one photo or PDF."] },
+  { key: "criminal_record", label: ["Hoja de delincuencia", "Criminal record certificate"], hint: ["Emitida hace no más de 30 días.", "Issued no more than 30 days ago."] },
+  {
+    key: "ict_permit",
+    label: ["Permiso ICT de transporte turístico", "ICT tourist-transport permit"],
+    hint: ["Opcional. Los choferes que lo tienen reciben una insignia ICT.", "Optional. Drivers who have it get an ICT badge."],
+  },
 ];
-const VEHICLE_DOCS = [
-  { key: "insurance", label: "INS insurance policy" },
-  { key: "dekra", label: "Dekra / RTV inspection" },
-  { key: "marchamo", label: "Marchamo (current year)" },
-  { key: "vehicle_registration", label: "Registration (tarjeta de circulación)" },
+const VEHICLE_DOCS: { key: string; label: Pair }[] = [
+  { key: "insurance", label: ["Póliza de seguro del INS", "INS insurance policy"] },
+  { key: "dekra", label: ["Inspección Dekra / RTV", "Dekra / RTV inspection"] },
+  { key: "marchamo", label: ["Marchamo (año en curso)", "Marchamo (current year)"] },
+  { key: "vehicle_registration", label: ["Tarjeta de circulación", "Registration (tarjeta de circulación)"] },
 ];
 /** Dated documents: after the first review the date changes only with a new photo of the document. */
-const RENEW: Record<string, { ask: string; placeholder: string }> = {
-  license: { ask: "New expiry date", placeholder: "YYYY-MM-DD" },
-  insurance: { ask: "Policy valid until", placeholder: "YYYY-MM-DD" },
-  dekra: { ask: "Valid until", placeholder: "YYYY-MM-DD" },
-  marchamo: { ask: "Year it covers", placeholder: "2027" },
+const RENEW: Record<string, { ask: Pair; placeholder: Pair }> = {
+  license: { ask: ["Nueva fecha de vencimiento", "New expiry date"], placeholder: ["AAAA-MM-DD", "YYYY-MM-DD"] },
+  insurance: { ask: ["Póliza vigente hasta", "Policy valid until"], placeholder: ["AAAA-MM-DD", "YYYY-MM-DD"] },
+  dekra: { ask: ["Vigente hasta", "Valid until"], placeholder: ["AAAA-MM-DD", "YYYY-MM-DD"] },
+  marchamo: { ask: ["Año que cubre", "Year it covers"], placeholder: ["2027", "2027"] },
 };
-const STATUS: Record<string, string> = { pending: "Waiting for review", approved: "Approved", rejected: "Not approved", suspended: "Suspended" };
+const STATUS: Record<string, Pair> = {
+  pending: ["En revisión", "Waiting for review"],
+  approved: ["Aprobado", "Approved"],
+  rejected: ["No aprobado", "Not approved"],
+  suspended: ["Suspendido", "Suspended"],
+};
 
 export interface DriverRow {
   review_hold?: boolean;
@@ -90,6 +102,8 @@ export function Documents({
   const [me, setMe] = useState<Fields>(demo?.me ?? {});
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState("");
+  const { t, lang } = useT();
+  const status = (s: string) => (STATUS[s] ? t(...STATUS[s]) : s);
 
   const load = useCallback(async () => {
     if (demo) return;
@@ -139,10 +153,10 @@ export function Documents({
     // After the first review the licence date changes only with a new photo of the licence.
     if (reviewed) delete body.license_expiry;
     const a = await api("/driver/details", body);
-    if (!a.ok) return a.error ?? "Couldn't save your details.";
+    if (!a.ok) return a.error ?? t("No se pudieron guardar sus datos.", "Couldn't save your details.");
     if (me.english_level) {
       const b = await api("/driver/profile", { bio: me.bio, english_level: me.english_level });
-      if (!b.ok) return b.error ?? "Couldn't save your profile.";
+      if (!b.ok) return b.error ?? t("No se pudo guardar su perfil.", "Couldn't save your profile.");
     }
     return null;
   }
@@ -150,14 +164,14 @@ export function Documents({
   if (driver === undefined) {
     return (
       <View style={[S.screen, S.pad]}>
-        <Text style={S.muted}>Loading…</Text>
+        <Text style={S.muted}>{t("Cargando…", "Loading…")}</Text>
       </View>
     );
   }
   if (driver === null) {
     return (
       <ScrollView style={S.screen} contentContainerStyle={S.pad}>
-        <Back label="Profile" onPress={onBack} />
+        <Back label={t("Perfil", "Profile")} onPress={onBack} />
         <Apply
           me={me}
           set={(k, t) => setMe((m) => ({ ...m, [k]: t }))}
@@ -167,9 +181,9 @@ export function Documents({
               "apply",
               async () => {
                 const res = await api("/driver/apply", { full_name: me.full_name, phone: me.phone, agree: agree ? "on" : "" });
-                return res.ok ? null : (res.error ?? "Couldn't send your application.");
+                return res.ok ? null : (res.error ?? t("No se pudo enviar su solicitud.", "Couldn't send your application."));
               },
-              "Application started. Now add your details, documents and a vehicle.",
+              t("Solicitud iniciada. Ahora agregue sus datos, documentos y un vehículo.", "Application started. Now add your details, documents and a vehicle."),
             )
           }
         />
@@ -182,70 +196,94 @@ export function Documents({
 
   return (
     <ScrollView style={S.screen} contentContainerStyle={S.pad} keyboardShouldPersistTaps="handled">
-      <Back label="Profile" onPress={onBack} />
-      <ScreenTitle title="Documents and vehicles" />
+      <Back label={t("Perfil", "Profile")} onPress={onBack} />
+      <ScreenTitle title={t("Documentos y vehículos", "Documents and vehicles")} />
       <Badge
-        text={"Application: " + (STATUS[driver.kyc_status] ?? driver.kyc_status)}
+        text={t("Solicitud: ", "Application: ") + status(driver.kyc_status)}
         tone={driver.kyc_status === "approved" ? undefined : driver.kyc_status === "pending" ? "amber" : "red"}
         icon={driver.kyc_status === "approved" ? "shield-checkmark" : "time-outline"}
       />
       {driver.kyc_note ? (
         <Card tone="amber">
-          <IconLine icon="chatbox-ellipses-outline" color={C.amber} text={"Note from our team: " + driver.kyc_note} />
+          <IconLine icon="chatbox-ellipses-outline" color={C.amber} text={t("Nota de nuestro equipo: ", "Note from our team: ") + driver.kyc_note} />
         </Card>
       ) : null}
       {driver.review_hold ? (
         <Card tone="amber">
-          <IconLine icon="time-outline" color={C.amber} text="Your new documents are being checked. New jobs are paused until then." />
+          <IconLine
+            icon="time-outline"
+            color={C.amber}
+            text={t(
+              "Estamos revisando sus documentos nuevos. Los trabajos nuevos quedan en pausa hasta entonces.",
+              "Your new documents are being checked. New jobs are paused until then.",
+            )}
+          />
         </Card>
       ) : reviewed ? (
         <IconLine
           icon="information-circle-outline"
-          text="Replacing a licence, ID, criminal record or vehicle document pauses new jobs until our team checks it. Trips you already have are not affected."
+          text={t(
+            "Reemplazar la licencia, la identificación, la hoja de delincuencia o un documento del vehículo pausa los trabajos nuevos hasta que nuestro equipo lo revise. Los viajes que ya tiene no se ven afectados.",
+            "Replacing a licence, ID, criminal record or vehicle document pauses new jobs until our team checks it. Trips you already have are not affected.",
+          )}
         />
       ) : null}
       {msg ? <Text style={msg.ok ? { color: C.emerald, fontWeight: "700" } : S.error}>{msg.text}</Text> : null}
 
       <Card>
-        <Text style={S.h2}>About you</Text>
-        <Input label="Full name (as on your ID)" value={me.full_name} onChange={set("full_name")} />
-        <Input label="WhatsApp number" value={me.phone} onChange={set("phone")} keyboard="phone-pad" />
-        <Input label="Cédula or passport number" value={me.cedula_number} onChange={set("cedula_number")} />
-        <Input label="Driver's licence number" value={me.license_number} onChange={set("license_number")} />
+        <Text style={S.h2}>{t("Sus datos", "About you")}</Text>
+        <Input label={t("Nombre completo (como en su identificación)", "Full name (as on your ID)")} value={me.full_name} onChange={set("full_name")} />
+        <Input label={t("Número de WhatsApp", "WhatsApp number")} value={me.phone} onChange={set("phone")} keyboard="phone-pad" />
+        <Input label={t("Número de cédula o pasaporte", "Cédula or passport number")} value={me.cedula_number} onChange={set("cedula_number")} />
+        <Input label={t("Número de licencia de conducir", "Driver's licence number")} value={me.license_number} onChange={set("license_number")} />
         {reviewed ? (
-          <Locked label="Licence expiry" value={driver.license_expiry} />
+          <Locked label={t("Vencimiento de la licencia", "Licence expiry")} value={driver.license_expiry} />
         ) : (
-          <Input label="Licence expiry (YYYY-MM-DD)" value={me.license_expiry} onChange={set("license_expiry")} placeholder="2028-05-31" />
+          <Input
+            label={t("Vencimiento de la licencia (AAAA-MM-DD)", "Licence expiry (YYYY-MM-DD)")}
+            value={me.license_expiry}
+            onChange={set("license_expiry")}
+            placeholder="2028-05-31"
+          />
         )}
-        <Input label="Criminal record certificate: date issued (YYYY-MM-DD)" value={me.criminal_record_date} onChange={set("criminal_record_date")} />
-        <Input label="ICT permit number (optional)" value={me.ict_permit_number} onChange={set("ict_permit_number")} />
-        <Text style={[FIELD_LABEL, { marginTop: 4 }]}>Where are you based?</Text>
-        <Chips options={Object.entries(TOWNS)} value={me.home_hub} onChange={set("home_hub")} />
-        <Text style={[FIELD_LABEL, { marginTop: 4 }]}>Your English</Text>
+        <Input
+          label={t("Hoja de delincuencia: fecha de emisión (AAAA-MM-DD)", "Criminal record certificate: date issued (YYYY-MM-DD)")}
+          value={me.criminal_record_date}
+          onChange={set("criminal_record_date")}
+        />
+        <Input label={t("Número de permiso ICT (opcional)", "ICT permit number (optional)")} value={me.ict_permit_number} onChange={set("ict_permit_number")} />
+        <Text style={[FIELD_LABEL, { marginTop: 4 }]}>{t("¿Dónde está su base?", "Where are you based?")}</Text>
+        <Chips options={townList(lang)} value={me.home_hub} onChange={set("home_hub")} />
+        <Text style={[FIELD_LABEL, { marginTop: 4 }]}>{t("Su inglés", "Your English")}</Text>
         <Chips
           options={[
-            ["fluent", "Fluent"],
-            ["basic", "Basic"],
+            ["fluent", t("Fluido", "Fluent")],
+            ["basic", t("Básico", "Basic")],
           ]}
           value={me.english_level}
           onChange={set("english_level")}
         />
-        <Input label="Short bio for travellers (no phone numbers or links)" value={me.bio} onChange={set("bio")} multiline />
-        <Btn label="Save my details" onPress={() => void run("details", saveDetails, "Details saved.")} busy={busy === "details"} />
+        <Input
+          label={t("Biografía corta para los clientes (sin números de teléfono ni enlaces)", "Short bio for travellers (no phone numbers or links)")}
+          value={me.bio}
+          onChange={set("bio")}
+          multiline
+        />
+        <Btn label={t("Guardar mis datos", "Save my details")} onPress={() => void run("details", saveDetails, t("Datos guardados.", "Details saved."))} busy={busy === "details"} />
       </Card>
 
       <Card>
-        <Text style={S.h2}>Your documents</Text>
+        <Text style={S.h2}>{t("Sus documentos", "Your documents")}</Text>
         {DRIVER_DOCS.map((doc) => (
           <UploadRow
             key={doc.key}
-            label={doc.label}
-            hint={doc.hint}
+            label={t(...doc.label)}
+            hint={doc.hint ? t(...doc.hint) : undefined}
             uploaded={Boolean(driver.documents?.[doc.key])}
             renew={reviewed ? RENEW[doc.key] : undefined}
             busy={busy === "doc-" + doc.key}
             onPick={(from, renewed) =>
-              void run("doc-" + doc.key, () => pickAndUpload(userId, { type: "driver", key: doc.key }, from, renewed), doc.label + ": uploaded.")
+              void run("doc-" + doc.key, () => pickAndUpload(userId, { type: "driver", key: doc.key }, from, renewed), t(...doc.label) + t(": subido.", ": uploaded."))
             }
           />
         ))}
@@ -255,13 +293,19 @@ export function Documents({
         <VehicleCard key={v.id} v={v} userId={userId} busy={busy} run={run} />
       ))}
       <VehicleForm
-        title="Add a vehicle"
-        button="Add vehicle"
+        title={t("Agregar un vehículo", "Add a vehicle")}
+        button={t("Agregar vehículo", "Add vehicle")}
         busy={busy === "add-vehicle"}
-        onSave={(f) => void run("add-vehicle", async () => {
-          const r = await api("/driver/vehicles", f);
-          return r.ok ? null : (r.error ?? "Couldn't add the vehicle.");
-        }, "Vehicle added. Now add its documents and photos.")}
+        onSave={(f) =>
+          void run(
+            "add-vehicle",
+            async () => {
+              const r = await api("/driver/vehicles", f);
+              return r.ok ? null : (r.error ?? t("No se pudo agregar el vehículo.", "Couldn't add the vehicle."));
+            },
+            t("Vehículo agregado. Ahora agregue sus documentos y fotos.", "Vehicle added. Now add its documents and photos."),
+          )
+        }
       />
     </ScrollView>
   );
@@ -278,50 +322,70 @@ function VehicleCard({
   busy: string;
   run: (id: string, fn: () => Promise<string | null>, done: string) => Promise<void>;
 }) {
+  const { t } = useT();
   const reviewed = v.status !== "pending";
   const upload = (id: string, target: UploadTarget, done: string) => (from: UploadSource, renewed?: string) =>
     void run(id, () => pickAndUpload(userId, target, from, renewed), done);
+  const photos = v.photos?.length ?? 0;
   return (
     <Card>
       <View style={S.row}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1 }}>
           <Ionicons name="car-outline" size={20} color={C.emerald} />
           <Text style={[S.h2, { flex: 1 }]} numberOfLines={1}>
-            {(v.make_model ?? "Vehicle") + " " + (v.plate ?? "")}
+            {(v.make_model ?? t("Vehículo", "Vehicle")) + " " + (v.plate ?? "")}
           </Text>
         </View>
-        <Badge text={STATUS[v.status] ?? v.status} tone={v.status === "approved" ? undefined : v.status === "pending" ? "amber" : "red"} />
+        <Badge text={STATUS[v.status] ? t(...STATUS[v.status]) : v.status} tone={v.status === "approved" ? undefined : v.status === "pending" ? "amber" : "red"} />
       </View>
-      {v.note ? <IconLine icon="chatbox-ellipses-outline" color={C.amber} text={"Note from our team: " + v.note} /> : null}
-      {v.review_hold ? <IconLine icon="time-outline" color={C.amber} text="Its new documents are being checked; it can't be offered until then." /> : null}
+      {v.note ? <IconLine icon="chatbox-ellipses-outline" color={C.amber} text={t("Nota de nuestro equipo: ", "Note from our team: ") + v.note} /> : null}
+      {v.review_hold ? (
+        <IconLine
+          icon="time-outline"
+          color={C.amber}
+          text={t(
+            "Estamos revisando los documentos nuevos de este vehículo; no se puede usar en ofertas hasta entonces.",
+            "Its new documents are being checked; it can't be offered until then.",
+          )}
+        />
+      ) : null}
       <VehicleForm
         v={v}
         lockDates={reviewed}
-        button="Save vehicle"
+        button={t("Guardar vehículo", "Save vehicle")}
         busy={busy === "veh-" + v.id}
-        onSave={(f) => void run("veh-" + v.id, async () => {
-          const r = await api("/driver/vehicles/save", { vehicle_id: v.id, ...f });
-          return r.ok ? null : (r.error ?? "Couldn't save the vehicle.");
-        }, "Vehicle saved.")}
+        onSave={(f) =>
+          void run(
+            "veh-" + v.id,
+            async () => {
+              const r = await api("/driver/vehicles/save", { vehicle_id: v.id, ...f });
+              return r.ok ? null : (r.error ?? t("No se pudo guardar el vehículo.", "Couldn't save the vehicle."));
+            },
+            t("Vehículo guardado.", "Vehicle saved."),
+          )
+        }
       />
       {VEHICLE_DOCS.map((doc) => (
         <UploadRow
           key={doc.key}
-          label={doc.label}
+          label={t(...doc.label)}
           uploaded={Boolean(v.documents?.[doc.key])}
           renew={reviewed ? RENEW[doc.key] : undefined}
           busy={busy === "vd-" + v.id + doc.key}
-          onPick={upload("vd-" + v.id + doc.key, { type: "vehicle", vehicleId: v.id, key: doc.key }, doc.label + ": uploaded.")}
+          onPick={upload("vd-" + v.id + doc.key, { type: "vehicle", vehicleId: v.id, key: doc.key }, t(...doc.label) + t(": subido.", ": uploaded."))}
         />
       ))}
       <UploadRow
-        label={"Vehicle photos (" + (v.photos?.length ?? 0) + " added, at least 2)"}
-        hint="Outside and inside, in daylight."
+        label={t(
+          "Fotos del vehículo (" + photos + (photos === 1 ? " agregada" : " agregadas") + ", mínimo 2)",
+          "Vehicle photos (" + photos + " added, at least 2)",
+        )}
+        hint={t("Por fuera y por dentro, con luz de día.", "Outside and inside, in daylight.")}
         uploaded={false}
-        addLabel="Add photo"
+        addLabel={t("Agregar foto", "Add photo")}
         photosOnly
         busy={busy === "vp-" + v.id}
-        onPick={upload("vp-" + v.id, { type: "photo", vehicleId: v.id }, "Photo added.")}
+        onPick={upload("vp-" + v.id, { type: "photo", vehicleId: v.id }, t("Foto agregada.", "Photo added."))}
       />
     </Card>
   );
@@ -353,7 +417,8 @@ function VehicleForm({
     dekra_inspection_expiry: str(v?.dekra_inspection_expiry),
     marchamo_year: str(v?.marchamo_year),
   });
-  const set = (k: string) => (t: string) => setF((m) => ({ ...m, [k]: t }));
+  const { t } = useT();
+  const set = (k: string) => (x: string) => setF((m) => ({ ...m, [k]: x }));
   const body = () => {
     const out = { ...f };
     if (lockDates) {
@@ -366,23 +431,23 @@ function VehicleForm({
   const inner = (
     <>
       {title ? <Text style={S.h2}>{title}</Text> : null}
-      <Input label="Plate number" value={f.plate} onChange={set("plate")} caps />
-      <Input label="Make and model" value={f.make_model} onChange={set("make_model")} placeholder="e.g. Toyota Hiace" />
-      <Input label="Year" value={f.year} onChange={set("year")} keyboard="number-pad" />
-      <Input label="Colour" value={f.color} onChange={set("color")} />
-      <Input label="Passenger seats" value={f.passenger_capacity} onChange={set("passenger_capacity")} keyboard="number-pad" />
-      <Input label="INS policy number" value={f.ins_policy_number} onChange={set("ins_policy_number")} />
+      <Input label={t("Número de placa", "Plate number")} value={f.plate} onChange={set("plate")} caps />
+      <Input label={t("Marca y modelo", "Make and model")} value={f.make_model} onChange={set("make_model")} placeholder={t("p. ej. Toyota Hiace", "e.g. Toyota Hiace")} />
+      <Input label={t("Año", "Year")} value={f.year} onChange={set("year")} keyboard="number-pad" />
+      <Input label={t("Color", "Colour")} value={f.color} onChange={set("color")} />
+      <Input label={t("Asientos para pasajeros", "Passenger seats")} value={f.passenger_capacity} onChange={set("passenger_capacity")} keyboard="number-pad" />
+      <Input label={t("Número de póliza del INS", "INS policy number")} value={f.ins_policy_number} onChange={set("ins_policy_number")} />
       {lockDates ? (
         <>
-          <Locked label="Insurance valid until" value={v?.ins_insurance_expiry} />
-          <Locked label="Dekra valid until" value={v?.dekra_inspection_expiry} />
-          <Locked label="Marchamo year" value={v?.marchamo_year} />
+          <Locked label={t("Seguro vigente hasta", "Insurance valid until")} value={v?.ins_insurance_expiry} />
+          <Locked label={t("Dekra vigente hasta", "Dekra valid until")} value={v?.dekra_inspection_expiry} />
+          <Locked label={t("Año del marchamo", "Marchamo year")} value={v?.marchamo_year} />
         </>
       ) : (
         <>
-          <Input label="Insurance valid until (YYYY-MM-DD)" value={f.ins_insurance_expiry} onChange={set("ins_insurance_expiry")} />
-          <Input label="Dekra valid until (YYYY-MM-DD)" value={f.dekra_inspection_expiry} onChange={set("dekra_inspection_expiry")} />
-          <Input label="Marchamo year" value={f.marchamo_year} onChange={set("marchamo_year")} keyboard="number-pad" />
+          <Input label={t("Seguro vigente hasta (AAAA-MM-DD)", "Insurance valid until (YYYY-MM-DD)")} value={f.ins_insurance_expiry} onChange={set("ins_insurance_expiry")} />
+          <Input label={t("Dekra vigente hasta (AAAA-MM-DD)", "Dekra valid until (YYYY-MM-DD)")} value={f.dekra_inspection_expiry} onChange={set("dekra_inspection_expiry")} />
+          <Input label={t("Año del marchamo", "Marchamo year")} value={f.marchamo_year} onChange={set("marchamo_year")} keyboard="number-pad" />
         </>
       )}
       <Btn label={button} onPress={() => onSave(body())} busy={busy} />
@@ -405,13 +470,14 @@ function UploadRow({
   label: string;
   hint?: string;
   uploaded: boolean;
-  renew?: { ask: string; placeholder: string };
+  renew?: { ask: Pair; placeholder: Pair };
   busy: boolean;
   addLabel?: string;
   /** Vehicle photos: pictures only, no PDF button. */
   photosOnly?: boolean;
   onPick: (from: UploadSource, renewed?: string) => void;
 }) {
+  const { t } = useT();
   const [renewed, setRenewed] = useState("");
   const [need, setNeed] = useState(false);
   const go = (from: UploadSource) => {
@@ -428,21 +494,29 @@ function UploadRow({
       {hint ? <Text style={S.muted}>{hint}</Text> : null}
       {renew ? (
         <TextInput
-          accessibilityLabel={renew.ask}
+          accessibilityLabel={t(...renew.ask)}
           value={renewed}
           onChangeText={setRenewed}
-          placeholder={renew.ask + " (" + renew.placeholder + ")"}
+          placeholder={t(...renew.ask) + " (" + t(...renew.placeholder) + ")"}
           placeholderTextColor={C.faint}
           style={S.input}
         />
       ) : null}
-      {need && renew ? <Text style={S.error}>Enter the {renew.ask.toLowerCase()} first.</Text> : null}
+      {need && renew ? (
+        <Text style={S.error}>{t("Primero complete: " + renew.ask[0].toLowerCase() + ".", "Enter the " + renew.ask[1].toLowerCase() + " first.")}</Text>
+      ) : null}
       <View style={{ flexDirection: "row", gap: 8 }}>
         <View style={{ flex: 1 }}>
-          <Btn label={addLabel ?? (uploaded ? "Retake" : "Take photo")} icon="camera-outline" alt={uploaded} onPress={() => go("camera")} busy={busy} />
+          <Btn
+            label={addLabel ?? (uploaded ? t("Repetir", "Retake") : t("Tomar foto", "Take photo"))}
+            icon="camera-outline"
+            alt={uploaded}
+            onPress={() => go("camera")}
+            busy={busy}
+          />
         </View>
         <View style={{ flex: 1 }}>
-          <Btn label="Gallery" icon="images-outline" alt onPress={() => go("library")} disabled={busy} />
+          <Btn label={t("Galería", "Gallery")} icon="images-outline" alt onPress={() => go("library")} disabled={busy} />
         </View>
         {!photosOnly ? (
           <View style={{ flex: 1 }}>
@@ -467,15 +541,24 @@ function Apply({
   onApply: (agree: boolean) => void;
 }) {
   const [agree, setAgree] = useState(false);
+  const { t } = useT();
   return (
     <Card>
-      <Text style={S.h2}>Drive with Costa Rica Private Transfers</Text>
+      <Text style={S.h2}>{t("Maneje con Costa Rica Private Transfers", "Drive with Costa Rica Private Transfers")}</Text>
       <Text style={S.muted}>
-        Partner drivers and transport companies receive private transfer and tour requests and choose which trips to take. Start with your
-        name and WhatsApp; next you&apos;ll add your documents and vehicles, and our team will contact you for a short interview.
+        {t(
+          "Los choferes socios y las empresas de transporte reciben solicitudes de traslados privados y tours, y eligen qué viajes tomar. Empiece con su nombre y su WhatsApp; después agregará sus documentos y vehículos, y nuestro equipo lo contactará para una entrevista corta.",
+          "Partner drivers and transport companies receive private transfer and tour requests and choose which trips to take. Start with your name and WhatsApp; next you'll add your documents and vehicles, and our team will contact you for a short interview.",
+        )}
       </Text>
-      <Input label="Full name (as on your ID)" value={me.full_name ?? ""} onChange={(t) => set("full_name", t)} />
-      <Input label="WhatsApp number" value={me.phone ?? ""} onChange={(t) => set("phone", t)} keyboard="phone-pad" placeholder="+506 8888 8888" />
+      <Input label={t("Nombre completo (como en su identificación)", "Full name (as on your ID)")} value={me.full_name ?? ""} onChange={(x) => set("full_name", x)} />
+      <Input
+        label={t("Número de WhatsApp", "WhatsApp number")}
+        value={me.phone ?? ""}
+        onChange={(x) => set("phone", x)}
+        keyboard="phone-pad"
+        placeholder="+506 8888 8888"
+      />
       <Pressable
         accessibilityRole="checkbox"
         accessibilityState={{ checked: agree }}
@@ -497,11 +580,13 @@ function Apply({
           {agree ? <Ionicons name="checkmark" size={16} color="#fff" /> : null}
         </View>
         <Text style={[S.text, { flex: 1 }]}>
-          I work as an independent driver or transport company. I hold, and will keep current, the licences, permits and insurance the law
-          requires for the trips I accept, and the information I give is true.
+          {t(
+            "Trabajo como chofer independiente o empresa de transporte. Tengo, y mantendré al día, las licencias, permisos y seguros que exige la ley para los viajes que acepte, y la información que doy es verdadera.",
+            "I work as an independent driver or transport company. I hold, and will keep current, the licences, permits and insurance the law requires for the trips I accept, and the information I give is true.",
+          )}
         </Text>
       </Pressable>
-      <Btn label="Start my application" onPress={() => onApply(agree)} busy={busy} disabled={!agree || !(me.full_name ?? "").trim() || !(me.phone ?? "").trim()} />
+      <Btn label={t("Empezar mi solicitud", "Start my application")} onPress={() => onApply(agree)} busy={busy} disabled={!agree || !(me.full_name ?? "").trim() || !(me.phone ?? "").trim()} />
     </Card>
   );
 }
@@ -542,11 +627,12 @@ function Input({
 }
 
 function Locked({ label, value }: { label: string; value: string | number | null | undefined }) {
+  const { t } = useT();
   return (
     <View style={{ gap: 2, marginTop: 4 }}>
       <Text style={FIELD_LABEL}>{label}</Text>
       <Text style={[S.text, { color: C.text, fontWeight: "700" }]}>{value ?? "—"}</Text>
-      <Text style={S.muted}>To change it, upload the renewed document below with its new date.</Text>
+      <Text style={S.muted}>{t("Para cambiarlo, suba abajo el documento renovado con su fecha nueva.", "To change it, upload the renewed document below with its new date.")}</Text>
     </View>
   );
 }

@@ -2,6 +2,7 @@ import Constants from "expo-constants";
 import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
+import { loadLang, tr } from "./i18n";
 import { supabase } from "./supabase";
 
 // Show notifications even while the app is open.
@@ -23,9 +24,10 @@ export async function registerForPush(): Promise<void> {
   try {
     if (!Device.isDevice) return;
     if (Platform.OS === "android") {
-      // Android 13+ only shows the permission prompt once a channel exists.
+      // Android 13+ only shows the permission prompt once a channel exists. Named in the saved language.
+      await loadLang();
       await Notifications.setNotificationChannelAsync("jobs", {
-        name: "Jobs and trips",
+        name: tr("Trabajos y viajes", "Jobs and trips"),
         importance: Notifications.AndroidImportance.MAX,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: "#059669",
