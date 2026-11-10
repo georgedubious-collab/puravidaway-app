@@ -1,0 +1,1 @@
+- 2026-11-10 — Claude — Both apps: iPhone build setting that answers Apple's encryption question up front (the apps only use standard HTTPS), so TestFlight uploads are not held for it.

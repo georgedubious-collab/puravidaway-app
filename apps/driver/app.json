@@ -9,7 +9,10 @@
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.costaricaprivatetransfers.partner"
+      "bundleIdentifier": "com.costaricaprivatetransfers.partner",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.costaricaprivatetransfers.partner",
