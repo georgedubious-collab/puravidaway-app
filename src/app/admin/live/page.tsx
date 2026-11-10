@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { LiveRefresh } from "@/components/LiveRefresh";
 import { requireRole } from "@/lib/auth";
-import { BOOKING_STATUS_LABEL, SERVICE_LABEL, type BookingStatus } from "@/lib/bookings";
+import { bookingStatusLabel, serviceLabel, type BookingStatus } from "@/lib/bookings";
 import { formatScheduledAt, nowMs } from "@/lib/dates";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { makeT, type TeamLang } from "@/lib/teamLang";
+import { getTeamLang } from "@/lib/teamLangServer";
 
 interface Row {
   id: string;
@@ -31,11 +33,12 @@ interface Loc {
 
 const HOUR = 3600000;
 
-function ago(iso: string, now: number): string {
+function ago(iso: string, now: number, lang: TeamLang): string {
+  const t = makeT(lang);
   const min = Math.max(0, Math.round((now - new Date(iso).getTime()) / 60000));
-  if (min < 1) return "just now";
-  if (min < 60) return `${min} min ago`;
-  return `${Math.floor(min / 60)} h ${min % 60} min ago`;
+  if (min < 1) return t("hace un momento", "just now");
+  if (min < 60) return t(`hace ${min} min`, `${min} min ago`);
+  return t(`hace ${Math.floor(min / 60)} h ${min % 60} min`, `${Math.floor(min / 60)} h ${min % 60} min ago`);
 }
 
 /**
@@ -45,6 +48,8 @@ function ago(iso: string, now: number): string {
  */
 export default async function LivePage() {
   await requireRole("admin", "/admin/live");
+  const lang = await getTeamLang();
+  const t = makeT(lang);
   const supabase = (await createSupabaseServerClient())!;
   const now = nowMs();
   const { data: rows } = await supabase
@@ -56,8 +61,8 @@ export default async function LivePage() {
     .returns<Row[]>();
   const active = (rows ?? []).filter((b) => {
     if (b.status === "in_progress") return true;
-    const t = b.scheduled_at ? new Date(b.scheduled_at).getTime() : 0;
-    return (t <= now + 3 * HOUR || Boolean(b.en_route_at)) && t >= now - 12 * HOUR;
+    const at = b.scheduled_at ? new Date(b.scheduled_at).getTime() : 0;
+    return (at <= now + 3 * HOUR || Boolean(b.en_route_at)) && at >= now - 12 * HOUR;
   });
   const driverIds = [...new Set(active.map((b) => b.assigned_driver_id))];
   const [locs, names] = driverIds.length
@@ -71,21 +76,24 @@ export default async function LivePage() {
     <div className="space-y-6">
       <LiveRefresh seconds={20} />
       <div>
-        <h1 className="text-2xl font-extrabold text-slate-900">Live trips</h1>
+        <h1 className="text-2xl font-extrabold text-slate-900">{t("Viajes en vivo", "Live trips")}</h1>
         <p className="mt-1 text-sm text-slate-600">
-          Trips on the road, and confirmed trips with a pickup in the next 3 hours or a driver already on the way. Drivers
-          share their location through the driver app until they end the trip. Before the pickup, the arrival time is
-          estimated with live traffic, and you get an email if a driver would be more than 20 minutes late. This page
-          updates by itself.
+          {t(
+            "Viajes en ruta, y viajes confirmados con recogida en las próximas 3 horas o con el conductor ya en camino. Los conductores comparten su ubicación desde la app de conductores hasta que terminan el viaje. Antes de la recogida, la hora de llegada se estima con el tráfico en vivo, y usted recibe un correo si un conductor llegaría más de 20 minutos tarde. Esta página se actualiza sola.",
+            "Trips on the road, and confirmed trips with a pickup in the next 3 hours or a driver already on the way. Drivers share their location through the driver app until they end the trip. Before the pickup, the arrival time is estimated with live traffic, and you get an email if a driver would be more than 20 minutes late. This page updates by itself.",
+          )}
         </p>
       </div>
       {locs.error && (
         <p className="text-sm text-amber-800">
-          Driver locations need migration <code>20261109000028_driver_location.sql</code>. It runs by itself after the merge.
+          {t("Las ubicaciones de los conductores necesitan la migración", "Driver locations need migration")}{" "}
+          <code>20261109000028_driver_location.sql</code>. {t("Se aplica sola después de la fusión.", "It runs by itself after the merge.")}
         </p>
       )}
       {active.length === 0 && (
-        <p className="rounded-xl border border-slate-200 bg-white p-5 text-sm text-slate-600">No trips in the window right now.</p>
+        <p className="rounded-xl border border-slate-200 bg-white p-5 text-sm text-slate-600">
+          {t("No hay viajes en este momento.", "No trips in the window right now.")}
+        </p>
       )}
       <ul className="grid gap-4 lg:grid-cols-2">
         {active.map((b) => {
@@ -96,37 +104,49 @@ export default async function LivePage() {
           return (
             <li key={b.id} className="rounded-xl border border-slate-200 bg-white p-5">
               <p className="text-xs font-bold text-slate-500">
-                {formatScheduledAt(b.scheduled_at)} · {SERVICE_LABEL[b.service_type]} ·{" "}
-                <Link href={`/admin/bookings/${b.id}`} className="font-mono underline">{b.booking_ref}</Link> · {BOOKING_STATUS_LABEL[b.status]}
+                {formatScheduledAt(b.scheduled_at, lang)} · {serviceLabel(b.service_type, lang)} ·{" "}
+                <Link href={`/admin/bookings/${b.id}`} className="font-mono underline">{b.booking_ref}</Link> · {bookingStatusLabel(b.status, lang)}
               </p>
               <h2 className="font-extrabold text-slate-900">
                 {b.service_type === "transfer" ? `${b.origin} → ${b.destination}` : "Tour"}
               </h2>
               <p className="text-sm text-slate-700">
-                <Link href={`/admin/drivers/${b.assigned_driver_id}`} className="font-bold underline">{who?.full_name ?? "Driver"}</Link>
+                <Link href={`/admin/drivers/${b.assigned_driver_id}`} className="font-bold underline">
+                  {who?.full_name ?? t("Conductor", "Driver")}
+                </Link>
                 {who?.phone ? ` · ${who.phone}` : ""}
               </p>
               {b.status === "confirmed" && (
                 <p className={`mt-1 inline-block rounded px-1.5 text-xs font-bold ${b.en_route_at ? "bg-emerald-100 text-emerald-900" : "bg-slate-100 text-slate-600"}`}>
-                  {b.en_route_at ? "On the way to the pickup" : "Has not set off yet"}
+                  {b.en_route_at ? t("En camino a la recogida", "On the way to the pickup") : t("Todavía no ha salido", "Has not set off yet")}
                 </p>
               )}
               {loc && b.status === "confirmed" && loc.eta_at && loc.late_min != null && (
                 <p className={`mt-2 text-sm font-extrabold ${loc.late_min > 20 ? "text-red-700" : loc.late_min > 5 ? "text-amber-700" : "text-emerald-700"}`}>
-                  Arrives about {formatScheduledAt(loc.eta_at).split(" · ").pop()} with current traffic:{" "}
-                  {loc.late_min > 0 ? `${loc.late_min} min late` : loc.late_min < 0 ? `${-loc.late_min} min early` : "on time"}
-                  {b.late_alert_at ? " · alert sent" : ""}
+                  {t("Llega cerca de las", "Arrives about")} {formatScheduledAt(loc.eta_at, lang).split(" · ").pop()}{" "}
+                  {t("con el tráfico actual:", "with current traffic:")}{" "}
+                  {loc.late_min > 0
+                    ? t(`${loc.late_min} min tarde`, `${loc.late_min} min late`)
+                    : loc.late_min < 0
+                      ? t(`${-loc.late_min} min antes`, `${-loc.late_min} min early`)
+                      : t("a tiempo", "on time")}
+                  {b.late_alert_at ? t(" · alerta enviada", " · alert sent") : ""}
                 </p>
               )}
               {loc ? (
                 <>
                   <p className={`mt-2 text-sm font-bold ${stale ? "text-amber-700" : "text-emerald-700"}`}>
-                    Last seen {ago(loc.recorded_at, now)}
+                    {t("Última ubicación", "Last seen")} {ago(loc.recorded_at, now, lang)}
                     {loc.speed_mps != null && loc.speed_mps > 1 ? ` · ${Math.round(loc.speed_mps * 3.6)} km/h` : ""}
-                    {stale ? " · no recent signal (no coverage, or the phone stopped sharing)" : ""}
+                    {stale
+                      ? t(
+                          " · sin señal reciente (sin cobertura, o el teléfono dejó de compartir)",
+                          " · no recent signal (no coverage, or the phone stopped sharing)",
+                        )
+                      : ""}
                   </p>
                   <iframe
-                    title={`Map: ${who?.full_name ?? "driver"}`}
+                    title={`${t("Mapa", "Map")}: ${who?.full_name ?? t("conductor", "driver")}`}
                     className="mt-2 h-56 w-full rounded-lg border border-slate-200"
                     loading="lazy"
                     src={`https://www.openstreetmap.org/export/embed.html?bbox=${loc.lng - d},${loc.lat - d},${loc.lng + d},${loc.lat + d}&layer=mapnik&marker=${loc.lat},${loc.lng}`}
@@ -137,12 +157,15 @@ export default async function LivePage() {
                     rel="noreferrer"
                     className="mt-2 inline-block text-sm font-bold text-emerald-700 underline"
                   >
-                    Open in Google Maps
+                    {t("Abrir en Google Maps", "Open in Google Maps")}
                   </a>
                 </>
               ) : (
                 <p className="mt-2 text-sm font-semibold text-slate-500">
-                  No location yet. The driver needs the app, with location sharing agreed and allowed on the phone.
+                  {t(
+                    "Todavía no hay ubicación. El conductor necesita la app, con la ubicación compartida aceptada y permitida en el teléfono.",
+                    "No location yet. The driver needs the app, with location sharing agreed and allowed on the phone.",
+                  )}
                 </p>
               )}
             </li>

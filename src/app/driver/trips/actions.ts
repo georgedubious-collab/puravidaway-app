@@ -10,6 +10,9 @@ import { InputError, runAction, type FormState } from "@/lib/forms/formState";
 import { sendPushToEmail } from "@/lib/push";
 import { requestDriverReview } from "@/lib/reviewRequest";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { driverDbMessage } from "@/lib/driverDbMessages";
+import { makeT } from "@/lib/teamLang";
+import { getTeamLang } from "@/lib/teamLangServer";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -19,15 +22,18 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  * Completing it asks the traveller for a rating straight away.
  */
 export async function setTripStatus(_prev: FormState, fd: FormData): Promise<FormState> {
+  const lang = await getTeamLang();
+  const t = makeT(lang);
   return runAction(async () => {
     const me = await requireUser("/driver/trips");
     const id = String(fd.get("booking_id") ?? "");
     const step = String(fd.get("step") ?? "");
-    if (!UUID.test(id) || !["en_route", "in_progress", "completed"].includes(step)) throw new InputError("That step isn't available.");
+    if (!UUID.test(id) || !["en_route", "in_progress", "completed"].includes(step)) throw new InputError(t("Ese paso no está disponible.", "That step isn't available."));
     const supabase = (await createSupabaseServerClient())!;
     const { data: ref, error } = await supabase.rpc("driver_set_trip_status", { p_booking: id, p_status: step });
     if (error) {
-      if (/^(Your driver account|This trip|You can start|Start the trip)/.test(error.message)) throw new InputError(error.message);
+      if (/^(Your driver account|This trip|You can start|Start the trip)/.test(error.message))
+        throw new InputError(driverDbMessage(error.message, lang));
       throw new Error(error.message);
     }
     if (step === "en_route") {
@@ -69,5 +75,5 @@ export async function setTripStatus(_prev: FormState, fd: FormData): Promise<For
     revalidatePath(`/driver/trips/${id}`);
     revalidatePath("/driver/trips");
     revalidatePath(`/admin/bookings/${id}`);
-  }, "We couldn't update the trip. Please reload and try again.");
+  }, t("No pudimos actualizar el viaje. Recargue la página e intente de nuevo.", "We couldn't update the trip. Please reload and try again."));
 }

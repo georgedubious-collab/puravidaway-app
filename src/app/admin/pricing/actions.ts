@@ -5,6 +5,7 @@ import { EXTRA_AREAS, HUBS, isStopEntrance } from "@/lib/catalog";
 import { CATALOG_TAG } from "@/lib/catalogSource";
 import { requireRole } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getTeamLang } from "@/lib/teamLangServer";
 
 /**
  * Pricing manager actions. Each one: checks the admin role, validates the
@@ -12,7 +13,60 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
  * then refreshes the storefront's cached catalog so prices change at once.
  */
 
-class InputError extends Error {}
+/** A problem the admin can fix, in Spanish and English (shown in the page language). */
+class InputError extends Error {
+  constructor(
+    readonly es: string,
+    en: string,
+  ) {
+    super(en);
+  }
+}
+
+/** Spanish names of the form fields, for error messages ("El campo … es obligatorio"). */
+const FIELD_ES: Record<string, string> = {
+  id: "id",
+  name: "Nombre",
+  description: "Descripción",
+  price_factor: "Factor de precio",
+  extra_fee: "Cargo extra",
+  max_pax: "Máximo de pasajeros",
+  luggage: "Equipaje",
+  badge: "Etiqueta",
+  duration_min: "Minutos en la parada",
+  detour_km: "Km de desvío",
+  detour_min: "Minutos de desvío",
+  tour_price_pp: "Precio del tour por persona",
+  duration_hours: "Horas",
+  price_pp_solo: "Por persona · 1 cliente",
+  price_pp_small: "Por persona · 2–3",
+  price_pp_group: "Por persona · 4+",
+  cost_pp: "Nuestros costos por persona",
+  en_route_upgrade_price: "Mejora en ruta",
+  base_price: "Precio base",
+  surcharge: "Recargo",
+  multiplier: "Multiplicador",
+  starts_on: "Desde",
+  ends_on: "Hasta",
+  note: "Nota",
+  season_id: "Temporada",
+  cash_fee_percent: "Cargo por pago en efectivo",
+  ride_base_fare: "Tarifa base",
+  ride_per_km: "Por km",
+  ride_per_hour: "Por hora de manejo",
+  ride_minimum_fare: "Tarifa mínima",
+  wait_per_hour: "Tarifa de espera",
+  commission_percent: "Nuestra comisión",
+  ferry_vehicle_fare_crc: "Carro + conductor (ferry)",
+  ferry_passenger_fare_crc: "Por pasajero (ferry)",
+  crc_per_usd: "Colones por dólar",
+};
+const fieldEs = (key: string) => FIELD_ES[key] ?? (key.startsWith("area_") ? `Factor de zona ${key.slice(5)}` : key);
+const fieldEn = (key: string) => key.replace(/_/g, " ");
+const NOTHING_SAVED = new InputError(
+  "No se guardó nada. Recargue la página e intente de nuevo.",
+  "Nothing was saved. Reload the page and try again.",
+);
 
 export interface FormState {
   ok?: boolean;
@@ -28,36 +82,48 @@ async function run(fn: () => Promise<void>): Promise<FormState> {
   } catch (e) {
     // Redirects (e.g. session expired) must pass through.
     if (e && typeof e === "object" && "digest" in e && String((e as { digest: unknown }).digest).startsWith("NEXT_REDIRECT")) throw e;
-    if (e instanceof InputError) return { error: e.message.replace(/_/g, " ") };
+    const lang = await getTeamLang();
+    if (e instanceof InputError) return { error: lang === "en" ? e.message : e.es };
     console.error("[admin/pricing]", e);
-    return { error: "The database refused the change. Check your connection and that you are still an admin." };
+    return {
+      error:
+        lang === "en"
+          ? "The database refused the change. Check your connection and that you are still an admin."
+          : "La base de datos rechazó el cambio. Revise su conexión y que todavía sea admin.",
+    };
   }
 }
 
 function text(fd: FormData, key: string, { required = true, max = 300 } = {}): string {
   const v = String(fd.get(key) ?? "").trim();
-  if (required && !v) throw new InputError(`${key} is required`);
-  if (v.length > max) throw new InputError(`${key} is too long`);
+  if (required && !v) throw new InputError(`${fieldEs(key)}: es obligatorio`, `${fieldEn(key)} is required`);
+  if (v.length > max) throw new InputError(`${fieldEs(key)}: es demasiado largo`, `${fieldEn(key)} is too long`);
   return v;
 }
 function money(fd: FormData, key: string): number {
   const v = String(fd.get(key) ?? "").trim().replace(/[$,\s]/g, "");
-  if (!/^\d{1,7}(\.\d{1,2})?$/.test(v)) throw new InputError(`${key} must be an amount like 175 or 175.50`);
+  if (!/^\d{1,7}(\.\d{1,2})?$/.test(v))
+    throw new InputError(
+      `${fieldEs(key)}: debe ser un monto como 175 o 175.50`,
+      `${fieldEn(key)} must be an amount like 175 or 175.50`,
+    );
   return Number(v);
 }
 function int(fd: FormData, key: string, min: number, max: number): number {
   const n = Number(fd.get(key));
-  if (!Number.isInteger(n) || n < min || n > max) throw new InputError(`${key} must be ${min}–${max}`);
+  if (!Number.isInteger(n) || n < min || n > max)
+    throw new InputError(`${fieldEs(key)}: debe estar entre ${min} y ${max}`, `${fieldEn(key)} must be ${min}–${max}`);
   return n;
 }
 function decimal(fd: FormData, key: string, min: number, max: number): number {
   const n = Number(String(fd.get(key) ?? "").trim());
-  if (!Number.isFinite(n) || n < min || n > max) throw new InputError(`${key} must be ${min}–${max}`);
+  if (!Number.isFinite(n) || n < min || n > max)
+    throw new InputError(`${fieldEs(key)}: debe estar entre ${min} y ${max}`, `${fieldEn(key)} must be ${min}–${max}`);
   return n;
 }
 function date(fd: FormData, key: string): string {
   const v = String(fd.get(key) ?? "");
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) throw new InputError(`${key} must be a date`);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) throw new InputError(`${fieldEs(key)}: debe ser una fecha`, `${fieldEn(key)} must be a date`);
   return v;
 }
 const checked = (fd: FormData, key: string) => fd.get(key) === "on";
@@ -71,7 +137,7 @@ async function save(table: string, fd: FormData, values: Record<string, unknown>
   const { data, error } = await supabase.from(table).update(values).eq("id", id).select("id");
   if (error) throw new Error(error.message);
   // RLS hides rows it won't let you change, so 0 rows means nothing was saved.
-  if (!data?.length) throw new InputError("Nothing was saved. Reload the page and try again.");
+  if (!data?.length) throw NOTHING_SAVED;
   done();
 }
 
@@ -103,7 +169,8 @@ async function saveVehicleImpl(fd: FormData) {
 function entrance(fd: FormData): Record<string, unknown> {
   if (!fd.has("entrance")) return { park_fee_included: checked(fd, "park_fee_included") };
   const v = fd.get("entrance");
-  if (!isStopEntrance(v)) throw new InputError("Entrance must be free, included or gate");
+  if (!isStopEntrance(v))
+    throw new InputError("La entrada debe ser gratis, incluida o pagada en la entrada", "Entrance must be free, included or gate");
   return { entrance: v, park_fee_included: v === "included" };
 }
 
@@ -139,7 +206,7 @@ async function addStopImpl(fd: FormData) {
     .replace(/[^a-z0-9]+/g, "_")
     .replace(/^_|_$/g, "")
     .slice(0, 40);
-  if (!id) throw new InputError("name needs letters or numbers");
+  if (!id) throw new InputError("El nombre necesita letras o números", "name needs letters or numbers");
   const supabase = (await createSupabaseServerClient())!;
   const { error } = await supabase.from("sightseeing_stops").insert({
     id,
@@ -152,7 +219,8 @@ async function addStopImpl(fd: FormData) {
     sort_order: 100,
     active: false, // new stops start hidden so they can be checked before going live
   });
-  if (error) throw new Error(error.code === "23505" ? "A stop with that name already exists" : error.message);
+  if (error?.code === "23505") throw new InputError("Ya existe una parada con ese nombre", "A stop with that name already exists");
+  if (error) throw new Error(error.message);
   done();
 }
 
@@ -201,7 +269,7 @@ async function addSeasonRangeImpl(fd: FormData) {
   await requireRole("admin", "/admin/pricing");
   const startsOn = date(fd, "starts_on");
   const endsOn = date(fd, "ends_on");
-  if (endsOn < startsOn) throw new InputError("The end date is before the start date");
+  if (endsOn < startsOn) throw new InputError("La fecha final es anterior a la fecha de inicio", "The end date is before the start date");
   const supabase = (await createSupabaseServerClient())!;
   const { error } = await supabase.from("season_ranges").insert({
     season_id: text(fd, "season_id", { max: 60 }),
@@ -241,7 +309,7 @@ async function savePaymentSettingsImpl(fd: FormData) {
     .upsert({ id: true, cash_fee_bps: Math.round(pct * 100) })
     .select("id");
   if (error) throw new Error(error.message);
-  if (!data?.length) throw new InputError("Nothing was saved. Reload the page and try again.");
+  if (!data?.length) throw NOTHING_SAVED;
   done();
 }
 
@@ -257,7 +325,7 @@ async function saveRideFormulaImpl(fd: FormData) {
   const supabase = (await createSupabaseServerClient())!;
   const { data, error } = await supabase.from("pricing_settings").upsert({ id: true, ...values }).select("id");
   if (error) throw new Error(error.message);
-  if (!data?.length) throw new InputError("Nothing was saved. Reload the page and try again.");
+  if (!data?.length) throw NOTHING_SAVED;
   done();
 }
 
@@ -275,7 +343,7 @@ async function saveAreaFactorsImpl(fd: FormData) {
   const supabase = (await createSupabaseServerClient())!;
   const { data, error } = await supabase.from("hub_pricing").upsert(rows).select("hub_id");
   if (error) throw new Error(error.message);
-  if ((data?.length ?? 0) !== rows.length) throw new InputError("Nothing was saved. Reload the page and try again.");
+  if ((data?.length ?? 0) !== rows.length) throw NOTHING_SAVED;
   done();
 }
 
@@ -288,7 +356,7 @@ async function saveWaitRateImpl(fd: FormData) {
     .upsert({ id: true, wait_per_hour: money(fd, "wait_per_hour") })
     .select("id");
   if (error) throw new Error(error.message);
-  if (!data?.length) throw new InputError("Nothing was saved. Reload the page and try again.");
+  if (!data?.length) throw NOTHING_SAVED;
   done();
 }
 
@@ -306,7 +374,7 @@ async function saveDriverCommissionImpl(fd: FormData) {
     .upsert({ id: true, driver_commission_bps: Math.round(pct * 100) })
     .select("id");
   if (error) throw new Error(error.message);
-  if (!data?.length) throw new InputError("Nothing was saved. Reload the page and try again.");
+  if (!data?.length) throw NOTHING_SAVED;
   done();
 }
 
@@ -325,7 +393,7 @@ async function saveFerryFaresImpl(fd: FormData) {
   const supabase = (await createSupabaseServerClient())!;
   const { data, error } = await supabase.from("pricing_settings").upsert({ id: true, ...values }).select("id");
   if (error) throw new Error(error.message);
-  if (!data?.length) throw new InputError("Nothing was saved. Reload the page and try again.");
+  if (!data?.length) throw NOTHING_SAVED;
   done();
 }
 

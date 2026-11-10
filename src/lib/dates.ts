@@ -50,11 +50,15 @@ export const PICKUP_TIMES: string[] = (() => {
   return out;
 })();
 
-/** "09:00" → "9:00 AM". The 24-hour value is what gets stored. */
-export function formatTime12h(hhmm: string): string {
+/**
+ * "09:00" → "9:00 AM" ("9:00 a. m." for the Spanish team pages). The 24-hour
+ * value is what gets stored.
+ */
+export function formatTime12h(hhmm: string, lang: "en" | "es" = "en"): string {
   const [h, m] = hhmm.split(":").map(Number);
   if (!Number.isInteger(h) || !Number.isInteger(m)) return hhmm;
-  return `${h % 12 === 0 ? 12 : h % 12}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`;
+  const half = lang === "es" ? (h < 12 ? "a. m." : "p. m.") : h < 12 ? "AM" : "PM";
+  return `${h % 12 === 0 ? 12 : h % 12}:${String(m).padStart(2, "0")} ${half}`;
 }
 
 /** A Costa Rica date + time as a timestamptz value (Costa Rica is UTC−6 all year, no daylight saving). */
@@ -85,9 +89,9 @@ export function scheduledParts(iso: string | null | undefined): { ymd: string; t
  * Costa Rica date and time, e.g. "2026-11-22 · 9:00 AM". Taking the first 10
  * characters of the UTC value would show the wrong day for evening pickups.
  */
-export function formatScheduledAt(iso: string | null | undefined): string {
+export function formatScheduledAt(iso: string | null | undefined, lang: "en" | "es" = "en"): string {
   const p = scheduledParts(iso);
-  return p ? `${p.ymd} · ${formatTime12h(p.time)}` : "";
+  return p ? `${p.ymd} · ${formatTime12h(p.time, lang)}` : "";
 }
 
 /** The current time in milliseconds, for server pages that compare against "now" on each request. */

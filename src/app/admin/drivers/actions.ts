@@ -3,9 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth";
 import { todayInCostaRica } from "@/lib/dates";
-import { CRIMINAL_RECORD_MAX_AGE_DAYS, criminalRecordTooOld, missingDriverDocs } from "@/lib/driverKyc";
+import { CRIMINAL_RECORD_MAX_AGE_DAYS, criminalRecordTooOld, docLabel, missingDriverDocs } from "@/lib/driverKyc";
 import { InputError, runAction, type FormState } from "@/lib/forms/formState";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { makeT } from "@/lib/teamLang";
+import { getTeamLang } from "@/lib/teamLangServer";
 
 const DECISIONS = ["approve", "reject", "suspend", "checked"] as const;
 type Decision = (typeof DECISIONS)[number];
@@ -16,14 +18,16 @@ type Decision = (typeof DECISIONS)[number];
  * to visit Users & roles for it.
  */
 export async function reviewDriver(_prev: FormState, fd: FormData): Promise<FormState> {
+  const lang = await getTeamLang();
+  const t = makeT(lang);
   return runAction(async () => {
     const me = await requireRole("admin", "/admin/drivers");
     const id = String(fd.get("id") ?? "");
     const decision = String(fd.get("decision") ?? "") as Decision;
     const note = String(fd.get("note") ?? "").trim().slice(0, 500) || null;
-    if (!id || !DECISIONS.includes(decision)) throw new InputError("Pick a decision.");
+    if (!id || !DECISIONS.includes(decision)) throw new InputError(t("Elija una decisión.", "Pick a decision."));
     if ((decision === "reject" || decision === "suspend") && !note) {
-      throw new InputError("Add a short message for the driver explaining why.");
+      throw new InputError(t("Agregue un mensaje corto para el conductor explicando el motivo.", "Add a short message for the driver explaining why."));
     }
 
     const supabase = (await createSupabaseServerClient())!;
@@ -34,19 +38,23 @@ export async function reviewDriver(_prev: FormState, fd: FormData): Promise<Form
         .select("kyc_status, criminal_record_date, license_expiry, documents")
         .eq("id", id)
         .single();
-      if (cur.error) throw new InputError("Driver not found.");
+      if (cur.error) throw new InputError(t("No se encontró el conductor.", "Driver not found."));
       const today = todayInCostaRica();
       const missing = missingDriverDocs({ documents: (cur.data.documents ?? {}) as Record<string, string> });
-      if (missing.length) throw new InputError(`Still missing: ${missing.map((m) => m.label).join(", ")}.`);
+      if (missing.length)
+        throw new InputError(`${t("Todavía falta", "Still missing")}: ${missing.map((m) => docLabel(m, lang)).join(", ")}.`);
       if (!cur.data.license_expiry || cur.data.license_expiry < today) {
-        throw new InputError("The driver's licence is missing or expired.");
+        throw new InputError(t("Falta la licencia de conducir o está vencida.", "The driver's licence is missing or expired."));
       }
       // First approval: the hoja de delincuencia must be recent.
       if (cur.data.kyc_status !== "approved" && cur.data.kyc_status !== "suspended") {
         const issued = cur.data.criminal_record_date as string | null;
         if (!issued || criminalRecordTooOld(issued, today)) {
           throw new InputError(
-            `The criminal record certificate must be issued no more than ${CRIMINAL_RECORD_MAX_AGE_DAYS} days ago. Ask the driver for a new one.`,
+            t(
+              `La hoja de delincuencia debe tener como máximo ${CRIMINAL_RECORD_MAX_AGE_DAYS} días de emitida. Pídale una nueva al conductor.`,
+              `The criminal record certificate must be issued no more than ${CRIMINAL_RECORD_MAX_AGE_DAYS} days ago. Ask the driver for a new one.`,
+            ),
           );
         }
       }
@@ -64,7 +72,7 @@ export async function reviewDriver(_prev: FormState, fd: FormData): Promise<Form
 
     const d = await supabase.from("drivers").update(patch).eq("id", id).select("id");
     if (d.error) throw d.error;
-    if (!d.data?.length) throw new InputError("Driver not found.");
+    if (!d.data?.length) throw new InputError(t("No se encontró el conductor.", "Driver not found."));
 
     if (decision === "approve") {
       // Admins keep their admin role; everyone else becomes a driver.
@@ -74,19 +82,20 @@ export async function reviewDriver(_prev: FormState, fd: FormData): Promise<Form
     revalidatePath("/admin/drivers");
     revalidatePath(`/admin/drivers/${id}`);
     revalidatePath("/admin");
-  }, "Couldn't save the decision. Please try again.");
+  }, t("No se pudo guardar la decisión. Intente de nuevo.", "Couldn't save the decision. Please try again."));
 }
 
 /** Approve / reject / suspend one vehicle, or mark its recent changes as checked. */
 export async function reviewVehicle(_prev: FormState, fd: FormData): Promise<FormState> {
+  const t = makeT(await getTeamLang());
   return runAction(async () => {
     const me = await requireRole("admin", "/admin/drivers");
     const id = String(fd.get("vehicle_id") ?? "");
     const decision = String(fd.get("decision") ?? "") as Decision;
     const note = String(fd.get("note") ?? "").trim().slice(0, 500) || null;
-    if (!id || !DECISIONS.includes(decision)) throw new InputError("Pick a decision.");
+    if (!id || !DECISIONS.includes(decision)) throw new InputError(t("Elija una decisión.", "Pick a decision."));
     if ((decision === "reject" || decision === "suspend") && !note) {
-      throw new InputError("Add a short message for the driver explaining why.");
+      throw new InputError(t("Agregue un mensaje corto para el conductor explicando el motivo.", "Add a short message for the driver explaining why."));
     }
     const supabase = (await createSupabaseServerClient())!;
     const review = { needs_review: false, reviewed_at: new Date().toISOString(), reviewed_by: me.id };
@@ -100,9 +109,9 @@ export async function reviewVehicle(_prev: FormState, fd: FormData): Promise<For
           };
     const v = await supabase.from("driver_vehicles").update(patch).eq("id", id).select("driver_id");
     if (v.error) throw v.error;
-    if (!v.data?.length) throw new InputError("Vehicle not found.");
+    if (!v.data?.length) throw new InputError(t("No se encontró el vehículo.", "Vehicle not found."));
     revalidatePath("/admin/drivers");
     revalidatePath(`/admin/drivers/${v.data[0].driver_id}`);
     revalidatePath("/admin");
-  }, "Couldn't save the decision. Please try again.");
+  }, t("No se pudo guardar la decisión. Intente de nuevo.", "Couldn't save the decision. Please try again."));
 }

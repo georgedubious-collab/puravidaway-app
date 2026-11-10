@@ -4,6 +4,7 @@ import { Send } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { getChat, sendChat, type ChatMessage, type ChatViewer } from "@/app/chat/actions";
 import { hasContactDetails } from "@/lib/preferences";
+import { teamLocale, type TeamLang } from "@/lib/teamLang";
 
 const POLL_MS = 8000;
 
@@ -17,7 +18,10 @@ export function ChatBox({
   viewer,
   intro,
   allowContactDetails = false,
+  lang = "en",
 }: {
+  /** Team pages and driver portal pass their language; travellers' pages leave it English. */
+  lang?: TeamLang;
   bookingId: string;
   viewer: ChatViewer;
   intro?: string;
@@ -30,6 +34,7 @@ export function ChatBox({
   const [pending, startTransition] = useTransition();
   const list = useRef<HTMLOListElement>(null);
   const blocked = !allowContactDetails && hasContactDetails(text);
+  const es = lang === "es";
 
   // The viewer is a small object that callers recreate on every render; key on its contents.
   const viewerKey = JSON.stringify(viewer);
@@ -77,9 +82,9 @@ export function ChatBox({
   return (
     <div id={`chat-${bookingId}`} className="rounded-xl border border-slate-200 bg-white">
       <ol ref={list} aria-live="polite" className="max-h-80 space-y-2 overflow-y-auto p-3">
-        {messages === null && <li className="text-sm text-slate-400">Loading messages…</li>}
+        {messages === null && <li className="text-sm text-slate-400">{es ? "Cargando mensajes…" : "Loading messages…"}</li>}
         {messages?.length === 0 && (
-          <li className="text-sm text-slate-500">{intro ?? "No messages yet. Say hello!"}</li>
+          <li className="text-sm text-slate-500">{intro ?? (es ? "Aún no hay mensajes. ¡Salude!" : "No messages yet. Say hello!")}</li>
         )}
         {messages?.map((m) => (
           <li key={m.id} className={`flex ${m.mine ? "justify-end" : "justify-start"}`}>
@@ -93,7 +98,7 @@ export function ChatBox({
               }`}
             >
               <p className={`text-[11px] font-bold ${m.mine ? "text-emerald-100" : "text-slate-500"}`}>
-                {m.mine ? "You" : m.name} · {formatTime(m.at)}
+                {m.mine ? (es ? "Usted" : "You") : m.name} · {formatTime(m.at, lang)}
               </p>
               <p className="whitespace-pre-wrap break-words">{m.text}</p>
             </div>
@@ -102,7 +107,7 @@ export function ChatBox({
       </ol>
       <form onSubmit={send} className="border-t border-slate-100 p-3">
         <label className="sr-only" htmlFor={`chat-input-${bookingId}`}>
-          Message
+          {es ? "Mensaje" : "Message"}
         </label>
         <div className="flex items-end gap-2">
           <textarea
@@ -117,13 +122,13 @@ export function ChatBox({
             }}
             rows={2}
             maxLength={2000}
-            placeholder="Write a message…"
+            placeholder={es ? "Escriba un mensaje…" : "Write a message…"}
             className="min-h-11 flex-1 resize-none rounded-xl border border-slate-300 p-2.5 text-base sm:text-sm"
           />
           <button
             type="submit"
             disabled={pending || !text.trim() || blocked}
-            aria-label="Send message"
+            aria-label={es ? "Enviar mensaje" : "Send message"}
             className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-700 text-white disabled:opacity-40"
           >
             <Send className="h-5 w-5" />
@@ -131,7 +136,9 @@ export function ChatBox({
         </div>
         {blocked && (
           <p className="mt-2 text-xs font-semibold text-red-700">
-            Please leave out phone numbers, emails and links. Our team shares contact details when needed.
+            {es
+              ? "Por favor no incluya teléfonos, correos ni enlaces. Nuestro equipo comparte los datos de contacto cuando hace falta."
+              : "Please leave out phone numbers, emails and links. Our team shares contact details when needed."}
           </p>
         )}
         {error && (
@@ -144,7 +151,7 @@ export function ChatBox({
   );
 }
 
-function formatTime(iso: string): string {
+function formatTime(iso: string, lang: TeamLang): string {
   const d = new Date(iso);
-  return d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  return d.toLocaleString(lang === "es" ? teamLocale(lang) : undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 }

@@ -2,15 +2,19 @@
 
 import { useActionState } from "react";
 import type { FormState } from "@/lib/forms/formState";
+import type { TeamLang } from "@/lib/teamLang";
 
 /** A form that shows "Saved" or a plain-language error next to its button. */
 export function ActionForm({
   action,
   children,
-  submitLabel = "Save",
-  savedLabel = "Saved",
+  lang = "en",
+  submitLabel = lang === "es" ? "Guardar" : "Save",
+  savedLabel = lang === "es" ? "Guardado" : "Saved",
   className = "",
 }: {
+  /** Team pages and driver portal pass their language; the public site leaves it English. */
+  lang?: TeamLang;
   action: (prev: FormState, fd: FormData) => Promise<FormState>;
   children: React.ReactNode;
   submitLabel?: string;
@@ -27,7 +31,7 @@ export function ActionForm({
           disabled={pending}
           className="min-h-11 px-5 rounded-xl bg-emerald-950 text-white text-sm font-bold disabled:opacity-50"
         >
-          {pending ? "Saving…" : submitLabel}
+          {pending ? (lang === "es" ? "Guardando…" : "Saving…") : submitLabel}
         </button>
         <span aria-live="polite" className="text-sm">
           {state.error ? (

@@ -20,6 +20,8 @@ import { DRIVER_COMMISSION_BPS_DEFAULT } from "@/lib/payout";
 import { formatUSD, rideCents } from "@/lib/pricing";
 import { requireRole } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { makeT } from "@/lib/teamLang";
+import { getTeamLang } from "@/lib/teamLangServer";
 import { AdminForm } from "./AdminForm";
 import {
   addSeasonRange,
@@ -69,8 +71,10 @@ const label = "block text-xs font-bold text-slate-600";
 
 export default async function PricingPage() {
   await requireRole("admin", "/admin/pricing");
+  const lang = await getTeamLang();
+  const t = makeT(lang);
   const db = (await createSupabaseServerClient())!;
-  const [v, s, t, e, l, se, r, ps, hp] = await Promise.all([
+  const [v, s, tours, e, l, se, r, ps, hp] = await Promise.all([
     db.from("vehicle_classes").select("*").order("sort_order").returns<Vehicle[]>(),
     db.from("sightseeing_stops").select("*").order("sort_order").returns<Stop[]>(),
     db.from("day_tours").select("*").order("sort_order").returns<Tour[]>(),
@@ -126,40 +130,65 @@ export default async function PricingPage() {
     areaFactorBps: areaBps,
   };
   const hubName = (id: HubId) => HUBS.find((h) => h.id === id)?.name ?? id;
+  const liveLabel = t("Visible", "Live");
+  const corridorsLegend = t("Corredores", "Corridors");
+  const migration = (file: string) => (
+    <>
+      {t("Corra la migración", "Run migration")} <code>{file}</code>
+    </>
+  );
+  const ferryTwo = formatUSD(Math.round(crcToCents(ferry.vehicleCrc + 2 * ferry.passengerCrc, ferry.rate) / 100) * 100);
+  const payRide = formatUSD(Math.round(16200 * (1 - commissionBps / 10000)));
+  const payTour = formatUSD(Math.round(40000 * (1 - commissionBps / 10000)));
 
   return (
     <div className="space-y-10">
       <div>
-        <h1 className="text-2xl font-extrabold text-slate-900">Prices &amp; catalog</h1>
-        <p className="mt-1 text-sm text-slate-600">
-          Changes show on the site as soon as you press Save. Prices are in US dollars, before the
-          season multiplier. Untick <strong>Live</strong> to hide something without deleting it.
-        </p>
+        <h1 className="text-2xl font-extrabold text-slate-900">{t("Precios y catálogo", "Prices & catalog")}</h1>
+        {lang === "en" ? (
+          <p className="mt-1 text-sm text-slate-600">
+            Changes show on the site as soon as you press Save. Prices are in US dollars, before the
+            season multiplier. Untick <strong>Live</strong> to hide something without deleting it.
+          </p>
+        ) : (
+          <p className="mt-1 text-sm text-slate-600">
+            Los cambios se ven en el sitio en cuanto presiona Guardar. Los precios están en dólares, antes del
+            multiplicador de temporada. Desmarque <strong>Visible</strong> para ocultar algo sin borrarlo.
+          </p>
+        )}
       </div>
 
       {!formulaReady && (
         <p className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
-          Run migration <code>20261109000013_ride_formula.sql</code> in the Supabase SQL editor to edit the ride
-          formula, vehicle factors and area factors. Until then the site uses the built-in numbers shown below.
+          {migration("20261109000013_ride_formula.sql")}{" "}
+          {t(
+            "en el editor SQL de Supabase para editar la fórmula de traslados, los factores de vehículo y los factores de zona. Mientras tanto el sitio usa los números de fábrica que se ven abajo.",
+            "in the Supabase SQL editor to edit the ride formula, vehicle factors and area factors. Until then the site uses the built-in numbers shown below.",
+          )}
         </p>
       )}
 
       <Section
-        title="Ride price formula"
-        note="Price of a Standard Sedan ride: the larger of the minimum fare and base + per km × road km + per hour × driving hours. Then × the vehicle factor × the pickup town's area factor, + the vehicle's extra fee, rounded to whole dollars. Stops are added on top, and the season multiplier applies to the total."
+        title={t("Fórmula del precio de traslados", "Ride price formula")}
+        note={t(
+          "Precio de un traslado en Sedán Estándar: el mayor entre la tarifa mínima y base + por km × km de carretera + por hora × horas de manejo. Luego × el factor del vehículo × el factor de zona del pueblo de recogida, + el cargo extra del vehículo, redondeado a dólares enteros. Las paradas se suman aparte, y el multiplicador de temporada se aplica al total.",
+          "Price of a Standard Sedan ride: the larger of the minimum fare and base + per km × road km + per hour × driving hours. Then × the vehicle factor × the pickup town's area factor, + the vehicle's extra fee, rounded to whole dollars. Stops are added on top, and the season multiplier applies to the total.",
+        )}
       >
         <Card>
-          <AdminForm action={saveRideFormula} className="grid gap-3 sm:grid-cols-6 items-end">
-            <Field l="Base fare (USD)"><input name="ride_base_fare" inputMode="decimal" defaultValue={formula.base} className={input} disabled={!formulaReady} /></Field>
-            <Field l="Per km (USD)"><input name="ride_per_km" inputMode="decimal" defaultValue={formula.perKm} className={input} disabled={!formulaReady} /></Field>
-            <Field l="Per hour driving (USD)"><input name="ride_per_hour" inputMode="decimal" defaultValue={formula.perHour} className={input} disabled={!formulaReady} /></Field>
-            <Field l="Minimum fare (USD)"><input name="ride_minimum_fare" inputMode="decimal" defaultValue={formula.minimum} className={input} disabled={!formulaReady} /></Field>
+          <AdminForm lang={lang} action={saveRideFormula} className="grid gap-3 sm:grid-cols-6 items-end">
+            <Field l={t("Tarifa base (USD)", "Base fare (USD)")}><input name="ride_base_fare" inputMode="decimal" defaultValue={formula.base} className={input} disabled={!formulaReady} /></Field>
+            <Field l={t("Por km (USD)", "Per km (USD)")}><input name="ride_per_km" inputMode="decimal" defaultValue={formula.perKm} className={input} disabled={!formulaReady} /></Field>
+            <Field l={t("Por hora de manejo (USD)", "Per hour driving (USD)")}><input name="ride_per_hour" inputMode="decimal" defaultValue={formula.perHour} className={input} disabled={!formulaReady} /></Field>
+            <Field l={t("Tarifa mínima (USD)", "Minimum fare (USD)")}><input name="ride_minimum_fare" inputMode="decimal" defaultValue={formula.minimum} className={input} disabled={!formulaReady} /></Field>
           </AdminForm>
           <table className="mt-4 w-full text-sm">
-            <caption className="text-left text-xs font-bold text-slate-600 mb-1">With today&apos;s numbers (green season, before stops)</caption>
+            <caption className="text-left text-xs font-bold text-slate-600 mb-1">
+              {t("Con los números de hoy (temporada verde, sin paradas)", "With today's numbers (green season, before stops)")}
+            </caption>
             <thead>
               <tr className="text-left text-xs text-slate-500">
-                <th className="py-1 font-semibold">Route</th>
+                <th className="py-1 font-semibold">{t("Ruta", "Route")}</th>
                 {(v.data ?? []).filter((x) => x.active).map((x) => (
                   <th key={x.id} className="py-1 font-semibold text-right">{x.name}</th>
                 ))}
@@ -187,18 +216,21 @@ export default async function PricingPage() {
       </Section>
 
       <Section
-        title="Area factors"
-        note="A town's factor multiplies rides that start there, where drivers are scarcer and must come from far away (1.15 = +15%). Southern Nicoya's applies when the pickup OR the drop-off is there and the route takes the Puntarenas ferry (the queue, and the driver crosses back); rides that go around by road, e.g. from Liberia, don't get it. If both a town's and Southern Nicoya's apply, the higher one counts. Lower a factor as local partner drivers join."
+        title={t("Factores de zona", "Area factors")}
+        note={t(
+          "El factor de un pueblo multiplica los traslados que salen de ahí, donde hay menos conductores y deben venir de lejos (1.15 = +15%). El del Sur de Nicoya se aplica cuando la recogida O el destino está ahí y la ruta usa el ferry de Puntarenas (la fila, y el conductor tiene que cruzar de vuelta); los traslados que dan la vuelta por carretera, por ejemplo desde Liberia, no lo llevan. Si aplican el de un pueblo y el del Sur de Nicoya, cuenta el más alto. Baje un factor conforme se unan conductores socios locales.",
+          "A town's factor multiplies rides that start there, where drivers are scarcer and must come from far away (1.15 = +15%). Southern Nicoya's applies when the pickup OR the drop-off is there and the route takes the Puntarenas ferry (the queue, and the driver crosses back); rides that go around by road, e.g. from Liberia, don't get it. If both a town's and Southern Nicoya's apply, the higher one counts. Lower a factor as local partner drivers join.",
+        )}
       >
         <Card>
-          <AdminForm action={saveAreaFactors} className="grid gap-3 grid-cols-2 sm:grid-cols-5 items-end">
+          <AdminForm lang={lang} action={saveAreaFactors} className="grid gap-3 grid-cols-2 sm:grid-cols-5 items-end">
             {HUBS.map((h) => (
               <Field key={h.id} l={h.name}>
                 <input name={`area_${h.id}`} inputMode="decimal" defaultValue={areaBps[h.id] / 10000} className={input} disabled={!formulaReady} />
               </Field>
             ))}
             {EXTRA_AREAS.map((a) => (
-              <Field key={a.id} l={a.name}>
+              <Field key={a.id} l={a.id === "SouthNicoya" ? t("Sur de Nicoya", a.name) : a.name}>
                 {/* Only sent once migration 0015 has added the area (the database refuses it before). */}
                 <input name={`area_${a.id}`} inputMode="decimal" defaultValue={areaBps[a.id] / 10000} className={input} disabled={!extraAreasReady} />
               </Field>
@@ -207,203 +239,249 @@ export default async function PricingPage() {
         </Card>
       </Section>
 
-      <Section title="Vehicles" note="Factor multiplies the Standard ride price (Economy 0.90, Standard 1.00, SUV 1.20, 4x4 1.30, Van 1.35). Extra fee is a fixed amount per ride, e.g. the Sierpe boat in the combo.">
+      <Section
+        title={t("Vehículos", "Vehicles")}
+        note={t(
+          "El factor multiplica el precio del traslado Estándar (Económico 0.90, Estándar 1.00, SUV 1.20, 4x4 1.30, Van 1.35). El cargo extra es un monto fijo por traslado, por ejemplo el bote de Sierpe en el combo.",
+          "Factor multiplies the Standard ride price (Economy 0.90, Standard 1.00, SUV 1.20, 4x4 1.30, Van 1.35). Extra fee is a fixed amount per ride, e.g. the Sierpe boat in the combo.",
+        )}
+      >
         {(v.data ?? []).map((x) => (
           <Card key={x.id}>
-            <AdminForm action={saveVehicle} className="grid gap-3 sm:grid-cols-6 items-end">
+            <AdminForm lang={lang} action={saveVehicle} className="grid gap-3 sm:grid-cols-6 items-end">
               <input type="hidden" name="id" value={x.id} />
-              <Field l="Name" className="sm:col-span-2"><input name="name" defaultValue={x.name} className={input} /></Field>
-              <Field l="Price factor"><input name="price_factor" inputMode="decimal" defaultValue={x.price_factor ?? 1} className={input} disabled={!formulaReady} /></Field>
-              <Field l="Extra fee (USD)"><input name="extra_fee" inputMode="decimal" defaultValue={x.extra_fee ?? 0} className={input} disabled={!formulaReady} /></Field>
-              <Field l="Max passengers"><input name="max_pax" type="number" min={1} defaultValue={x.max_pax} className={input} /></Field>
-              <Field l="Luggage"><input name="luggage" defaultValue={x.luggage} className={input} /></Field>
-              <Field l="Badge" className="sm:col-span-2"><input name="badge" defaultValue={x.badge} className={input} /></Field>
+              <Field l={t("Nombre", "Name")} className="sm:col-span-2"><input name="name" defaultValue={x.name} className={input} /></Field>
+              <Field l={t("Factor de precio", "Price factor")}><input name="price_factor" inputMode="decimal" defaultValue={x.price_factor ?? 1} className={input} disabled={!formulaReady} /></Field>
+              <Field l={t("Cargo extra (USD)", "Extra fee (USD)")}><input name="extra_fee" inputMode="decimal" defaultValue={x.extra_fee ?? 0} className={input} disabled={!formulaReady} /></Field>
+              <Field l={t("Máximo de pasajeros", "Max passengers")}><input name="max_pax" type="number" min={1} defaultValue={x.max_pax} className={input} /></Field>
+              <Field l={t("Equipaje", "Luggage")}><input name="luggage" defaultValue={x.luggage} className={input} /></Field>
+              <Field l={t("Etiqueta", "Badge")} className="sm:col-span-2"><input name="badge" defaultValue={x.badge} className={input} /></Field>
               <label className="flex items-center gap-2 text-sm font-bold min-h-10">
-                <input type="checkbox" name="allows_stops" defaultChecked={x.allows_stops ?? true} disabled={!formulaReady} /> Stops allowed
+                <input type="checkbox" name="allows_stops" defaultChecked={x.allows_stops ?? true} disabled={!formulaReady} /> {t("Permite paradas", "Stops allowed")}
               </label>
               <label className="flex items-center gap-2 text-sm font-bold min-h-10 sm:col-span-2">
-                <input type="checkbox" name="spanish_speaking_driver" defaultChecked={x.spanish_speaking_driver ?? false} disabled={!formulaReady} /> Spanish-speaking driver
+                <input type="checkbox" name="spanish_speaking_driver" defaultChecked={x.spanish_speaking_driver ?? false} disabled={!formulaReady} /> {t("Conductor que habla español", "Spanish-speaking driver")}
               </label>
-              <Live on={x.active} />
+              <Live on={x.active} label={liveLabel} />
             </AdminForm>
           </Card>
         ))}
       </Section>
 
       <Section
-        title="Sightseeing stops"
-        note="Stops are optional paid extras on the road between two towns. Driver's part = minutes at the stop × the waiting rate + detour km and minutes at the ride formula's rates, rounded to whole dollars. Stops that are really tours (guided walk, Poás + coffee) add a tour price PER PERSON for the guide, entrance and activity, like the tours on costaricatravelplanner.com. Tick every town the stop sits between: a ride offers it only when BOTH its pickup and drop-off are ticked. Tick just one town for a stop in that town. Never offered on the Sierpe ↔ Drake Bay boat."
+        title={t("Paradas turísticas", "Sightseeing stops")}
+        note={t(
+          "Las paradas son extras opcionales pagados en la carretera entre dos pueblos. Parte del conductor = minutos en la parada × la tarifa de espera + km y minutos de desvío a las tarifas de la fórmula de traslados, redondeado a dólares enteros. Las paradas que en realidad son tours (caminata guiada, Poás + café) suman un precio de tour POR PERSONA por el guía, la entrada y la actividad, como los tours de costaricatravelplanner.com. Marque cada pueblo entre los que está la parada: un traslado la ofrece solo cuando su recogida Y su destino están marcados. Marque un solo pueblo para una parada en ese pueblo. Nunca se ofrece en el bote Sierpe ↔ Bahía Drake.",
+          "Stops are optional paid extras on the road between two towns. Driver's part = minutes at the stop × the waiting rate + detour km and minutes at the ride formula's rates, rounded to whole dollars. Stops that are really tours (guided walk, Poás + coffee) add a tour price PER PERSON for the guide, entrance and activity, like the tours on costaricatravelplanner.com. Tick every town the stop sits between: a ride offers it only when BOTH its pickup and drop-off are ticked. Tick just one town for a stop in that town. Never offered on the Sierpe ↔ Drake Bay boat.",
+        )}
       >
         <Card>
           {!stopsReady && (
             <p className="mb-3 text-sm text-amber-800">
-              Run migration <code>20261109000021_stop_pricing.sql</code> to price stops by waiting time and detour. Until then
-              each stop keeps its flat price.
+              {migration("20261109000021_stop_pricing.sql")}{" "}
+              {t(
+                "para cobrar las paradas por tiempo de espera y desvío. Mientras tanto cada parada mantiene su precio fijo.",
+                "to price stops by waiting time and detour. Until then each stop keeps its flat price.",
+              )}
             </p>
           )}
-          <AdminForm action={saveWaitRate} className="grid gap-3 sm:grid-cols-6 items-end">
-            <Field l="Waiting rate (USD per hour at a stop)" className="sm:col-span-2">
+          <AdminForm lang={lang} action={saveWaitRate} className="grid gap-3 sm:grid-cols-6 items-end">
+            <Field l={t("Tarifa de espera (USD por hora en una parada)", "Waiting rate (USD per hour at a stop)")} className="sm:col-span-2">
               <input name="wait_per_hour" inputMode="decimal" defaultValue={waitPerHour} className={input} disabled={!stopsReady} />
             </Field>
           </AdminForm>
-          <p className="mt-2 text-xs text-slate-600">The driver gets their usual share of it (80% at today&apos;s commission).</p>
+          <p className="mt-2 text-xs text-slate-600">
+            {t(
+              "El conductor recibe su parte habitual (80% con la comisión de hoy).",
+              "The driver gets their usual share of it (80% at today's commission).",
+            )}
+          </p>
         </Card>
         {(s.data ?? []).map((x) => (
           <Card key={x.id}>
-            <AdminForm action={saveStop} className="grid gap-3 sm:grid-cols-6 items-end">
+            <AdminForm lang={lang} action={saveStop} className="grid gap-3 sm:grid-cols-6 items-end">
               <input type="hidden" name="id" value={x.id} />
-              <Field l="Name" className="sm:col-span-3"><input name="name" defaultValue={x.name} className={input} /></Field>
-              <Field l="Minutes at the stop"><input name="duration_min" type="number" min={5} defaultValue={x.duration_min} className={input} /></Field>
-              <Field l="Detour km (there and back)"><input name="detour_km" inputMode="decimal" defaultValue={x.detour_km ?? 0} className={input} disabled={!stopsReady} /></Field>
-              <Field l="Detour minutes"><input name="detour_min" type="number" min={0} defaultValue={x.detour_min ?? 0} className={input} disabled={!stopsReady} /></Field>
-              <Field l="Tour price per person (USD)"><input name="tour_price_pp" inputMode="decimal" defaultValue={x.tour_price_pp ?? 0} className={input} disabled={!stopsReady} /></Field>
-              <Field l="Price (computed)">
+              <Field l={t("Nombre", "Name")} className="sm:col-span-3"><input name="name" defaultValue={x.name} className={input} /></Field>
+              <Field l={t("Minutos en la parada", "Minutes at the stop")}><input name="duration_min" type="number" min={5} defaultValue={x.duration_min} className={input} /></Field>
+              <Field l={t("Km de desvío (ida y vuelta)", "Detour km (there and back)")}><input name="detour_km" inputMode="decimal" defaultValue={x.detour_km ?? 0} className={input} disabled={!stopsReady} /></Field>
+              <Field l={t("Minutos de desvío", "Detour minutes")}><input name="detour_min" type="number" min={0} defaultValue={x.detour_min ?? 0} className={input} disabled={!stopsReady} /></Field>
+              <Field l={t("Precio del tour por persona (USD)", "Tour price per person (USD)")}><input name="tour_price_pp" inputMode="decimal" defaultValue={x.tour_price_pp ?? 0} className={input} disabled={!stopsReady} /></Field>
+              <Field l={t("Precio (calculado)", "Price (computed)")}>
                 <p className="min-h-10 flex items-center font-extrabold text-emerald-700">
-                  {formatUSD(stopPrice(x))}{tourPP(x) > 0 ? ` + ${formatUSD(tourPP(x))}/person` : ""}
+                  {formatUSD(stopPrice(x))}{tourPP(x) > 0 ? ` + ${formatUSD(tourPP(x))}/${t("persona", "person")}` : ""}
                 </p>
               </Field>
               {x.entrance === undefined ? (
                 // Before migration 0014: the old yes/no switch.
                 <label className="flex items-center gap-2 text-sm min-h-10">
-                  <input type="checkbox" name="park_fee_included" defaultChecked={x.park_fee_included} /> Park fee included
+                  <input type="checkbox" name="park_fee_included" defaultChecked={x.park_fee_included} /> {t("Entrada al parque incluida", "Park fee included")}
                 </label>
               ) : (
-                <Field l="Entrance">
+                <Field l={t("Entrada", "Entrance")}>
                   <select name="entrance" defaultValue={x.entrance} className={input}>
                     {STOP_ENTRANCES.map((e) => (
-                      <option key={e} value={e}>{ENTRANCE_ADMIN_LABEL[e]}</option>
+                      <option key={e} value={e}>{lang === "en" ? ENTRANCE_ADMIN_LABEL[e] : ENTRANCE_LABEL_ES[e]}</option>
                     ))}
                   </select>
                 </Field>
               )}
-              <Field l="Description" className="sm:col-span-6"><input name="description" defaultValue={x.description} className={input} /></Field>
-              <Corridors selected={x.corridors} />
-              <Live on={x.active} />
+              <Field l={t("Descripción", "Description")} className="sm:col-span-6"><input name="description" defaultValue={x.description} className={input} /></Field>
+              <Corridors selected={x.corridors} legend={corridorsLegend} />
+              <Live on={x.active} label={liveLabel} />
             </AdminForm>
           </Card>
         ))}
         <Card>
-          <h3 className="font-extrabold text-slate-900 mb-3">Add a stop</h3>
-          <AdminForm action={addStop} submitLabel="Add stop (hidden until you tick Live)" className="grid gap-3 sm:grid-cols-6 items-end">
-            <Field l="Name" className="sm:col-span-3"><input name="name" required className={input} /></Field>
-            <Field l="Minutes at the stop"><input name="duration_min" type="number" min={5} required className={input} /></Field>
-            <Field l="Detour km (there and back)"><input name="detour_km" inputMode="decimal" defaultValue={0} className={input} disabled={!stopsReady} /></Field>
-            <Field l="Detour minutes"><input name="detour_min" type="number" min={0} defaultValue={0} className={input} disabled={!stopsReady} /></Field>
-            <Field l="Tour price per person (USD)"><input name="tour_price_pp" inputMode="decimal" defaultValue={0} className={input} disabled={!stopsReady} /></Field>
-            <Field l="Description" className="sm:col-span-6"><input name="description" className={input} /></Field>
-            <Corridors selected={[]} />
+          <h3 className="font-extrabold text-slate-900 mb-3">{t("Agregar una parada", "Add a stop")}</h3>
+          <AdminForm
+            lang={lang}
+            action={addStop}
+            submitLabel={t("Agregar parada (oculta hasta que marque Visible)", "Add stop (hidden until you tick Live)")}
+            className="grid gap-3 sm:grid-cols-6 items-end"
+          >
+            <Field l={t("Nombre", "Name")} className="sm:col-span-3"><input name="name" required className={input} /></Field>
+            <Field l={t("Minutos en la parada", "Minutes at the stop")}><input name="duration_min" type="number" min={5} required className={input} /></Field>
+            <Field l={t("Km de desvío (ida y vuelta)", "Detour km (there and back)")}><input name="detour_km" inputMode="decimal" defaultValue={0} className={input} disabled={!stopsReady} /></Field>
+            <Field l={t("Minutos de desvío", "Detour minutes")}><input name="detour_min" type="number" min={0} defaultValue={0} className={input} disabled={!stopsReady} /></Field>
+            <Field l={t("Precio del tour por persona (USD)", "Tour price per person (USD)")}><input name="tour_price_pp" inputMode="decimal" defaultValue={0} className={input} disabled={!stopsReady} /></Field>
+            <Field l={t("Descripción", "Description")} className="sm:col-span-6"><input name="description" className={input} /></Field>
+            <Corridors selected={[]} legend={corridorsLegend} />
           </AdminForm>
         </Card>
       </Section>
 
       <Section
-        title="1-day tours"
-        note="Priced per person (private vehicle, guide, entrances and lunch), with a lower rate for 2–3 travellers and for 4 or more; 7+ pay the 4+ rate. The en-route upgrade is a flat amount per group. 'Our costs per person' is what we pay for entrances, lunch and activities: it comes off the price before the driver's share is worked out."
+        title={t("Tours de un día", "1-day tours")}
+        note={t(
+          "Precio por persona (vehículo privado, guía, entradas y almuerzo), con una tarifa menor para 2–3 clientes y para 4 o más; 7 o más pagan la tarifa de 4+. La mejora en ruta es un monto fijo por grupo. 'Nuestros costos por persona' es lo que pagamos por entradas, almuerzo y actividades: se resta del precio antes de calcular la parte del conductor.",
+          "Priced per person (private vehicle, guide, entrances and lunch), with a lower rate for 2–3 travellers and for 4 or more; 7+ pay the 4+ rate. The en-route upgrade is a flat amount per group. 'Our costs per person' is what we pay for entrances, lunch and activities: it comes off the price before the driver's share is worked out.",
+        )}
       >
-        {(t.data ?? []).map((x) => (
+        {(tours.data ?? []).map((x) => (
           <Card key={x.id}>
             {x.price_pp_solo === undefined && (
-              <p className="mb-3 text-sm text-amber-800">Run migration <code>20261109000022_tour_pricing.sql</code> to price this tour per person.</p>
+              <p className="mb-3 text-sm text-amber-800">
+                {migration("20261109000022_tour_pricing.sql")}{" "}
+                {t("para cobrar este tour por persona.", "to price this tour per person.")}
+              </p>
             )}
-            <AdminForm action={saveDayTour} className="grid gap-3 sm:grid-cols-6 items-end">
+            <AdminForm lang={lang} action={saveDayTour} className="grid gap-3 sm:grid-cols-6 items-end">
               <input type="hidden" name="id" value={x.id} />
-              <Field l={`Name · ${REGION_NAMES[x.region] ?? x.region}`} className="sm:col-span-3"><input name="name" defaultValue={x.name} className={input} /></Field>
-              <Field l="Per person · 1 traveller"><input name="price_pp_solo" inputMode="decimal" defaultValue={x.price_pp_solo ?? 0} className={input} disabled={x.price_pp_solo === undefined} /></Field>
-              <Field l="Per person · 2–3"><input name="price_pp_small" inputMode="decimal" defaultValue={x.price_pp_small ?? 0} className={input} disabled={x.price_pp_solo === undefined} /></Field>
-              <Field l="Per person · 4+"><input name="price_pp_group" inputMode="decimal" defaultValue={x.price_pp_group ?? 0} className={input} disabled={x.price_pp_solo === undefined} /></Field>
-              <Field l="Our costs per person"><input name="cost_pp" inputMode="decimal" defaultValue={x.cost_pp ?? 0} className={input} disabled={x.cost_pp === undefined} /></Field>
-              <Field l="En-route upgrade"><input name="en_route_upgrade_price" inputMode="decimal" defaultValue={x.en_route_upgrade_price} className={input} /></Field>
-              <Field l="Hours"><input name="duration_hours" inputMode="decimal" defaultValue={x.duration_hours} className={input} /></Field>
-              <Live on={x.active} />
+              <Field l={`${t("Nombre", "Name")} · ${REGION_NAMES[x.region] ?? x.region}`} className="sm:col-span-3"><input name="name" defaultValue={x.name} className={input} /></Field>
+              <Field l={t("Por persona · 1 cliente", "Per person · 1 traveller")}><input name="price_pp_solo" inputMode="decimal" defaultValue={x.price_pp_solo ?? 0} className={input} disabled={x.price_pp_solo === undefined} /></Field>
+              <Field l={t("Por persona · 2–3", "Per person · 2–3")}><input name="price_pp_small" inputMode="decimal" defaultValue={x.price_pp_small ?? 0} className={input} disabled={x.price_pp_solo === undefined} /></Field>
+              <Field l={t("Por persona · 4+", "Per person · 4+")}><input name="price_pp_group" inputMode="decimal" defaultValue={x.price_pp_group ?? 0} className={input} disabled={x.price_pp_solo === undefined} /></Field>
+              <Field l={t("Nuestros costos por persona", "Our costs per person")}><input name="cost_pp" inputMode="decimal" defaultValue={x.cost_pp ?? 0} className={input} disabled={x.cost_pp === undefined} /></Field>
+              <Field l={t("Mejora en ruta", "En-route upgrade")}><input name="en_route_upgrade_price" inputMode="decimal" defaultValue={x.en_route_upgrade_price} className={input} /></Field>
+              <Field l={t("Horas", "Hours")}><input name="duration_hours" inputMode="decimal" defaultValue={x.duration_hours} className={input} /></Field>
+              <Live on={x.active} label={liveLabel} />
             </AdminForm>
           </Card>
         ))}
       </Section>
 
-      <Section title="Expeditions & lodging">
+      <Section title={t("Expediciones y hospedaje", "Expeditions & lodging")}>
         {(e.data ?? []).map((x) => (
           <Card key={x.id}>
-            <AdminForm action={saveExpedition} className="grid gap-3 sm:grid-cols-6 items-end">
+            <AdminForm lang={lang} action={saveExpedition} className="grid gap-3 sm:grid-cols-6 items-end">
               <input type="hidden" name="id" value={x.id} />
-              <Field l={`Name · ${x.days}D/${x.nights}N`} className="sm:col-span-4"><input name="name" defaultValue={x.name} className={input} /></Field>
-              <Field l="Base price (USD)"><input name="base_price" inputMode="decimal" defaultValue={x.base_price} className={input} /></Field>
-              <Live on={x.active} />
+              <Field l={`${t("Nombre", "Name")} · ${x.days}D/${x.nights}N`} className="sm:col-span-4"><input name="name" defaultValue={x.name} className={input} /></Field>
+              <Field l={t("Precio base (USD)", "Base price (USD)")}><input name="base_price" inputMode="decimal" defaultValue={x.base_price} className={input} /></Field>
+              <Live on={x.active} label={liveLabel} />
             </AdminForm>
           </Card>
         ))}
         {(l.data ?? []).map((x) => (
           <Card key={x.id}>
-            <AdminForm action={saveLodgingTier} className="grid gap-3 sm:grid-cols-6 items-end">
+            <AdminForm lang={lang} action={saveLodgingTier} className="grid gap-3 sm:grid-cols-6 items-end">
               <input type="hidden" name="id" value={x.id} />
-              <Field l="Lodging tier" className="sm:col-span-4"><input name="name" defaultValue={x.name} className={input} /></Field>
-              <Field l="Surcharge (USD)"><input name="surcharge" inputMode="decimal" defaultValue={x.surcharge} className={input} /></Field>
-              <Live on={x.active} />
+              <Field l={t("Nivel de hospedaje", "Lodging tier")} className="sm:col-span-4"><input name="name" defaultValue={x.name} className={input} /></Field>
+              <Field l={t("Recargo (USD)", "Surcharge (USD)")}><input name="surcharge" inputMode="decimal" defaultValue={x.surcharge} className={input} /></Field>
+              <Live on={x.active} label={liveLabel} />
             </AdminForm>
           </Card>
         ))}
       </Section>
 
       <Section
-        title="Ferries"
-        note="Gulf of Nicoya car ferries (Puntarenas ↔ Paquera / Playa Naranjo), per crossing, in colones as the ferry company charges them. Added on top of the ride price whenever Google's route takes a ferry, for the car with its driver plus each passenger, converted to dollars at the exchange rate here and rounded to whole dollars. Not season-adjusted. Check the exchange rate about once a week."
+        title={t("Ferris", "Ferries")}
+        note={t(
+          "Ferris del Golfo de Nicoya (Puntarenas ↔ Paquera / Playa Naranjo), por cruce, en colones como los cobra la naviera. Se suman al precio del traslado cada vez que la ruta de Google usa un ferry, por el carro con su conductor más cada pasajero, convertidos a dólares con el tipo de cambio de aquí y redondeados a dólares enteros. No se ajustan por temporada. Revise el tipo de cambio más o menos una vez por semana.",
+          "Gulf of Nicoya car ferries (Puntarenas ↔ Paquera / Playa Naranjo), per crossing, in colones as the ferry company charges them. Added on top of the ride price whenever Google's route takes a ferry, for the car with its driver plus each passenger, converted to dollars at the exchange rate here and rounded to whole dollars. Not season-adjusted. Check the exchange rate about once a week.",
+        )}
       >
         <Card>
           {!ferryReady && (
             <p className="mb-3 text-sm text-amber-800">
-              Run migration <code>20261109000015_nicoya_ferry.sql</code> in the Supabase SQL editor to edit the ferry
-              fares and the Southern Nicoya factor. Until then the site uses the numbers shown.
+              {migration("20261109000015_nicoya_ferry.sql")}{" "}
+              {t(
+                "en el editor SQL de Supabase para editar las tarifas del ferry y el factor del Sur de Nicoya. Mientras tanto el sitio usa los números que se ven.",
+                "in the Supabase SQL editor to edit the ferry fares and the Southern Nicoya factor. Until then the site uses the numbers shown.",
+              )}
             </p>
           )}
-          <AdminForm action={saveFerryFares} className="grid gap-3 sm:grid-cols-6 items-end">
-            <Field l="Car + driver (₡ per crossing)" className="sm:col-span-2"><input name="ferry_vehicle_fare_crc" type="number" min={0} step={100} defaultValue={ferry.vehicleCrc} className={input} disabled={!ferryReady} /></Field>
-            <Field l="Per passenger (₡ per crossing)" className="sm:col-span-2"><input name="ferry_passenger_fare_crc" type="number" min={0} step={50} defaultValue={ferry.passengerCrc} className={input} disabled={!ferryReady} /></Field>
-            <Field l="Colones per US dollar" className="sm:col-span-2"><input name="crc_per_usd" inputMode="decimal" defaultValue={ferry.rate} className={input} disabled={!ferryReady} /></Field>
+          <AdminForm lang={lang} action={saveFerryFares} className="grid gap-3 sm:grid-cols-6 items-end">
+            <Field l={t("Carro + conductor (₡ por cruce)", "Car + driver (₡ per crossing)")} className="sm:col-span-2"><input name="ferry_vehicle_fare_crc" type="number" min={0} step={100} defaultValue={ferry.vehicleCrc} className={input} disabled={!ferryReady} /></Field>
+            <Field l={t("Por pasajero (₡ por cruce)", "Per passenger (₡ per crossing)")} className="sm:col-span-2"><input name="ferry_passenger_fare_crc" type="number" min={0} step={50} defaultValue={ferry.passengerCrc} className={input} disabled={!ferryReady} /></Field>
+            <Field l={t("Colones por dólar (tipo de cambio)", "Colones per US dollar")} className="sm:col-span-2"><input name="crc_per_usd" inputMode="decimal" defaultValue={ferry.rate} className={input} disabled={!ferryReady} /></Field>
           </AdminForm>
           <p className="mt-3 text-xs text-slate-600">
-            At ₡{ferry.rate} per dollar: car + driver {usd(ferry.vehicleCrc)}, each passenger {usd(ferry.passengerCrc)}.
-            A crossing with 2 passengers adds {formatUSD(Math.round(crcToCents(ferry.vehicleCrc + 2 * ferry.passengerCrc, ferry.rate) / 100) * 100)}.
+            {lang === "en"
+              ? `At ₡${ferry.rate} per dollar: car + driver ${usd(ferry.vehicleCrc)}, each passenger ${usd(ferry.passengerCrc)}. A crossing with 2 passengers adds ${ferryTwo}.`
+              : `A ₡${ferry.rate} por dólar: carro + conductor ${usd(ferry.vehicleCrc)}, cada pasajero ${usd(ferry.passengerCrc)}. Un cruce con 2 pasajeros suma ${ferryTwo}.`}
           </p>
         </Card>
       </Section>
 
       <Section
-        title="Drivers' payout"
-        note="Our share of each ride and day tour, as a percentage of the net price: after ferry tickets (which go to the driver in full) and after the entrances, lunch and activities we pay on tours and guided stops. Drivers see only their payout on the job board and their trips, never the client's price. Expeditions are arranged by the team and have no automatic payout."
+        title={t("Pago a los conductores", "Drivers' payout")}
+        note={t(
+          "Nuestra parte de cada traslado y tour de un día, como porcentaje del precio neto: después de los tiquetes del ferry (que van completos al conductor) y después de las entradas, el almuerzo y las actividades que pagamos en tours y paradas guiadas. Los conductores solo ven su pago en la bolsa de trabajos y en sus viajes, nunca el precio del cliente. Las expediciones las organiza el equipo y no tienen pago automático.",
+          "Our share of each ride and day tour, as a percentage of the net price: after ferry tickets (which go to the driver in full) and after the entrances, lunch and activities we pay on tours and guided stops. Drivers see only their payout on the job board and their trips, never the client's price. Expeditions are arranged by the team and have no automatic payout.",
+        )}
       >
         <Card>
           {!commissionReady && (
             <p className="mb-3 text-sm text-amber-800">
-              Run migration <code>20261109000017_driver_job_board.sql</code> in the Supabase SQL editor to edit this.
-              Until then the site uses {DRIVER_COMMISSION_BPS_DEFAULT / 100}%.
+              {migration("20261109000017_driver_job_board.sql")}{" "}
+              {t(
+                `en el editor SQL de Supabase para editar esto. Mientras tanto el sitio usa ${DRIVER_COMMISSION_BPS_DEFAULT / 100}%.`,
+                `in the Supabase SQL editor to edit this. Until then the site uses ${DRIVER_COMMISSION_BPS_DEFAULT / 100}%.`,
+              )}
             </p>
           )}
-          <AdminForm action={saveDriverCommission} className="grid gap-3 sm:grid-cols-6 items-end">
-            <Field l="Our commission (%)" className="sm:col-span-2">
+          <AdminForm lang={lang} action={saveDriverCommission} className="grid gap-3 sm:grid-cols-6 items-end">
+            <Field l={t("Nuestra comisión (%)", "Our commission (%)")} className="sm:col-span-2">
               <input name="commission_percent" inputMode="decimal" defaultValue={commissionBps / 100} className={input} disabled={!commissionReady} />
             </Field>
           </AdminForm>
           <p className="mt-3 text-xs text-slate-600">
-            Example: a {formatUSD(16200)} ride pays the driver {formatUSD(Math.round(16200 * (1 - commissionBps / 10000)))}. On tours and
-            guided stops, the entrances, lunch and activities we pay are taken off first: a {formatUSD(59000)} tour with {formatUSD(19000)} of
-            costs pays the driver {formatUSD(Math.round(40000 * (1 - commissionBps / 10000)))}. Changing this only affects new bookings; each
-            booking keeps the payout it was created with.
+            {lang === "en"
+              ? `Example: a ${formatUSD(16200)} ride pays the driver ${payRide}. On tours and guided stops, the entrances, lunch and activities we pay are taken off first: a ${formatUSD(59000)} tour with ${formatUSD(19000)} of costs pays the driver ${payTour}. Changing this only affects new bookings; each booking keeps the payout it was created with.`
+              : `Ejemplo: un traslado de ${formatUSD(16200)} le paga al conductor ${payRide}. En tours y paradas guiadas, primero se restan las entradas, el almuerzo y las actividades que pagamos: un tour de ${formatUSD(59000)} con ${formatUSD(19000)} de costos le paga al conductor ${payTour}. Cambiar esto solo afecta las reservas nuevas; cada reserva mantiene el pago con el que se creó.`}
           </p>
         </Card>
       </Section>
 
       <Section
-        title="Payment"
-        note="Travellers pay online in full, or pay the driver in cash on rides and 1-day tours plus this cash booking fee (a % of the ride or tour price, shown in their trip total). Expeditions are always paid online."
+        title={t("Pago", "Payment")}
+        note={t(
+          "Los clientes pagan en línea el total, o le pagan al conductor en efectivo en traslados y tours de un día más este cargo por reserva en efectivo (un % del precio del traslado o tour, que se muestra en el total de su viaje). Las expediciones siempre se pagan en línea.",
+          "Travellers pay online in full, or pay the driver in cash on rides and 1-day tours plus this cash booking fee (a % of the ride or tour price, shown in their trip total). Expeditions are always paid online.",
+        )}
       >
         <Card>
           {ps.error ? (
             <p className="text-sm text-amber-800">
-              Run migration <code>20261108000012_payment_options.sql</code> in the Supabase SQL editor to edit the
-              cash fee. Until then the site uses {CASH_FEE_BPS_DEFAULT / 100}%.
+              {migration("20261108000012_payment_options.sql")}{" "}
+              {t(
+                `en el editor SQL de Supabase para editar el cargo por efectivo. Mientras tanto el sitio usa ${CASH_FEE_BPS_DEFAULT / 100}%.`,
+                `in the Supabase SQL editor to edit the cash fee. Until then the site uses ${CASH_FEE_BPS_DEFAULT / 100}%.`,
+              )}
             </p>
           ) : (
-            <AdminForm action={savePaymentSettings} className="grid gap-3 sm:grid-cols-6 items-end">
-              <Field l="Cash booking fee (%)" className="sm:col-span-2">
+            <AdminForm lang={lang} action={savePaymentSettings} className="grid gap-3 sm:grid-cols-6 items-end">
+              <Field l={t("Cargo por reserva en efectivo (%)", "Cash booking fee (%)")} className="sm:col-span-2">
                 <input name="cash_fee_percent" inputMode="decimal" defaultValue={cashFeeBps / 100} className={input} />
               </Field>
             </AdminForm>
@@ -411,13 +489,24 @@ export default async function PricingPage() {
         </Card>
       </Section>
 
-      <Section title="Seasons" note="A travel date uses the highest season whose dates include it; any other date uses the default season.">
+      <Section
+        title={t("Temporadas", "Seasons")}
+        note={t(
+          "Una fecha de viaje usa la temporada más alta cuyas fechas la incluyen; cualquier otra fecha usa la temporada predeterminada.",
+          "A travel date uses the highest season whose dates include it; any other date uses the default season.",
+        )}
+      >
         {(se.data ?? []).map((x) => (
           <Card key={x.id}>
-            <AdminForm action={saveSeason} className="grid gap-3 sm:grid-cols-6 items-end">
+            <AdminForm lang={lang} action={saveSeason} className="grid gap-3 sm:grid-cols-6 items-end">
               <input type="hidden" name="id" value={x.id} />
-              <Field l={x.is_default ? "Name (default season)" : "Name"} className="sm:col-span-4"><input name="name" defaultValue={x.name} className={input} /></Field>
-              <Field l="Multiplier (1.15 = +15%)"><input name="multiplier" inputMode="decimal" defaultValue={x.multiplier} className={input} /></Field>
+              <Field
+                l={x.is_default ? t("Nombre (temporada predeterminada)", "Name (default season)") : t("Nombre", "Name")}
+                className="sm:col-span-4"
+              >
+                <input name="name" defaultValue={x.name} className={input} />
+              </Field>
+              <Field l={t("Multiplicador (1.15 = +15%)", "Multiplier (1.15 = +15%)")}><input name="multiplier" inputMode="decimal" defaultValue={x.multiplier} className={input} /></Field>
             </AdminForm>
             {!x.is_default && (
               <ul className="mt-3 space-y-1.5 text-sm">
@@ -427,7 +516,7 @@ export default async function PricingPage() {
                       {rr.starts_on} → {rr.ends_on}
                       {rr.note ? <span className="text-slate-500"> · {rr.note}</span> : null}
                     </span>
-                    <AdminForm action={deleteSeasonRange} submitLabel="Remove" className="inline-flex">
+                    <AdminForm lang={lang} action={deleteSeasonRange} submitLabel={t("Quitar", "Remove")} className="inline-flex">
                       <input type="hidden" name="id" value={rr.id} />
                     </AdminForm>
                   </li>
@@ -435,11 +524,11 @@ export default async function PricingPage() {
               </ul>
             )}
             {!x.is_default && (
-              <AdminForm action={addSeasonRange} submitLabel="Add dates" className="mt-3 grid gap-3 sm:grid-cols-6 items-end">
+              <AdminForm lang={lang} action={addSeasonRange} submitLabel={t("Agregar fechas", "Add dates")} className="mt-3 grid gap-3 sm:grid-cols-6 items-end">
                 <input type="hidden" name="season_id" value={x.id} />
-                <Field l="From"><input type="date" name="starts_on" required className={input} /></Field>
-                <Field l="To"><input type="date" name="ends_on" required className={input} /></Field>
-                <Field l="Note" className="sm:col-span-2"><input name="note" placeholder="e.g. Semana Santa 2032" className={input} /></Field>
+                <Field l={t("Desde", "From")}><input type="date" name="starts_on" required className={input} /></Field>
+                <Field l={t("Hasta", "To")}><input type="date" name="ends_on" required className={input} /></Field>
+                <Field l={t("Nota", "Note")} className="sm:col-span-2"><input name="note" placeholder={t("p. ej. Semana Santa 2032", "e.g. Semana Santa 2032")} className={input} /></Field>
               </AdminForm>
             )}
           </Card>
@@ -448,6 +537,13 @@ export default async function PricingPage() {
     </div>
   );
 }
+
+/** Stop entrance choices in Spanish (English: ENTRANCE_ADMIN_LABEL in src/lib/catalog.ts). */
+const ENTRANCE_LABEL_ES: Record<(typeof STOP_ENTRANCES)[number], string> = {
+  free: "Gratis, no se necesita tiquete",
+  included: "Incluida en nuestro precio de la parada",
+  gate: "El cliente paga en la entrada",
+};
 
 function Section({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) {
   return (
@@ -474,18 +570,18 @@ function Field({ l, className = "", children }: { l: string; className?: string;
   );
 }
 
-function Live({ on }: { on: boolean }) {
+function Live({ on, label: text }: { on: boolean; label: string }) {
   return (
     <label className="flex items-center gap-2 text-sm font-bold min-h-10">
-      <input type="checkbox" name="active" defaultChecked={on} /> Live
+      <input type="checkbox" name="active" defaultChecked={on} /> {text}
     </label>
   );
 }
 
-function Corridors({ selected }: { selected: string[] }) {
+function Corridors({ selected, legend }: { selected: string[]; legend: string }) {
   return (
     <fieldset className="sm:col-span-6">
-      <legend className={label}>Corridors</legend>
+      <legend className={label}>{legend}</legend>
       <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
         {HUBS.map((h) => (
           <label key={h.id} className="flex items-center gap-1.5 text-sm min-h-8">

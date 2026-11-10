@@ -120,6 +120,9 @@ export function compareRanks(a: number[], b: number[]): number {
   return 0;
 }
 
-export function townName(id: string | null | undefined): string {
-  return HUBS.find((h) => h.id === id)?.name ?? (id === "SouthNicoya" ? "Southern Nicoya" : (id ?? "—"));
+export function townName(id: string | null | undefined, lang: "en" | "es" = "en"): string {
+  return (
+    HUBS.find((h) => h.id === id)?.name ??
+    (id === "SouthNicoya" ? (lang === "es" ? "Sur de Nicoya" : "Southern Nicoya") : (id ?? "—"))
+  );
 }

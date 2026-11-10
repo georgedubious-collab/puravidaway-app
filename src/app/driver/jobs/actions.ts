@@ -7,6 +7,9 @@ import { usd } from "@/lib/bookings";
 import { ADMIN_EMAIL, SITE_URL, sendEmail } from "@/lib/email";
 import { InputError, runAction, type FormState } from "@/lib/forms/formState";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { driverDbMessage } from "@/lib/driverDbMessages";
+import { makeT } from "@/lib/teamLang";
+import { getTeamLang } from "@/lib/teamLangServer";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -17,15 +20,18 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  * The team compares the offers and accepts one (accept_offer).
  */
 export async function offerJob(_prev: FormState, fd: FormData): Promise<FormState> {
+  const lang = await getTeamLang();
+  const t = makeT(lang);
   return runAction(async () => {
     const me = await requireUser("/driver/jobs");
     const bookingId = String(fd.get("booking_id") ?? "");
     const vehicleId = String(fd.get("vehicle_id") ?? "");
     const amountRaw = String(fd.get("amount") ?? "").trim().replace(/[$,\s]/g, "");
     const note = String(fd.get("note") ?? "").trim().slice(0, 300);
-    if (!UUID.test(bookingId)) throw new InputError("This job is no longer listed.");
-    if (!UUID.test(vehicleId)) throw new InputError("Pick which of your vehicles you'd drive.");
-    if (!/^\d{1,5}(\.\d{1,2})?$/.test(amountRaw)) throw new InputError("Enter your offer in dollars, e.g. 130.");
+    if (!UUID.test(bookingId)) throw new InputError(t("Este trabajo ya no está en la lista.", "This job is no longer listed."));
+    if (!UUID.test(vehicleId)) throw new InputError(t("Elija cuál de sus vehículos usaría.", "Pick which of your vehicles you'd drive."));
+    if (!/^\d{1,5}(\.\d{1,2})?$/.test(amountRaw))
+      throw new InputError(t("Escriba su oferta en dólares, por ejemplo 130.", "Enter your offer in dollars, e.g. 130."));
     const amount = Number(amountRaw);
 
     const supabase = (await createSupabaseServerClient())!;
@@ -38,7 +44,7 @@ export async function offerJob(_prev: FormState, fd: FormData): Promise<FormStat
     if (error) {
       // The function raises plain-language messages; anything else is a real failure.
       if (/^(Your driver account|Your new documents|You marked that day|Pick one of|This job|That vehicle|Offers must|Please keep)/.test(error.message)) {
-        throw new InputError(error.message);
+        throw new InputError(driverDbMessage(error.message, lang));
       }
       throw new Error(error.message);
     }
@@ -59,15 +65,16 @@ export async function offerJob(_prev: FormState, fd: FormData): Promise<FormStat
     });
     revalidatePath("/driver/jobs");
     revalidatePath(`/admin/bookings/${bookingId}`);
-  }, "We couldn't send your offer. Please reload and try again.");
+  }, t("No pudimos enviar su oferta. Recargue la página e intente de nuevo.", "We couldn't send your offer. Please reload and try again."));
 }
 
 /** Take back an open offer. */
 export async function withdrawOffer(_prev: FormState, fd: FormData): Promise<FormState> {
+  const t = makeT(await getTeamLang());
   return runAction(async () => {
     const me = await requireUser("/driver/jobs");
     const bidId = String(fd.get("bid_id") ?? "");
-    if (!UUID.test(bidId)) throw new InputError("That offer isn't open any more.");
+    if (!UUID.test(bidId)) throw new InputError(t("Esa oferta ya no está abierta.", "That offer isn't open any more."));
     const supabase = (await createSupabaseServerClient())!;
     const { data, error } = await supabase
       .from("bids")
@@ -77,7 +84,7 @@ export async function withdrawOffer(_prev: FormState, fd: FormData): Promise<For
       .eq("status", "submitted")
       .select("id");
     if (error) throw new Error(error.message);
-    if (!data?.length) throw new InputError("That offer isn't open any more.");
+    if (!data?.length) throw new InputError(t("Esa oferta ya no está abierta.", "That offer isn't open any more."));
     revalidatePath("/driver/jobs");
-  }, "We couldn't withdraw the offer. Please reload and try again.");
+  }, t("No pudimos retirar la oferta. Recargue la página e intente de nuevo.", "We couldn't withdraw the offer. Please reload and try again."));
 }
