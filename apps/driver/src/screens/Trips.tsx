@@ -80,9 +80,11 @@ function Dot({ icon, gold, label }: { icon: IconName; gold?: boolean; label: str
 }
 
 /** The vehicle class (and other short facts) as an outlined pill. */
-export function InfoChip({ icon, text }: { icon?: IconName; text: string }) {
+export function InfoChip({ icon, text, a11y }: { icon?: IconName; text: string; a11y?: string }) {
   return (
     <View
+      accessible={Boolean(a11y)}
+      accessibilityLabel={a11y}
       style={{
         flexDirection: "row",
         alignItems: "center",
@@ -266,6 +268,9 @@ function TripCard({ trip, names, lang, next, onPress }: { trip: Trip; names: Nam
         <View style={{ flex: 1, minWidth: 0, gap: 6, justifyContent: "center" }}>
           <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 5 }}>
             {vehicle ? <InfoChip icon="car-outline" text={vehicle} /> : null}
+            {trip.luggage_count != null ? (
+              <InfoChip icon="briefcase-outline" text={String(trip.luggage_count)} a11y={plural(trip.luggage_count, ["maleta", "maletas"], ["bag", "bags"], lang)} />
+            ) : null}
             <TripIcons trip={trip} />
             {trip.unread_chat ? (
               <View

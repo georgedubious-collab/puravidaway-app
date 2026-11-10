@@ -16,7 +16,7 @@ import { newItemId, whatsAppLink, type CartItem } from "@/lib/cart";
 import { DEFAULT_PICKUP_TIME, PICKUP_TIMES, addDays, formatShortDate, formatTime12h } from "@/lib/dates";
 import { applyMultiplier, ferryCents, formatDuration, formatUSD, perPersonCents, perPersonShare, quoteTransfer, rideCents } from "@/lib/pricing";
 import { MAX_SHARED_PAX, rideLinkQuery, type RideLinkState } from "@/lib/shareLink";
-import { MIN_OFFER_USD } from "@/lib/tripRequest";
+import { MAX_BAGS, MIN_OFFER_USD } from "@/lib/tripRequest";
 import { vehiclePhoto } from "@/lib/photos";
 import { ridePromises } from "@/lib/trust";
 import { DEFAULT_PREFS, LANGUAGE_LABEL, hasContactDetails, prefsSummary, type DriverLanguage, type RidePrefs } from "@/lib/preferences";
@@ -70,6 +70,8 @@ export function TransfersView({
   const [notes, setNotes] = useState("");
   const [prefs, setPrefs] = useState<RidePrefs>(DEFAULT_PREFS);
   const [driverNotes, setDriverNotes] = useState("");
+  // "How many bags?" — optional; "" = not said (the driver sees nothing).
+  const [bags, setBags] = useState("");
   const driverNotesBlocked = hasContactDetails(driverNotes);
   const [offer, setOffer] = useState("165");
 
@@ -142,6 +144,8 @@ export function TransfersView({
     [stopsAllowed, stopIds, availableStops],
   );
   const effectivePrefs: RidePrefs = spanishDriver ? { ...prefs, language: "spanish_ok" } : prefs;
+  // "4 bags" / "4 maletas" for the trip summary and the extras line, once the traveller says.
+  const bagWords = bags === "" ? [] : [Number(bags) === 1 ? t("1 bag", "1 maleta") : t(`${bags} bags`, `${bags} maletas`)];
   const stopsKey = effectiveStopIds.join(",");
 
   // Shareable link: mirror the ride choices in the address bar (debounced), never personal details.
@@ -232,7 +236,7 @@ export function TransfersView({
         )
       : "";
     const paxText = t(`${pax} pax`, paxWord(pax));
-    const prefWords = prefsSummary(effectivePrefs, lang);
+    const prefWords = [...bagWords, ...prefsSummary(effectivePrefs, lang)];
     onAdd({
       kind: "transfer",
       id: newItemId(),
@@ -262,6 +266,7 @@ export function TransfersView({
         notes: notes.trim() || undefined,
         prefs: effectivePrefs,
         driverNotes: driverNotes.trim() || undefined,
+        ...(bags === "" ? {} : { bags: Number(bags) }),
       },
     });
   }
@@ -300,7 +305,7 @@ export function TransfersView({
   const shownStops = stopsFolded
     ? availableStops.filter((s, i) => i < STOPS_SHOWN || effectiveStopIds.includes(s.id))
     : availableStops;
-  const prefWordsNow = prefsSummary(effectivePrefs, lang);
+  const prefWordsNow = [...bagWords, ...prefsSummary(effectivePrefs, lang)];
   const addLabel =
     mode === "bid" ? t("Add offer request to your trip", "Agregar solicitud de oferta a su viaje") : t("Add this ride to your trip", "Agregar este traslado a su viaje");
 
@@ -659,12 +664,30 @@ export function TransfersView({
                 <span className="mt-0.5 block text-sm text-slate-600 group-open:hidden">
                   {prefWordsNow.length
                     ? prefWordsNow.join(" · ")
-                    : t("Driver's language, child seats, Wi-Fi, a note for your driver", "Idioma del conductor, sillas para niños, Wi-Fi, una nota para su conductor")}
+                    : t("Bags, driver's language, child seats, Wi-Fi, a note for your driver", "Maletas, idioma del conductor, sillas para niños, Wi-Fi, una nota para su conductor")}
                 </span>
               </span>
               <ChevronDown className="h-5 w-5 shrink-0 text-slate-600 transition group-open:rotate-180" aria-hidden />
             </summary>
             <div className="px-4 sm:px-5 pb-5">
+              <label className="mb-4 flex min-h-11 items-center gap-3 rounded-xl border border-slate-200 pl-3 pr-1 py-1">
+                <span className="min-w-0">
+                  <span className="block text-sm font-bold text-slate-700">{t("How many bags?", "¿Cuántas maletas?")}</span>
+                  <span className="block text-sm text-slate-600">{t("Suitcases and large backpacks", "Maletas y mochilas grandes")}</span>
+                </span>
+                <select
+                  value={bags}
+                  onChange={(e) => setBags(e.target.value)}
+                  className="ml-auto min-h-11 min-w-16 rounded-lg border border-slate-300 bg-white px-2 text-base font-bold"
+                >
+                  <option value="">—</option>
+                  {Array.from({ length: MAX_BAGS + 1 }, (_, n) => (
+                    <option key={n} value={String(n)}>
+                      {n}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <fieldset>
                 <legend className="text-sm font-bold text-slate-700 mb-2">{t("Driver's language", "Idioma del conductor")}</legend>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">

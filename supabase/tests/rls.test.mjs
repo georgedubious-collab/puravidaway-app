@@ -364,6 +364,29 @@ await expectRows("assigned driver sees the trip through my_trips()", "driver",
 await expectRows("assigned driver still cannot read the booking row itself", "driver",
   "select 1 from public.bookings where id = '10000000-0000-0000-0000-000000000009'", 0);
 await expectRows("other driver's trips are not in my_trips()", "pending", "select * from public.my_trips()", 0);
+// Migration 0035: passenger short name, bags and estimated arrival for the driver.
+await expectRows("driver sees the passenger's first name only", "driver",
+  "select 1 from public.my_trips() where id = '10000000-0000-0000-0000-000000000009' and passenger_name = 'Ana'", 1);
+await expectRows("short name is first name + last initial", "admin",
+  "select 1 where public.passenger_short_name('  emily rose   Smith ') = 'Emily S.' and public.passenger_short_name('Ana') = 'Ana'", 1);
+await expectRows("a phone or email typed as the name never becomes a short name", "admin",
+  "select 1 where public.passenger_short_name('8888 1234') is null and public.passenger_short_name('') is null and public.passenger_short_name('ana@x.com') = 'Anaxcom'", 1);
+await expectBlocked("more than 20 bags refused", "server",
+  "update public.bookings set luggage_count = 21 where id = '10000000-0000-0000-0000-000000000009'");
+await expectOk("server saves bags, drive time and a stop", "server", `
+  update public.bookings set luggage_count = 4, drive_minutes = 150, scheduled_at = now() + interval '2 days',
+     sightseeing_stops = '[{"id":"tarcoles","price":15},{"id":"poas","price":68}]' where id = '10000000-0000-0000-0000-000000000009'`);
+await expectRows("driver sees the bags", "driver",
+  "select 1 from public.my_trips() where id = '10000000-0000-0000-0000-000000000009' and luggage_count = 4", 1);
+// 150 min drive + Tárcoles 45 + Poás 120 at the stop + 40 detour = 355 min.
+await expectRows("arrival = pickup + drive time + stops and detours", "driver",
+  "select 1 from public.my_trips() where id = '10000000-0000-0000-0000-000000000009' and arrive_at - scheduled_at = interval '355 minutes'", 1);
+await expectOk("server forgets the drive time", "server",
+  "update public.bookings set drive_minutes = null where id = '10000000-0000-0000-0000-000000000009'");
+await expectRows("no drive time: no arrival estimate", "driver",
+  "select 1 from public.my_trips() where id = '10000000-0000-0000-0000-000000000009' and arrive_at is null", 1);
+await expectOk("server resets the test trip", "server",
+  "update public.bookings set luggage_count = null, scheduled_at = null, sightseeing_stops = '[]' where id = '10000000-0000-0000-0000-000000000009'");
 
 // --- Preferences & profiles (file 8) -----------------------------------------------
 await expectOk("driver writes a bio", "driver",

@@ -240,6 +240,13 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
               <Item k={t("Tipo de vehículo", "Vehicle class")} v={catalog.vehicles.find((v) => v.id === b.vehicle_class)?.name ?? b.vehicle_class} />
             )}
             {b.passenger_count && <Item k={t("Pasajeros", "Passengers")} v={b.passenger_count} />}
+            {b.luggage_count != null && <Item k={t("Maletas", "Bags")} v={b.luggage_count} />}
+            {b.drive_minutes != null && (
+              <Item
+                k={t("Tiempo de manejo", "Drive time")}
+                v={`${Math.floor(b.drive_minutes / 60)} h ${String(b.drive_minutes % 60).padStart(2, "0")} min${t(" (sin paradas)", " (without stops)")}`}
+              />
+            )}
             {stops && <Item k={t("Paradas / extras", "Stops / extras")} v={stops} />}
             {b.lodging_tier && (
               <Item k={t("Hospedaje", "Lodging")} v={catalog.lodgingTiers.find((x) => x.id === b.lodging_tier)?.name ?? b.lodging_tier} />

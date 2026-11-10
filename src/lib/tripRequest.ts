@@ -19,6 +19,8 @@ import { quoteDayTour, quoteExpedition, quoteTransfer } from "./pricing";
 export const MIN_OFFER_USD = 50;
 export const MAX_OFFER_USD = 5000;
 export const MAX_TRIP_ITEMS = 10;
+/** Most bags a traveller can enter (bookings.luggage_count check, migration 0035). */
+export const MAX_BAGS = 20;
 
 /** A typed pickup / drop-off (Google place id + what the traveller saw). */
 export interface SpecPlace {
@@ -55,6 +57,8 @@ export type ItemSpec =
       prefs?: RidePrefs;
       /** Message for the driver (no contact details). */
       driverNotes?: string;
+      /** Suitcases and large backpacks (0–20), optional; shown to the driver. */
+      bags?: number;
     }
   | {
       kind: "day_tour";
@@ -99,6 +103,7 @@ export function parseSpec(raw: unknown): ItemSpec | null {
     const prefs = o.prefs === undefined ? undefined : parsePrefs(o.prefs);
     if (prefs === null) return null;
     if (o.driverNotes !== undefined && (typeof o.driverNotes !== "string" || o.driverNotes.length > 500)) return null;
+    if (o.bags !== undefined && o.bags !== null && (!Number.isInteger(o.bags) || (o.bags as number) < 0 || (o.bags as number) > MAX_BAGS)) return null;
     const originPlace = parseSpecPlace(o.originPlace);
     const destinationPlace = parseSpecPlace(o.destinationPlace);
     if (originPlace === null || destinationPlace === null) return null;
@@ -117,6 +122,7 @@ export function parseSpec(raw: unknown): ItemSpec | null {
       notes: (o.notes as string | undefined) || undefined,
       prefs,
       driverNotes: (o.driverNotes as string | undefined) || undefined,
+      ...(typeof o.bags === "number" ? { bags: o.bags } : {}),
     };
   }
   if (o.kind === "day_tour") {

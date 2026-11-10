@@ -49,6 +49,12 @@ export interface Trip {
   completed_at: string | null;
   /** When the driver tapped "I'm on my way". */
   en_route_at: string | null;
+  /** For the airport name sign: first name + last initial ("Emily R."); missing before migration 0035. */
+  passenger_name?: string | null;
+  /** Bags (suitcases and large backpacks) the traveller said they bring; null when not given. */
+  luggage_count?: number | null;
+  /** Estimated arrival at the drop-off (pickup + drive time + stops), computed by the server; null when unknown. */
+  arrive_at?: string | null;
   /** Unread chat messages from the traveller or our team (my_chat_unread(), added by the app). */
   unread_chat?: number;
 }

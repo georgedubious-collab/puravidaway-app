@@ -244,7 +244,8 @@ Legal pages (`/terms`, `/privacy`, `/cancellation`) are linked from every footer
    cards with the price per car and "from $X per person (N travellers)", the "Every ride includes"
    list (flight tracking on airport pickups, 60 min free waiting, child seats free on request, free
    cancellation up to 24 h), live route timeline with total duration, flight number or hotel
-   field, price breakdown. After a ride is added, an inline, dismissible suggestion of 1–2 day
+   field, an optional "How many bags?" / "¿Cuántas maletas?" (suitcases and large backpacks, 0–20;
+   website Extras step and the app's "When & who" step; shown to the driver), price breakdown. After a ride is added, an inline, dismissible suggestion of 1–2 day
    tours / expeditions in the drop-off region (Welcome Pickups-style).
 2. **1-Day Private Tours** — region filter, Smart En-Route Transfer upgrade (+$65).
 3. **Multi-Day Expeditions** — lodging tier selector, day-by-day itinerary.
@@ -286,8 +287,9 @@ Bookings, payment status and balance due, trip chat (Phase 4).
 ### 4.5 Trip chat and contact privacy (Jorge, 2026-11-10)
 - **Drivers never see the traveller's phone or email.** Not on the driver portal, the driver app,
   `/api/v1`, pushes or emails to drivers (the driver trip page used to show the phone from the day
-  before; removed). Drivers see the traveller's first name and talk to them in the trip chat, or call
-  our team. Admins keep full access. Booking fields the assigned driver can read
+  before; removed). Drivers see the traveller's first name + last initial ("Emily R.", for the
+  airport name sign; `passenger_short_name()` in `my_trips()`, letters only, migration 0035) and talk
+  to them in the trip chat, or call our team. Admins keep full access. Booking fields the assigned driver can read
   (`client_notes`, `flight_or_hotel_notes`, `driver_notes`) have contact details hidden on every
   write (trigger `bookings_guard_notes`, migration 0034), the original kept for admins.
 - **One chat per booking** between the traveller and the currently assigned driver; our team reads
@@ -474,6 +476,12 @@ rainy-season delays). Route durations are stored per corridor, not computed as s
 distance: `ROUTE_MINUTES` in `src/lib/catalog.ts` has door-to-door times for all 36 hub pairs
 (a type check fails the build if one is missing; Drake Bay = road to Sierpe + 75 min boat).
 Pending Jorge's confirmation.
+**Driver's arrival estimate (2026-11-10, migration 0035):** each ride stores the drive time it was
+priced with (`bookings.drive_minutes`: Google's route for typed places, `ROUTE_MINUTES` between two of
+our towns). `my_trips()` returns `arrive_at` = pickup (or the actual pickup once the trip started) +
+drive time + each stop's time there and its detour (`sightseeing_stops.duration_min + detour_min`).
+The driver app shows it on the drop-off ("Llegada aprox. 3:45 p. m." / "Arrives approx. 3:45 PM"),
+the driver portal as "Llegada aprox.". No drive time → nothing shown, never a straight-line guess.
 
 ---
 
@@ -512,6 +520,9 @@ expedition) · `origin` text (place name + address) · `origin_coords` jsonb (`l
 `place_id`, `town`, and `route` = the Google road km / minutes the price was made from, null
 between two of our towns) · `destination` text · `destination_coords` jsonb (same, without route) · `sightseeing_stops` jsonb (array of stop IDs + snapshot prices) · `vehicle_class` ·
 `lodging_tier` · `scheduled_at` timestamptz · `passenger_count` int · `flight_or_hotel_notes` ·
+`luggage_count` smallint (0–20, null = not given; migration 0035) · `drive_minutes` smallint
+(door-to-door drive time the ride was priced with: the Google route, or `ROUTE_MINUTES` between two
+of our towns; null = unknown; 0035) ·
 `pricing_mode` (`fixed` | `bid`) · `total_price` numeric · `driver_payout` / `platform_fee` numeric
 (migration 0017; null on expeditions) · `company_costs` (entrances / lunch / activities the company pays, deducted before the driver's share; part of `platform_fee`; 0023) · `claimed_at` (set when the team accepted an offer from the job board) · `currency` (`USD` | `CRC`) ·
 `amount_paid` numeric · `payment_mode` (`full_100` | `cash_driver`; `deposit_20` on old rows
