@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useRef } from "react";
 import { FlatList, Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useBooking } from "../../booking";
+import { bagsFor, useBooking } from "../../booking";
 import { Calendar, longDate } from "../../DatePicker";
 import { pick } from "../../haptics";
 import { useT } from "../../i18n";
@@ -30,7 +30,7 @@ function Travellers() {
   );
 }
 
-/** "How many bags?" — optional; the driver sees the number. */
+/** "How many bags?" — starts at 2 per traveller; the driver sees the number. */
 function Bags() {
   const { t } = useT();
   const { state, set } = useBooking();
@@ -41,10 +41,10 @@ function Bags() {
       </View>
       <View style={{ flex: 1, gap: 1 }}>
         <Text style={T.bodyStrong}>{t("How many bags?", "¿Cuántas maletas?")}</Text>
-        <Text style={T.small}>{t("Suitcases and large backpacks", "Maletas y mochilas grandes")}</Text>
+        <Text style={T.small}>{t("1 large suitcase + 1 carry-on per person. Change it if you bring more or less.", "1 maleta grande y 1 de mano por persona. Cámbielo si lleva más o menos.")}</Text>
       </View>
       <Stepper
-        value={state.bags ?? 0}
+        value={bagsFor(state)}
         min={0}
         max={20}
         onChange={(bags) => set({ bags })}
