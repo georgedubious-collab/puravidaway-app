@@ -159,6 +159,8 @@ export interface TripContact {
   guest_name: string | null;
   guest_email: string | null;
   guest_phone: string | null;
+  /** Language the request was sent in ("en" | "es"); the traveller's emails and trip page follow it. */
+  language?: string | null;
 }
 
 /** Private trip-page codes: 64 hex characters. */

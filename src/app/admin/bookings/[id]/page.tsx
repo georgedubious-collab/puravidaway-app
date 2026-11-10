@@ -36,7 +36,7 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
   const [{ data: b, error }, { data: drivers }, catalog] = await Promise.all([
     supabase
       .from("bookings")
-      .select("*, trips(guest_name, guest_email, guest_phone)")
+      .select("*, trips(guest_name, guest_email, guest_phone, language)")
       .eq("id", id)
       .maybeSingle<BookingRow & { trips: TripContact | null }>(),
     supabase
@@ -191,11 +191,23 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
             <Item k={t("Nombre", "Name")} v={guest.guest_name} />
             <Item k={t("Correo", "Email")} v={guest.guest_email} />
             <Item k="WhatsApp" v={guest.guest_phone} />
+            <Item
+              k={t("Idioma", "Language")}
+              v={
+                guest.language === "es"
+                  ? t("Español: escríbale en español (chat y WhatsApp)", "Spanish: write to them in Spanish (chat and WhatsApp)")
+                  : t("Inglés", "English")
+              }
+            />
             <Item k={t("Sus notas", "Their notes")} v={b.client_notes} />
           </dl>
           {phoneDigits && (
             <a
-              href={`https://wa.me/${phoneDigits}?text=${encodeURIComponent(`Hi ${guest.guest_name ?? ""}! This is Costa Rica Private Transfers about your trip request ${b.booking_ref}.`)}`}
+              href={`https://wa.me/${phoneDigits}?text=${encodeURIComponent(
+                guest.language === "es"
+                  ? `¡Hola ${guest.guest_name ?? ""}! Le escribimos de Costa Rica Private Transfers sobre su solicitud de viaje ${b.booking_ref}.`
+                  : `Hi ${guest.guest_name ?? ""}! This is Costa Rica Private Transfers about your trip request ${b.booking_ref}.`,
+              )}`}
               target="_blank"
               rel="noreferrer"
               className="mt-4 inline-flex min-h-10 items-center rounded-lg bg-emerald-700 px-4 text-sm font-bold text-white"

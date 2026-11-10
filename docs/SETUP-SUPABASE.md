@@ -63,6 +63,7 @@ Either way works; the first needs no installs.
 30. `20261109000030_test_payments.sql` — payments may be marked `provider = 'test'` (pre-launch test checkout)
 31. `20261109000031_review_hold.sql` — replacing key documents pauses new offers until the team checks them (`review_hold`)
 32. `20261109000032_driver_calendar.sql` — drivers' blocked days (`driver_unavailable`, `set_unavailable()`)
+33. `20261110000033_trip_language.sql` — `trips.language` (`en` | `es`): the language each trip request was sent in
 
 Later files are added as the app grows. Since Option C is set up, they run by themselves
 after a merge; each pull request still lists them.

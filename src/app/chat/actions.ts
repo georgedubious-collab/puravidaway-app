@@ -5,6 +5,8 @@ import { getCurrentProfile } from "@/lib/auth";
 import { TRIP_TOKEN } from "@/lib/bookings";
 import { ADMIN_EMAIL, SITE_URL, sendEmail } from "@/lib/email";
 import { hasContactDetails } from "@/lib/preferences";
+import { parsePublicLang } from "@/lib/publicLang";
+import { chatMessageEmail } from "@/lib/travellerMessages";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 /**
@@ -44,7 +46,7 @@ interface Ctx {
     assigned_driver_id: string | null;
   };
   /** Server-only traveller details (never from the booking row, which the driver can read). */
-  trip: { access_token: string; guest_name: string | null; guest_email: string | null } | null;
+  trip: { access_token: string; guest_name: string | null; guest_email: string | null; language?: string | null } | null;
 }
 
 async function authorize(bookingId: string, viewer: ChatViewer): Promise<Ctx | string> {
@@ -58,7 +60,7 @@ async function authorize(bookingId: string, viewer: ChatViewer): Promise<Ctx | s
     .maybeSingle();
   if (!booking) return "Chat not found.";
   const { data: trip } = booking.trip_id
-    ? await db.from("trips").select("access_token, guest_name, guest_email").eq("id", booking.trip_id).maybeSingle()
+    ? await db.from("trips").select("access_token, guest_name, guest_email, language").eq("id", booking.trip_id).maybeSingle()
     : { data: null };
 
   if (viewer.kind === "traveller") {
@@ -163,15 +165,25 @@ export async function sendChat(bookingId: string, viewer: ChatViewer, raw: strin
  */
 async function notifyOthers(ctx: Ctx, text: string) {
   const b = ctx.booking;
-  const recipients: { party: Party; email: string; url: string; greeting: string }[] = [];
+  const snippet = text.length > 300 ? `${text.slice(0, 300)}…` : text;
+  // The traveller's email is in the language they booked in (src/lib/travellerMessages.ts).
   if (ctx.party !== "client" && ctx.trip?.guest_email) {
-    recipients.push({
-      party: "client",
-      email: ctx.trip.guest_email,
-      url: `${SITE_URL}/trip/${ctx.trip.access_token}#chat-${b.id}`,
-      greeting: `Hi ${(ctx.trip.guest_name ?? "").split(" ")[0] || "there"},`,
-    });
+    const claim = await ctx.db.rpc("claim_chat_email", { p_booking: b.id, p_party: "client" });
+    if (!claim.error && claim.data === true) {
+      await sendEmail({
+        to: ctx.trip.guest_email,
+        ...chatMessageEmail(parsePublicLang(ctx.trip.language), {
+          guestName: ctx.trip.guest_name,
+          ref: b.booking_ref,
+          from: ctx.party === "admin" ? "team" : "driver",
+          snippet,
+          chatUrl: `${SITE_URL}/trip/${ctx.trip.access_token}#chat-${b.id}`,
+        }),
+      });
+    }
   }
+  // The driver and the team: as before.
+  const recipients: { party: Party; email: string; url: string; greeting: string }[] = [];
   if (ctx.party !== "driver" && b.assigned_driver_id) {
     const { data: p } = await ctx.db.from("profiles").select("email, full_name").eq("id", b.assigned_driver_id).maybeSingle();
     if (p?.email) {
@@ -183,9 +195,7 @@ async function notifyOthers(ctx: Ctx, text: string) {
     recipients.push({ party: "admin", email: ADMIN_EMAIL, url: `${SITE_URL}/admin/bookings/${b.id}`, greeting: "New chat message." });
   }
 
-  const fromFor = (to: Party) =>
-    ctx.party === "admin" ? "our team" : ctx.party === "client" ? "the traveller" : to === "client" ? "your driver" : "the driver";
-  const snippet = text.length > 300 ? `${text.slice(0, 300)}…` : text;
+  const fromFor = () => (ctx.party === "admin" ? "our team" : ctx.party === "client" ? "the traveller" : "the driver");
 
   for (const r of recipients) {
     const claim = await ctx.db.rpc("claim_chat_email", { p_booking: b.id, p_party: r.party });
@@ -193,7 +203,7 @@ async function notifyOthers(ctx: Ctx, text: string) {
     await sendEmail({
       to: r.email,
       subject: `New message about your trip ${b.booking_ref}`,
-      lines: [r.greeting, `You have a new message from ${fromFor(r.party)}:`, `“${snippet}”`, "Reply in the trip chat (please don't reply to this email)."],
+      lines: [r.greeting, `You have a new message from ${fromFor()}:`, `“${snippet}”`, "Reply in the trip chat (please don't reply to this email)."],
       button: { label: "Open the chat", url: r.url },
     });
   }

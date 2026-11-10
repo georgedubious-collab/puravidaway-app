@@ -11,6 +11,11 @@ import type { Metadata } from "next";
 
 export type PublicLang = "en" | "es";
 
+/** An untrusted or stored value as a language: anything that isn't "es" is English. */
+export function parsePublicLang(v: unknown): PublicLang {
+  return v === "es" ? "es" : "en";
+}
+
 /** Pick the English or Spanish text. */
 export function t<T>(lang: PublicLang, en: T, es: T): T {
   return lang === "es" ? es : en;

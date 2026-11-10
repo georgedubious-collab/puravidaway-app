@@ -94,6 +94,29 @@ export function formatScheduledAt(iso: string | null | undefined, lang: "en" | "
   return p ? `${p.ymd} · ${formatTime12h(p.time, lang)}` : "";
 }
 
+/**
+ * A calendar date for travellers in their language: English keeps "2026-11-22"
+ * (as in every English email so far); Spanish reads "22 de noviembre de 2026" (es-CR).
+ */
+export function formatYmdFor(ymd: string, lang: "en" | "es"): string {
+  if (lang !== "es" || !isValidYmd(ymd)) return ymd;
+  const [y, m, d] = ymd.split("-").map(Number);
+  return new Intl.DateTimeFormat("es-CR", { timeZone: "UTC", day: "numeric", month: "long", year: "numeric" }).format(
+    new Date(Date.UTC(y, m - 1, d)),
+  );
+}
+
+/**
+ * formatScheduledAt for travellers (emails, push notifications, the trip page), in
+ * Costa Rica time: "2026-11-22 · 9:00 AM" in English, "22 de noviembre de 2026 · 9:00 a. m."
+ * in Spanish.
+ */
+export function formatScheduledAtFor(iso: string | null | undefined, lang: "en" | "es"): string {
+  if (lang !== "es") return formatScheduledAt(iso);
+  const p = scheduledParts(iso);
+  return p ? `${formatYmdFor(p.ymd, "es")} · ${formatTime12h(p.time, "es")}` : "";
+}
+
 /** The current time in milliseconds, for server pages that compare against "now" on each request. */
 export function nowMs(): number {
   return Date.now();

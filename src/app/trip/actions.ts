@@ -3,9 +3,10 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { headers } from "next/headers";
 import { after } from "next/server";
+import { localizeCatalog, placeNameFor } from "@/lib/catalogEs";
 import { getCatalog } from "@/lib/catalogSource";
 import { cashAllowed, itemPaymentMode, parsePaymentMode } from "@/lib/cart";
-import { costaRicaTimestamp, formatTime12h, todayInCostaRica } from "@/lib/dates";
+import { costaRicaTimestamp, todayInCostaRica } from "@/lib/dates";
 import { ADMIN_EMAIL, SITE_URL, sendEmail } from "@/lib/email";
 import { stopTotalCents } from "@/lib/catalog";
 import { resolveTransfer } from "@/lib/googleMaps";
@@ -13,6 +14,8 @@ import type { RidePlace, RideRoute } from "@/lib/places";
 import { notifyDriversOfJobs } from "@/lib/jobAlerts";
 import { hasDriverPayout, splitPayout } from "@/lib/payout";
 import { cashFeeCents, formatBpsPercent } from "@/lib/pricing";
+import { parsePublicLang, type PublicLang } from "@/lib/publicLang";
+import { clientLanguageNote, requestItemLine, requestPaymentLine, tripRequestEmail } from "@/lib/travellerMessages";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { MAX_TRIP_ITEMS, itemTime, parseSpec, priceItem, type ItemSpec } from "@/lib/tripRequest";
 
@@ -31,6 +34,12 @@ export interface TripRequestInput {
   notes: string;
   /** Hidden field real people leave empty (spam trap). */
   website: string;
+  /**
+   * Language the traveller is booking in: "es" from /es and the customer app in Spanish.
+   * Saved with the trip; the confirmation email and everything sent later follow it.
+   * Anything else (or nothing, e.g. an older app build) is English.
+   */
+  lang?: PublicLang;
 }
 
 export type TripRequestResult =
@@ -54,6 +63,7 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
     const email = String(input.email ?? "").trim().toLowerCase();
     const phone = String(input.phone ?? "").trim();
     const notes = String(input.notes ?? "").trim().slice(0, 1000);
+    const lang = parsePublicLang(input.lang);
     if (!name || name.length > 80) return { ok: false, error: "Please add your full name." };
     if (!EMAIL.test(email) || email.length > 120) return { ok: false, error: "Please check your email address." };
     if (phone.replace(/\D/g, "").length < 7 || phone.length > 30) {
@@ -130,9 +140,11 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
 
     const tripId = randomUUID();
     const tripToken = randomBytes(32).toString("hex");
-    const trip = await db
-      .from("trips")
-      .insert({ id: tripId, access_token: tripToken, guest_name: name, guest_email: email, guest_phone: phone });
+    const tripRow = { id: tripId, access_token: tripToken, guest_name: name, guest_email: email, guest_phone: phone };
+    let trip = await db.from("trips").insert({ ...tripRow, language: lang });
+    // Safety net for the minutes between a deploy and its database update (migration 0033):
+    // a request is never lost because the language column isn't there yet.
+    if (trip.error && /language/.test(trip.error.message ?? "")) trip = await db.from("trips").insert(tripRow);
     if (trip.error) {
       console.error("[trip request]", trip.error);
       return { ok: false, error: "We couldn't save your request. Please try again or send it on WhatsApp." };
@@ -204,37 +216,37 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
     );
     const onlineCents = tripCents - cashCents;
     const money = (c: number) => `$${(c / 100).toFixed(2)}`;
-    const paymentLine =
-      cashCents > 0
-        ? `Payment: cash to your driver, ${money(cashCents)} (includes a ${formatBpsPercent(feeBps)} cash booking fee of ${money(feeTotalCents)})${
-            onlineCents > 0 ? `; ${money(onlineCents)} online in full for the expedition, by secure link once confirmed` : ""
-          }.`
-        : `Payment: online in full, ${money(onlineCents)}. We send you a secure payment link once your trip is confirmed.`;
     const tripUrl = `${SITE_URL}/trip/${tripToken}`;
     // One line per item, e.g. "CRPT-10492 · 2026-11-22, 9:00 AM pickup · Ride: SJO Airport → Manuel Antonio".
-    const itemLines = priced.map(({ spec, date, ride }, i) => {
-      const what =
-        spec.kind === "transfer"
-          ? `Ride: ${ride?.origin.label ?? spec.origin} → ${ride?.destination.label ?? spec.destination}`
-          : spec.kind === "day_tour"
-            ? `Day tour: ${catalog.dayTours.find((t) => t.id === spec.tourId)?.name ?? spec.tourId}`
-            : `Expedition: ${catalog.expeditions.find((x) => x.id === spec.expeditionId)?.name ?? spec.expeditionId}`;
-      const when = `${date}, ${formatTime12h(itemTime(spec))} ${spec.kind === "transfer" ? "pickup" : "start (to confirm)"}`;
-      return [refs[i], when, what].filter(Boolean).join(" · ");
-    });
+    // The traveller's copy is in their language; the team's copy stays English.
+    const itemLinesIn = (l: PublicLang) => {
+      const names = localizeCatalog(catalog, l);
+      return priced.map(({ spec, date, ride }, i) =>
+        requestItemLine(l, {
+          ref: refs[i],
+          date,
+          time: itemTime(spec),
+          kind: spec.kind,
+          what:
+            spec.kind === "transfer"
+              ? `${placeNameFor(ride?.origin.label ?? spec.origin, l)} → ${placeNameFor(ride?.destination.label ?? spec.destination, l)}`
+              : spec.kind === "day_tour"
+                ? (names.dayTours.find((t) => t.id === spec.tourId)?.name ?? spec.tourId)
+                : (names.expeditions.find((x) => x.id === spec.expeditionId)?.name ?? spec.expeditionId),
+        }),
+      );
+    };
+    const itemLines = itemLinesIn("en");
     after(async () => {
       await sendEmail({
         to: email,
-        subject: `We got your trip request (${refs.join(", ")})`,
-        lines: [
-          `Hi ${name.split(" ")[0]},`,
-          `Thanks for your request! Our team is checking availability and will confirm your pickup times. Nothing has been charged.`,
-          `Your booking reference${refs.length > 1 ? "s" : ""}: ${refs.join(", ")}.`,
-          ...itemLines,
-          paymentLine,
-          "Times are Costa Rica time. Your trip page has your bookings and a chat with our team. Your driver's profile and car photos appear there once confirmed.",
-        ],
-        button: { label: "Open your trip page", url: tripUrl },
+        ...tripRequestEmail(lang, {
+          guestName: name,
+          refs,
+          itemLines: lang === "en" ? itemLines : itemLinesIn(lang),
+          paymentLine: requestPaymentLine(lang, { cashCents, onlineCents, feeTotalCents, feePercent: formatBpsPercent(feeBps) }),
+          tripUrl,
+        }),
       });
       if (ADMIN_EMAIL) {
         await sendEmail({
@@ -247,6 +259,7 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
               : `Pays online in full: ${money(onlineCents)} (send the payment link once confirmed).`,
             ...itemLines,
             notes ? `Notes: ${notes}` : "",
+            clientLanguageNote(lang),
           ].filter(Boolean),
           button: { label: "Open in Bookings", url: `${SITE_URL}/admin/bookings` },
         });

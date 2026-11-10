@@ -44,7 +44,7 @@ export function LangSwitch({ lang }: { lang: PublicLang }) {
 const flagClass = "w-[22px] h-[14px] rounded-[2px] shrink-0 ring-1 ring-black/10";
 
 /** Costa Rica: blue, white, red (double height), white, blue. */
-function CostaRicaFlag() {
+export function CostaRicaFlag() {
   return (
     <svg viewBox="0 0 20 12" className={flagClass} aria-hidden focusable="false">
       <rect width="20" height="12" fill="#002b7f" />
@@ -55,7 +55,7 @@ function CostaRicaFlag() {
 }
 
 /** United States, simplified: 13 stripes and a blue canton with a few stars as dots. */
-function UsFlag() {
+export function UsFlag() {
   return (
     <svg viewBox="0 0 20 13" className={flagClass} aria-hidden focusable="false">
       <rect width="20" height="13" fill="#b22234" />

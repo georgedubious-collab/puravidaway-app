@@ -81,6 +81,7 @@ export function TripSummary({ trip }: { trip: TripState }) {
         cashFeeBps,
         ...contact,
         website,
+        lang,
       });
       if (res.ok) {
         trip.onSent(res.refs, res.tripToken);

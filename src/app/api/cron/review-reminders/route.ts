@@ -1,6 +1,9 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
+import { placeNameFor } from "@/lib/catalogEs";
 import { SITE_URL, sendEmail } from "@/lib/email";
+import { parsePublicLang } from "@/lib/publicLang";
+import { driverFirstName, reviewReminderEmail } from "@/lib/travellerMessages";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 /**
@@ -47,24 +50,25 @@ export async function GET(req: Request) {
   let sent = 0;
   for (const b of pending) {
     const [{ data: trip }, { data: who }] = await Promise.all([
-      db.from("trips").select("guest_name, guest_email, access_token").eq("id", b.trip_id!).maybeSingle(),
+      db.from("trips").select("guest_name, guest_email, access_token, language").eq("id", b.trip_id!).maybeSingle(),
       db.from("profiles").select("full_name").eq("id", b.assigned_driver_id!).maybeSingle(),
     ]);
     // Mark first so a failure never causes a second email later.
     await db.from("bookings").update({ review_reminded_at: new Date().toISOString() }).eq("id", b.id);
     if (!trip?.guest_email) continue;
-    const first = (who?.full_name ?? "your driver").split(" ")[0];
+    // In the language the traveller booked in.
+    const lang = parsePublicLang(trip.language);
     const ok = await sendEmail({
       to: trip.guest_email,
-      subject: `A quick one: how was ${first}? (${b.booking_ref})`,
-      lines: [
-        `Hi ${(trip.guest_name ?? "").split(" ")[0] || "there"},`,
-        `Just a gentle reminder in case it slipped by: could you rate ${first} for your ${
-          b.service_type === "transfer" ? `ride ${b.origin ?? ""} → ${b.destination ?? ""}` : "trip"
-        }? It takes 10 seconds. A few words help even more: our best-rated drivers get more trips.`,
-        "This is the only reminder we'll send.",
-      ],
-      button: { label: `Rate ${first}`, url: `${SITE_URL}/trip/${trip.access_token}` },
+      ...reviewReminderEmail(lang, {
+        guestName: trip.guest_name,
+        driver: driverFirstName(lang, who?.full_name, false),
+        ref: b.booking_ref,
+        ride: b.service_type === "transfer",
+        origin: placeNameFor(b.origin, lang),
+        destination: placeNameFor(b.destination, lang),
+        tripUrl: `${SITE_URL}/trip/${trip.access_token}`,
+      }),
     });
     if (ok) sent++;
   }

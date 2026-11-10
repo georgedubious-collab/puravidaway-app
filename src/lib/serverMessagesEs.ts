@@ -1,7 +1,8 @@
 /**
  * Spanish for the messages the server sends back to the booking storefront
  * (trip request: src/app/trip/actions.ts and src/lib/tripRequest.ts; place search
- * and routes: src/lib/googleMaps.ts, src/app/api/places). The server keeps
+ * and routes: src/lib/googleMaps.ts, src/app/api/places) and to the private trip
+ * page (rating and trip chat). The server keeps
  * answering in English (the same action serves / and /es, the apps and the trip
  * page); the Spanish storefront translates what it shows here. A message that
  * isn't listed is shown as it arrives (English).
@@ -40,6 +41,28 @@ const EXACT: Record<string, string> = {
   "That tour is no longer offered.": "Ese tour ya no está disponible.",
   "That expedition is no longer offered.": "Esa expedición ya no está disponible.",
   "That lodging option is no longer offered.": "Esa opción de alojamiento ya no está disponible.",
+  // Rating on the trip page (src/app/trip/[token]/actions.ts)
+  "This link isn't valid any more.": "Este enlace ya no es válido.",
+  "Pick 1 to 5 stars.": "Elija de 1 a 5 estrellas.",
+  "Please keep phone numbers, emails and links out of the review.": "Por favor, no incluya teléfonos, correos ni enlaces en su comentario.",
+  "We couldn't find that booking on your trip.": "No encontramos esa reserva en su viaje.",
+  "You can rate your driver once the trip is completed.": "Podrá calificar a su conductor cuando el viaje haya terminado.",
+  "Thank you, you've already rated this trip.": "Gracias, usted ya calificó este viaje.",
+  "We couldn't save your rating. Please try again.": "No pudimos guardar su calificación. Por favor, inténtelo de nuevo.",
+  // Trip chat (src/app/chat/actions.ts)
+  "Chat not found.": "No se encontró el chat.",
+  "Chat isn't switched on yet.": "El chat aún no está activo.",
+  "Please sign in again.": "Por favor, inicie sesión de nuevo.",
+  "Your driver account is paused. Please contact our team.": "Su cuenta de conductor está en pausa. Por favor, contacte a nuestro equipo.",
+  "You don't have access to this chat.": "Usted no tiene acceso a este chat.",
+  "Couldn't load the chat. Please reload the page.": "No se pudo cargar el chat. Por favor, recargue la página.",
+  "Write a message first.": "Escriba un mensaje primero.",
+  "Please keep phone numbers, emails and links out of the chat. Our team shares contact details when needed.":
+    "Por favor, no incluya teléfonos, correos ni enlaces en el chat. Nuestro equipo comparte los datos de contacto cuando hace falta.",
+  "Please keep phone numbers, emails and links out of the chat.": "Por favor, no incluya teléfonos, correos ni enlaces en el chat.",
+  "This booking was cancelled. Contact our team if you need help.": "Esta reserva fue cancelada. Contacte a nuestro equipo si necesita ayuda.",
+  "You're sending messages very fast. Please wait a moment.": "Está enviando mensajes muy rápido. Por favor, espere un momento.",
+  "Couldn't send. Please try again.": "No se pudo enviar. Por favor, inténtelo de nuevo.",
   // Places and routes
   "Something went wrong. Please try again.": "Algo salió mal. Por favor, inténtelo de nuevo.",
   "Address search isn't switched on yet. Choose one of our towns from the list.":
@@ -61,6 +84,7 @@ const EXACT: Record<string, string> = {
 
 /** Messages with a number or a vehicle name inside. */
 const PATTERNS: [RegExp, (m: RegExpMatchArray) => string][] = [
+  [/^Messages can be up to (\d+) characters\.$/, (m) => `Los mensajes pueden tener hasta ${m[1]} caracteres.`],
   [/^Up to (\d+) items per request, please\.$/, (m) => `Hasta ${m[1]} elementos por solicitud, por favor.`],
   [
     /^The cash booking fee is now ([\d.]+%)\. Please reload the page to see your new total, then send again\.$/,

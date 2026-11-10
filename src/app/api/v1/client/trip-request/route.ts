@@ -1,11 +1,14 @@
 import { submitTripRequest, type TripRequestInput } from "@/app/trip/actions";
+import { parsePublicLang } from "@/lib/publicLang";
 import { TEST_CHECKOUT_ENABLED } from "@/lib/testCheckout";
 import { json, signedIn } from "../../shared";
 
 /**
- * POST { items, mode, cashFeeBps, name, phone, notes } → send a trip request from the
+ * POST { items, mode, cashFeeBps, name, phone, notes, lang } → send a trip request from the
  * traveller app. Same server action as the website (it prices every item again); the
- * email is always the signed-in one, so the trip shows up in the app.
+ * email is always the signed-in one, so the trip shows up in the app. `lang` ("en" | "es") is
+ * the app's language when the request is sent: the traveller's emails, push notifications and
+ * trip page follow it. App builds from before this field send nothing and get English.
  */
 export async function POST(req: Request) {
   const me = await signedIn();
@@ -20,6 +23,7 @@ export async function POST(req: Request) {
     phone: String(b.phone ?? ""),
     notes: String(b.notes ?? ""),
     website: "",
+    lang: parsePublicLang(b.lang),
   });
   return json({ ...res, testCheckout: TEST_CHECKOUT_ENABLED }, res.ok ? 200 : 400);
 }

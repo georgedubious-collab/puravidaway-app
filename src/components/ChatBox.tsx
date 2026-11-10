@@ -4,6 +4,7 @@ import { Send } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { getChat, sendChat, type ChatMessage, type ChatViewer } from "@/app/chat/actions";
 import { hasContactDetails } from "@/lib/preferences";
+import { localizeServerMessage } from "@/lib/serverMessagesEs";
 import { teamLocale, type TeamLang } from "@/lib/teamLang";
 
 const POLL_MS = 8000;
@@ -20,7 +21,7 @@ export function ChatBox({
   allowContactDetails = false,
   lang = "en",
 }: {
-  /** Team pages and driver portal pass their language; travellers' pages leave it English. */
+  /** Team pages and the driver portal pass their language; the traveller's trip page passes the trip's. */
   lang?: TeamLang;
   bookingId: string;
   viewer: ChatViewer;
@@ -98,7 +99,7 @@ export function ChatBox({
               }`}
             >
               <p className={`text-[11px] font-bold ${m.mine ? "text-emerald-100" : "text-slate-500"}`}>
-                {m.mine ? (es ? "Usted" : "You") : m.name} · {formatTime(m.at, lang)}
+                {m.mine ? (es ? "Usted" : "You") : es ? (NAMES_ES[m.name] ?? m.name) : m.name} · {formatTime(m.at, lang)}
               </p>
               <p className="whitespace-pre-wrap break-words">{m.text}</p>
             </div>
@@ -143,13 +144,16 @@ export function ChatBox({
         )}
         {error && (
           <p role="alert" className="mt-2 text-xs font-semibold text-red-700">
-            {error}
+            {localizeServerMessage(error, lang)}
           </p>
         )}
       </form>
     </div>
   );
 }
+
+/** The stand-in names the server uses when it has no first name (src/app/chat/actions.ts). */
+const NAMES_ES: Record<string, string> = { "Our team": "Nuestro equipo", Driver: "Conductor", Traveller: "Viajero" };
 
 function formatTime(iso: string, lang: TeamLang): string {
   const d = new Date(iso);
