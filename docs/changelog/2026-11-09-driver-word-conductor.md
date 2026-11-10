@@ -1,0 +1,1 @@
+- 2026-11-09 — Claude — Driver app says "conductor" instead of "chofer", matching the website (Jorge's choice).

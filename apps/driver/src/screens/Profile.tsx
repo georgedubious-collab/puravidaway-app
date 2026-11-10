@@ -98,7 +98,7 @@ export function Profile({
       <Card>
         <ListRow
           icon="document-text-outline"
-          title={driver ? t("Documentos y vehículos", "Documents and vehicles") : t("Postularse como chofer", "Apply to drive")}
+          title={driver ? t("Documentos y vehículos", "Documents and vehicles") : t("Postularse como conductor", "Apply to drive")}
           detail={
             driver
               ? vehicles.map((v) => (v.make_model ?? t("Vehículo", "Vehicle")) + " " + (v.plate ?? "")).join(" · ") || t("Agregue su primer vehículo", "Add your first vehicle")
@@ -121,7 +121,7 @@ export function Profile({
         <Ionicons name="star" size={13} color={C.faint} />
         <Text style={[S.muted, { fontSize: 12, flexShrink: 1 }]}>
           {t(
-            "Los choferes mejor calificados reciben más viajes. Una calificación con comentario cuenta doble.",
+            "Los conductores mejor calificados reciben más viajes. Una calificación con comentario cuenta doble.",
             "Better-rated drivers get more trips. A rating with a comment counts double.",
           )}
         </Text>

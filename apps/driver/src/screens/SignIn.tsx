@@ -66,7 +66,7 @@ export function SignIn() {
             {sent
               ? t("Le enviamos un código de 6 dígitos a ", "We emailed a 6-digit code to ") + email.trim().toLowerCase() + "."
               : t(
-                  "Le enviaremos un código de 6 dígitos por correo. No necesita contraseña. ¿Es nuevo? Use su correo para postularse como chofer.",
+                  "Le enviaremos un código de 6 dígitos por correo. No necesita contraseña. ¿Es nuevo? Use su correo para postularse como conductor.",
                   "We'll email you a 6-digit code. No password needed. New here? Use your email to apply as a driver.",
                 )}
           </Text>
