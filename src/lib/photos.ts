@@ -124,6 +124,13 @@ export const PHOTOS = {
     "Atardecer sobre las nubes desde la carretera de montaña en la cordillera de Talamanca",
     "50% 40%",
   ),
+  "la-fortuna-hot-river": photo(
+    "la-fortuna-hot-river", 1600, 1067,
+    "Warm river running through the rainforest near La Fortuna, at the foot of Arenal",
+    "Río de aguas termales entre el bosque cerca de La Fortuna, al pie del Arenal",
+    "50% 55%",
+    "rainforest",
+  ),
   // ── Wildlife ──
   "sloth-resting": photo(
     "sloth-resting", 2000, 1333,
@@ -204,7 +211,7 @@ export const HOME_HERO_PHOTO: PhotoId = "pacific-beach-aerial";
 /** The picture that stands for each town (route pages, "popular routes" cards). Airports have none. */
 export const HUB_PHOTO: Partial<Record<HubId, PhotoId>> = {
   ManuelAntonio: "manuel-antonio-sunset",
-  Arenal: "arenal",
+  Arenal: "la-fortuna-hot-river",
   Monteverde: "monteverde",
   Tamarindo: "guanacaste-beach-sunset",
   PuertoViejo: "sloth-resting",
@@ -231,7 +238,7 @@ export function drivePhoto(origin: HubId, destination: HubId): PhotoId | null {
 
 /** Day tours and multi-day trips, by catalog id. Unknown ids (added in /admin/pricing) get a neutral drawing. */
 const TOUR_PHOTO: Record<string, PhotoId> = {
-  dt1: "arenal",
+  dt1: "la-fortuna-hot-river",
   dt2: "manuel-antonio-hills-sunset",
   dt3: "drake-bay",
   dt4: "monteverde",

@@ -41,7 +41,7 @@ export async function HomePage({
       lang={lang}
       today={today}
       catalog={catalog}
-      below={<HomeSections lang={lang} />}
+      below={<HomeSections lang={lang} catalog={catalog} />}
       footer={<SiteFooter lang={lang} />}
     />
   );

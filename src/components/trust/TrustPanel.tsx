@@ -50,7 +50,7 @@ export function TrustPanel({ cashFeeBps }: { cashFeeBps: number }) {
               {g.href && (
                 <>
                   {" "}
-                  <a href={g.href} className="font-semibold text-emerald-700 underline">
+                  <a href={g.href} className="inline-flex min-h-11 items-center font-semibold text-emerald-700 underline">
                     {t("Policy", "Política")}
                   </a>
                 </>
@@ -64,7 +64,7 @@ export function TrustPanel({ cashFeeBps }: { cashFeeBps: number }) {
         <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-3 font-bold text-slate-900">
           <ShieldCheck className="w-4 h-4 text-emerald-600" aria-hidden />
           {t("How we pick our drivers", "Cómo elegimos a nuestros conductores")}
-          <span className="ml-auto text-slate-400 group-open:rotate-180 transition" aria-hidden>
+          <span className="ml-auto text-slate-500 group-open:rotate-180 transition" aria-hidden>
             ▾
           </span>
         </summary>

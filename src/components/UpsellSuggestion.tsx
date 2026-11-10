@@ -103,10 +103,10 @@ export function UpsellSuggestion({
               onClick={() => onPick(s)}
               className="w-full min-h-11 rounded-xl border border-amber-200 bg-white px-3 py-2 text-left hover:border-emerald-500"
             >
-              <span className="block text-[11px] font-bold uppercase tracking-wider text-emerald-700">
+              <span className="block text-xs font-bold text-emerald-800">
                 {s.kind === "day_tour"
                   ? t(`1-day tour · from ${formatUSD(s.fromCents)} per person`, `Tour de un día · desde ${formatUSD(s.fromCents)} por persona`)
-                  : t(`Expedition · from ${formatUSD(s.fromCents)}`, `Expedición · desde ${formatUSD(s.fromCents)}`)}
+                  : t(`Multi-day trip · from ${formatUSD(s.fromCents)}`, `Viaje de varios días · desde ${formatUSD(s.fromCents)}`)}
               </span>
               <span className="block text-sm font-bold text-slate-900">{s.name}</span>
             </button>

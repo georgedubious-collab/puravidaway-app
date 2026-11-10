@@ -145,7 +145,7 @@ export function PlaceInput({
 
   return (
     <div className="relative">
-      <label htmlFor={id} className="text-[11px] uppercase tracking-wider text-emerald-200 font-bold block mb-1">
+      <label htmlFor={id} className="mb-1 block text-xs font-bold text-slate-600">
         {label}
       </label>
       <div className="relative">
@@ -176,10 +176,10 @@ export function PlaceInput({
             setActive(-1);
           }}
           onKeyDown={onKeyDown}
-          className="w-full bg-white text-slate-900 rounded-lg pl-9 pr-9 py-2.5 text-base sm:text-sm font-semibold truncate"
+          className="w-full min-h-11 bg-white text-slate-900 border border-slate-300 rounded-xl pl-9 pr-9 text-base font-semibold truncate focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20"
         />
         {(picking || searching) && (
-          <Loader2 className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 animate-spin" aria-hidden />
+          <Loader2 className="w-4 h-4 text-slate-500 absolute right-3 top-1/2 -translate-y-1/2 animate-spin" aria-hidden />
         )}
       </div>
       {open && (
@@ -189,7 +189,7 @@ export function PlaceInput({
           aria-label={label}
           // Keep focus in the input while clicking an option.
           onMouseDown={(e) => e.preventDefault()}
-          className="absolute z-30 left-0 right-0 mt-1 max-h-80 overflow-auto rounded-xl bg-white text-slate-900 shadow-xl border border-slate-200 py-1 text-sm"
+          className="absolute z-30 left-0 right-0 mt-1 max-h-80 overflow-auto rounded-xl bg-white text-slate-900 shadow-xl border border-slate-200 py-1 text-[15px]"
         >
           {options.map((o, i) => {
             const isHub = o.kind === "hub";
@@ -197,7 +197,7 @@ export function PlaceInput({
             return (
               <li key={isHub ? o.place.id : o.s.placeId} role="presentation">
                 {first && (
-                  <p className="px-3 pt-2 pb-1 text-[10px] uppercase tracking-wider font-extrabold text-slate-400">
+                  <p className="px-3 pt-2 pb-1 text-xs uppercase tracking-wider font-extrabold text-slate-500">
                     {isHub
                       ? t("Our towns & airports", "Nuestros destinos y aeropuertos")
                       : t("Hotels, places & addresses", "Hoteles, lugares y direcciones")}
@@ -209,12 +209,12 @@ export function PlaceInput({
                   aria-selected={i === active}
                   onClick={() => void choose(o)}
                   onMouseEnter={() => setActive(i)}
-                  className={`flex items-start gap-2 px-3 py-2 cursor-pointer ${i === active ? "bg-emerald-50" : ""}`}
+                  className={`flex min-h-11 items-center gap-2 px-3 py-2 cursor-pointer ${i === active ? "bg-emerald-50" : ""}`}
                 >
                   {isHub && AIRPORT_HUBS.includes(o.place.hub) ? (
-                    <Plane className="w-4 h-4 mt-0.5 shrink-0 text-emerald-600" aria-hidden />
+                    <Plane className="w-4 h-4 shrink-0 text-emerald-700" aria-hidden />
                   ) : (
-                    <MapPin className="w-4 h-4 mt-0.5 shrink-0 text-emerald-600" aria-hidden />
+                    <MapPin className="w-4 h-4 shrink-0 text-emerald-700" aria-hidden />
                   )}
                   <span className="min-w-0">
                     <span className="block font-semibold truncate">{isHub ? hubName(o.place.hub, lang) : o.s.main}</span>
@@ -236,7 +236,7 @@ export function PlaceInput({
           )}
           {error && <li className="px-3 py-2 text-xs font-semibold text-red-700">{error}</li>}
           {google.length > 0 && (
-            <li className="px-3 pt-1 pb-1.5 text-right text-[10px] text-slate-400">Powered by Google</li>
+            <li className="px-3 pt-1 pb-1.5 text-right text-xs text-slate-500">Powered by Google</li>
           )}
         </ul>
       )}

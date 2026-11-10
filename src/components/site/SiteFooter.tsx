@@ -20,19 +20,19 @@ export function SiteFooter({ lang }: { lang: PublicLang }) {
   const columns = footerColumns(lang);
   return (
     <footer className="bg-emerald-950 text-emerald-100 text-sm">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-12 grid gap-10 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,3fr)]">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12 grid gap-6 sm:gap-10 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,3fr)]">
         <div>
           <Link href={localizedHref("/", lang)} aria-label={SITE_NAME} className="inline-flex items-center min-h-11">
             <Logo on="dark" />
           </Link>
-          <p className="mt-3 leading-relaxed text-emerald-200">
+          <p className="mt-3 hidden sm:block leading-relaxed text-emerald-200">
             {t(
               lang,
               "Private door-to-door transfers, 1-day tours and multi-day trips across Costa Rica with vetted local drivers.",
               "Traslados privados puerta a puerta, tours de un día y viajes de varios días por Costa Rica con conductores locales verificados.",
             )}
           </p>
-          <ul className="mt-4 space-y-1">
+          <ul className="mt-2 sm:mt-4 flex flex-wrap gap-x-5 sm:block sm:space-y-1">
             <li>
               <a
                 href={whatsAppLink(
@@ -56,14 +56,14 @@ export function SiteFooter({ lang }: { lang: PublicLang }) {
           </div>
         </div>
 
-        <div className="grid gap-8 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="grid gap-x-4 gap-y-5 sm:gap-8 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
           {columns.map((col) => (
             <nav key={col.title} aria-label={col.title}>
-              <h2 className="text-xs font-bold uppercase tracking-widest text-amber-400">{col.title}</h2>
+              <p className="text-xs font-bold uppercase tracking-widest text-amber-400">{col.title}</p>
               <ul className="mt-2">
                 {col.links.map((l) => (
                   <li key={l.href + l.label}>
-                    <Link href={l.href} className="min-h-11 py-1.5 inline-flex items-center leading-snug text-emerald-100 hover:text-white hover:underline">
+                    <Link href={l.href} className="min-h-11 py-1 inline-flex items-center leading-snug text-emerald-100 hover:text-white hover:underline">
                       {l.label}
                     </Link>
                   </li>

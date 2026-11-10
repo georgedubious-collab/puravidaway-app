@@ -77,7 +77,7 @@ export function LogoMark({
 
 const SIZES = {
   sm: { mark: "h-7 w-auto", top: "text-[9px] tracking-[0.2em]", main: "text-sm", gap: "gap-2" },
-  md: { mark: "h-8 sm:h-9 w-auto", top: "text-[10px] tracking-[0.22em]", main: "text-[15px] sm:text-lg", gap: "gap-2.5" },
+  md: { mark: "h-7 min-[420px]:h-8 sm:h-9 w-auto", top: "text-[9px] min-[420px]:text-[10px] tracking-[0.22em]", main: "text-[13px] min-[420px]:text-[15px] sm:text-lg", gap: "gap-2 min-[420px]:gap-2.5" },
   lg: { mark: "h-11 w-auto", top: "text-xs tracking-[0.24em]", main: "text-2xl", gap: "gap-3" },
 } as const;
 

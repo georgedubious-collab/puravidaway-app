@@ -121,3 +121,21 @@ export function formatScheduledAtFor(iso: string | null | undefined, lang: "en" 
 export function nowMs(): number {
   return Date.now();
 }
+
+const DOW = { en: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"], es: ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"] };
+const MON = {
+  en: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+  es: ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"],
+};
+
+/**
+ * A calendar date as travellers read it in the booking app: "Mon, Nov 23" in
+ * English, "lun, 23 nov" in Spanish. Built by hand (no Intl) so the server and
+ * every browser print exactly the same text.
+ */
+export function formatShortDate(ymd: string, lang: "en" | "es" = "en"): string {
+  if (!isValidYmd(ymd)) return ymd;
+  const [y, m, d] = ymd.split("-").map(Number);
+  const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+  return lang === "es" ? `${DOW.es[dow]}, ${d} ${MON.es[m - 1]}` : `${DOW.en[dow]}, ${MON.en[m - 1]} ${d}`;
+}

@@ -1,12 +1,13 @@
 "use client";
 
-import { Luggage, Route, Sun, Tent } from "lucide-react";
+import { Luggage } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import type { HubId } from "@/lib/catalog";
 import type { CatalogData } from "@/lib/catalogModel";
 import { localizeCatalog } from "@/lib/catalogEs";
 import { t as pick, type PublicLang } from "@/lib/publicLang";
+import type { Builder, BuilderTabs } from "./BuilderHero";
 import { CatalogProvider } from "./CatalogContext";
 import { PublicLangProvider } from "./PublicLangContext";
 import {
@@ -32,20 +33,15 @@ import { UpsellSuggestion, type Suggestion } from "./UpsellSuggestion";
 const STORAGE_KEY = "pvw-cart-v1";
 const MODE_KEY = "pvw-pay-mode";
 
-type Builder = "transfers" | "daytours" | "multiday";
-
 /** ?tab= values used by the site menu (src/lib/siteNav.ts). */
 const TAB_PARAM: Record<string, Builder> = { transfers: "transfers", tours: "daytours", multiday: "multiday" };
 
-const BUILDERS: { id: Builder; label: Record<PublicLang, string>; Icon: typeof Route }[] = [
-  { id: "transfers", label: { en: "Ride", es: "Traslado" }, Icon: Route },
-  { id: "daytours", label: { en: "Day tour", es: "Tour de un día" }, Icon: Sun },
-  { id: "multiday", label: { en: "Expedition", es: "Expedición" }, Icon: Tent },
-];
-
 /**
  * The booking app. Desktop (xl+): the trip sits in a sidebar next to the builder,
- * always visible. Smaller screens: a bottom bar opens the same trip in a drawer.
+ * always visible. Smaller screens: a bottom bar opens the same trip in a drawer
+ * (while the trip is empty, the ride builder pins its own "Add to trip" bar there).
+ * The three builders (Transfers / Day tours / Multi-day trips) are switched from
+ * the header menu on wide screens and from tabs in the hero form on phones.
  * Route pages link here with ?from=SJO&to=ManuelAntonio to pre-fill a ride; the
  * ride builder keeps the full ride in the address (src/lib/shareLink.ts) so it can be shared.
  * The same storefront serves / (English) and /es (Spanish): `lang` reaches every
@@ -146,6 +142,7 @@ export function Storefront({
   }
   const removeItem = (id: string) => setItems((prev) => prev.filter((i) => i.id !== id));
   const total = cartTotals(items, mode, catalog.cashFeeBps).totalCents;
+  const tabs: BuilderTabs = { current: builder, onChange: setBuilder };
   const trip: TripState = {
     items,
     onRemove: removeItem,
@@ -181,9 +178,10 @@ export function Storefront({
               `Open your trip, ${items.length} item${items.length === 1 ? "" : "s"}`,
               `Abrir su viaje, ${items.length} elemento${items.length === 1 ? "" : "s"}`,
             )}
-            className="xl:hidden shrink-0 min-h-11 bg-emerald-800 hover:bg-emerald-700 text-white px-3 rounded-xl text-sm font-bold flex items-center gap-2 transition"
+            className="xl:hidden shrink-0 min-h-11 min-w-11 justify-center bg-emerald-800 hover:bg-emerald-700 text-white px-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition"
           >
-            <Luggage className="w-4 h-4" aria-hidden />
+            {/* Narrow phones: once the trip has a price, the price alone is the button. */}
+            <Luggage className={items.length ? "w-4 h-4 hidden min-[420px]:block" : "w-4 h-4"} aria-hidden />
             <span className="hidden sm:inline">{t("Your trip", "Su viaje")}</span>
             {items.length > 0 ? (
               <span className="bg-amber-400 text-slate-950 px-2 py-0.5 rounded-full text-xs font-extrabold">
@@ -194,52 +192,28 @@ export function Storefront({
         }
       />
 
-      <div className="max-w-[1440px] mx-auto w-full px-4 py-5 flex-1 xl:grid xl:grid-cols-[340px_minmax(0,1fr)] xl:gap-6 xl:items-start">
+      <div className="max-w-[1440px] mx-auto w-full px-3 sm:px-4 py-3 sm:py-5 flex-1 xl:grid xl:grid-cols-[340px_minmax(0,1fr)] xl:gap-6 xl:items-start">
         <aside
           aria-labelledby="trip-heading"
           className="hidden xl:block xl:sticky xl:top-20 xl:max-h-[calc(100vh-6rem)] xl:overflow-y-auto space-y-5 pb-4"
         >
-          <h2 id="trip-heading" className="text-xl font-extrabold text-slate-900">
+          {/* Not a heading: it comes before the page's H1 in the HTML. */}
+          <p id="trip-heading" className="text-xl font-extrabold text-slate-900">
             {t("Your trip", "Su viaje")}
-          </h2>
+          </p>
           <TripSummary trip={trip} />
           <div className="border-t border-slate-200 pt-5">
             <TrustPanel cashFeeBps={catalog.cashFeeBps} />
           </div>
         </aside>
 
-        <main className={`min-w-0 space-y-5 ${items.length ? "pb-24 xl:pb-0" : ""}`}>
-          <div
-            role="group"
-            aria-label={t("What do you want to add?", "¿Qué desea agregar?")}
-            className="flex flex-wrap items-center gap-2"
-          >
-            <span className="text-sm font-bold text-slate-600 mr-1">{t("Add to your trip:", "Agregar a su viaje:")}</span>
-            {BUILDERS.map(({ id, label, Icon }) => {
-              const active = builder === id;
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  aria-pressed={active}
-                  onClick={() => setBuilder(id)}
-                  className={`min-h-11 px-4 rounded-full text-sm font-bold flex items-center gap-2 transition ${
-                    active
-                      ? "bg-emerald-950 text-white"
-                      : "bg-white border border-slate-300 text-slate-700 hover:border-emerald-500"
-                  }`}
-                >
-                  <Icon className="w-4 h-4" aria-hidden />
-                  {label[lang]}
-                </button>
-              );
-            })}
-          </div>
-
+        <main className={`min-w-0 space-y-5 ${items.length ? "pb-6 xl:pb-0" : ""}`}>
           {builder === "transfers" && (
             <TransfersView
               today={today}
               onAdd={addItem}
+              tabs={tabs}
+              cartCount={items.length}
               initial={rideInit}
               // Shown right under the "Add this ride" button, where the traveller is looking.
               suggestion={
@@ -259,6 +233,7 @@ export function Storefront({
               key={focus?.suggestion.kind === "day_tour" ? `focus-${focus.n}` : "tours"}
               today={today}
               onAdd={addItem}
+              tabs={tabs}
               {...(focus?.suggestion.kind === "day_tour"
                 ? {
                     initialRegion: catalog.dayTours.find((t) => t.id === focus.suggestion.id)?.region,
@@ -273,6 +248,7 @@ export function Storefront({
               key={focus?.suggestion.kind === "expedition" ? `focus-${focus.n}` : "expeditions"}
               today={today}
               onAdd={addItem}
+              tabs={tabs}
               {...(focus?.suggestion.kind === "expedition" ? { initialDate: focus.date, highlightId: focus.suggestion.id } : {})}
             />
           )}
@@ -281,13 +257,13 @@ export function Storefront({
 
       {below}
 
-      <div className={items.length ? "pb-20 xl:pb-0" : ""}>{footer}</div>
+      <div className={items.length ? "pb-20 xl:pb-0" : builder === "transfers" ? "pb-20 lg:pb-0" : ""}>{footer}</div>
 
       {items.length > 0 && (
-        <div className="xl:hidden fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 backdrop-blur px-4 py-3">
+        <div className="xl:hidden fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 backdrop-blur px-4 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))]">
           <div className="max-w-3xl mx-auto flex items-center justify-between gap-3">
             <div>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs font-semibold text-slate-600">
                 {t(
                   `Your trip · ${items.length} item${items.length === 1 ? "" : "s"}`,
                   `Su viaje · ${items.length} elemento${items.length === 1 ? "" : "s"}`,

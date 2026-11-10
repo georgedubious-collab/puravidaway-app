@@ -1,26 +1,34 @@
 "use client";
 
-import { ChevronRight, PlusCircle } from "lucide-react";
+import { ArrowDown, ChevronRight, PlusCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { seasonForYmd } from "@/lib/catalogModel";
 import { useCatalog } from "./CatalogContext";
-import { useT } from "./PublicLangContext";
-import { addDays } from "@/lib/dates";
+import { usePublicLang, useT } from "./PublicLangContext";
+import { addDays, formatShortDate } from "@/lib/dates";
 import { newItemId, type CartItem } from "@/lib/cart";
-import { formatUSD, quoteExpedition } from "@/lib/pricing";
+import { tourPhoto } from "@/lib/photos";
+import { formatUSDWhole, quoteExpedition } from "@/lib/pricing";
+import { BuilderHero, HERO_BUTTON, HERO_CONTROL, HeroField, type BuilderTabs } from "./BuilderHero";
+import { Photo } from "./site/Photo";
 
+/** Multi-day trips ("expeditions" in the catalog and the database). */
 export function ExpeditionsView({
   today,
   onAdd,
+  tabs,
   initialDate,
   highlightId,
 }: {
   today: string;
   onAdd: (item: CartItem) => void;
+  /** Transfers / Day tours / Multi-day trips switch, shown in the hero form on phones. */
+  tabs: BuilderTabs;
   /** From a "while you're there" suggestion after adding a ride. */
   initialDate?: string;
   highlightId?: string;
 }) {
+  const lang = usePublicLang();
   const tr = useT();
   const [date, setDate] = useState(() => initialDate ?? addDays(today, 30));
   useEffect(() => {
@@ -30,36 +38,37 @@ export function ExpeditionsView({
   const catalog = useCatalog();
   const season = seasonForYmd(date, catalog);
   const tiersList = catalog.lodgingTiers;
+  const seasonNote = season.multiplierBps !== 10000 ? ` · ${season.name}` : "";
 
   return (
-    <section className="space-y-6">
-      <div className="bg-emerald-950 text-white rounded-2xl p-5 sm:p-6 shadow-lg flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <span className="text-xs font-extrabold uppercase tracking-wider text-amber-400">
-            {tr("Our signature expeditions", "Nuestras expediciones insignia")}
-          </span>
-          <h2 className="text-2xl font-extrabold mt-1">
-            {tr("Multi-day eco-expeditions & custom packages", "Eco-expediciones de varios días y paquetes a la medida")}
-          </h2>
-          <p className="text-xs text-emerald-200 mt-1 max-w-2xl">
-            {tr(
-              "All-inclusive logistics: SINAC park permits, Sierpe river boats, certified Corcovado guides and private 4x4 transfers.",
-              "Logística todo incluido: permisos de parques del SINAC, lanchas por el río Sierpe, guías certificados de Corcovado y traslados privados en 4x4.",
-            )}
-          </p>
-        </div>
-        <label className="text-xs font-bold">
-          <span className="block text-emerald-300 mb-1">{tr("Start date", "Fecha de inicio")}</span>
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="bg-white text-slate-900 rounded-lg px-3 py-2 text-sm font-semibold"
-          />
-        </label>
-      </div>
+    <section className="space-y-5">
+      <BuilderHero
+        tabs={tabs}
+        title={tr("Multi-day trips in Costa Rica", "Viajes de varios días por Costa Rica")}
+        text={tr(
+          "Transfers, guides, park permits and boats arranged for you. Choose your start date and lodging.",
+          "Traslados, guías, permisos de parques y lanchas organizados para usted. Elija su fecha de inicio y alojamiento.",
+        )}
+      >
+        <HeroField label={tr("Start date", "Fecha de inicio")}>
+          <input type="date" value={date} min={today} onChange={(e) => setDate(e.target.value)} className={HERO_CONTROL} />
+        </HeroField>
+        <button
+          type="button"
+          onClick={() => document.getElementById("trip-list")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+          className={HERO_BUTTON}
+        >
+          {tr("See trips & prices", "Ver viajes y precios")} <ArrowDown className="h-4 w-4" aria-hidden />
+        </button>
+        <p className="mt-2 text-center text-xs font-semibold text-slate-600">
+          {tr(
+            "Want something different? Ask us on WhatsApp for a custom trip.",
+            "¿Busca algo distinto? Pídanos por WhatsApp un viaje a la medida.",
+          )}
+        </p>
+      </BuilderHero>
 
-      <div className="space-y-5">
+      <div id="trip-list" className="scroll-mt-20 space-y-5">
         {catalog.expeditions.map((exp) => {
           const expTiers = tiersList.filter((t) => !t.expeditionId || t.expeditionId === exp.id);
           const tier = expTiers.find((t) => t.id === tiers[exp.id]) ?? expTiers[0];
@@ -67,97 +76,101 @@ export function ExpeditionsView({
           const tierId = tier.id;
           const total = quoteExpedition(exp.id, tier.id, season, catalog);
           return (
-            <div
+            <article
               key={exp.id}
               id={`expedition-${exp.id}`}
-              className={`bg-white rounded-2xl border shadow-sm p-5 sm:p-6 grid grid-cols-1 lg:grid-cols-3 gap-6 ${
+              className={`bg-white rounded-2xl border shadow-sm overflow-hidden ${
                 exp.id === highlightId ? "border-amber-400 ring-2 ring-amber-300" : "border-slate-200"
               }`}
             >
-              <div className="lg:col-span-2">
-                <span className="text-[10px] uppercase tracking-wider font-extrabold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
-                  {tr(`${exp.days} days / ${exp.nights} nights`, `${exp.days} días / ${exp.nights} noches`)}
-                </span>
-                <h3 className="text-lg font-extrabold text-slate-900 mt-2 leading-snug">{exp.name}</h3>
-                <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-600 mt-3">
-                  {exp.includes.map((i) => (
-                    <li key={i} className="flex gap-2">
-                      <span className="text-emerald-600">✓</span> {i}
-                    </li>
-                  ))}
-                </ul>
-                <details className="mt-4 group">
-                  <summary className="text-xs font-bold text-emerald-700 cursor-pointer flex items-center gap-1 list-none">
-                    <ChevronRight className="w-4 h-4 transition group-open:rotate-90" />{" "}
-                    {tr("Day-by-day itinerary", "Itinerario día por día")}
-                  </summary>
-                  <ol className="mt-2 space-y-1.5 text-xs text-slate-700 pl-5">
-                    {exp.itinerary.map((d) => (
-                      <li key={d.day}>
-                        <strong>
-                          {tr("Day", "Día")} {d.day}:
-                        </strong> {d.title}
+              <Photo id={tourPhoto(exp.id)} lang={lang} sizes="(min-width: 1280px) 1040px, 100vw" className="aspect-[16/9] sm:aspect-[3/1]" />
+              <div className="p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2">
+                  <span className="text-xs font-extrabold text-amber-900 bg-amber-100 px-2 py-0.5 rounded-full">
+                    {tr(`${exp.days} days / ${exp.nights} nights`, `${exp.days} días / ${exp.nights} noches`)}
+                  </span>
+                  <h2 className="text-xl font-extrabold text-slate-900 mt-2 leading-snug">{exp.name}</h2>
+                  <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-sm text-slate-700 mt-3">
+                    {exp.includes.map((i) => (
+                      <li key={i} className="flex gap-2">
+                        <span className="text-emerald-700" aria-hidden>
+                          ✓
+                        </span>{" "}
+                        {i}
                       </li>
                     ))}
-                  </ol>
-                </details>
-              </div>
+                  </ul>
+                  <details className="mt-3 group">
+                    <summary className="min-h-11 text-sm font-bold text-emerald-800 cursor-pointer flex items-center gap-1 list-none [&::-webkit-details-marker]:hidden">
+                      <ChevronRight className="w-4 h-4 transition group-open:rotate-90" aria-hidden />{" "}
+                      {tr("Day-by-day itinerary", "Itinerario día por día")}
+                    </summary>
+                    <ol className="mt-1 space-y-1.5 text-sm text-slate-700 pl-5">
+                      {exp.itinerary.map((d) => (
+                        <li key={d.day}>
+                          <strong>
+                            {tr("Day", "Día")} {d.day}:
+                          </strong>{" "}
+                          {d.title}
+                        </li>
+                      ))}
+                    </ol>
+                  </details>
+                </div>
 
-              <div className="bg-slate-50 rounded-xl p-4 flex flex-col">
-                <p className="text-[11px] uppercase tracking-wider font-bold text-slate-500 mb-2">
-                  {tr("Lodging tier", "Categoría de alojamiento")}
-                </p>
-                <div className="space-y-1.5">
-                  {expTiers.map((t) => (
-                    <label
-                      key={t.id}
-                      className={`flex items-center justify-between gap-2 text-xs rounded-lg border px-3 py-2 cursor-pointer ${
-                        t.id === tierId
-                          ? "border-emerald-600 bg-emerald-50 font-bold"
-                          : "border-slate-200 bg-white"
-                      }`}
+                <div className="bg-slate-50 rounded-xl p-4 flex flex-col">
+                  <p className="text-sm font-bold text-slate-700 mb-2">{tr("Lodging", "Alojamiento")}</p>
+                  <div className="space-y-1.5">
+                    {expTiers.map((t) => (
+                      <label
+                        key={t.id}
+                        className={`flex min-h-11 items-center justify-between gap-2 text-sm rounded-xl border px-3 py-2 cursor-pointer ${
+                          t.id === tierId ? "border-emerald-700 bg-emerald-50 font-bold" : "border-slate-200 bg-white"
+                        }`}
+                      >
+                        <span className="flex items-center gap-2">
+                          <input
+                            type="radio"
+                            name={`tier-${exp.id}`}
+                            checked={t.id === tierId}
+                            onChange={() => setTiers((x) => ({ ...x, [exp.id]: t.id }))}
+                            className="h-4 w-4 shrink-0 accent-emerald-700"
+                          />
+                          {t.name}
+                        </span>
+                        <span className="text-emerald-700 whitespace-nowrap">
+                          {t.surchargeCents ? `+${formatUSDWhole(t.surchargeCents)}` : tr("included", "incluido")}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                  <div className="mt-auto pt-4">
+                    <p className="text-xs font-bold text-slate-600">
+                      {tr(`Price for a ${formatShortDate(date, lang)} start`, `Precio iniciando el ${formatShortDate(date, lang)}`)}
+                      {seasonNote}
+                    </p>
+                    <p className="text-2xl font-extrabold text-emerald-700">{formatUSDWhole(total)}</p>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onAdd({
+                          kind: "expedition",
+                          id: newItemId(),
+                          title: exp.name,
+                          detail: `${exp.days}D/${exp.nights}N · ${tier.name}`,
+                          date,
+                          totalCents: total,
+                          spec: { kind: "expedition", expeditionId: exp.id, tierId: tier.id },
+                        })
+                      }
+                      className="w-full mt-3 min-h-12 bg-emerald-700 hover:bg-emerald-600 text-white font-extrabold px-3 rounded-xl text-[15px] flex items-center justify-center gap-2 transition"
                     >
-                      <span className="flex items-center gap-2">
-                        <input
-                          type="radio"
-                          name={`tier-${exp.id}`}
-                          checked={t.id === tierId}
-                          onChange={() => setTiers((x) => ({ ...x, [exp.id]: t.id }))}
-                          className="accent-emerald-600"
-                        />
-                        {t.name}
-                      </span>
-                      <span className="text-emerald-700 whitespace-nowrap">
-                        {t.surchargeCents ? `+${formatUSD(t.surchargeCents)}` : tr("included", "incluido")}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-                <div className="mt-auto pt-4">
-                  <p className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">
-                    {season.multiplierBps !== 10000 ? season.name : tr("Total package", "Total del paquete")}
-                  </p>
-                  <p className="text-2xl font-extrabold text-emerald-700">{formatUSD(total)}</p>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      onAdd({
-                        kind: "expedition",
-                        id: newItemId(),
-                        title: exp.name,
-                        detail: `${exp.days}D/${exp.nights}N · ${tier.name}`,
-                        date,
-                        totalCents: total,
-                        spec: { kind: "expedition", expeditionId: exp.id, tierId: tier.id },
-                      })
-                    }
-                    className="w-full mt-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 transition"
-                  >
-                    <PlusCircle className="w-4 h-4" /> {tr("Add expedition to your trip", "Agregar expedición a su viaje")}
-                  </button>
+                      <PlusCircle className="w-4 h-4" aria-hidden /> {tr("Add trip", "Agregar viaje")} · {formatUSDWhole(total)}
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
+            </article>
           );
         })}
       </div>

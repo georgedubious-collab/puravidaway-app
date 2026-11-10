@@ -205,3 +205,27 @@ export function guarantees(cashFeeBps: number, lang: "en" | "es" = "en"): Guaran
     },
   ];
 }
+
+/**
+ * The four short claims under the home page's booking form. Each is true today
+ * and is spelled out elsewhere: the price is fixed before payment (guarantees),
+ * cancellation is free up to 24 h before pickup on rides and day tours
+ * (/cancellation), every partner driver is interviewed and background-checked
+ * (DRIVER_CHECKS), and our own team answers on WhatsApp. No hours are promised:
+ * round-the-clock staffing isn't confirmed, so never "24/7".
+ */
+export function trustStrip(lang: "en" | "es" = "en"): string[] {
+  return lang === "es"
+    ? [
+        "Precio fijo antes de pagar",
+        "Cancelación gratis hasta 24 h antes",
+        "Conductores entrevistados y con antecedentes verificados",
+        "Una persona real en WhatsApp",
+      ]
+    : [
+        "Fixed price before you pay",
+        "Free cancellation up to 24 h",
+        "Drivers interviewed and background-checked",
+        "Real person on WhatsApp",
+      ];
+}

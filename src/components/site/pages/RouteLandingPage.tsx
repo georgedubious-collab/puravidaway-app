@@ -10,11 +10,12 @@ import { Reviews } from "@/components/trust/Reviews";
 import { AIRPORT_HUBS, HUBS, routeMinutes, stopFitsRoute } from "@/lib/catalog";
 import { entranceLabel, hubName, localizeCatalog } from "@/lib/catalogEs";
 import { getCatalog } from "@/lib/catalogSource";
-import { applyMultiplier, formatDuration, formatUSD, perPersonCents, perPersonShare, rideCents } from "@/lib/pricing";
+import { formatDuration, formatUSD } from "@/lib/pricing";
 import { bilingualAlternates, localizedHref, t, type PublicLang } from "@/lib/publicLang";
 import { builderHref, fillFaq, relatedHref, type RoutePage } from "@/lib/routePages";
 import { drivePhoto, routePhoto } from "@/lib/photos";
 import { localizeRoutePage } from "@/lib/routePagesEs";
+import { routeFromPrices } from "@/lib/routePrices";
 import { SITE_NAME } from "@/lib/site";
 import { guarantees, ridePromises } from "@/lib/trust";
 
@@ -62,20 +63,10 @@ export async function RouteLandingPage({ page: enPage, lang }: { page: RoutePage
   const page = localizeRoutePage(enPage, lang);
   const originName = hubName(page.origin, lang);
   const destName = hubName(page.destination, lang);
-  const touches = (hubs?: string[]) =>
-    !hubs || hubs.includes(page.origin) || hubs.includes(page.destination);
   const catalog = localizeCatalog(await getCatalog(), lang);
-  const fitting = catalog.vehicles.filter((v) => touches(v.onlyForHubs));
-  const vehicles = fitting.length ? fitting : catalog.vehicles;
-  const defaultSeason = catalog.seasons.find((x) => x.isDefault);
-  const carCents = (v: (typeof vehicles)[number]) =>
-    applyMultiplier(rideCents(page.origin, page.destination, v, catalog), defaultSeason?.multiplierBps ?? 10000);
-  const cheapest = vehicles.reduce((a, b) => (carCents(b) < carCents(a) ? b : a));
-  const fromCents = carCents(cheapest);
-  // Daytrip-style "from $X per person": the class with the lowest price per seat, shared by a full car.
-  const perPerson = vehicles
-    .map((v) => ({ v, cents: perPersonCents(carCents(v), v.maxPax) }))
-    .reduce((a, b) => (b.cents < a.cents ? b : a));
+  const prices = routeFromPrices(page.origin, page.destination, catalog);
+  const { cheapest, fromCents, defaultSeason, share } = prices;
+  const perPerson = { v: prices.perPersonVehicle, cents: prices.perPersonCents };
   const promises = ridePromises(AIRPORT_HUBS.includes(page.origin), lang);
   const stops = catalog.stops.filter((s) => stopFitsRoute(s, page.origin, page.destination));
   const pct = (id: string) => {
@@ -88,7 +79,6 @@ export async function RouteLandingPage({ page: enPage, lang }: { page: RoutePage
   const routeLabel = `${originName.split(" /")[0]} → ${destName}`;
   // Reviews are matched to the route by its English label (src/lib/trust.ts).
   const enRouteLabel = `${HUBS.find((h) => h.id === page.origin)!.name.split(" /")[0]} → ${HUBS.find((h) => h.id === page.destination)!.name}`;
-  const share = perPersonShare(perPerson.v.maxPax);
   const seasonName = defaultSeason?.name ?? t(lang, "Green season", "Temporada verde");
   const heroPhoto = routePhoto(page.origin, page.destination);
   const roadPhoto = drivePhoto(page.origin, page.destination);
@@ -120,7 +110,7 @@ export async function RouteLandingPage({ page: enPage, lang }: { page: RoutePage
       <section className="max-w-6xl mx-auto px-4 sm:px-6 pt-6 pb-14 grid gap-10 lg:grid-cols-[minmax(0,1fr)_380px] items-start">
         <div>
           <p className="text-lg leading-relaxed text-slate-600">{page.intro}</p>
-          <dl className="mt-8 grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <dl className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-3">
             <Fact
               icon={<Clock className="w-4 h-4" />}
               label={t(lang, "Drive time", "Tiempo de viaje")}
@@ -134,15 +124,25 @@ export async function RouteLandingPage({ page: enPage, lang }: { page: RoutePage
             />
             <Fact icon={<Luggage className="w-4 h-4" />} label={t(lang, "Fits", "Capacidad")} value={cheapest.luggage} />
           </dl>
+          <p className="mt-4 text-lg text-slate-800">
+            {t(lang, "From", "Desde")} <strong className="text-2xl font-extrabold text-emerald-700">{formatUSD(fromCents)}</strong>{" "}
+            {t(lang, "per car", "por vehículo")} · {formatUSD(perPerson.cents)} {t(lang, "per person", "por persona")}
+          </p>
+          <Link
+            href={href}
+            className="mt-3 min-h-12 w-full sm:w-auto px-6 inline-flex items-center justify-center gap-2 rounded-xl bg-amber-400 hover:bg-amber-300 font-extrabold text-slate-950"
+          >
+            {t(lang, "See price & add stops", "Ver precio y agregar paradas")} <ArrowRight className="w-4 h-4 shrink-0" aria-hidden />
+          </Link>
           {lang === "es" ? (
-            <p className="mt-3 text-sm text-slate-500">
+            <p className="mt-3 text-sm text-slate-600">
               Precios de {seasonName.replace(/^./, (c) => c.toLowerCase())}. El precio es por el vehículo completo: {cheapest.name}, hasta{" "}
               {cheapest.maxPax} viajeros. «Por persona» es el precio de {perPerson.v.name} compartido entre {share} viajeros.
               {highPct > 0 ? ` De diciembre a abril se suma un ${highPct}%` : ""}
               {peakPct > 0 ? `; en Navidad–Año Nuevo y Semana Santa, un ${peakPct}%.` : highPct > 0 ? "." : ""}
             </p>
           ) : (
-            <p className="mt-3 text-sm text-slate-500">
+            <p className="mt-3 text-sm text-slate-600">
               {seasonName} prices. The car price is for the whole vehicle: {cheapest.name}, up to{" "}
               {cheapest.maxPax} travelers. &ldquo;Per person&rdquo; is the {perPerson.v.name} price shared by{" "}
               {share} travellers.
@@ -231,28 +231,22 @@ export async function RouteLandingPage({ page: enPage, lang }: { page: RoutePage
             <h2 className="text-2xl font-extrabold text-slate-900">{t(lang, "Stops you can add", "Paradas que puede agregar")}</h2>
             <ul className="mt-4 space-y-3">
               {stops.map((s) => (
-                <li
-                  key={s.id}
-                  className="flex items-start justify-between gap-4 rounded-xl border border-slate-200 p-4"
-                >
-                  <span>
-                    <span className="block font-bold text-slate-900">{s.name}</span>
-                    <span className="text-sm text-slate-500">
-                      {formatDuration(s.durationMin, lang)} · {s.description}
-                    </span>
-                    <span className="mt-1 flex items-center gap-1 text-xs font-semibold text-slate-600">
-                      <Ticket className="w-3.5 h-3.5" aria-hidden />
-                      {entranceLabel(s.entrance, lang)}
-                    </span>
-                  </span>
-                  <span className="font-extrabold text-emerald-700 whitespace-nowrap">
+                <li key={s.id} className="rounded-xl border border-slate-200 p-4">
+                  <span className="block font-bold text-slate-900">{s.name}</span>
+                  <span className="mt-1 block font-extrabold text-emerald-700">
                     +{formatUSD(s.priceCents)}
                     {s.tourPerPersonCents > 0 ? ` + ${formatUSD(s.tourPerPersonCents)}/${t(lang, "person", "persona")}` : ""}
+                    <span className="font-semibold text-slate-600"> · {formatDuration(s.durationMin, lang)}</span>
+                  </span>
+                  <span className="mt-1 block text-sm text-slate-600">{s.description}</span>
+                  <span className="mt-1 flex items-center gap-1 text-xs font-semibold text-slate-600">
+                    <Ticket className="w-3.5 h-3.5" aria-hidden />
+                    {entranceLabel(s.entrance, lang)}
                   </span>
                 </li>
               ))}
             </ul>
-            <p className="mt-3 text-sm text-slate-500">
+            <p className="mt-3 text-sm text-slate-600">
               {t(
                 lang,
                 "Your driver waits with your bags locked in the vehicle.",
@@ -317,7 +311,26 @@ export async function RouteLandingPage({ page: enPage, lang }: { page: RoutePage
 
       </main>
 
-      <SiteFooter lang={lang} />
+      {/* Phones: the price and the way into the builder stay in view. */}
+      <div className="lg:hidden fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 backdrop-blur px-4 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))]">
+        <div className="max-w-3xl mx-auto flex items-center justify-between gap-3">
+          <p className="min-w-0 text-sm text-slate-700">
+            <span className="block truncate text-xs font-semibold text-slate-600">{routeLabel}</span>
+            {t(lang, "From", "Desde")} <strong className="text-base font-extrabold text-emerald-700">{formatUSD(fromCents)}</strong>{" "}
+            {t(lang, "per car", "por vehículo")}
+          </p>
+          <Link
+            href={href}
+            className="min-h-12 shrink-0 px-4 inline-flex items-center justify-center rounded-xl bg-amber-400 hover:bg-amber-300 font-extrabold text-slate-950 whitespace-nowrap"
+          >
+            {t(lang, "See price & add stops", "Ver precio y paradas")}
+          </Link>
+        </div>
+      </div>
+
+      <div className="pb-20 lg:pb-0">
+        <SiteFooter lang={lang} />
+      </div>
     </div>
   );
 }
@@ -325,8 +338,8 @@ export async function RouteLandingPage({ page: enPage, lang }: { page: RoutePage
 function Fact({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-3.5">
-      <dt className="flex items-center gap-1.5 text-xs font-semibold text-slate-500">
-        <span className="text-emerald-600" aria-hidden>
+      <dt className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+        <span className="text-emerald-700" aria-hidden>
           {icon}
         </span>
         {label}
