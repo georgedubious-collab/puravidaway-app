@@ -5,7 +5,10 @@ phone: "CR Transfers". App ID: `com.costaricaprivatetransfers.app` (permanent on
 Its own project: Vercel ignores this folder.
 
 ## What it does (first version)
-- Sign in with an emailed 6-digit code, using the email the trip request was sent with.
+- No account and no password. Anyone can plan a trip and see prices without signing in. When they
+  send a request they type their email and confirm it with a 6-digit code we email them (that
+  signs this phone in as that email). "Already booked?" in My trips or Account does the same, to
+  see trips made on the website or on another phone.
 - **My trips:** every ride, tour and expedition requested with that email; status, amount due and
   how it's paid; "your driver is on the way".
 - **Trip:** the driver's first name, photo, rating, languages and car photos once assigned; the

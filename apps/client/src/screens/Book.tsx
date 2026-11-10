@@ -8,6 +8,7 @@ import { TOWNS, plural, usd } from "../format";
 import { DatePicker, longDate } from "../DatePicker";
 import { useT, type Lang } from "../i18n";
 import { C, R, S } from "../theme";
+import { CodeInput, sendCode, validEmail, verifyCode } from "./SignIn";
 import { Back, Badge, Btn, Card, Chip, Divider, IconLine, LinkBtn, ScreenTitle, type IconName } from "../ui";
 
 /* Shapes returned by the website's /api/v1/client/quote and /tours (src/lib/appQuote.ts). */
@@ -79,10 +80,11 @@ export function Book({
   onBooked,
   demo,
 }: {
-  email: string;
+  /** The signed-in email, or null when nobody is signed in on this phone (they confirm one with a code when sending). */
+  email: string | null;
   onBooked: (tripToken: string | null, payOnline: boolean, totalCents: number, testCheckout: boolean) => void;
   /** Sample prices for design previews; skips loading. */
-  demo?: { kind?: "ride" | "tour"; to?: Place; quote?: RideQuote; tours?: Tour[]; chosen?: Chosen; pickDate?: boolean };
+  demo?: { kind?: "ride" | "tour"; to?: Place; quote?: RideQuote; tours?: Tour[]; chosen?: Chosen; pickDate?: boolean; codeSentTo?: string };
 }) {
   const { t } = useT();
   const [kind, setKind] = useState<"ride" | "tour">(demo?.kind ?? "ride");
@@ -93,7 +95,7 @@ export function Book({
   if (chosen) {
     return (
       <ScrollView style={S.screen} contentContainerStyle={S.pad} keyboardShouldPersistTaps="handled">
-        <Send chosen={chosen} email={email} onBack={() => setChosen(null)} onBooked={onBooked} />
+        <Send chosen={chosen} email={email} onBack={() => setChosen(null)} onBooked={onBooked} demoCodeSentTo={demo?.codeSentTo} />
       </ScrollView>
     );
   }
@@ -360,11 +362,13 @@ function Send({
   email,
   onBack,
   onBooked,
+  demoCodeSentTo,
 }: {
   chosen: Chosen;
-  email: string;
+  email: string | null;
   onBack: () => void;
   onBooked: (tripToken: string | null, payOnline: boolean, totalCents: number, testCheckout: boolean) => void;
+  demoCodeSentTo?: string;
 }) {
   const { lang, t } = useT();
   const [name, setName] = useState("");
@@ -372,8 +376,37 @@ function Send({
   const [mode, setMode] = useState<"full_100" | "cash_driver">("full_100");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  // Nobody signed in: they type their email and confirm it with a code before the request goes out.
+  const [guestEmail, setGuestEmail] = useState(demoCodeSentTo ?? "");
+  const [codeSent, setCodeSent] = useState(Boolean(demoCodeSentTo));
+  const [code, setCode] = useState("");
+  const guest = email === null;
   const fee = Math.round((chosen.totalCents * chosen.cashFeeBps) / 10000);
   const total = mode === "cash_driver" ? chosen.totalCents + fee : chosen.totalCents;
+
+  const detailsOk = Boolean(name.trim()) && phone.replace(/\D/g, "").length >= 7 && (!guest || validEmail(guestEmail));
+
+  /** Signed in: send now. Not signed in: email them a code first. */
+  async function start() {
+    if (!guest) return send();
+    setBusy(true);
+    setError("");
+    const err = await sendCode(guestEmail, t);
+    setBusy(false);
+    if (err) return setError(err);
+    setCode("");
+    setCodeSent(true);
+  }
+
+  /** Check the code (this signs them in as that email), then send the request. */
+  async function confirmAndSend() {
+    setBusy(true);
+    setError("");
+    const err = await verifyCode(guestEmail, code, t);
+    setBusy(false);
+    if (err) return setError(err);
+    await send();
+  }
 
   async function send() {
     setBusy(true);
@@ -406,7 +439,31 @@ function Send({
         <TextInput accessibilityLabel={t("Full name", "Nombre completo")} value={name} onChangeText={setName} autoComplete="name" style={S.input} />
         <Text style={[FIELD_LABEL, { marginTop: 4 }]}>{t("Mobile / WhatsApp, with country code", "Celular / WhatsApp, con código de país")}</Text>
         <TextInput accessibilityLabel={t("Mobile number", "Número de celular")} value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="+1 555 123 4567" placeholderTextColor={C.faint} style={S.input} />
-        <IconLine icon="mail-outline" text={t("Confirmations go to " + email + ".", "Las confirmaciones se envían a " + email + ".")} />
+        {guest ? (
+          <>
+            <Text style={[FIELD_LABEL, { marginTop: 4 }]}>{t("Email", "Correo electrónico")}</Text>
+            <TextInput
+              accessibilityLabel={t("Email", "Correo electrónico")}
+              value={guestEmail}
+              onChangeText={(v) => {
+                setGuestEmail(v);
+                setCodeSent(false);
+              }}
+              placeholder={t("you@example.com", "usted@ejemplo.com")}
+              placeholderTextColor={C.faint}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="email-address"
+              textContentType="emailAddress"
+              autoComplete="email"
+              editable={!codeSent}
+              style={[S.input, codeSent ? { color: C.muted } : null]}
+            />
+            <IconLine icon="mail-outline" text={t("Your confirmation and driver details go here. No account or password needed.", "Aquí le enviamos la confirmación y los datos de su conductor. No necesita cuenta ni contraseña.")} />
+          </>
+        ) : (
+          <IconLine icon="mail-outline" text={t("Confirmations go to " + email + ".", "Las confirmaciones se envían a " + email + ".")} />
+        )}
       </Card>
       <Card>
         <Text style={S.h2}>{t("How would you like to pay?", "¿Cómo desea pagar?")}</Text>
@@ -423,15 +480,50 @@ function Send({
           <Text style={S.label}>Total</Text>
           <Text style={[S.money, { fontSize: 30 }]}>{cents(total)}</Text>
         </View>
-        {error ? <Text style={S.error}>{error}</Text> : null}
-        <Btn
-          label={mode === "full_100" ? t("Send request and pay", "Enviar solicitud y pagar") : t("Send request", "Enviar solicitud")}
-          icon="paper-plane-outline"
-          onPress={send}
-          busy={busy}
-          disabled={!name.trim() || phone.replace(/\D/g, "").length < 7}
-          color={C.emerald}
-        />
+        {codeSent && guest ? (
+          <View style={{ backgroundColor: C.emeraldTint, borderRadius: R.control, padding: 14, gap: 10 }}>
+            <Text style={S.h2}>{t("Confirm your email", "Confirme su correo")}</Text>
+            <Text style={S.text}>
+              {t("We emailed a 6-digit code to ", "Enviamos un código de 6 dígitos a ")}
+              <Text style={{ fontWeight: "800", color: C.text }}>{guestEmail.trim().toLowerCase()}</Text>
+              {t(". Enter it to send your request. It also lets you follow your trip and your driver in the app.", ". Escríbalo para enviar su solicitud. También le permite seguir su viaje y su conductor en la app.")}
+            </Text>
+            <CodeInput value={code} onChange={setCode} />
+            {error ? <Text style={S.error}>{error}</Text> : null}
+            <Btn
+              label={mode === "full_100" ? t("Confirm and pay", "Confirmar y pagar") : t("Confirm and send", "Confirmar y enviar")}
+              icon="checkmark-circle-outline"
+              onPress={() => void confirmAndSend()}
+              busy={busy}
+              disabled={code.length !== 6}
+              color={C.emerald}
+            />
+            <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+              <LinkBtn label={t("Send a new code", "Enviar otro código")} onPress={() => void start()} disabled={busy} />
+              <LinkBtn
+                label={t("Change email", "Cambiar correo")}
+                color={C.muted}
+                onPress={() => {
+                  setCodeSent(false);
+                  setCode("");
+                  setError("");
+                }}
+              />
+            </View>
+          </View>
+        ) : (
+          <>
+            {error ? <Text style={S.error}>{error}</Text> : null}
+            <Btn
+              label={mode === "full_100" ? t("Send request and pay", "Enviar solicitud y pagar") : t("Send request", "Enviar solicitud")}
+              icon="paper-plane-outline"
+              onPress={() => void start()}
+              busy={busy}
+              disabled={!detailsOk}
+              color={C.emerald}
+            />
+          </>
+        )}
         <IconLine icon="shield-checkmark-outline" text={t(
             "Free cancellation up to 24 hours before pickup. Our team confirms your driver and pickup time.",
             "Cancelación gratis hasta 24 horas antes de la recogida. Nuestro equipo confirma su conductor y la hora de recogida.",

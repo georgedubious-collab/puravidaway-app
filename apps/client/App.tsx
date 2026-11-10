@@ -12,13 +12,13 @@ import { SITE_URL } from "./src/config";
 import { registerForPush, unregisterPush } from "./src/push";
 import { Book } from "./src/screens/Book";
 import { Checkout } from "./src/screens/Checkout";
-import { SignIn } from "./src/screens/SignIn";
+import { SignInCard } from "./src/screens/SignIn";
 import { TripDetail } from "./src/screens/TripDetail";
 import { Trips } from "./src/screens/Trips";
 import { supabase } from "./src/supabase";
 import { C, S } from "./src/theme";
 import type { AppTrip } from "./src/types";
-import { Card, Divider, ListRow, ScreenTitle, type IconName } from "./src/ui";
+import { Btn, Card, Divider, ListRow, ScreenTitle, type IconName } from "./src/ui";
 import { Preview } from "./src/preview";
 import { LangProvider, LangToggle, useT } from "./src/i18n";
 
@@ -78,26 +78,51 @@ export function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void
   );
 }
 
-/** Who is signed in, how to reach us, the policies, and sign out. */
-export function Account({ email, whatsapp, onSignOut }: { email: string; whatsapp: string; onSignOut: () => void }) {
+/** My trips when nobody is signed in on this phone: get back in with a code, or plan a trip. */
+export function SignedOutTrips({ onBook, demoSent }: { onBook: () => void; demoSent?: string }) {
+  const { t } = useT();
+  return (
+    <ScrollView style={S.screen} contentContainerStyle={S.pad} keyboardShouldPersistTaps="handled">
+      <ScreenTitle title={t("Your trips", "Sus viajes")} />
+      <SignInCard demoSent={demoSent} />
+      <Card tone="emerald">
+        <Text style={S.h2}>{t("New here?", "¿Primera vez?")}</Text>
+        <Text style={S.text}>
+          {t(
+            "See prices and book a private ride or day tour. No account needed: we just confirm your email with a code when you send the request.",
+            "Vea precios y reserve un traslado privado o un tour de un día. No necesita cuenta: solo confirmamos su correo con un código al enviar la solicitud.",
+          )}
+        </Text>
+        <Btn label={t("Plan a trip", "Planear un viaje")} icon="add-circle-outline" onPress={onBook} color={C.emerald} />
+      </Card>
+    </ScrollView>
+  );
+}
+
+/** Who is signed in, how to reach us, the policies, and sign out. `email` is null when nobody is signed in. */
+export function Account({ email, whatsapp, onSignOut }: { email: string | null; whatsapp: string; onSignOut: () => void }) {
   const { lang, setLang, t } = useT();
   return (
     <ScrollView style={S.screen} contentContainerStyle={S.pad}>
       <ScreenTitle title={t("Account", "Cuenta")} />
-      <Card>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
-          <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: C.emeraldDark, alignItems: "center", justifyContent: "center" }}>
-            <Text style={{ color: "#fff", fontSize: 22, fontWeight: "800" }}>{(email[0] ?? "?").toUpperCase()}</Text>
+      {email === null ? (
+        <SignInCard />
+      ) : (
+        <Card>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
+            <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: C.emeraldDark, alignItems: "center", justifyContent: "center" }}>
+              <Text style={{ color: "#fff", fontSize: 22, fontWeight: "800" }}>{(email[0] ?? "?").toUpperCase()}</Text>
+            </View>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={S.label}>{t("Signed in as", "Sesión iniciada como")}</Text>
+              <Text style={{ fontSize: 16, fontWeight: "700", color: C.text }} numberOfLines={1}>
+                {email}
+              </Text>
+            </View>
           </View>
-          <View style={{ flex: 1, gap: 2 }}>
-            <Text style={S.label}>{t("Signed in as", "Sesión iniciada como")}</Text>
-            <Text style={{ fontSize: 16, fontWeight: "700", color: C.text }} numberOfLines={1}>
-              {email}
-            </Text>
-          </View>
-        </View>
-        <Text style={S.muted}>{t("Your trips are found by this email. Use the same address when you send a trip request.", "Sus viajes se encuentran con este correo. Use la misma dirección cuando envíe una solicitud de viaje.")}</Text>
-      </Card>
+          <Text style={S.muted}>{t("Your trips are found by this email. Use the same address when you send a trip request.", "Sus viajes se encuentran con este correo. Use la misma dirección cuando envíe una solicitud de viaje.")}</Text>
+        </Card>
+      )}
       {whatsapp ? (
         <Card>
           <ListRow icon="logo-whatsapp" title={t("Message us on WhatsApp", "Escríbanos por WhatsApp")} detail={t("Questions before or during your trip", "Preguntas antes o durante su viaje")} onPress={() => void Linking.openURL("https://wa.me/" + whatsapp)} />
@@ -118,16 +143,19 @@ export function Account({ email, whatsapp, onSignOut }: { email: string; whatsap
         <Divider />
         <ListRow icon="calendar-clear-outline" title={t("Cancellation policy", "Política de cancelación")} detail={t("Free up to 24 hours before pickup", "Gratis hasta 24 horas antes de la recogida")} onPress={() => void WebBrowser.openBrowserAsync(SITE_URL + "/cancellation")} />
       </Card>
-      <Card>
-        <ListRow icon="log-out-outline" title={t("Sign out", "Cerrar sesión")} onPress={onSignOut} tone="red" />
-      </Card>
+      {email !== null ? (
+        <Card>
+          <ListRow icon="log-out-outline" title={t("Sign out", "Cerrar sesión")} onPress={onSignOut} tone="red" />
+        </Card>
+      ) : null}
     </ScrollView>
   );
 }
 
 /**
- * Costa Rica Private Transfers (traveller app). Travellers sign in with the email
- * they book with and see their trips, their driver and car (and where the driver
+ * Costa Rica Private Transfers (traveller app). Anyone can plan a trip and see
+ * prices without signing in; when they send a request they confirm their email
+ * with a 6-digit code (no account, no password), which also lets them see their trips, their driver and car (and where the driver
  * is around the pickup), the chat and the rating, and can plan, send and pay for
  * a ride or day tour in the app (test checkout until card payments are connected).
  */
@@ -143,27 +171,27 @@ export default function App() {
   return (
     <LangProvider>
     <SafeAreaProvider>
-      <StatusBar style={session ? "dark" : "light"} />
+      <StatusBar style={session === undefined ? "light" : "dark"} />
       {session === undefined ? (
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: C.emeraldDark }}>
           <ActivityIndicator color="#fff" />
         </View>
-      ) : session ? (
-        <Home session={session} />
       ) : (
-        <SignIn />
+        // Stays mounted when someone signs in from the booking form, so the trip they planned isn't lost.
+        <Home session={session} />
       )}
     </SafeAreaProvider>
     </LangProvider>
   );
 }
 
-function Home({ session }: { session: Session }) {
+function Home({ session }: { session: Session | null }) {
   const { t } = useT();
   // Read inside load() without making it re-run (and re-register push) when the language changes.
   const tRef = useRef(t);
   tRef.current = t;
-  const [tab, setTab] = useState<Tab>("trips");
+  // Signed out, the app opens on Plan a trip; signed in, on their trips.
+  const [tab, setTab] = useState<Tab>(session ? "trips" : "book");
   const [openId, setOpenId] = useState<string | null>(null);
   const [trips, setTrips] = useState<AppTrip[]>([]);
   const [whatsapp, setWhatsapp] = useState("");
@@ -172,7 +200,13 @@ function Home({ session }: { session: Session }) {
   // After a request is sent from the app: the "sent / pay" screen.
   const [sent, setSent] = useState<{ tripToken: string | null; payOnline: boolean; totalCents: number; testCheckout: boolean } | null>(null);
 
+  const signedIn = Boolean(session);
   const load = useCallback(async () => {
+    if (!signedIn) {
+      setTrips([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     const res = await api<{ trips: AppTrip[]; whatsapp: string }>("/client/trips");
     setLoading(false);
@@ -180,12 +214,12 @@ function Home({ session }: { session: Session }) {
     setError("");
     setTrips(res.data.trips);
     setWhatsapp(res.data.whatsapp ?? "");
-  }, []);
+  }, [signedIn]);
 
   useEffect(() => {
     void load();
-    void registerForPush();
-  }, [load]);
+    if (signedIn) void registerForPush();
+  }, [load, signedIn]);
 
   // A tapped notification ("your driver is on the way", "rate your ride") opens that booking.
   useEffect(() => {
@@ -206,6 +240,9 @@ function Home({ session }: { session: Session }) {
   async function signOut() {
     await unregisterPush();
     await supabase.auth.signOut();
+    setOpenId(null);
+    setSent(null);
+    setTab("book");
   }
 
   return (
@@ -214,6 +251,8 @@ function Home({ session }: { session: Session }) {
       <View style={{ flex: 1, backgroundColor: C.bg }}>
         {tab === "trips" && open ? (
           <TripDetail booking={open.b} token={open.t.token} onBack={() => setOpenId(null)} onChanged={load} />
+        ) : tab === "trips" && !session ? (
+          <SignedOutTrips onBook={book} />
         ) : tab === "trips" ? (
           <>
             {error ? <Text style={[S.error, { padding: 16 }]}>{error}</Text> : null}
@@ -230,14 +269,14 @@ function Home({ session }: { session: Session }) {
           />
         ) : tab === "book" ? (
           <Book
-            email={session.user.email ?? ""}
+            email={session ? (session.user.email ?? "") : null}
             onBooked={(tripToken, payOnline, totalCents, testCheckout) => {
               setSent({ tripToken, payOnline, totalCents, testCheckout });
               void load();
             }}
           />
         ) : (
-          <Account email={session.user.email ?? ""} whatsapp={whatsapp} onSignOut={() => void signOut()} />
+          <Account email={session ? (session.user.email ?? "") : null} whatsapp={whatsapp} onSignOut={() => void signOut()} />
         )}
       </View>
       <TabBar
