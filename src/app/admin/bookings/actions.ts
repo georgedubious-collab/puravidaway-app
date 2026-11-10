@@ -12,6 +12,8 @@ import { requestDriverReview } from "@/lib/reviewRequest";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { InputError, runAction, type FormState } from "@/lib/forms/formState";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { makeT } from "@/lib/teamLang";
+import { getTeamLang } from "@/lib/teamLangServer";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const STATUS_IDS = new Set<string>(BOOKING_STATUSES.map(([s]) => s));
@@ -22,11 +24,13 @@ const STATUS_IDS = new Set<string>(BOOKING_STATUSES.map(([s]) => s));
  * the other offers. Then the driver is emailed.
  */
 export async function acceptOffer(_prev: FormState, fd: FormData): Promise<FormState> {
+  const t = makeT(await getTeamLang());
   return runAction(async () => {
     await requireRole("admin", "/admin/bookings");
     const bidId = String(fd.get("bid_id") ?? "");
     const bookingId = String(fd.get("booking_id") ?? "");
-    if (!UUID.test(bidId) || !UUID.test(bookingId)) throw new InputError("That offer isn't open any more.");
+    if (!UUID.test(bidId) || !UUID.test(bookingId))
+      throw new InputError(t("Esa oferta ya no está abierta.", "That offer isn't open any more."));
     const supabase = (await createSupabaseServerClient())!;
     const { data: ref, error } = await supabase.rpc("accept_offer", { p_bid: bidId });
     if (error) {
@@ -84,17 +88,18 @@ export async function acceptOffer(_prev: FormState, fd: FormData): Promise<FormS
     revalidatePath(`/admin/bookings/${bookingId}`);
     revalidatePath("/driver/jobs");
     revalidatePath("/driver/trips");
-  }, "We couldn't accept this offer. Please reload and try again.");
+  }, t("No pudimos aceptar esta oferta. Recargue la página e inténtelo de nuevo.", "We couldn't accept this offer. Please reload and try again."));
 }
 
 /** Status, assigned driver + vehicle, money received and internal notes for one booking. */
 export async function updateBooking(_prev: FormState, fd: FormData): Promise<FormState> {
+  const t = makeT(await getTeamLang());
   return runAction(async () => {
     await requireRole("admin", "/admin/bookings");
     const id = String(fd.get("id") ?? "");
-    if (!UUID.test(id)) throw new InputError("Booking not found.");
+    if (!UUID.test(id)) throw new InputError(t("No se encontró la reserva.", "Booking not found."));
     const status = String(fd.get("status") ?? "");
-    if (!STATUS_IDS.has(status)) throw new InputError("Pick a status.");
+    if (!STATUS_IDS.has(status)) throw new InputError(t("Elija un estado.", "Pick a status."));
 
     // "driverId:vehicleId", or empty for nobody yet.
     const assignment = String(fd.get("assignment") ?? "");
@@ -102,16 +107,20 @@ export async function updateBooking(_prev: FormState, fd: FormData): Promise<For
     let vehicleId: string | null = null;
     if (assignment) {
       const [d, v] = assignment.split(":");
-      if (!UUID.test(d) || !UUID.test(v)) throw new InputError("Pick a driver and vehicle from the list.");
+      if (!UUID.test(d) || !UUID.test(v))
+        throw new InputError(t("Elija un conductor y un vehículo de la lista.", "Pick a driver and vehicle from the list."));
       driverId = d;
       vehicleId = v;
     }
     if ((status === "confirmed" || status === "in_progress" || status === "completed") && !driverId) {
-      throw new InputError("Assign a driver before marking the booking confirmed.");
+      throw new InputError(
+        t("Asigne un conductor antes de marcar la reserva como confirmada.", "Assign a driver before marking the booking confirmed."),
+      );
     }
 
     const paidRaw = String(fd.get("amount_paid") ?? "").trim() || "0";
-    if (!/^\d{1,7}(\.\d{1,2})?$/.test(paidRaw)) throw new InputError("Amount received must look like 45 or 45.50.");
+    if (!/^\d{1,7}(\.\d{1,2})?$/.test(paidRaw))
+      throw new InputError(t("El monto recibido debe escribirse como 45 o 45.50.", "Amount received must look like 45 or 45.50."));
     const notes = String(fd.get("admin_notes") ?? "").trim().slice(0, 2000) || null;
 
     const supabase = (await createSupabaseServerClient())!;
@@ -131,10 +140,11 @@ export async function updateBooking(_prev: FormState, fd: FormData): Promise<For
       .eq("id", id)
       .select("id");
     if (error) {
-      if (/vehicle must belong/.test(error.message)) throw new InputError("That vehicle doesn't belong to that driver.");
+      if (/vehicle must belong/.test(error.message))
+        throw new InputError(t("Ese vehículo no pertenece a ese conductor.", "That vehicle doesn't belong to that driver."));
       throw error;
     }
-    if (!data?.length) throw new InputError("Booking not found.");
+    if (!data?.length) throw new InputError(t("No se encontró la reserva.", "Booking not found."));
 
     // Just opened for drivers: email approved drivers about the job.
     if (status === "pending_bids" && before && before.status !== "pending_bids") {
@@ -152,5 +162,5 @@ export async function updateBooking(_prev: FormState, fd: FormData): Promise<For
     revalidatePath("/admin/bookings");
     revalidatePath(`/admin/bookings/${id}`);
     revalidatePath("/admin");
-  }, "Couldn't save the booking. Please try again.");
+  }, t("No se pudo guardar la reserva. Inténtelo de nuevo.", "Couldn't save the booking. Please try again."));
 }

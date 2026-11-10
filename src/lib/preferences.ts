@@ -38,15 +38,32 @@ export function parsePrefs(raw: unknown): RidePrefs | null {
 }
 
 /** Short words for summaries ("Wi-Fi · 2 child seats · pet"). */
-export function prefsSummary(p: Partial<RidePrefs> | null | undefined): string[] {
+/** Spanish words for the team pages and driver portal. */
+export const ENGLISH_LEVEL_LABEL_ES: Record<"fluent" | "basic", string> = {
+  fluent: "Habla inglés",
+  basic: "Español · inglés básico",
+};
+
+export function englishLevelLabel(level: "fluent" | "basic", lang: "en" | "es" = "en"): string {
+  return (lang === "es" ? ENGLISH_LEVEL_LABEL_ES : ENGLISH_LEVEL_LABEL)[level];
+}
+
+/** Short words for summaries ("Wi-Fi · 2 child seats · pet"). */
+export function prefsSummary(p: Partial<RidePrefs> | null | undefined, lang: "en" | "es" = "en"): string[] {
   if (!p) return [];
+  const es = lang === "es";
   const out: string[] = [];
-  if (p.language === "english") out.push("English-speaking driver");
-  if (p.language === "spanish_ok") out.push("Spanish / basic English OK");
+  if (p.language === "english") out.push(es ? "Conductor que habla inglés" : "English-speaking driver");
+  if (p.language === "spanish_ok") out.push(es ? "Español / inglés básico está bien" : "Spanish / basic English OK");
   if (p.wifi) out.push("Wi-Fi");
-  if (p.stroller) out.push("stroller");
-  if (p.childSeats) out.push(`${p.childSeats} child seat${p.childSeats > 1 ? "s" : ""}`);
-  if (p.pets) out.push("travelling with a pet");
+  if (p.stroller) out.push(es ? "coche de bebé" : "stroller");
+  if (p.childSeats)
+    out.push(
+      es
+        ? `${p.childSeats} asiento${p.childSeats > 1 ? "s" : ""} para niños`
+        : `${p.childSeats} child seat${p.childSeats > 1 ? "s" : ""}`,
+    );
+  if (p.pets) out.push(es ? "viaja con una mascota" : "travelling with a pet");
   return out;
 }
 
@@ -55,14 +72,18 @@ export function prefMismatches(
   p: Partial<RidePrefs> | null | undefined,
   driver: { english_level: "fluent" | "basic" | null },
   vehicle: { has_wifi: boolean; child_seats: number; stroller_space: boolean; pet_friendly: boolean },
+  lang: "en" | "es" = "en",
 ): string[] {
   if (!p) return [];
+  const es = lang === "es";
   const out: string[] = [];
-  if (p.language === "english" && driver.english_level !== "fluent") out.push("not an English-speaking driver");
-  if (p.wifi && !vehicle.has_wifi) out.push("no Wi-Fi");
-  if (p.childSeats && vehicle.child_seats < p.childSeats) out.push(`only ${vehicle.child_seats} child seat(s)`);
-  if (p.stroller && !vehicle.stroller_space) out.push("no stroller space listed");
-  if (p.pets && !vehicle.pet_friendly) out.push("not pet friendly");
+  if (p.language === "english" && driver.english_level !== "fluent")
+    out.push(es ? "el conductor no habla inglés" : "not an English-speaking driver");
+  if (p.wifi && !vehicle.has_wifi) out.push(es ? "sin Wi-Fi" : "no Wi-Fi");
+  if (p.childSeats && vehicle.child_seats < p.childSeats)
+    out.push(es ? `solo ${vehicle.child_seats} asiento(s) para niños` : `only ${vehicle.child_seats} child seat(s)`);
+  if (p.stroller && !vehicle.stroller_space) out.push(es ? "sin espacio indicado para coche de bebé" : "no stroller space listed");
+  if (p.pets && !vehicle.pet_friendly) out.push(es ? "no acepta mascotas" : "not pet friendly");
   return out;
 }
 

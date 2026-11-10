@@ -7,16 +7,24 @@ import { ActionForm } from "@/components/ActionForm";
 import { ChatBox } from "@/components/ChatBox";
 import { setTripStatus } from "../actions";
 import { requireUser } from "@/lib/auth";
-import { BOOKING_STATUS_LABEL, SERVICE_LABEL, usd, type DriverTrip } from "@/lib/bookings";
+import { bookingStatusLabel, serviceLabel, usd, type DriverTrip } from "@/lib/bookings";
 import { getCatalog } from "@/lib/catalogSource";
 import { addDays, formatScheduledAt, scheduledParts, todayInCostaRica } from "@/lib/dates";
 import { googleMapsUrl, navTarget, wazeUrl, type NavTarget } from "@/lib/navigation";
 import { prefsSummary } from "@/lib/preferences";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { makeT, type TeamLang } from "@/lib/teamLang";
+import { getTeamLang } from "@/lib/teamLangServer";
 import { DriverHeader } from "../../DriverHeader";
 
-export const metadata: Metadata = { title: "Trip | Costa Rica Private Transfers Drivers", robots: { index: false, follow: false } };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = makeT(await getTeamLang());
+  return {
+    title: `${t("Viaje", "Trip")} | Costa Rica Private Transfers ${t("Conductores", "Drivers")}`,
+    robots: { index: false, follow: false },
+  };
+}
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -31,7 +39,7 @@ export default function DriverTripPage({
     <main className="flex-1 bg-slate-50">
       <DriverHeader />
       <div className="max-w-3xl mx-auto px-4 py-8">
-        <Suspense fallback={<p className="text-sm font-semibold text-slate-500">Loading…</p>}>
+        <Suspense fallback={<p className="text-sm font-semibold text-slate-500">Cargando… / Loading…</p>}>
           <Trip params={params} searchParams={searchParams} />
         </Suspense>
       </div>
@@ -44,6 +52,9 @@ async function Trip({ params, searchParams }: { params: Promise<{ id: string }>;
   const { claimed } = await searchParams;
   await requireUser(`/driver/trips/${id}`);
   if (!UUID.test(id)) notFound();
+  const lang = await getTeamLang();
+  const tt = makeT(lang);
+  const step = steps(lang);
   const supabase = (await createSupabaseServerClient())!;
   // my_trips(): only this driver's trips, without the client's price (migration 0017).
   const [{ data: mine }, catalog] = await Promise.all([
@@ -68,36 +79,50 @@ async function Trip({ params, searchParams }: { params: Promise<{ id: string }>;
   const name =
     b.service_type === "transfer"
       ? `${b.origin} → ${b.destination}`
-      : ([...catalog.dayTours, ...catalog.expeditions].find((x) => x.id === b.catalog_item_id)?.name ?? "Trip");
+      : ([...catalog.dayTours, ...catalog.expeditions].find((x) => x.id === b.catalog_item_id)?.name ?? tt("Viaje", "Trip"));
   const stops = (b.sightseeing_stops ?? [])
     .map((s) => (s.id === "en_route_upgrade" ? "Smart En-Route Transfer" : (catalog.stops.find((x) => x.id === s.id)?.name ?? s.id)))
     .join(", ");
-  const asked = prefsSummary(b.preferences);
+  const asked = prefsSummary(b.preferences, lang);
   // I'm on my way → Client picked up → Trip ended.
-  const nextStep: keyof typeof STEP = b.status === "in_progress" ? "completed" : b.en_route_at ? "in_progress" : "en_route";
+  const nextStep: keyof ReturnType<typeof steps> = b.status === "in_progress" ? "completed" : b.en_route_at ? "in_progress" : "en_route";
   const pickup = b.service_type === "transfer" ? navTarget(b.origin, b.origin_coords) : null;
   const dropoff = b.service_type === "transfer" ? navTarget(b.destination, b.destination_coords) : null;
 
   return (
     <div className="space-y-5">
       <Link href="/driver/trips" className="text-sm font-bold text-emerald-700 underline">
-        ← Your trips
+        ← {tt("Mis viajes", "Your trips")}
       </Link>
       {claimed === "1" && (
         <p role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-900">
-          This ride is yours. Introduce yourself in the chat below and confirm the pickup time.
+          {tt(
+            "Este viaje es suyo. Preséntese en el chat de abajo y confirme la hora de recogida.",
+            "This ride is yours. Introduce yourself in the chat below and confirm the pickup time.",
+          )}
         </p>
       )}
       {(b.status === "confirmed" || b.status === "in_progress") && (
         <section className="rounded-xl border-2 border-emerald-600 bg-white p-5">
-          <h2 className="font-extrabold text-slate-900">{STEP[nextStep].title}</h2>
-          <p className="mt-1 text-xs text-slate-500">{STEP[nextStep].help}</p>
-          <ActionForm action={setTripStatus} submitLabel={STEP[nextStep].button} savedLabel="Done" className="mt-3">
+          <h2 className="font-extrabold text-slate-900">{step[nextStep].title}</h2>
+          <p className="mt-1 text-xs text-slate-500">{step[nextStep].help}</p>
+          <ActionForm
+            action={setTripStatus}
+            lang={lang}
+            submitLabel={step[nextStep].button}
+            savedLabel={tt("Listo", "Done")}
+            className="mt-3"
+          >
             <input type="hidden" name="booking_id" value={b.id} />
             <input type="hidden" name="step" value={nextStep} />
           </ActionForm>
           {nextStep === "in_progress" && (
-            <p className="mt-2 text-xs font-semibold text-emerald-700">You&apos;re on your way. Our team can see your progress in the app.</p>
+            <p className="mt-2 text-xs font-semibold text-emerald-700">
+              {tt(
+                "Va en camino. Nuestro equipo puede ver su avance en la aplicación.",
+                "You're on your way. Our team can see your progress in the app.",
+              )}
+            </p>
           )}
         </section>
       )}
@@ -105,84 +130,125 @@ async function Trip({ params, searchParams }: { params: Promise<{ id: string }>;
         <p className="font-mono text-sm font-bold text-slate-500">{b.booking_ref}</p>
         <h1 className="text-2xl font-extrabold text-slate-900">{name}</h1>
         <p className="text-sm text-slate-600">
-          {formatScheduledAt(b.scheduled_at)} · {SERVICE_LABEL[b.service_type]} · {BOOKING_STATUS_LABEL[b.status]}
+          {formatScheduledAt(b.scheduled_at, lang)} · {serviceLabel(b.service_type, lang)} · {bookingStatusLabel(b.status, lang)}
         </p>
       </div>
 
       <section className="rounded-xl border border-slate-200 bg-white p-5">
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
-          {b.driver_payout != null && <Item k="Your payout" v={usd(b.driver_payout)} />}
+          {b.driver_payout != null && <Item k={tt("Su pago", "Your payout")} v={usd(b.driver_payout)} />}
           {b.cash_to_collect != null && Number(b.cash_to_collect) > 0 && (
-            <Item k="Collect in cash" v={`${usd(b.cash_to_collect)} from the traveller (you keep your payout; the rest is settled weekly)`} />
+            <Item
+              k={tt("Cobrar en efectivo", "Collect in cash")}
+              v={tt(
+                `${usd(b.cash_to_collect)} del cliente (usted se queda con su pago; el resto se liquida cada semana)`,
+                `${usd(b.cash_to_collect)} from the traveller (you keep your payout; the rest is settled weekly)`,
+              )}
+            />
           )}
-          <Item k="Traveller" v={(guest?.guest_name ?? "").split(" ")[0] || "—"} />
-          <Item k="WhatsApp / phone" v={showPhone ? guest?.guest_phone : "Shown the day before the trip"} />
-          {b.passenger_count && <Item k="Passengers" v={b.passenger_count} />}
-          {b.vehicle_class && <Item k="Vehicle class" v={catalog.vehicles.find((v) => v.id === b.vehicle_class)?.name ?? b.vehicle_class} />}
-          {stops && <Item k="Stops / extras" v={stops} />}
-          {asked.length > 0 && <Item k="Asked for" v={asked.join(", ")} />}
-          {b.flight_or_hotel_notes && <Item k="Flight / hotel" v={b.flight_or_hotel_notes} />}
-          {b.driver_notes && <Item k="Message for you" v={b.driver_notes} />}
+          <Item k={tt("Cliente", "Traveller")} v={(guest?.guest_name ?? "").split(" ")[0] || "—"} />
+          <Item
+            k={tt("WhatsApp / teléfono", "WhatsApp / phone")}
+            v={showPhone ? guest?.guest_phone : tt("Se muestra el día antes del viaje", "Shown the day before the trip")}
+          />
+          {b.passenger_count && <Item k={tt("Pasajeros", "Passengers")} v={b.passenger_count} />}
+          {b.vehicle_class && (
+            <Item k={tt("Tipo de vehículo", "Vehicle class")} v={catalog.vehicles.find((v) => v.id === b.vehicle_class)?.name ?? b.vehicle_class} />
+          )}
+          {stops && <Item k={tt("Paradas / extras", "Stops / extras")} v={stops} />}
+          {asked.length > 0 && <Item k={tt("Solicitó", "Asked for")} v={asked.join(", ")} />}
+          {b.flight_or_hotel_notes && <Item k={tt("Vuelo / hotel", "Flight / hotel")} v={b.flight_or_hotel_notes} />}
+          {b.driver_notes && <Item k={tt("Mensaje para usted", "Message for you")} v={b.driver_notes} />}
         </dl>
         <p className="mt-3 text-xs text-slate-500">
-          Times are Costa Rica time. The exact pickup place (and any time change) is confirmed in the chat below.
+          {tt(
+            "Las horas son hora de Costa Rica. El lugar exacto de recogida (y cualquier cambio de hora) se confirma en el chat de abajo.",
+            "Times are Costa Rica time. The exact pickup place (and any time change) is confirmed in the chat below.",
+          )}
         </p>
       </section>
 
       {(pickup || dropoff) && (
         <section className="rounded-xl border border-slate-200 bg-white p-5">
           <h2 className="font-extrabold text-slate-900 flex items-center gap-2">
-            <Navigation className="w-4 h-4 text-emerald-600" aria-hidden /> Navigate
+            <Navigation className="w-4 h-4 text-emerald-600" aria-hidden /> {tt("Navegar", "Navigate")}
           </h2>
-          <p className="mt-1 text-xs text-slate-500">Opens the app on your phone with the place filled in.</p>
+          <p className="mt-1 text-xs text-slate-500">
+            {tt("Abre la aplicación en su teléfono con el lugar ya puesto.", "Opens the app on your phone with the place filled in.")}
+          </p>
           <div className="mt-3 space-y-4">
-            {pickup && <NavRow title="To the pickup" t={pickup} />}
-            {dropoff && <NavRow title="To the drop-off (once your travellers are on board)" t={dropoff} />}
+            {pickup && <NavRow title={tt("Hacia la recogida", "To the pickup")} t={pickup} lang={lang} />}
+            {dropoff && (
+              <NavRow
+                title={tt("Hacia el destino (cuando sus clientes estén a bordo)", "To the drop-off (once your travellers are on board)")}
+                t={dropoff}
+                lang={lang}
+              />
+            )}
           </div>
         </section>
       )}
 
       <section>
-        <h2 className="mb-2 font-extrabold text-slate-900">Chat with the traveller and our team</h2>
+        <h2 className="mb-2 font-extrabold text-slate-900">{tt("Chat con el cliente y nuestro equipo", "Chat with the traveller and our team")}</h2>
         <ChatBox
           bookingId={b.id}
           viewer={{ kind: "staff" }}
-          intro="Introduce yourself and confirm the pickup time. Please keep phone numbers and links out of the chat."
+          lang={lang}
+          intro={tt(
+            "Preséntese y confirme la hora de recogida. Por favor no incluya teléfonos ni enlaces en el chat.",
+            "Introduce yourself and confirm the pickup time. Please keep phone numbers and links out of the chat.",
+          )}
         />
       </section>
     </div>
   );
 }
 
-const STEP = {
-  en_route: {
-    title: "Heading to the pickup?",
-    help: "Tap when you set off (from 6 hours before the pickup time). The traveller is told you're on the way and our team follows your arrival.",
-    button: "I'm on my way",
-  },
-  in_progress: {
-    title: "When your travellers are on board",
-    help: "Tap at the pickup, once everyone is in the car.",
-    button: "Client picked up",
-  },
-  completed: {
-    title: "When you've dropped your travellers off",
-    help: "Tap at the drop-off. Location sharing stops, the traveller is asked to rate the trip, and your payout is recorded.",
-    button: "Trip ended",
-  },
-} as const;
+function steps(lang: TeamLang) {
+  const t = makeT(lang);
+  return {
+    en_route: {
+      title: t("¿Va saliendo hacia la recogida?", "Heading to the pickup?"),
+      help: t(
+        "Toque cuando salga (desde 6 horas antes de la hora de recogida). Al cliente se le avisa que va en camino y nuestro equipo sigue su llegada.",
+        "Tap when you set off (from 6 hours before the pickup time). The traveller is told you're on the way and our team follows your arrival.",
+      ),
+      button: t("Voy en camino", "I'm on my way"),
+    },
+    in_progress: {
+      title: t("Cuando sus clientes estén a bordo", "When your travellers are on board"),
+      help: t("Toque en la recogida, cuando todos estén en el carro.", "Tap at the pickup, once everyone is in the car."),
+      button: t("Cliente recogido", "Client picked up"),
+    },
+    completed: {
+      title: t("Cuando haya dejado a sus clientes", "When you've dropped your travellers off"),
+      help: t(
+        "Toque en el destino. Se deja de compartir la ubicación, se le pide al cliente que califique el viaje y se registra su pago.",
+        "Tap at the drop-off. Location sharing stops, the traveller is asked to rate the trip, and your payout is recorded.",
+      ),
+      button: t("Viaje terminado", "Trip ended"),
+    },
+  };
+}
 
-function NavRow({ title, t }: { title: string; t: NavTarget }) {
+/** Spanish for the notes in src/lib/navigation.ts. */
+const NOTE_ES: Record<string, string> = {
+  "Drive to the Sierpe boat dock; the boat covers the last part to Drake Bay.":
+    "Maneje hasta el muelle de Sierpe; el bote cubre el último tramo hasta Bahía Drake.",
+};
+
+function NavRow({ title, t, lang }: { title: string; t: NavTarget; lang: TeamLang }) {
   const btn =
     "inline-flex min-h-11 items-center justify-center rounded-xl px-4 text-sm font-extrabold transition";
   return (
     <div>
       <p className="text-xs font-bold uppercase tracking-wider text-slate-400">{title}</p>
       <p className="text-sm font-semibold text-slate-900 break-words">{t.label}</p>
-      {t.note && <p className="text-xs text-amber-800">{t.note}</p>}
+      {t.note && <p className="text-xs text-amber-800">{lang === "en" ? t.note : (NOTE_ES[t.note] ?? t.note)}</p>}
       <div className="mt-2 grid grid-cols-2 gap-2">
         <a href={wazeUrl(t)} target="_blank" rel="noopener noreferrer" className={`${btn} bg-sky-500 text-white hover:bg-sky-400`}>
-          Open in Waze
+          {lang === "en" ? "Open in Waze" : "Abrir en Waze"}
         </a>
         <a href={googleMapsUrl(t)} target="_blank" rel="noopener noreferrer" className={`${btn} border-2 border-emerald-600 text-emerald-700 hover:bg-emerald-50`}>
           Google Maps

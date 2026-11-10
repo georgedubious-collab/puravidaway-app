@@ -18,6 +18,31 @@ export const SERVICE_LABEL: Record<string, string> = {
   expedition: "Expedition",
 };
 
+/* Spanish words for the team pages and driver portal (src/lib/teamLang.ts). */
+export const BOOKING_STATUS_LABEL_ES: Record<BookingStatus, string> = {
+  pending_payment: "Solicitud nueva · esperando el pago",
+  pending_bids: "Abierta para conductores (bolsa de trabajos)",
+  confirmed: "Confirmado",
+  in_progress: "En ruta",
+  completed: "Completado",
+  cancelled: "Cancelado",
+};
+
+export const SERVICE_LABEL_ES: Record<string, string> = {
+  transfer: "Traslado",
+  day_tour: "Tour de un día",
+  expedition: "Expedición",
+};
+
+export function bookingStatusLabel(status: string, lang: "en" | "es" = "en"): string {
+  const map: Record<string, string> = lang === "es" ? BOOKING_STATUS_LABEL_ES : BOOKING_STATUS_LABEL;
+  return map[status] ?? status;
+}
+
+export function serviceLabel(type: string, lang: "en" | "es" = "en"): string {
+  return (lang === "es" ? SERVICE_LABEL_ES : SERVICE_LABEL)[type] ?? type;
+}
+
 export interface BookingRow {
   id: string;
   booking_ref: string;
@@ -122,10 +147,11 @@ export function bookingDue(b: Pick<BookingRow, "total_price" | "cash_fee">): num
 }
 
 /** Short payment label for the team, e.g. "Cash to driver" or "Online in full". */
-export function paymentModeLabel(mode: BookingRow["payment_mode"]): string {
-  if (mode === "cash_driver") return "Cash to driver";
-  if (mode === "deposit_20") return "20% deposit (old request)";
-  return "Online in full";
+export function paymentModeLabel(mode: BookingRow["payment_mode"], lang: "en" | "es" = "en"): string {
+  const es = lang === "es";
+  if (mode === "cash_driver") return es ? "Efectivo al conductor" : "Cash to driver";
+  if (mode === "deposit_20") return es ? "Depósito del 20% (solicitud antigua)" : "20% deposit (old request)";
+  return es ? "En línea, pago completo" : "Online in full";
 }
 
 /** Traveller contact details (server/admin only, never readable by drivers). */

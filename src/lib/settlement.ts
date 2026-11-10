@@ -12,8 +12,8 @@ export function settlementUsd(t: { driver_payout: number | string | null; cash_t
 }
 
 /** "We owe you $130" / "You owe us $32" style text. */
-export function balanceText(usdAmount: number, we = "We owe you", they = "You owe us"): string {
+export function balanceText(usdAmount: number, we = "We owe you", they = "You owe us", lang: "en" | "es" = "en"): string {
   const abs = Math.abs(usdAmount).toLocaleString("en-US", { style: "currency", currency: "USD" });
-  if (Math.abs(usdAmount) < 0.005) return "Nothing owed either way";
+  if (Math.abs(usdAmount) < 0.005) return lang === "es" ? "Nadie debe nada" : "Nothing owed either way";
   return usdAmount > 0 ? `${we} ${abs}` : `${they} ${abs}`;
 }

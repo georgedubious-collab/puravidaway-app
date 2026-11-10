@@ -2,10 +2,10 @@ import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import {
   BOOKING_STATUSES,
-  BOOKING_STATUS_LABEL,
-  SERVICE_LABEL,
   bookingDue,
+  bookingStatusLabel,
   paymentModeLabel,
+  serviceLabel,
   usd,
   type BookingRow,
   type BookingStatus,
@@ -15,11 +15,15 @@ import { LiveRefresh } from "@/components/LiveRefresh";
 import { getCatalog } from "@/lib/catalogSource";
 import { formatScheduledAt } from "@/lib/dates";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { makeT } from "@/lib/teamLang";
+import { getTeamLang } from "@/lib/teamLangServer";
 
 const OPEN: BookingStatus[] = ["pending_payment", "pending_bids", "confirmed", "in_progress"];
 
 export default async function BookingsPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
   await requireRole("admin", "/admin/bookings");
+  const lang = await getTeamLang();
+  const t = makeT(lang);
   const { status } = await searchParams;
   const filter = BOOKING_STATUSES.some(([s]) => s === status) ? (status as BookingStatus) : null;
 
@@ -31,7 +35,12 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
     b.service_type === "transfer"
       ? `${b.origin} → ${b.destination}`
       : ([...catalog.dayTours, ...catalog.expeditions].find((x) => x.id === b.catalog_item_id)?.name ?? b.catalog_item_id);
-  if (error) return <p className="font-semibold text-red-700">Couldn&apos;t load bookings: {error.message}</p>;
+  if (error)
+    return (
+      <p className="font-semibold text-red-700">
+        {t("No se pudieron cargar las reservas:", "Couldn't load bookings:")} {error.message}
+      </p>
+    );
   // Open offers per booking on the job board.
   const openIds = (data ?? []).filter((b) => b.status === "pending_bids").map((b) => b.id);
   const { data: openOffers } = openIds.length
@@ -50,33 +59,35 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
     <div className="space-y-6">
       {openIds.length > 0 && <LiveRefresh seconds={15} />}
       <div>
-        <h1 className="text-2xl font-extrabold text-slate-900">Bookings</h1>
+        <h1 className="text-2xl font-extrabold text-slate-900">{t("Reservas", "Bookings")}</h1>
         <p className="mt-1 text-sm text-slate-600">
-          Trip requests from the website, newest first. Open a booking to confirm it, assign a driver
-          and record payment.
+          {t(
+            "Solicitudes de viaje del sitio web, las más recientes primero. Abra una reserva para confirmarla, asignar un conductor y registrar el pago.",
+            "Trip requests from the website, newest first. Open a booking to confirm it, assign a driver and record payment.",
+          )}
         </p>
       </div>
 
-      <nav aria-label="Filter by status" className="flex flex-wrap gap-2 text-sm font-bold">
-        <Chip href="/admin/bookings" on={!filter} label="Open" />
-        {BOOKING_STATUSES.map(([s, label]) => (
-          <Chip key={s} href={`/admin/bookings?status=${s}`} on={filter === s} label={label} />
+      <nav aria-label={t("Filtrar por estado", "Filter by status")} className="flex flex-wrap gap-2 text-sm font-bold">
+        <Chip href="/admin/bookings" on={!filter} label={t("Abiertas", "Open")} />
+        {BOOKING_STATUSES.map(([s]) => (
+          <Chip key={s} href={`/admin/bookings?status=${s}`} on={filter === s} label={bookingStatusLabel(s, lang)} />
         ))}
       </nav>
 
-      {trips.size === 0 && <p className="text-sm text-slate-500">No bookings here yet.</p>}
+      {trips.size === 0 && <p className="text-sm text-slate-500">{t("Todavía no hay reservas aquí.", "No bookings here yet.")}</p>}
       <ul className="space-y-3">
         {[...trips.values()].map((items) => {
           const first = items[0];
           const total = items.reduce((n, b) => n + bookingDue(b), 0);
-          const modes = [...new Set(items.map((b) => paymentModeLabel(b.payment_mode)))];
+          const modes = [...new Set(items.map((b) => paymentModeLabel(b.payment_mode, lang)))];
           return (
             <li key={first.trip_id ?? first.id} className="rounded-xl border border-slate-200 bg-white p-4">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <p className="font-extrabold text-slate-900">
-                  {first.trips?.guest_name ?? "Client"}{" "}
+                  {first.trips?.guest_name ?? t("Cliente", "Client")}{" "}
                   <span className="text-sm font-semibold text-slate-500">
-                    · {first.trips?.guest_phone} · sent {first.created_at.slice(0, 10)}
+                    · {first.trips?.guest_phone} · {t("enviada", "sent")} {first.created_at.slice(0, 10)}
                   </span>
                 </p>
                 <p className="text-sm font-bold text-slate-700">
@@ -88,23 +99,28 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
                   <li key={b.id}>
                     <Link href={`/admin/bookings/${b.id}`} className="flex flex-wrap items-center justify-between gap-2 py-2 hover:bg-slate-50">
                       <span className="text-sm">
-                        <span className="font-mono font-bold">{b.booking_ref}</span> · {formatScheduledAt(b.scheduled_at)} ·{" "}
-                        {SERVICE_LABEL[b.service_type]}{" "}
+                        <span className="font-mono font-bold">{b.booking_ref}</span> · {formatScheduledAt(b.scheduled_at, lang)} ·{" "}
+                        {serviceLabel(b.service_type, lang)}{" "}
                         {itemName(b)}
-                        {b.pricing_mode === "bid" && <span className="ml-1 rounded bg-amber-100 px-1.5 text-xs font-bold">offer</span>}
+                        {b.pricing_mode === "bid" && (
+                          <span className="ml-1 rounded bg-amber-100 px-1.5 text-xs font-bold">{t("oferta", "offer")}</span>
+                        )}
                         {b.status === "pending_bids" && (
                           <span className={`ml-1 rounded px-1.5 text-xs font-bold ${offersOn(b.id) ? "bg-emerald-100 text-emerald-900" : "bg-slate-100 text-slate-600"}`}>
-                            {offersOn(b.id)} driver offer{offersOn(b.id) === 1 ? "" : "s"}
+                            {offersOn(b.id)}{" "}
+                            {offersOn(b.id) === 1
+                              ? t("oferta de conductor", "driver offer")
+                              : t("ofertas de conductores", "driver offers")}
                           </span>
                         )}
                       </span>
                       <span className="text-sm font-semibold">
                         {usd(bookingDue(b))}
-                        {Number(b.cash_fee ?? 0) > 0 ? " incl. cash fee" : ""} ·{" "}
+                        {Number(b.cash_fee ?? 0) > 0 ? t(" incl. cargo por efectivo", " incl. cash fee") : ""} ·{" "}
                         <span className={b.assigned_driver_id ? "text-emerald-700" : "text-amber-700"}>
-                          {b.assigned_driver_id ? "driver assigned" : "no driver"}
+                          {b.assigned_driver_id ? t("conductor asignado", "driver assigned") : t("sin conductor", "no driver")}
                         </span>{" "}
-                        · {BOOKING_STATUS_LABEL[b.status]}
+                        · {bookingStatusLabel(b.status, lang)}
                       </span>
                     </Link>
                   </li>

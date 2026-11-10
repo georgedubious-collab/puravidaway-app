@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { MAX_DOC_BYTES } from "@/lib/driverKyc";
 import type { FormState } from "@/lib/forms/formState";
+import { makeT, type TeamLang } from "@/lib/teamLang";
 import { addVehiclePhoto, attachDriverDocument, attachVehicleDocument } from "./actions";
 
 const TYPES: Record<string, string> = {
@@ -31,6 +32,7 @@ export function DocumentUpload({
   label,
   uploaded,
   renew,
+  lang = "es",
 }: {
   userId: string;
   target: UploadTarget;
@@ -38,7 +40,9 @@ export function DocumentUpload({
   uploaded: boolean;
   /** Dated document after the first review: ask for its new date with the file. */
   renew?: { ask: string; kind: "date" | "year" };
+  lang?: TeamLang;
 }) {
+  const t = makeT(lang);
   const [renewed, setRenewed] = useState("");
   const input = useRef<HTMLInputElement>(null);
   const router = useRouter();
@@ -52,12 +56,14 @@ export function DocumentUpload({
     const ext = (file.name.split(".").pop() ?? "").toLowerCase();
     const type = TYPES[ext];
     if (!type || (photos && type === "application/pdf")) {
-      return photos ? "Use photos (JPG, PNG, WEBP, HEIC)." : "Use a photo (JPG, PNG, WEBP, HEIC) or a PDF.";
+      return photos
+        ? t("Use fotos (JPG, PNG, WEBP, HEIC).", "Use photos (JPG, PNG, WEBP, HEIC).")
+        : t("Use una foto (JPG, PNG, WEBP, HEIC) o un PDF.", "Use a photo (JPG, PNG, WEBP, HEIC) or a PDF.");
     }
-    if (file.size > MAX_DOC_BYTES) return `${file.name} is over 10 MB. Try a smaller photo.`;
+    if (file.size > MAX_DOC_BYTES) return t(`${file.name} pesa más de 10 MB. Pruebe con una foto más pequeña.`, `${file.name} is over 10 MB. Try a smaller photo.`);
 
     const supabase = createSupabaseBrowserClient();
-    if (!supabase) return "Uploads aren't available yet.";
+    if (!supabase) return t("La subida de archivos todavía no está disponible.", "Uploads aren't available yet.");
     const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     const name = photos ? `photo-${stamp}.${ext}` : `${target.key}-${stamp}.${ext}`;
     const path =
@@ -65,7 +71,7 @@ export function DocumentUpload({
     const { error } = await supabase.storage
       .from("driver-kyc-docs")
       .upload(path, file, { contentType: type, upsert: false });
-    if (error) return "Upload failed. Check your connection and try again.";
+    if (error) return t("La subida falló. Revise su conexión e intente de nuevo.", "Upload failed. Check your connection and try again.");
 
     let res: FormState;
     if (target.type === "driver") res = await attachDriverDocument(target.key, path, renew ? renewed : undefined);
@@ -80,7 +86,10 @@ export function DocumentUpload({
     setMsg(null);
     if (renew && !renewed) {
       if (input.current) input.current.value = "";
-      return setMsg({ ok: false, text: `Enter the ${renew.ask.toLowerCase()} first.` });
+      return setMsg({
+        ok: false,
+        text: t(`Primero escriba: ${renew.ask.toLowerCase()}.`, `Enter the ${renew.ask.toLowerCase()} first.`),
+      });
     }
     setBusy(true);
     try {
@@ -91,7 +100,11 @@ export function DocumentUpload({
           return;
         }
       }
-      setMsg({ ok: true, text: photos && files.length > 1 ? `${files.length} photos added` : "Uploaded" });
+      setMsg({ ok: true, text:
+          photos && files.length > 1
+            ? t(`${files.length} fotos agregadas`, `${files.length} photos added`)
+            : t("Subido", "Uploaded"),
+      });
       setRenewed("");
     } finally {
       setBusy(false);
@@ -135,7 +148,13 @@ export function DocumentUpload({
         } ${busy ? "pointer-events-none opacity-50" : ""}`}
       >
         <span className="sr-only">{label}: </span>
-        {busy ? "Uploading…" : photos ? "Add photos" : uploaded ? "Replace" : "Upload"}
+        {busy
+          ? t("Subiendo…", "Uploading…")
+          : photos
+            ? t("Agregar fotos", "Add photos")
+            : uploaded
+              ? t("Reemplazar", "Replace")
+              : t("Subir", "Upload")}
       </label>
       {msg && (
         <span aria-live="polite" className={`text-sm font-semibold ${msg.ok ? "text-emerald-700" : "text-red-700"}`}>

@@ -125,6 +125,14 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
 - Seasons: peak = Dec 20–Jan 5 + Semana Santa (Palm Sunday → Easter); high = Dec–Apr; else green.
   Live from the `seasons` / `season_ranges` tables (edited at `/admin/pricing`); the same rule is
   the built-in fallback in code.
+- **Languages (Jorge, 2026-11-09):** the team pages (`/admin`, the CRM) and the driver web portal
+  (`/driver`) are **Spanish by default with an English option**: an "ES | EN" switch in their
+  headers stores the choice in the `team_lang` cookie for a year (`src/lib/teamLang.ts`,
+  `getTeamLang()` in `src/lib/teamLangServer.ts`). Server-action messages on those pages follow it;
+  `/api/v1` calls from the apps get English unless they send an `x-team-lang: es|en` header.
+  The **driver app** is Spanish by default with English in Profile, and the **customer app** is
+  English with a Costa Rica flag toggle for Spanish (branches `feat/driver-app-spanish` and
+  `feat/client-app-spanish`). The public website, trip pages, legal pages and all emails stay English.
 
 ## 4. Product modules
 

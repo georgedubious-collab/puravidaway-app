@@ -1,0 +1,1 @@
+- 2026-11-09 — Claude — Team pages (`/admin`) and driver portal (`/driver`) are now Spanish by default, with an "ES | EN" switch in the header (`team_lang` cookie, `src/lib/teamLang.ts`); page text, server-action messages, KYC warnings and dates follow it. Public site, emails and `/api/v1` responses stay English.
