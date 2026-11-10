@@ -701,7 +701,8 @@ export function crcToCents(crc: number, crcPerUsd: number): number {
  * Set NEXT_PUBLIC_WHATSAPP_NUMBER in Vercel before launch; until then the
  * buttons open the placeholder below and a warning is logged at build time.
  */
-const WHATSAPP_PLACEHOLDER = "50600000000";
+// Fake number for testing (Jorge, 2026-11-09). Replace by setting the real one in Vercel before launch.
+const WHATSAPP_PLACEHOLDER = "50665000000";
 function resolveWhatsAppNumber(): string {
   const raw = (process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "").replace(/[^\d]/g, "");
   if (/^\d{8,15}$/.test(raw)) return raw;

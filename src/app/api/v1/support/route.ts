@@ -10,6 +10,6 @@ export function GET() {
   return json({
     ok: true,
     whatsapp: WHATSAPP_NUMBER,
-    email: process.env.DRIVER_SUPPORT_EMAIL || "hello@costaricaprivatetransfers.com",
+    email: process.env.DRIVER_SUPPORT_EMAIL || "drivers@costaricaprivatetransfers.com",
   });
 }
