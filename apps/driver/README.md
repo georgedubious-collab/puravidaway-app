@@ -12,7 +12,11 @@ Vercel ignores this folder, and the website's checks don't run on it.
 - **Jobs:** open jobs with the suggested payout; send, change or withdraw an offer.
 - **Trips:** assigned trips; Start trip / Complete trip; Waze and Google Maps buttons;
   cash to collect on cash trips; chat with the traveller and the team.
+- **Calendar:** tap a day to block it (`set_unavailable()`); blocked days hide jobs, refuse offers
+  and skip job alerts; days with a confirmed trip are marked and can't be blocked.
 - **Earnings:** balance to settle and trip history.
+- **Help:** FAQs (`src/screens/Help.tsx`, keep them true to how the app works) and driver support
+  by WhatsApp and email (`GET /api/v1/support`; email from `DRIVER_SUPPORT_EMAIL`).
 - **Profile:** approval status, rating, vehicles, sign out.
 - **Push notifications:** new open jobs and accepted offers.
 

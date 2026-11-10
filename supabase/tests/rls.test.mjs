@@ -541,6 +541,32 @@ await expectRows("driver starts the trip", "driver", `select public.driver_set_t
 await expectBlocked("driver cannot start it twice", "driver", `select public.driver_set_trip_status(${J3}, 'in_progress')`);
 await expectBlocked("driver cannot set other statuses", "driver", `select public.driver_set_trip_status(${J3}, 'cancelled')`);
 await expectRows("driver completes the trip", "driver", `select public.driver_set_trip_status(${J3}, 'completed') as ref`, 1);
+// Migration 0032: drivers block days in their calendar.
+await expectOk("server posts a job six days ahead", "server", `
+  insert into public.bookings (id, client_id, service_type, total_price, driver_payout, platform_fee, status, passenger_count, scheduled_at)
+  values ('10000000-0000-0000-0000-000000000008', '${U.client}', 'transfer', 100, 80, 20, 'pending_bids', 1, now() + interval '6 days')`);
+// The driver can't read booking rows, so the day is worked out the same way the job's time was.
+const DAY8 = "((now() + interval '6 days') at time zone 'America/Costa_Rica')::date";
+await expectRows("driver sees the job", "driver", "select 1 from public.driver_jobs() where id = '10000000-0000-0000-0000-000000000008'", 1);
+await expectRows("driver offers on it", "driver", "select public.offer_job('10000000-0000-0000-0000-000000000008', '30000000-0000-0000-0000-000000000001', 80) as ref", 1);
+await expectOk("driver blocks that day", "driver", `select public.set_unavailable(${DAY8}, true)`);
+await expectRows("the blocked day is saved", "driver", "select * from public.driver_unavailable", 1);
+await expectRows("blocking withdrew the open offer", "admin", "select 1 from public.bids where booking_id = '10000000-0000-0000-0000-000000000008' and status = 'withdrawn'", 1);
+await expectRows("jobs on a blocked day are hidden", "driver", "select 1 from public.driver_jobs() where id = '10000000-0000-0000-0000-000000000008'", 0);
+await expectBlocked("no offers on a blocked day", "driver", "select public.offer_job('10000000-0000-0000-0000-000000000008', '30000000-0000-0000-0000-000000000001', 80)");
+await expectBlocked("a past day cannot be blocked", "driver", "select public.set_unavailable(public.cr_today() - 1, true)");
+await expectBlocked("a driver cannot write the calendar directly", "driver", `insert into public.driver_unavailable (driver_id, day) values ('${U.driver}', public.cr_today() + 30)`);
+await expectBlocked("a client has no calendar", "client2", "select public.set_unavailable(public.cr_today() + 3, true)");
+await expectRows("another driver sees no one else's days", "pending", "select * from public.driver_unavailable", 0);
+await expectRows("the team sees blocked days", "admin", "select * from public.driver_unavailable", 1);
+await expectOk("server assigns the driver a trip nine days ahead", "server", `
+  insert into public.bookings (id, client_id, service_type, total_price, status, assigned_driver_id, scheduled_at)
+  values ('10000000-0000-0000-0000-00000000000a', '${U.client}', 'transfer', 100, 'confirmed', '${U.driver}', now() + interval '9 days')`);
+await expectBlocked("a day with a confirmed trip cannot be blocked", "driver",
+  "select public.set_unavailable(((now() + interval '9 days') at time zone 'America/Costa_Rica')::date, true)");
+await expectOk("driver unblocks the day", "driver", `select public.set_unavailable(${DAY8}, false)`);
+await expectRows("the job is back", "driver", "select 1 from public.driver_jobs() where id = '10000000-0000-0000-0000-000000000008'", 1);
+await expectOk("server removes the calendar-test bookings", "server", "delete from public.bookings where id in ('10000000-0000-0000-0000-000000000008', '10000000-0000-0000-0000-00000000000a')");
 // Migration 0031: replacing key documents pauses new jobs until the team checks them.
 await expectOk("server makes sure the driver is approved with a fresh review", "server", `update public.drivers set needs_review = false where id = '${U.driver}'`);
 await expectOk("driver edits their bio (small change)", "driver", `update public.drivers set bio = 'Twenty years driving visitors around Arenal and the northern plains, birder.' where id = '${U.driver}'`);

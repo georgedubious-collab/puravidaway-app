@@ -19,6 +19,7 @@ export function Profile({
   vehicles,
   onSignOut,
   onDocuments,
+  onHelp,
   location,
 }: {
   email: string;
@@ -27,6 +28,8 @@ export function Profile({
   onSignOut: () => void;
   /** Open the documents and vehicles screen. */
   onDocuments: () => void;
+  /** Open the help screen (FAQs and support). */
+  onHelp: () => void;
   /** The location-sharing card. */
   location?: ReactNode;
 }) {
@@ -55,6 +58,7 @@ export function Profile({
         ))}
       </Card>
       <Btn label={driver ? "Documents and vehicles" : "Apply to drive"} alt={Boolean(driver)} onPress={onDocuments} />
+      <Btn label="Help and support" alt onPress={onHelp} />
       <Btn label="Sign out" onPress={onSignOut} color={C.red} />
     </ScrollView>
   );

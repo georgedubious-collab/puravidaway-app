@@ -1,7 +1,7 @@
 import "server-only";
 import { usd } from "./bookings";
 import { getCatalog } from "./catalogSource";
-import { formatScheduledAt } from "./dates";
+import { formatScheduledAt, scheduledParts } from "./dates";
 import { SITE_URL, sendEmail } from "./email";
 import { townName, townOf } from "./matching";
 import { sendPush } from "./push";
@@ -35,7 +35,12 @@ export async function notifyDriversOfJobs(bookingIds: string[]): Promise<void> {
     type D = { id: string; home_hub: string | null; profiles: { full_name: string | null; email: string | null; role: string } | null };
     const list = (drivers as unknown as D[]).filter((d) => d.profiles?.email && d.profiles.role === "driver");
 
+    const { data: blocked } = await db.from("driver_unavailable").select("driver_id, day").in("driver_id", list.map((d) => d.id));
     for (const j of jobs) {
+      // Drivers who blocked that day (Costa Rica date) aren't told about the job.
+      const day = scheduledParts(j.scheduled_at)?.ymd;
+      const off = new Set((blocked ?? []).filter((u) => u.day === day).map((u) => u.driver_id as string));
+      const available = list.filter((d) => !off.has(d.id));
       const from = townOf(j.origin, j.origin_coords);
       const to = townOf(j.destination, j.destination_coords);
       const what =
@@ -46,11 +51,11 @@ export async function notifyDriversOfJobs(bookingIds: string[]): Promise<void> {
       const payout = usd(Math.round(Number(j.driver_payout)));
       // Push to every approved driver's phone (driver app), then email as the backup.
       await sendPush(
-        list.map((d) => d.id),
+        available.map((d) => d.id),
         { title: `New job: ${what}`, body: `${when} · ${j.passenger_count ?? 1} traveller${(j.passenger_count ?? 1) > 1 ? "s" : ""} · suggested payout ${payout}`, data: { screen: "job", id: j.id } },
         "driver",
       );
-      const sorted = [...list].sort((a, b) => Number(b.home_hub === from) - Number(a.home_hub === from)).slice(0, MAX_RECIPIENTS);
+      const sorted = [...available].sort((a, b) => Number(b.home_hub === from) - Number(a.home_hub === from)).slice(0, MAX_RECIPIENTS);
       for (const d of sorted) {
         await sendEmail({
           to: d.profiles!.email!,

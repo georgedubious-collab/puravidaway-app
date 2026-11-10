@@ -5,7 +5,7 @@ import { ChatBox } from "@/components/ChatBox";
 import { requireRole } from "@/lib/auth";
 import { BOOKING_STATUSES, BOOKING_STATUS_LABEL, SERVICE_LABEL, bookingDue, usd, type BookingRow, type OfferRow, type TripContact } from "@/lib/bookings";
 import { getCatalog } from "@/lib/catalogSource";
-import { formatScheduledAt, todayInCostaRica } from "@/lib/dates";
+import { formatScheduledAt, scheduledParts, todayInCostaRica } from "@/lib/dates";
 import { canTakeTrips, type DriverRecord, type VehicleRecord } from "@/lib/driverKyc";
 import { prefMismatches, prefsSummary } from "@/lib/preferences";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -93,12 +93,17 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
   const today = todayInCostaRica();
   const seats = b.passenger_count ?? 1;
   // Approved drivers and their approved vehicles that can legally take trips and fit the group.
+  // Drivers who blocked the trip's day in their calendar.
+  const tripDay = scheduledParts(b.scheduled_at)?.ymd;
+  const { data: daysOff } = tripDay ? await supabase.from("driver_unavailable").select("driver_id").eq("day", tripDay) : { data: [] };
+  const unavailable = new Set((daysOff ?? []).map((u) => u.driver_id as string));
   const options = (drivers ?? []).flatMap((d) =>
     d.driver_vehicles
       .filter((v) => v.status === "approved")
       .map((v) => {
         const problems = [
           ...(canTakeTrips(d, [v], today) ? [] : ["documents"]),
+          ...(unavailable.has(d.id) ? ["unavailable that day"] : []),
           ...((v.passenger_capacity ?? 0) >= seats ? [] : ["seats"]),
           ...prefMismatches(b.preferences, d, v),
         ];
