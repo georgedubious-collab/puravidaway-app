@@ -7,6 +7,7 @@ import { ActionForm } from "@/components/ActionForm";
 import { ChatBox } from "@/components/ChatBox";
 import { setTripStatus } from "../actions";
 import { requireUser } from "@/lib/auth";
+import { bagsForTeam } from "@/lib/bags";
 import { bookingStatusLabel, serviceLabel, usd, type DriverTrip } from "@/lib/bookings";
 import { getCatalog } from "@/lib/catalogSource";
 import { formatScheduledAt, formatTime12h, scheduledParts } from "@/lib/dates";
@@ -68,6 +69,8 @@ async function Trip({ params, searchParams }: { params: Promise<{ id: string }>;
   // they use the trip chat, or call our team.
   // Estimated arrival (server: pickup + drive time + stops); nothing when the drive time is unknown.
   const arrive = scheduledParts(b.arrive_at);
+  // "4 grandes + 4 de mano"; older bookings have one number only.
+  const bags = bagsForTeam(b.luggage_count, b.carry_on_count, lang);
 
   const name =
     b.service_type === "transfer"
@@ -145,7 +148,7 @@ async function Trip({ params, searchParams }: { params: Promise<{ id: string }>;
             v={tt("Por el chat del viaje (abajo) o llamando a nuestro equipo", "Through the trip chat (below) or by calling our team")}
           />
           {b.passenger_count && <Item k={tt("Pasajeros", "Passengers")} v={b.passenger_count} />}
-          {b.luggage_count != null && <Item k={tt("Maletas", "Bags")} v={b.luggage_count} />}
+          {bags != null && <Item k={tt("Maletas", "Bags")} v={bags} />}
           {arrive && <Item k={tt("Llegada aprox.", "Arrives approx.")} v={formatTime12h(arrive.time, lang)} />}
           {b.vehicle_class && (
             <Item k={tt("Tipo de vehículo", "Vehicle class")} v={catalog.vehicles.find((v) => v.id === b.vehicle_class)?.name ?? b.vehicle_class} />

@@ -102,6 +102,24 @@ export function InfoChip({ icon, text, a11y }: { icon?: IconName; text: string; 
   );
 }
 
+/** Bags as the driver sees them. Older bookings have one number only (no carry-on count). */
+export function tripBags(t: Trip, lang: Lang): { chip: string; words: string } | null {
+  const large = t.luggage_count;
+  const carry = t.carry_on_count;
+  if (large == null && carry == null) return null;
+  const es = lang === "es";
+  if (carry == null) return { chip: String(large), words: large === 0 ? (es ? "Sin maletas" : "No bags") : plural(large ?? 0, ["maleta", "maletas"], ["bag", "bags"], lang) };
+  const l = large ?? 0;
+  return { chip: l + " + " + carry, words: l + " " + (es ? (l === 1 ? "grande" : "grandes") : "large") + " + " + carry + " " + (es ? "de mano" : "carry-on") };
+}
+
+/** The bags chip on the trip card and the trip screen: "4 + 4" = large suitcases + carry-ons. */
+export function BagsChip({ trip }: { trip: Trip }) {
+  const { t, lang } = useT();
+  const bags = tripBags(trip, lang);
+  return bags ? <InfoChip icon="briefcase-outline" text={bags.chip} a11y={t("Maletas: ", "Bags: ") + bags.words} /> : null;
+}
+
 /** The icons a trip earns, in the same order on the list and the detail (`detail` leaves out stops and seats, shown there as words). */
 export function TripIcons({ trip, detail }: { trip: Trip; detail?: boolean }) {
   const { t } = useT();
@@ -268,9 +286,7 @@ function TripCard({ trip, names, lang, next, onPress }: { trip: Trip; names: Nam
         <View style={{ flex: 1, minWidth: 0, gap: 6, justifyContent: "center" }}>
           <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 5 }}>
             {vehicle ? <InfoChip icon="car-outline" text={vehicle} /> : null}
-            {trip.luggage_count != null ? (
-              <InfoChip icon="briefcase-outline" text={String(trip.luggage_count)} a11y={plural(trip.luggage_count, ["maleta", "maletas"], ["bag", "bags"], lang)} />
-            ) : null}
+            <BagsChip trip={trip} />
             <TripIcons trip={trip} />
             {trip.unread_chat ? (
               <View

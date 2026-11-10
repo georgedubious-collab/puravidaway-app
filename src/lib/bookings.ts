@@ -81,8 +81,10 @@ export interface BookingRow {
   company_costs?: number | string | null;
   /** Set when the team accepted a driver's offer from the job board. */
   claimed_at?: string | null;
-  /** "How many bags?" (suitcases and large backpacks, 0–20), optional; migration 0035. */
+  /** Large suitcases (0–20), optional; migration 0035. Carry-ons are separate since 0037. */
   luggage_count?: number | null;
+  /** Carry-on bags (0–20); null on bookings without it (older ones, older app builds). Migration 0037. */
+  carry_on_count?: number | null;
   /** Door-to-door drive time the ride was priced with (minutes), for the driver's arrival estimate; migration 0035. */
   drive_minutes?: number | null;
   created_at: string;
@@ -141,8 +143,10 @@ export type DriverTrip = Pick<
   en_route_at?: string | null;
   /** For the airport name sign: first name + last initial ("Emily R."), never the full name (migration 0035). */
   passenger_name?: string | null;
-  /** Bags the traveller said they bring; null when not given (migration 0035). */
+  /** Large suitcases the traveller said they bring; null when not given (migration 0035). */
   luggage_count?: number | null;
+  /** Carry-ons; null when not given, then only the one number above is shown (migration 0037). */
+  carry_on_count?: number | null;
   /** Estimated arrival at the drop-off: pickup + drive time + stops; null when the drive time is unknown (migration 0035). */
   arrive_at?: string | null;
 };

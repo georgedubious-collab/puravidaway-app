@@ -11,7 +11,7 @@ import { C, R, S } from "../theme";
 import { hasContactDetails } from "../contact";
 import type { ChatAnswer, ChatMessage, Coords, Names, Trip } from "../types";
 import { Badge, Btn, Card, IconLine, LinkBtn, type IconName } from "../ui";
-import { InfoChip, TripIcons, tripFacts, tripStage, tripTitle } from "./Trips";
+import { BagsChip, InfoChip, TripIcons, tripBags, tripFacts, tripStage, tripTitle } from "./Trips";
 
 type StepId = "en_route" | "in_progress" | "completed";
 /** Each text as [Spanish, English]. */
@@ -98,6 +98,7 @@ export function TripDetail({
   const cash = trip.cash_to_collect == null ? 0 : Number(trip.cash_to_collect);
   const stage = tripStage(trip, lang);
   const facts = tripFacts(trip);
+  const bags = tripBags(trip, lang);
   const vehicle = vehicleLabel(trip.vehicle_class, lang);
   const prefs = (trip.preferences ?? {}) as { language?: string; childSeats?: number; wifi?: boolean; stroller?: boolean; pets?: boolean };
   const active = trip.status === "confirmed" || trip.status === "in_progress";
@@ -140,9 +141,7 @@ export function TripDetail({
         {vehicle ? <InfoChip icon="car-outline" text={vehicle} /> : null}
         {facts.stops ? <InfoChip icon="camera-outline" text={plural(facts.stops, ["parada", "paradas"], ["stop", "stops"], lang)} /> : null}
         {trip.passenger_count ? <InfoChip icon="people-outline" text={String(trip.passenger_count)} /> : null}
-        {trip.luggage_count != null ? (
-          <InfoChip icon="briefcase-outline" text={String(trip.luggage_count)} a11y={plural(trip.luggage_count, ["maleta", "maletas"], ["bag", "bags"], lang)} />
-        ) : null}
+        <BagsChip trip={trip} />
         {facts.seats ? <InfoChip icon="happy-outline" text={plural(facts.seats, ["silla de niño", "sillas de niño"], ["child seat", "child seats"], lang)} /> : null}
         <TripIcons trip={trip} detail />
         <Text style={[S.muted, { fontSize: 12 }]}>{trip.booking_ref}</Text>
@@ -193,13 +192,11 @@ export function TripDetail({
       <Section title={t("Pasajeros", "Travellers")}>
         {trip.passenger_name ? <Row label={t("Letrero", "Name sign")} value={trip.passenger_name} /> : null}
         {trip.passenger_count ? <Row label={t("Pasajeros", "Travellers")} value={String(trip.passenger_count)} /> : null}
-        {trip.luggage_count != null ? (
-          <Row label={t("Maletas", "Bags")} value={trip.luggage_count === 0 ? t("Sin maletas", "No bags") : plural(trip.luggage_count, ["maleta", "maletas"], ["bag", "bags"], lang)} />
-        ) : null}
+        {bags ? <Row label={t("Maletas", "Bags")} value={bags.words} /> : null}
         {trip.flight_or_hotel_notes ? <Row label={t("Vuelo / hotel", "Flight / hotel")} value={trip.flight_or_hotel_notes} /> : null}
         {asked.length ? <Row label={t("Pidió", "Asked for")} value={asked.join("\n")} /> : null}
         {trip.driver_notes ? <Row label={t("Nota", "Note")} value={"“" + trip.driver_notes + "”"} /> : null}
-        {!trip.passenger_name && !trip.passenger_count && trip.luggage_count == null && !trip.flight_or_hotel_notes && !asked.length && !trip.driver_notes ? (
+        {!trip.passenger_name && !trip.passenger_count && !bags && !trip.flight_or_hotel_notes && !asked.length && !trip.driver_notes ? (
           <Text style={S.muted}>{t("Sin detalles adicionales.", "No extra details.")}</Text>
         ) : null}
       </Section>

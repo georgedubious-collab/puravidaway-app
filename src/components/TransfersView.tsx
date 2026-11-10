@@ -17,6 +17,7 @@ import { DEFAULT_PICKUP_TIME, PICKUP_TIMES, addDays, formatShortDate, formatTime
 import { applyMultiplier, ferryCents, formatDuration, formatUSD, perPersonCents, perPersonShare, quoteTransfer, rideCents } from "@/lib/pricing";
 import { MAX_SHARED_PAX, rideLinkQuery, type RideLinkState } from "@/lib/shareLink";
 import { MAX_BAGS, MIN_OFFER_USD } from "@/lib/tripRequest";
+import { bagsSummary, defaultBags, luggageCapacity } from "@/lib/bags";
 import { vehiclePhoto } from "@/lib/photos";
 import { ridePromises } from "@/lib/trust";
 import { DEFAULT_PREFS, LANGUAGE_LABEL, hasContactDetails, prefsSummary, type DriverLanguage, type RidePrefs } from "@/lib/preferences";
@@ -70,8 +71,12 @@ export function TransfersView({
   const [notes, setNotes] = useState("");
   const [prefs, setPrefs] = useState<RidePrefs>(DEFAULT_PREFS);
   const [driverNotes, setDriverNotes] = useState("");
-  // "How many bags?" — optional; "" = not said (the driver sees nothing).
-  const [bags, setBags] = useState("");
+  // Bags: large suitcases and carry-ons. null = not changed, so each follows the travellers
+  // (1 of each per person) until the traveller picks a number.
+  const [largePick, setLargePick] = useState<number | null>(null);
+  const [carryPick, setCarryPick] = useState<number | null>(null);
+  const largeBags = largePick ?? defaultBags(pax, MAX_BAGS);
+  const carryOns = carryPick ?? defaultBags(pax, MAX_BAGS);
   const driverNotesBlocked = hasContactDetails(driverNotes);
   const [offer, setOffer] = useState("165");
 
@@ -144,8 +149,19 @@ export function TransfersView({
     [stopsAllowed, stopIds, availableStops],
   );
   const effectivePrefs: RidePrefs = spanishDriver ? { ...prefs, language: "spanish_ok" } : prefs;
-  // "4 bags" / "4 maletas" for the trip summary and the extras line, once the traveller says.
-  const bagWords = bags === "" ? [] : [Number(bags) === 1 ? t("1 bag", "1 maleta") : t(`${bags} bags`, `${bags} maletas`)];
+  // "4 large bags + 4 carry-ons" / "4 maletas grandes + 4 de mano" for the trip summary and the extras line.
+  const bagWords = [bagsSummary(largeBags, carryOns, lang)];
+  // A gentle hint, never a block: more large suitcases than the chosen vehicle lists.
+  const vehicleFits = luggageCapacity(selectedVehicle?.luggage);
+  const luggageNote =
+    mode === "fixed" && vehicleFits != null && largeBags > vehicleFits ? (
+      <p className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm font-semibold text-amber-900">
+        {t(
+          `This vehicle lists ${vehicleFits} ${vehicleFits === 1 ? "suitcase" : "suitcases"} and you have ${largeBags} large. Consider a larger vehicle or ask our team.`,
+          `Este vehículo indica ${vehicleFits} ${vehicleFits === 1 ? "maleta" : "maletas"} y usted lleva ${largeBags} grandes. Considere un vehículo más grande o consulte a nuestro equipo.`,
+        )}
+      </p>
+    ) : null;
   const stopsKey = effectiveStopIds.join(",");
 
   // Shareable link: mirror the ride choices in the address bar (debounced), never personal details.
@@ -266,7 +282,8 @@ export function TransfersView({
         notes: notes.trim() || undefined,
         prefs: effectivePrefs,
         driverNotes: driverNotes.trim() || undefined,
-        ...(bags === "" ? {} : { bags: Number(bags) }),
+        bags: largeBags,
+        carryOns,
       },
     });
   }
@@ -500,6 +517,7 @@ export function TransfersView({
                       );
                     })}
                   </div>
+                  {luggageNote}
                   <RidePromises airport={airportPickup} />
                 </>
               ) : (
@@ -670,24 +688,39 @@ export function TransfersView({
               <ChevronDown className="h-5 w-5 shrink-0 text-slate-600 transition group-open:rotate-180" aria-hidden />
             </summary>
             <div className="px-4 sm:px-5 pb-5">
-              <label className="mb-4 flex min-h-11 items-center gap-3 rounded-xl border border-slate-200 pl-3 pr-1 py-1">
-                <span className="min-w-0">
-                  <span className="block text-sm font-bold text-slate-700">{t("How many bags?", "¿Cuántas maletas?")}</span>
-                  <span className="block text-sm text-slate-600">{t("Suitcases and large backpacks", "Maletas y mochilas grandes")}</span>
-                </span>
-                <select
-                  value={bags}
-                  onChange={(e) => setBags(e.target.value)}
-                  className="ml-auto min-h-11 min-w-16 rounded-lg border border-slate-300 bg-white px-2 text-base font-bold"
-                >
-                  <option value="">—</option>
-                  {Array.from({ length: MAX_BAGS + 1 }, (_, n) => (
-                    <option key={n} value={String(n)}>
-                      {n}
-                    </option>
+              <fieldset className="mb-4">
+                <legend className="text-sm font-bold text-slate-700 mb-2">{t("How many bags?", "¿Cuántas maletas?")}</legend>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                  {(
+                    [
+                      [t("Large suitcases", "Maletas grandes"), largeBags, setLargePick],
+                      [t("Carry-ons", "Maletas de mano"), carryOns, setCarryPick],
+                    ] as const
+                  ).map(([label, value, setValue]) => (
+                    <label key={label} className="flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 pl-3 pr-1 font-semibold">
+                      <span>{label}</span>
+                      <select
+                        value={value}
+                        onChange={(e) => setValue(Number(e.target.value))}
+                        className="ml-auto min-h-11 min-w-16 rounded-lg border border-slate-300 bg-white px-2 text-base font-bold"
+                      >
+                        {Array.from({ length: MAX_BAGS + 1 }, (_, n) => (
+                          <option key={n} value={n}>
+                            {n}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
                   ))}
-                </select>
-              </label>
+                </div>
+                <p className="mt-2 text-sm text-slate-600">
+                  {t(
+                    "We start with 1 large suitcase and 1 carry-on per person. Change it if you bring more or less.",
+                    "Empezamos con 1 maleta grande y 1 de mano por persona. Cámbielo si lleva más o menos.",
+                  )}
+                </p>
+                {luggageNote}
+              </fieldset>
               <fieldset>
                 <legend className="text-sm font-bold text-slate-700 mb-2">{t("Driver's language", "Idioma del conductor")}</legend>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
