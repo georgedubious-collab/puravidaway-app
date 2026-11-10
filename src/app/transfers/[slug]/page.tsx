@@ -1,8 +1,10 @@
-import { ArrowRight, Check, Clock, Compass, Luggage, Ticket, User, Users } from "lucide-react";
+import { ArrowRight, Check, Clock, Luggage, Ticket, User, Users } from "lucide-react";
 import type { Metadata, ResolvingMetadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { LegalLinks } from "@/components/legal/LegalLinks";
+import { Breadcrumbs } from "@/components/site/Breadcrumbs";
+import { SiteFooter } from "@/components/site/SiteFooter";
+import { SiteHeader } from "@/components/site/SiteHeader";
 import { DriverStandards } from "@/components/trust/DriverStandards";
 import { Reviews } from "@/components/trust/Reviews";
 import { AIRPORT_HUBS, ENTRANCE_LABEL, HUBS, routeMinutes, stopFitsRoute } from "@/lib/catalog";
@@ -89,27 +91,16 @@ export default async function RouteLandingPage({
 
   return (
     <div className="flex-1 bg-slate-50">
-      <header className="bg-white border-b border-slate-200">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
-          <Link href="/" className="flex items-center gap-2.5">
-            <span className="w-9 h-9 rounded-xl bg-emerald-950 flex items-center justify-center text-amber-400">
-              <Compass className="w-5 h-5" strokeWidth={2.5} aria-hidden />
-            </span>
-            <span className="font-extrabold text-sm sm:text-lg leading-tight tracking-tight text-slate-900">Costa Rica Private Transfers</span>
-          </Link>
-          <Link
-            href="/"
-            className="min-h-11 inline-flex items-center px-4 rounded-xl bg-emerald-950 text-white text-sm font-bold"
-          >
-            Open trip builder
-          </Link>
-        </div>
-      </header>
+      <SiteHeader lang="en" current="transfers" />
 
       <main>
-      <nav aria-label="Breadcrumb" className="max-w-6xl mx-auto px-4 sm:px-6 pt-5 text-sm text-slate-500">
-        Costa Rica transfers › From {originName.split(" /")[0]} › {destName}
-      </nav>
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-5">
+        <Breadcrumbs
+          lang="en"
+          currentPath={`/transfers/${page.slug}`}
+          items={[{ label: "Transfers", href: "/?tab=transfers" }, { label: routeLabel }]}
+        />
+      </div>
 
       <section className="max-w-6xl mx-auto px-4 sm:px-6 pt-4 pb-14 grid gap-10 lg:grid-cols-[minmax(0,1fr)_380px] items-start">
         <div>
@@ -273,12 +264,7 @@ export default async function RouteLandingPage({
 
       </main>
 
-      <footer className="bg-emerald-950 text-emerald-200 text-sm">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-x-4">
-          <p>Costa Rica Private Transfers</p>
-          <LegalLinks />
-        </div>
-      </footer>
+      <SiteFooter lang="en" />
     </div>
   );
 }

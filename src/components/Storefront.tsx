@@ -1,7 +1,6 @@
 "use client";
 
-import { MessageCircle, Route, Sun, Tent } from "lucide-react";
-import Link from "next/link";
+import { Luggage, Route, Sun, Tent } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { HubId } from "@/lib/catalog";
@@ -13,7 +12,6 @@ import {
   parsePaymentMode,
   parseStoredCart,
   type PaymentMode,
-  whatsAppLink,
 } from "@/lib/cart";
 import { addDays } from "@/lib/dates";
 import { formatUSD } from "@/lib/pricing";
@@ -21,8 +19,7 @@ import { parseRideLink } from "@/lib/shareLink";
 import { CartDrawer } from "./CartDrawer";
 import { DayToursView } from "./DayToursView";
 import { ExpeditionsView } from "./ExpeditionsView";
-import { Header } from "./Header";
-import { LegalLinks } from "./legal/LegalLinks";
+import { SiteHeader } from "./site/SiteHeader";
 import { Toast, useToast } from "./Toast";
 import { TransfersView } from "./TransfersView";
 import { TripSummary, type TripContact, type TripState } from "./TripSummary";
@@ -33,6 +30,9 @@ const STORAGE_KEY = "pvw-cart-v1";
 const MODE_KEY = "pvw-pay-mode";
 
 type Builder = "transfers" | "daytours" | "multiday";
+
+/** ?tab= values used by the site menu (src/lib/siteNav.ts). */
+const TAB_PARAM: Record<string, Builder> = { transfers: "transfers", tours: "daytours", multiday: "multiday" };
 
 const BUILDERS: { id: Builder; label: string; Icon: typeof Route }[] = [
   { id: "transfers", label: "Ride", Icon: Route },
@@ -46,7 +46,16 @@ const BUILDERS: { id: Builder; label: string; Icon: typeof Route }[] = [
  * Route pages link here with ?from=SJO&to=ManuelAntonio to pre-fill a ride; the
  * ride builder keeps the full ride in the address (src/lib/shareLink.ts) so it can be shared.
  */
-export function Storefront({ today, catalog }: { today: string; catalog: CatalogData }) {
+export function Storefront({
+  today,
+  catalog,
+  footer,
+}: {
+  today: string;
+  catalog: CatalogData;
+  /** The site footer, rendered on the server by the page. */
+  footer?: React.ReactNode;
+}) {
   const params = useSearchParams();
   // Read on every render: coming back to the Ride tab restores the ride from the address.
   const rideInit = parseRideLink(params, catalog, today);
@@ -55,7 +64,15 @@ export function Storefront({ today, catalog }: { today: string; catalog: Catalog
   // The tour / expedition picked from a suggestion, highlighted in its tab.
   const [focus, setFocus] = useState<{ suggestion: Suggestion; date: string; n: number } | null>(null);
 
-  const [builder, setBuilder] = useState<Builder>("transfers");
+  const tabParam = params.get("tab");
+  const [builder, setBuilder] = useState<Builder>(TAB_PARAM[tabParam ?? ""] ?? "transfers");
+  // The site menu links to /?tab=…: follow it when the address changes (React's
+  // "adjust state while rendering" pattern, no effect needed).
+  const [seenTab, setSeenTab] = useState(tabParam);
+  if (tabParam !== seenTab) {
+    setSeenTab(tabParam);
+    if (tabParam && TAB_PARAM[tabParam]) setBuilder(TAB_PARAM[tabParam]);
+  }
   const [items, setItems] = useState<CartItem[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
   const [hydrated, setHydrated] = useState(false);
@@ -137,7 +154,27 @@ export function Storefront({ today, catalog }: { today: string; catalog: Catalog
 
   return (
     <CatalogProvider catalog={catalog}>
-      <Header cartCount={items.length} totalCents={total} onOpenCart={() => setCartOpen(true)} />
+      <SiteHeader
+        lang="en"
+        current={builder === "daytours" ? "tours" : builder}
+        extra={
+          // The trip button only shows below xl, where the trip sidebar is hidden.
+          <button
+            type="button"
+            onClick={() => setCartOpen(true)}
+            aria-label={`Open your trip, ${items.length} item${items.length === 1 ? "" : "s"}`}
+            className="xl:hidden shrink-0 min-h-11 bg-emerald-800 hover:bg-emerald-700 text-white px-3 rounded-xl text-sm font-bold flex items-center gap-2 transition"
+          >
+            <Luggage className="w-4 h-4" aria-hidden />
+            <span className="hidden sm:inline">Your trip</span>
+            {items.length > 0 ? (
+              <span className="bg-amber-400 text-slate-950 px-2 py-0.5 rounded-full text-xs font-extrabold">
+                {formatUSD(total)}
+              </span>
+            ) : null}
+          </button>
+        }
+      />
 
       <div className="max-w-[1440px] mx-auto w-full px-4 py-5 flex-1 xl:grid xl:grid-cols-[340px_minmax(0,1fr)] xl:gap-6 xl:items-start">
         <aside
@@ -224,25 +261,7 @@ export function Storefront({ today, catalog }: { today: string; catalog: Catalog
         </main>
       </div>
 
-      <footer className="border-t border-slate-200 bg-white">
-        <div className="max-w-[1440px] mx-auto px-4 py-6 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-500">
-          <p>
-            © {today.slice(0, 4)} Costa Rica Private Transfers ·{" "}
-            <Link href="/driver" className="font-bold text-slate-600 hover:text-emerald-700">
-              Drive with Costa Rica Private Transfers
-            </Link>
-          </p>
-          <LegalLinks />
-          <a
-            href={whatsAppLink("Hi! I have a question about planning a trip to Costa Rica.")}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 font-bold text-emerald-700 hover:text-emerald-600"
-          >
-            <MessageCircle className="w-4 h-4" /> 24/7 WhatsApp concierge
-          </a>
-        </div>
-      </footer>
+      <div className={items.length ? "pb-20 xl:pb-0" : ""}>{footer}</div>
 
       {items.length > 0 && (
         <div className="xl:hidden fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 backdrop-blur px-4 py-3">

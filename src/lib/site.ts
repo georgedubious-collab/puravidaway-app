@@ -27,3 +27,9 @@ export const PRIVATE_PATHS = ["/admin", "/driver", "/trip", "/login", "/auth", "
 
 /** Public legal pages (added in a separate PR; listed here so the sitemap includes them). */
 export const LEGAL_PATHS = ["/terms", "/privacy", "/cancellation"];
+
+/** Public contact address shown on the site and in structured data. Never a personal address. */
+export const CONTACT_EMAIL = "hello@costaricaprivatetransfers.com";
+
+/** Public info pages in English (each also has a Spanish version, see src/lib/publicLang.ts). */
+export const INFO_PATHS = ["/about", "/how-it-works", "/our-drivers", "/faq", "/contact"];

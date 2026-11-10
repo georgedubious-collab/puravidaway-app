@@ -1,6 +1,6 @@
-import { Compass, TriangleAlert } from "lucide-react";
-import Link from "next/link";
-import { LegalLinks } from "./LegalLinks";
+import { TriangleAlert } from "lucide-react";
+import { SiteFooter } from "../site/SiteFooter";
+import { SiteHeader } from "../site/SiteHeader";
 
 /** Date shown on every legal page; change it whenever the wording changes. */
 export const LEGAL_LAST_UPDATED = "2026-11-08";
@@ -23,22 +23,7 @@ export function LegalPage({
 }) {
   return (
     <div className="flex-1 flex flex-col bg-slate-50">
-      <header className="bg-white border-b border-slate-200">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
-          <Link href="/" className="flex items-center gap-2.5">
-            <span className="w-9 h-9 rounded-xl bg-emerald-950 flex items-center justify-center text-amber-400">
-              <Compass className="w-5 h-5" strokeWidth={2.5} aria-hidden />
-            </span>
-            <span className="font-extrabold text-sm sm:text-lg leading-tight tracking-tight text-slate-900">Costa Rica Private Transfers</span>
-          </Link>
-          <Link
-            href="/"
-            className="min-h-11 inline-flex items-center px-4 rounded-xl bg-emerald-950 text-white text-sm font-bold"
-          >
-            Plan a trip
-          </Link>
-        </div>
-      </header>
+      <SiteHeader lang="en" />
 
       <main className="flex-1 max-w-3xl w-full mx-auto px-4 sm:px-6 py-8 sm:py-12">
         <p
@@ -58,12 +43,7 @@ export function LegalPage({
         </div>
       </main>
 
-      <footer className="bg-emerald-950 text-emerald-200 text-sm">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-x-4">
-          <p>Costa Rica Private Transfers</p>
-          <LegalLinks />
-        </div>
-      </footer>
+      <SiteFooter lang="en" />
     </div>
   );
 }

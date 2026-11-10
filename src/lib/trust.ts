@@ -60,6 +60,20 @@ export const ICT_BADGE_NOTE =
 export const CARRIER_NOTE =
   "Transportation is provided by independent partner drivers and transport companies, who are responsible for holding the licenses and permits required by applicable law.";
 
+/** Spanish versions for the /es pages (same facts; keep in sync with the English ones). */
+export const DRIVER_CHECKS_ES: string[] = [
+  "Es entrevistado personalmente por nuestro equipo, incluido su nivel de inglés",
+  "Pasa una verificación de antecedentes penales y de su historial de manejo",
+  "Entrega la información del vehículo y el comprobante de su seguro",
+  "Conoce nuestros estándares de servicio: recibirlo, esperar con su equipaje y mantenerlo informado",
+];
+
+export const ICT_BADGE_NOTE_ES =
+  "Los conductores con permiso de transporte turístico del Instituto Costarricense de Turismo (ICT) muestran una insignia ICT en su perfil, en la página de su viaje cuando el conductor está confirmado.";
+
+export const CARRIER_NOTE_ES =
+  "El transporte lo brindan conductores y empresas de transporte asociados e independientes, responsables de contar con las licencias y permisos que exige la ley.";
+
 export interface RidePromise {
   title: string;
   text: string;

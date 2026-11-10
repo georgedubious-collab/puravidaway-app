@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
+import { SiteFooter } from "@/components/site/SiteFooter";
 import { Storefront } from "@/components/Storefront";
 import { getCatalog } from "@/lib/catalogSource";
 import { todayInCostaRica } from "@/lib/dates";
@@ -21,5 +22,5 @@ export default async function HomePage({
   }
   const today = todayInCostaRica();
   const catalog = await getCatalog();
-  return <Storefront today={today} catalog={catalog} />;
+  return <Storefront today={today} catalog={catalog} footer={<SiteFooter lang="en" />} />;
 }
