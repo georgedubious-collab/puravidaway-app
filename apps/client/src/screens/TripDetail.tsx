@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useHeaderHeight } from "@react-navigation/elements";
+import * as Linking from "expo-linking";
 import { useRoute, type RouteProp } from "@react-navigation/native";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Image, KeyboardAvoidingView, Platform, Pressable, RefreshControl, ScrollView, TextInput, View } from "react-native";
@@ -15,8 +16,9 @@ import { useNav, type RootParams, type TripsParams } from "../nav";
 import { Photo } from "../Photo";
 import { allBookings, useSession } from "../session";
 import { C, R, S, SHADOW, SHADOW_UP, SP, T, fontFor } from "../theme";
-import { TRAVELLER_STATUS, type AppBooking, type ChatMessage } from "../types";
+import { TRAVELLER_STATUS, type AppBooking, type ChatAnswer, type ChatMessage } from "../types";
 import { Badge, Bar, Btn, Card, Divider, IconLine, Input, ListRow, Page, RoundBtn, Skeleton, Text } from "../ui";
+import { hasContactDetails } from "../contact";
 import { Avatar, bookingStage } from "./Trips";
 
 function useBookingById(id: string) {
@@ -184,8 +186,13 @@ export function TripDetail() {
             <Card>
               <ListRow
                 icon="chatbubbles-outline"
-                title="Chat"
-                detail={b.driver ? t("Message " + b.driver.firstName + " or our team", "Escriba a " + b.driver.firstName + " o a nuestro equipo") : t("Questions about this booking? Our team replies here", "¿Preguntas sobre esta reserva? Nuestro equipo le responde aquí")}
+                title={b.driver ? t("Chat with " + b.driver.firstName, "Chat con " + b.driver.firstName) : "Chat"}
+                detail={
+                  b.driver
+                    ? t("Your phone number stays private. Our team can help too.", "Su número de teléfono se mantiene privado. Nuestro equipo también puede ayudarle.")
+                    : t("Questions about this booking? Our team replies here", "¿Preguntas sobre esta reserva? Nuestro equipo le responde aquí")
+                }
+                badge={b.unreadChat}
                 onPress={() => nav.navigate("Chat", { id: b.id })}
               />
             </Card>
@@ -353,29 +360,47 @@ export function RateSheet() {
   );
 }
 
-/** The same chat as the trip page: the traveller, the driver once assigned, and our team. Its own screen, with the message box pinned above the keyboard. */
+/**
+ * The same chat as the trip page: the traveller and their driver once assigned (our team
+ * reads along and can step in). Its own screen, with the message box pinned above the
+ * keyboard. The server hides phone numbers, emails and links before storing a message
+ * and tells the sender; "Call our team" sits under the box.
+ */
 export function Chat() {
-  const { t } = useT();
+  const { lang, t } = useT();
   const insets = useSafeAreaInsets();
   const header = useHeaderHeight();
   const demo = useDemo();
+  const { whatsapp } = useSession();
   const { id } = useRoute<RouteProp<RootParams, "Chat">>().params;
   const found = useBookingById(id);
   const token = found?.trip.token ?? "";
   const driverName = found?.booking.driver?.firstName;
   const [messages, setMessages] = useState<ChatMessage[] | null>(demo ? (demo.chat ?? []) : null);
-  const [text, setText] = useState("");
+  const [open, setOpen] = useState(demo?.chatClosed ? false : true);
+  const [closedNote, setClosedNote] = useState(demo?.chatClosed ? t("This chat closed 48 hours after the trip. Need anything? Contact our team.", "Este chat se cerró 48 horas después del viaje. ¿Necesita algo? Contacte a nuestro equipo.") : "");
+  const [notice, setNotice] = useState(demo?.chatNotice ? t("For your safety, contact details are hidden. Use this chat or call our team.", "Por su seguridad, los datos de contacto se ocultan. Use este chat o llame a nuestro equipo.") : "");
+  const [support, setSupport] = useState(whatsapp);
+  const [text, setText] = useState(demo?.chatDraft ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const scroll = useRef<React.ComponentRef<typeof ScrollView>>(null);
 
+  const apply = useCallback((a: ChatAnswer) => {
+    setMessages(a.messages);
+    if (a.open !== undefined) setOpen(a.open);
+    setClosedNote(a.closedNote ?? "");
+    if (a.support) setSupport(a.support);
+  }, []);
+
   const load = useCallback(async () => {
     if (demo || !token) return;
-    const res = await api<{ messages: ChatMessage[] }>("/chat/" + id + "?trip=" + token);
-    if (res.ok && res.data) setMessages(res.data.messages);
+    const res = await api<ChatAnswer>("/chat/" + id + "?trip=" + token + "&lang=" + lang);
+    if (res.ok && res.data) apply(res.data);
     else setMessages((m) => m ?? []);
-  }, [id, token, demo]);
+  }, [id, token, demo, lang, apply]);
 
+  // New messages are checked every 10 seconds while the chat is open (a push arrives otherwise).
   useEffect(() => {
     void load();
     const timer = setInterval(() => void load(), 10000);
@@ -387,14 +412,17 @@ export function Chat() {
     tap();
     setBusy(true);
     setError("");
-    const res = await api<{ messages: ChatMessage[] }>("/chat/" + id, { text: text.trim(), trip: token });
+    const res = await api<ChatAnswer>("/chat/" + id, { text: text.trim(), trip: token, lang });
     setBusy(false);
     if (!res.ok || !res.data) return setError(res.error ?? t("Couldn't send.", "No se pudo enviar."));
-    setMessages(res.data.messages);
+    apply(res.data);
+    setNotice(res.data.notice ?? "");
     setText("");
   }
 
+  const willHide = hasContactDetails(text);
   const canSend = Boolean(text.trim()) && !busy;
+  const hello = t("Hi, I need help with my trip.", "Hola, necesito ayuda con mi viaje.");
   return (
     <KeyboardAvoidingView style={S.screen} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={header}>
       <Bar style="dark" />
@@ -406,6 +434,10 @@ export function Chat() {
         keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
         onContentSizeChange={() => scroll.current?.scrollToEnd({ animated: false })}
       >
+        <View style={{ flexDirection: "row", gap: 8, alignItems: "center", alignSelf: "center", backgroundColor: C.emeraldTint, borderRadius: R.pill, paddingHorizontal: 14, paddingVertical: 7, marginBottom: 6 }}>
+          <Ionicons name="shield-checkmark-outline" size={15} color={C.emerald} />
+          <Text style={{ fontSize: 13, fontWeight: "700", color: C.emerald }}>{t("Phone numbers stay private here", "Aquí los números de teléfono son privados")}</Text>
+        </View>
         {messages === null ? (
           <View style={{ gap: 12 }}>
             <Skeleton height={44} width="64%" radius={20} />
@@ -419,7 +451,7 @@ export function Chat() {
             </View>
             <Text style={[T.body, { textAlign: "center" }]}>
               {driverName
-                ? t("Questions for " + driverName + " or our team? Write here.", "¿Preguntas para " + driverName + " o para nuestro equipo? Escriba aquí.")
+                ? t("Questions for " + driverName + "? Write here. Our team can read along and help.", "¿Preguntas para " + driverName + "? Escriba aquí. Nuestro equipo puede leer y ayudar.")
                 : t("Questions about this booking? Write here and our team replies.", "¿Preguntas sobre esta reserva? Escriba aquí y nuestro equipo le responde.")}
             </Text>
           </View>
@@ -429,12 +461,12 @@ export function Chat() {
               {!m.mine ? <Text style={[T.caption, { marginLeft: 6 }]}>{m.name}</Text> : null}
               <View
                 style={{
-                  backgroundColor: m.mine ? C.emerald : "#fff",
+                  backgroundColor: m.mine ? C.emerald : m.party === "admin" ? "#FFF8E1" : "#fff",
                   borderRadius: 22,
                   borderBottomRightRadius: m.mine ? 6 : 22,
                   borderBottomLeftRadius: m.mine ? 22 : 6,
                   borderWidth: m.mine ? 0 : 1,
-                  borderColor: C.border,
+                  borderColor: m.party === "admin" ? "#F6D77A" : C.border,
                   paddingHorizontal: 16,
                   paddingVertical: 11,
                 }}
@@ -445,35 +477,83 @@ export function Chat() {
           ))
         )}
       </ScrollView>
-      <View style={[{ backgroundColor: "#fff", paddingHorizontal: SP.lg, paddingTop: 10, paddingBottom: Math.max(insets.bottom, 10), gap: 6 }, SHADOW_UP]}>
+      <View style={[{ backgroundColor: "#fff", paddingHorizontal: SP.lg, paddingTop: 10, paddingBottom: Math.max(insets.bottom, 10), gap: 8 }, SHADOW_UP]}>
+        {notice ? (
+          <View accessibilityRole="alert" style={{ flexDirection: "row", gap: 8, backgroundColor: "#FFF8E1", borderRadius: R.control, padding: 10 }}>
+            <Ionicons name="shield-checkmark" size={18} color="#92400E" />
+            <Text style={{ flex: 1, fontSize: 14, lineHeight: 20, color: "#78350F", fontWeight: "600" }}>{notice}</Text>
+          </View>
+        ) : null}
         {error ? (
           <Text accessibilityRole="alert" style={S.error}>
             {error}
           </Text>
         ) : null}
-        <View style={{ flexDirection: "row", gap: 10, alignItems: "flex-end" }}>
-          <TextInput
-            accessibilityLabel={t("Message", "Mensaje")}
-            value={text}
-            onChangeText={setText}
-            placeholder={t("Write a message", "Escriba un mensaje")}
-            placeholderTextColor={C.faint}
-            multiline
-            maxLength={2000}
-            maxFontSizeMultiplier={1.35}
-            style={{ flex: 1, minHeight: 48, maxHeight: 130, backgroundColor: C.surface, borderRadius: 24, paddingHorizontal: 18, paddingTop: 13, paddingBottom: 13, fontSize: 17, color: C.text, fontFamily: fontFor("400") }}
-          />
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t("Send", "Enviar")}
-            accessibilityState={{ disabled: !canSend, busy }}
-            onPress={canSend ? () => void send() : undefined}
-            style={({ pressed }) => ({ width: 48, height: 48, borderRadius: 24, backgroundColor: C.emerald, alignItems: "center", justifyContent: "center", opacity: !canSend ? 0.35 : pressed ? 0.8 : 1 })}
-          >
-            <Ionicons name="arrow-up" size={24} color="#fff" />
-          </Pressable>
-        </View>
+        {open ? (
+          <>
+            <View style={{ flexDirection: "row", gap: 10, alignItems: "flex-end" }}>
+              <TextInput
+                accessibilityLabel={t("Message", "Mensaje")}
+                value={text}
+                onChangeText={setText}
+                placeholder={t("Write a message", "Escriba un mensaje")}
+                placeholderTextColor={C.faint}
+                multiline
+                maxLength={2000}
+                maxFontSizeMultiplier={1.35}
+                style={{ flex: 1, minHeight: 48, maxHeight: 130, backgroundColor: C.surface, borderRadius: 24, paddingHorizontal: 18, paddingTop: 13, paddingBottom: 13, fontSize: 17, color: C.text, fontFamily: fontFor("400") }}
+              />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t("Send", "Enviar")}
+                accessibilityState={{ disabled: !canSend, busy }}
+                onPress={canSend ? () => void send() : undefined}
+                style={({ pressed }) => ({ width: 48, height: 48, borderRadius: 24, backgroundColor: C.emerald, alignItems: "center", justifyContent: "center", opacity: !canSend ? 0.35 : pressed ? 0.8 : 1 })}
+              >
+                <Ionicons name="arrow-up" size={24} color="#fff" />
+              </Pressable>
+            </View>
+            {willHide ? (
+              <Text style={{ fontSize: 13, color: "#92400E", fontWeight: "600" }}>
+                {t("Phone numbers, emails and links will be hidden when you send.", "Los teléfonos, correos y enlaces se ocultarán al enviar.")}
+              </Text>
+            ) : null}
+          </>
+        ) : (
+          <View style={{ flexDirection: "row", gap: 8, alignItems: "center", paddingVertical: 6 }}>
+            <Ionicons name="lock-closed-outline" size={18} color={C.muted} />
+            <Text style={[T.small, { flex: 1 }]}>{closedNote}</Text>
+          </View>
+        )}
+        {support ? (
+          <View style={{ flexDirection: "row", gap: 10 }}>
+            <SmallBtn icon="call-outline" label={t("Call our team", "Llamar a nuestro equipo")} onPress={() => void Linking.openURL("tel:+" + support)} />
+            <SmallBtn icon="logo-whatsapp" label={t("WhatsApp our team", "WhatsApp a nuestro equipo")} iconOnly onPress={() => void Linking.openURL("https://wa.me/" + support + "?text=" + encodeURIComponent(hello))} />
+          </View>
+        ) : null}
       </View>
     </KeyboardAvoidingView>
+  );
+}
+
+/**
+ * Compact outline button under the chat ("Call our team", WhatsApp). A masked
+ * "Call your driver" button (Twilio, a later PR) would sit in the same row.
+ */
+function SmallBtn({ icon, label, onPress, iconOnly }: { icon: React.ComponentProps<typeof Ionicons>["name"]; label: string; onPress: () => void; iconOnly?: boolean }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      style={({ pressed }) => ({ ...(iconOnly ? { width: 56, flexShrink: 0 } : { flex: 1 }), minHeight: 44, borderRadius: R.pill, borderWidth: 1.5, borderColor: C.emerald, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingHorizontal: 10, opacity: pressed ? 0.7 : 1 })}
+    >
+      <Ionicons name={icon} size={iconOnly ? 22 : 18} color={C.emerald} />
+      {iconOnly ? null : (
+        <Text numberOfLines={1} style={{ fontSize: 15, fontWeight: "700", color: C.emerald }}>
+          {label}
+        </Text>
+      )}
+    </Pressable>
   );
 }

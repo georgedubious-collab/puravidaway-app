@@ -55,6 +55,13 @@ export function openTrip(id: string): void {
   navigationRef.navigate("Tabs", { screen: "Trips", params: { screen: "TripDetail", params: { id }, initial: false } });
 }
 
+/** A tapped chat notification: the trip, then its chat on top (back returns to the trip). */
+export function openChat(id: string): void {
+  if (!navigationRef.isReady()) return;
+  openTrip(id);
+  navigationRef.navigate("Chat", { id });
+}
+
 export function goToTab(tab: keyof TabParams): void {
   if (!navigationRef.isReady()) return;
   navigationRef.navigate("Tabs", { screen: tab });

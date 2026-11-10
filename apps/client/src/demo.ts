@@ -10,6 +10,10 @@ export interface Demo {
   popular?: Record<string, PopularPrice>;
   homeTours?: Tour[];
   chat?: ChatMessage[];
+  /** Preview only: show the chat as closed (read-only), with the "contact hidden" notice, or with a draft. */
+  chatClosed?: boolean;
+  chatNotice?: boolean;
+  chatDraft?: string;
   /** Show the loading placeholders instead of content. */
   loading?: boolean;
   /** Places to show as search results. */
