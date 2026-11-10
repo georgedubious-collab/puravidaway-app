@@ -4,6 +4,7 @@
 - `docs/PROJECT.md` — the single source of truth (product, stack, schema, pricing, roadmap).
 - `docs/changelog/` (newest notes, one file per PR) and the top of `docs/CHANGELOG.md` — to see what
   changed since your training of this repo.
+- `docs/SEO.md` — the website and organic-traffic plan (site map, content order, schema rules).
 - `docs/COMPETITORS.md` — Daytrip, GetTransfer and Welcome Pickups are the benchmark for every
   decision. Run its §5 checklist on any UI or pricing change.
 
