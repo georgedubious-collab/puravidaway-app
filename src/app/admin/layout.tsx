@@ -16,6 +16,7 @@ const NAV = [
   { href: "/admin/bookings", es: "Reservas", en: "Bookings" },
   { href: "/admin/live", es: "Viajes en vivo", en: "Live trips" },
   { href: "/admin/drivers", es: "Conductores", en: "Drivers" },
+  { href: "/admin/flagged", es: "Mensajes marcados", en: "Flagged messages" },
   { href: "/admin/payouts", es: "Pagos a conductores", en: "Payouts" },
   { href: "/admin/pricing", es: "Precios y catálogo", en: "Prices & catalog" },
   { href: "/admin/users", es: "Usuarios y roles", en: "Users & roles" },

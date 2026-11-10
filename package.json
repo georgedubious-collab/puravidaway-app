@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test:db": "node supabase/tests/rls.test.mjs",
+    "test:filter": "node --no-warnings scripts/test-contact-filter.mjs",
     "db:seed": "node scripts/generate-catalog-seed.mjs"
   },
   "dependencies": {

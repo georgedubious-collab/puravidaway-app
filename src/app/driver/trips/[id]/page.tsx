@@ -9,7 +9,7 @@ import { setTripStatus } from "../actions";
 import { requireUser } from "@/lib/auth";
 import { bookingStatusLabel, serviceLabel, usd, type DriverTrip } from "@/lib/bookings";
 import { getCatalog } from "@/lib/catalogSource";
-import { addDays, formatScheduledAt, scheduledParts, todayInCostaRica } from "@/lib/dates";
+import { formatScheduledAt } from "@/lib/dates";
 import { googleMapsUrl, navTarget, wazeUrl, type NavTarget } from "@/lib/navigation";
 import { prefsSummary } from "@/lib/preferences";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -64,18 +64,13 @@ async function Trip({ params, searchParams }: { params: Promise<{ id: string }>;
   const b = (mine ?? []).find((x) => x.id === id);
   if (!b) notFound();
 
-  // Traveller contact details are server-only: read them here, after the database
-  // confirmed (through the driver's own sign-in) that this trip is assigned to them.
+  // Only the traveller's first name, read here after the database confirmed (through the
+  // driver's own sign-in) that this trip is assigned to them. Drivers never get the
+  // traveller's phone or email (Jorge, 2026-11-10): they use the trip chat, or call our team.
   const admin = createSupabaseAdminClient();
   const { data: guest } =
-    admin && b.trip_id
-      ? await admin.from("trips").select("guest_name, guest_phone").eq("id", b.trip_id).maybeSingle()
-      : { data: null };
+    admin && b.trip_id ? await admin.from("trips").select("guest_name").eq("id", b.trip_id).maybeSingle() : { data: null };
 
-  // Costa Rica date of the pickup (scheduled_at comes back in UTC).
-  const date = scheduledParts(b.scheduled_at)?.ymd ?? "";
-  // The traveller's phone shows from the day before the trip, for the pickup itself.
-  const showPhone = Boolean(date) && todayInCostaRica() >= addDays(date, -1);
   const name =
     b.service_type === "transfer"
       ? `${b.origin} → ${b.destination}`
@@ -148,8 +143,8 @@ async function Trip({ params, searchParams }: { params: Promise<{ id: string }>;
           )}
           <Item k={tt("Cliente", "Traveller")} v={(guest?.guest_name ?? "").split(" ")[0] || "—"} />
           <Item
-            k={tt("WhatsApp / teléfono", "WhatsApp / phone")}
-            v={showPhone ? guest?.guest_phone : tt("Se muestra el día antes del viaje", "Shown the day before the trip")}
+            k={tt("Contacto", "Contact")}
+            v={tt("Por el chat del viaje (abajo) o llamando a nuestro equipo", "Through the trip chat (below) or by calling our team")}
           />
           {b.passenger_count && <Item k={tt("Pasajeros", "Passengers")} v={b.passenger_count} />}
           {b.vehicle_class && (
@@ -190,14 +185,20 @@ async function Trip({ params, searchParams }: { params: Promise<{ id: string }>;
       )}
 
       <section>
-        <h2 className="mb-2 font-extrabold text-slate-900">{tt("Chat con el cliente y nuestro equipo", "Chat with the traveller and our team")}</h2>
+        <h2 className="mb-2 font-extrabold text-slate-900">{tt("Chat con el cliente", "Chat with the traveller")}</h2>
+        <p className="mb-2 text-xs text-slate-500">
+          {tt(
+            "Nuestro equipo puede leer este chat. Los teléfonos, correos y enlaces se ocultan automáticamente.",
+            "Our team can read this chat. Phone numbers, emails and links are hidden automatically.",
+          )}
+        </p>
         <ChatBox
           bookingId={b.id}
           viewer={{ kind: "staff" }}
           lang={lang}
           intro={tt(
-            "Preséntese y confirme la hora de recogida. Por favor no incluya teléfonos ni enlaces en el chat.",
-            "Introduce yourself and confirm the pickup time. Please keep phone numbers and links out of the chat.",
+            "Preséntese y confirme la hora y el lugar de recogida.",
+            "Introduce yourself and confirm the pickup time and place.",
           )}
         />
       </section>

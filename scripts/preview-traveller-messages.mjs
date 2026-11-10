@@ -59,12 +59,14 @@ for (const lang of ["en", "es"]) {
     "Rating reminder": m.reviewReminderEmail(lang, review),
     "New chat message (team)": m.chatMessageEmail(lang, { guestName: "Ana Smith", ref: "CRPT-10492", from: "team", snippet: "…", chatUrl: tripUrl }),
     "New chat message (driver)": m.chatMessageEmail(lang, { guestName: null, ref: "CRPT-10492", from: "driver", snippet: "…", chatUrl: tripUrl }),
+    "Unread chat messages (3)": m.chatMessageEmail(lang, { guestName: "Ana Smith", ref: "CRPT-10492", from: "driver", snippet: "…", chatUrl: tripUrl, count: 3 }),
   };
   const pushes = {
     "Ride confirmed": m.rideConfirmedPush(lang, { driver, when }),
     "Driver on the way": m.onTheWayPush(lang, { driver, when }),
     "Driver on the way (no name)": m.onTheWayPush(lang, { driver: m.driverFirstName(lang, null), when }),
     "Rating request": m.reviewRequestPush(lang, { driver, ride: true }),
+    "Chat message": m.chatMessagePush(lang, { from: driver, snippet: "I'm at the arrivals exit with a sign." }),
   };
 
   console.log(`\n================ ${lang === "es" ? "ESPAÑOL" : "ENGLISH"} ================`);

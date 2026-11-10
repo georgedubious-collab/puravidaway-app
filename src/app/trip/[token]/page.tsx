@@ -398,12 +398,12 @@ export default async function TripPage({ params, searchParams }: Props) {
                     intro={
                       showDriver
                         ? t(
-                            `Questions for ${driver.firstName} or our team? Write here. We'll email you when someone replies.`,
-                            `¿Preguntas para ${driver.firstName} o para nuestro equipo? Escriba aquí. Le avisaremos por correo cuando alguien responda.`,
+                            `Questions for ${driver.firstName} or our team? Write here: your phone number stays private. If a reply waits unread, we'll email you.`,
+                            `¿Preguntas para ${driver.firstName} o para nuestro equipo? Escriba aquí: su número de teléfono se mantiene privado. Si una respuesta queda sin leer, le avisaremos por correo.`,
                           )
                         : t(
-                            "Questions about this booking? Write here. Our team replies here and we'll email you when we do.",
-                            "¿Preguntas sobre esta reserva? Escriba aquí. Nuestro equipo responde aquí y le avisaremos por correo cuando lo haga.",
+                            "Questions about this booking? Write here. Our team replies here, and if a reply waits unread we'll email you.",
+                            "¿Preguntas sobre esta reserva? Escriba aquí. Nuestro equipo responde aquí y, si una respuesta queda sin leer, le avisaremos por correo.",
                           )
                     }
                   />

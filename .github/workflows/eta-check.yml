@@ -31,3 +31,13 @@ jobs:
             exit 0
           fi
           curl --fail-with-body -sS --max-time 60 -H "Authorization: Bearer $CRON_SECRET" "$SITE_URL/api/cron/eta"
+      # Same schedule: email travellers without the app about trip-chat messages unread
+      # for 10+ minutes, one email per unread batch (src/lib/chatEmails.ts).
+      - name: Email unread trip-chat messages
+        if: always()
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          SITE_URL: ${{ vars.SITE_URL || 'https://puravidaway-app.vercel.app' }}
+        run: |
+          if [ -z "$CRON_SECRET" ]; then exit 0; fi
+          curl --fail-with-body -sS --max-time 60 -H "Authorization: Bearer $CRON_SECRET" "$SITE_URL/api/cron/chat-unread"

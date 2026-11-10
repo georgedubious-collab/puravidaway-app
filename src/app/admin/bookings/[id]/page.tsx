@@ -55,6 +55,8 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
   if (!b) notFound();
 
   const { data: note } = await supabase.from("booking_admin_notes").select("notes").eq("booking_id", b.id).maybeSingle();
+  // Contact details hidden from the chat or the notes (originals, admins only; migration 0034).
+  const { count: flagCount } = await supabase.from("contact_flags").select("id", { count: "exact", head: true }).eq("booking_id", b.id);
   // Payments from the pre-launch test checkout are not real money.
   const { data: testPays } = await supabase.from("payments").select("id").eq("booking_id", b.id).eq("provider", "test").limit(1);
   const testPaid = Boolean(testPays?.length);
@@ -384,10 +386,21 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
         <h2 className="font-extrabold text-slate-900">{t("Chat del viaje", "Trip chat")}</h2>
         <p className="mt-1 mb-3 text-sm text-slate-600">
           {t(
-            "Con el cliente y, una vez asignado, con el conductor. Los mensajes se les envían por correo. Usted puede compartir números de teléfono aquí; los clientes y los conductores no.",
-            "With the traveller and, once assigned, the driver. Messages are emailed to them. You can share phone numbers here; travellers and drivers can't.",
+            "Entre el cliente y el conductor asignado; ustedes pueden leerlo y escribir. Cada mensaje les llega como notificación (o por correo). Usted puede compartir números de teléfono aquí; a los clientes y conductores se les ocultan.",
+            "Between the traveller and the assigned driver; you can read it and write. Each message reaches them as a notification (or email). You can share phone numbers here; travellers' and drivers' are hidden.",
           )}
         </p>
+        {(flagCount ?? 0) > 0 && (
+          <p className="mb-3 rounded-lg bg-red-50 p-3 text-sm font-semibold text-red-900">
+            {t(
+              `Se ocultaron datos de contacto ${flagCount} ${flagCount === 1 ? "vez" : "veces"} en esta reserva (chat o notas).`,
+              `Contact details were hidden ${flagCount} time${flagCount === 1 ? "" : "s"} on this booking (chat or notes).`,
+            )}{" "}
+            <Link href="/admin/flagged?all=1" className="underline">
+              {t("Ver los originales", "See the originals")}
+            </Link>
+          </p>
+        )}
         <ChatBox bookingId={b.id} viewer={{ kind: "staff" }} allowContactDetails lang={lang} />
       </section>
     </div>

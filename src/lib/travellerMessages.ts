@@ -273,15 +273,28 @@ export function reviewReminderEmail(lang: PublicLang, a: Review): TravellerEmail
 
 export function chatMessageEmail(
   lang: PublicLang,
-  a: { guestName: string | null | undefined; ref: string; from: "team" | "driver"; snippet: string; chatUrl: string },
+  a: {
+    guestName: string | null | undefined;
+    ref: string;
+    from: "team" | "driver";
+    snippet: string;
+    chatUrl: string;
+    /** Unread messages this email covers (one email per unread batch). */
+    count?: number;
+  },
 ): TravellerEmail {
   const from = a.from === "team" ? t(lang, "our team", "nuestro equipo") : t(lang, "your driver", "su conductor");
+  const many = (a.count ?? 1) > 1;
   return {
     lang,
-    subject: t(lang, `New message about your trip ${a.ref}`, `Nuevo mensaje sobre su viaje ${a.ref}`),
+    subject: many
+      ? t(lang, `${a.count} new messages about your trip ${a.ref}`, `${a.count} mensajes nuevos sobre su viaje ${a.ref}`)
+      : t(lang, `New message about your trip ${a.ref}`, `Nuevo mensaje sobre su viaje ${a.ref}`),
     lines: [
       greeting(lang, a.guestName),
-      t(lang, `You have a new message from ${from}:`, `Tiene un nuevo mensaje de ${from}:`),
+      many
+        ? t(lang, `You have ${a.count} unread messages in your trip chat. The latest, from ${from}:`, `Tiene ${a.count} mensajes sin leer en el chat de su viaje. El último, de ${from}:`)
+        : t(lang, `You have a new message from ${from}:`, `Tiene un nuevo mensaje de ${from}:`),
       `“${a.snippet}”`,
       t(
         lang,
@@ -290,5 +303,13 @@ export function chatMessageEmail(
       ),
     ],
     button: { label: t(lang, "Open the chat", "Abrir el chat"), url: a.chatUrl },
+  };
+}
+
+/** Push to the customer app for each new chat message. `from` is a first name or "Our team". */
+export function chatMessagePush(lang: PublicLang, a: { from: string; snippet: string }): TravellerPush {
+  return {
+    title: t(lang, `New message from ${a.from}`, `Nuevo mensaje de ${a.from}`),
+    body: a.snippet,
   };
 }

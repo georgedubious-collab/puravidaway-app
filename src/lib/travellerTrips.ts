@@ -33,6 +33,8 @@ export interface AppBooking {
    * before the pickup, or once on the way, until the trip ends). Null otherwise.
    */
   driverLocation: { lat: number; lng: number; recordedAt: string; etaAt: string | null; lateMin: number | null } | null;
+  /** Chat messages from the driver or our team the traveller hasn't read yet (badge). */
+  unreadChat: number;
 }
 
 export interface AppTrip {
@@ -68,7 +70,8 @@ export async function tripsForEmail(email: string): Promise<{ trips: AppTrip[]; 
   const driverIds = [...new Set(shown.map((b) => b.assigned_driver_id as string))];
   const vehicleIds = [...new Set(shown.map((b) => b.assigned_vehicle_id as string).filter(Boolean))];
 
-  const [locations, drivers, vehicles, reviews, catalog] = await Promise.all([
+  const ids = rows.map((b) => b.id as string);
+  const [locations, drivers, vehicles, reviews, catalog, chats, reads] = await Promise.all([
     driverIds.length
       ? db.from("driver_locations").select("driver_id, booking_id, lat, lng, recorded_at, eta_at, late_min").in("driver_id", driverIds)
       : Promise.resolve({ data: [] }),
@@ -80,7 +83,16 @@ export async function tripsForEmail(email: string): Promise<{ trips: AppTrip[]; 
       : Promise.resolve({ data: [] }),
     rows.length ? db.from("driver_reviews").select("booking_id, stars").in("booking_id", rows.map((b) => b.id)) : Promise.resolve({ data: [] }),
     getCatalog(),
+    ids.length
+      ? db.from("trip_chats").select("booking_id, sent_at").in("booking_id", ids).neq("sender_role", "client").order("sent_at", { ascending: false }).limit(1000)
+      : Promise.resolve({ data: [] }),
+    ids.length ? db.from("chat_reads").select("booking_id, last_read_at").in("booking_id", ids).eq("party", "client") : Promise.resolve({ data: [] }),
   ]);
+  const readAt = new Map(((reads.data ?? []) as { booking_id: string; last_read_at: string | null }[]).map((r) => [r.booking_id, r.last_read_at]));
+  const unreadFor = (bookingId: string) =>
+    ((chats.data ?? []) as { booking_id: string; sent_at: string }[]).filter(
+      (c) => c.booking_id === bookingId && (!readAt.get(bookingId) || c.sent_at > (readAt.get(bookingId) as string)),
+    ).length;
   type D = {
     id: string;
     bio: string | null;
@@ -155,6 +167,7 @@ export async function tripsForEmail(email: string): Promise<{ trips: AppTrip[]; 
         : null,
       myRating: (reviews.data as { booking_id: string; stars: number }[] | null)?.find((r) => r.booking_id === b.id)?.stars ?? null,
       driverLocation: locationFor(b.id, visible ? (b.assigned_driver_id as string) : null),
+      unreadChat: unreadFor(b.id),
     };
   };
 

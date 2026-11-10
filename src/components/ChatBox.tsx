@@ -1,18 +1,20 @@
 "use client";
 
-import { Send } from "lucide-react";
+import { Lock, MessageCircle, Phone, Send, ShieldCheck } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { getChat, sendChat, type ChatMessage, type ChatViewer } from "@/app/chat/actions";
-import { hasContactDetails } from "@/lib/preferences";
+import { hideContactDetails } from "@/lib/contactFilter";
 import { localizeServerMessage } from "@/lib/serverMessagesEs";
 import { teamLocale, type TeamLang } from "@/lib/teamLang";
 
 const POLL_MS = 8000;
 
 /**
- * Trip chat for one booking. New messages arrive by checking every few
- * seconds while the page is open (travellers have no account, so live
- * database subscriptions aren't available to them).
+ * Trip chat for one booking (traveller ↔ assigned driver; our team reads every thread
+ * and can step in). New messages arrive by checking every few seconds while the page
+ * is open: travellers on the website have no account, so live database subscriptions
+ * aren't available to them. Contact details from travellers and drivers are hidden by
+ * the server; this box only warns before sending and shows the server's notice.
  */
 export function ChatBox({
   bookingId,
@@ -30,22 +32,29 @@ export function ChatBox({
   allowContactDetails?: boolean;
 }) {
   const [messages, setMessages] = useState<ChatMessage[] | null>(null);
+  const [open, setOpen] = useState(true);
+  const [closedNote, setClosedNote] = useState<string | null>(null);
+  const [support, setSupport] = useState("");
+  const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [text, setText] = useState("");
   const [pending, startTransition] = useTransition();
   const list = useRef<HTMLOListElement>(null);
-  const blocked = !allowContactDetails && hasContactDetails(text);
   const es = lang === "es";
+  const willHide = !allowContactDetails && hideContactDetails(text).kinds.length > 0;
 
   // The viewer is a small object that callers recreate on every render; key on its contents.
   const viewerKey = JSON.stringify(viewer);
   const refresh = useCallback(async () => {
-    const res = await getChat(bookingId, JSON.parse(viewerKey) as ChatViewer);
+    const res = await getChat(bookingId, JSON.parse(viewerKey) as ChatViewer, lang);
     if (res.ok) {
       setMessages(res.messages);
+      setOpen(res.open);
+      setClosedNote(res.closedNote ?? null);
+      setSupport(res.support);
       setError(null);
     } else setError(res.error);
-  }, [bookingId, viewerKey]);
+  }, [bookingId, viewerKey, lang]);
 
   useEffect(() => {
     let stop = false;
@@ -69,11 +78,12 @@ export function ChatBox({
 
   function send(e: React.FormEvent) {
     e.preventDefault();
-    if (!text.trim() || blocked) return;
+    if (!text.trim()) return;
     startTransition(async () => {
-      const res = await sendChat(bookingId, viewer, text);
+      const res = await sendChat(bookingId, viewer, text, lang);
       if (res.ok) {
         setMessages(res.messages);
+        setNotice(res.notice ?? null);
         setText("");
         setError(null);
       } else setError(res.error);
@@ -81,8 +91,8 @@ export function ChatBox({
   }
 
   return (
-    <div id={`chat-${bookingId}`} className="rounded-xl border border-slate-200 bg-white">
-      <ol ref={list} aria-live="polite" className="max-h-80 space-y-2 overflow-y-auto p-3">
+    <div id={`chat-${bookingId}`} className="scroll-mt-24 rounded-xl border border-slate-200 bg-white">
+      <ol ref={list} aria-live="polite" className="max-h-96 space-y-2 overflow-y-auto p-3">
         {messages === null && <li className="text-sm text-slate-500">{es ? "Cargando mensajes…" : "Loading messages…"}</li>}
         {messages?.length === 0 && (
           <li className="text-sm text-slate-500">{intro ?? (es ? "Aún no hay mensajes. ¡Salude!" : "No messages yet. Say hello!")}</li>
@@ -106,48 +116,98 @@ export function ChatBox({
           </li>
         ))}
       </ol>
-      <form onSubmit={send} className="border-t border-slate-100 p-3">
-        <label className="sr-only" htmlFor={`chat-input-${bookingId}`}>
-          {es ? "Mensaje" : "Message"}
-        </label>
-        <div className="flex items-end gap-2">
-          <textarea
-            id={`chat-input-${bookingId}`}
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                e.currentTarget.form?.requestSubmit();
-              }
-            }}
-            rows={2}
-            maxLength={2000}
-            placeholder={es ? "Escriba un mensaje…" : "Write a message…"}
-            className="min-h-11 flex-1 resize-none rounded-xl border border-slate-300 p-2.5 text-base sm:text-sm"
-          />
-          <button
-            type="submit"
-            disabled={pending || !text.trim() || blocked}
-            aria-label={es ? "Enviar mensaje" : "Send message"}
-            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-700 text-white disabled:opacity-40"
-          >
-            <Send className="h-5 w-5" />
-          </button>
-        </div>
-        {blocked && (
-          <p className="mt-2 text-xs font-semibold text-red-700">
-            {es
-              ? "Por favor no incluya teléfonos, correos ni enlaces. Nuestro equipo comparte los datos de contacto cuando hace falta."
-              : "Please leave out phone numbers, emails and links. Our team shares contact details when needed."}
-          </p>
-        )}
-        {error && (
-          <p role="alert" className="mt-2 text-xs font-semibold text-red-700">
-            {localizeServerMessage(error, lang)}
-          </p>
-        )}
-      </form>
+
+      {notice && (
+        <p role="status" className="mx-3 mb-2 flex items-start gap-2 rounded-lg bg-amber-50 p-2.5 text-xs font-semibold text-amber-900">
+          <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+          {notice}
+        </p>
+      )}
+
+      {open ? (
+        <form onSubmit={send} className="border-t border-slate-100 p-3">
+          <label className="sr-only" htmlFor={`chat-input-${bookingId}`}>
+            {es ? "Mensaje" : "Message"}
+          </label>
+          <div className="flex items-end gap-2">
+            <textarea
+              id={`chat-input-${bookingId}`}
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  e.currentTarget.form?.requestSubmit();
+                }
+              }}
+              rows={2}
+              maxLength={2000}
+              placeholder={es ? "Escriba un mensaje…" : "Write a message…"}
+              className="min-h-11 flex-1 resize-none rounded-xl border border-slate-300 p-2.5 text-base sm:text-sm"
+            />
+            <button
+              type="submit"
+              disabled={pending || !text.trim()}
+              aria-label={es ? "Enviar mensaje" : "Send message"}
+              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-700 text-white disabled:opacity-40"
+            >
+              <Send className="h-5 w-5" />
+            </button>
+          </div>
+          {willHide && (
+            <p className="mt-2 text-xs font-semibold text-amber-800">
+              {es
+                ? "Por su seguridad, los teléfonos, correos y enlaces se ocultarán al enviar."
+                : "For your safety, phone numbers, emails and links will be hidden when you send."}
+            </p>
+          )}
+          {error && (
+            <p role="alert" className="mt-2 text-xs font-semibold text-red-700">
+              {localizeServerMessage(error, lang)}
+            </p>
+          )}
+        </form>
+      ) : (
+        <p className="flex items-start gap-2 border-t border-slate-100 p-3 text-sm text-slate-600">
+          <Lock className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+          {closedNote}
+        </p>
+      )}
+
+      {!allowContactDetails && support && <TeamContact support={support} lang={lang} driver={viewer.kind === "staff"} />}
+    </div>
+  );
+}
+
+/**
+ * "Call our team" / WhatsApp, under the chat for travellers and drivers. A masked
+ * "Call the traveller" button (Twilio, later PR) belongs in this row too.
+ */
+function TeamContact({ support, lang, driver }: { support: string; lang: TeamLang; driver: boolean }) {
+  const es = lang === "es";
+  const hello = driver
+    ? es
+      ? "Hola, soy conductor socio y necesito ayuda con un viaje."
+      : "Hi, I'm a partner driver and I need help with a trip."
+    : es
+      ? "Hola, necesito ayuda con mi viaje."
+      : "Hi, I need help with my trip.";
+  const btn = "inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl px-3 text-sm font-bold";
+  return (
+    <div className="flex gap-2 border-t border-slate-100 p-3">
+      <a href={`tel:+${support}`} className={`${btn} border border-emerald-700 text-emerald-800 hover:bg-emerald-50`}>
+        <Phone className="h-4 w-4" aria-hidden />
+        {es ? "Llamar a nuestro equipo" : "Call our team"}
+      </a>
+      <a
+        href={`https://wa.me/${support}?text=${encodeURIComponent(hello)}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={`${btn} bg-emerald-700 text-white hover:bg-emerald-800`}
+      >
+        <MessageCircle className="h-4 w-4" aria-hidden />
+        WhatsApp
+      </a>
     </div>
   );
 }
