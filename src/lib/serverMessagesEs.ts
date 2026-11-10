@@ -34,8 +34,8 @@ const EXACT: Record<string, string> = {
   "We couldn't check the road distance for this ride. Please try again.":
     "No pudimos verificar la distancia por carretera de este traslado. Por favor, inténtelo de nuevo.",
   "Pickup and drop-off are the same place.": "La recogida y el destino son el mismo lugar.",
-  "Please keep phone numbers, emails and links out of the message for your driver. Our team shares contact details once your driver is confirmed.":
-    "Por favor, no incluya teléfonos, correos ni enlaces en el mensaje para su conductor. Nuestro equipo comparte los datos de contacto cuando su conductor está confirmado.",
+  "Please keep phone numbers, emails and links out of the message for your driver. You can message your driver in the trip chat once confirmed.":
+    "Por favor, no incluya teléfonos, correos ni enlaces en el mensaje para su conductor. Podrá escribirle a su conductor en el chat del viaje una vez confirmado.",
   "That vehicle is no longer offered. Please choose another.": "Ese vehículo ya no está disponible. Por favor, elija otro.",
   "One of the stops is no longer offered on this route.": "Una de las paradas ya no se ofrece en esta ruta.",
   "That tour is no longer offered.": "Ese tour ya no está disponible.",
