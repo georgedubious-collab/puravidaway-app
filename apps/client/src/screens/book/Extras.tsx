@@ -131,7 +131,7 @@ export function BookExtras() {
         />
         {notesBlocked ? (
           <Text accessibilityRole="alert" style={S.error}>
-            {t("Please leave out phone numbers, emails and links. Your driver gets your contact details once confirmed.", "Por favor no incluya teléfonos, correos ni enlaces. Su conductor recibe sus datos de contacto una vez confirmado.")}
+            {t("Please leave out phone numbers, emails and links. You and your driver can message each other in the trip chat once confirmed.", "Por favor no incluya teléfonos, correos ni enlaces. Usted y su conductor podrán escribirse en el chat del viaje una vez confirmado.")}
           </Text>
         ) : null}
         <View style={{ height: 4 }} />

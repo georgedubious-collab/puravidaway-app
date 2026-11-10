@@ -165,7 +165,7 @@ export function priceItem(spec: ItemSpec, date: string, catalog: CatalogData, ro
       throw new Error("Pickup and drop-off are the same place.");
     }
     if (spec.driverNotes && hasContactDetails(spec.driverNotes)) {
-      throw new Error("Please keep phone numbers, emails and links out of the message for your driver. Our team shares contact details once your driver is confirmed.");
+      throw new Error("Please keep phone numbers, emails and links out of the message for your driver. You can message your driver in the trip chat once confirmed.");
     }
     const vehicle = catalog.vehicles.find((v) => v.id === spec.vehicleId);
     if (!vehicle) throw new Error("That vehicle is no longer offered. Please choose another.");

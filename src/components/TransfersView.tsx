@@ -783,8 +783,8 @@ export function TransfersView({
               {driverNotesBlocked && (
                 <p role="alert" className="mt-2 text-sm font-semibold text-red-700">
                   {t(
-                    "Please leave out phone numbers, emails and links. Your driver gets your contact details once confirmed.",
-                    "Por favor, no incluya teléfonos, correos ni enlaces. Su conductor recibe sus datos de contacto una vez confirmado.",
+                    "Please leave out phone numbers, emails and links. You and your driver can message each other in the trip chat once confirmed.",
+                    "Por favor, no incluya teléfonos, correos ni enlaces. Usted y su conductor podrán escribirse en el chat del viaje una vez confirmado.",
                   )}
                 </p>
               )}

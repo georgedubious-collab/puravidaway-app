@@ -1,0 +1,1 @@
+- 2026-11-10 — Claude — Booking forms no longer say the driver gets the traveller's contact details; they point to the trip chat instead.

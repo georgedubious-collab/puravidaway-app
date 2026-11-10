@@ -289,9 +289,9 @@ Bookings, payment status and balance due, trip chat (Phase 4).
   `/api/v1`, pushes or emails to drivers (the driver trip page used to show the phone from the day
   before; removed). Drivers see the traveller's first name + last initial ("Emily R.", for the
   airport name sign; `passenger_short_name()` in `my_trips()`, letters only, migration 0035) and talk
-  to them in the trip chat, or call our team. Admins keep full access. Booking fields the assigned driver can read
-  (`client_notes`, `flight_or_hotel_notes`, `driver_notes`) have contact details hidden on every
-  write (trigger `bookings_guard_notes`, migration 0034), the original kept for admins.
+  to them in the trip chat, or call our team. Admins keep full access. Booking fields the assigned driver can read through
+  `my_trips()` (`flight_or_hotel_notes`, `driver_notes`; plus `client_notes`, which drivers don't
+  see) have contact details hidden on every write (trigger `bookings_guard_notes`, migration 0034), the original kept for admins.
 - **One chat per booking** between the traveller and the currently assigned driver; our team reads
   every thread and can write. Before a driver is assigned the traveller can already write (our team
   answers). Open until **48 hours after the trip ends** (`completed_at`, or the pickup + 12 h, or +
@@ -591,8 +591,13 @@ and `season_for_date(date)` returns the season for a travel date.
   vehicles always start `pending`; only admins change `status`, `note` and review fields; file
   links must be in the driver's own folder. Clients never see Cédula,
   license or insurance numbers.
-- **bookings:** clients see their own; the assigned driver sees their assigned bookings (so
-  nothing private may live on the booking row); admins see all. Traveller contact details and
+- **bookings:** clients see their own; admins see all. **Drivers never read booking rows**
+  (since migration 0017, restated in 0036): the row holds the client's price (`total_price`,
+  `platform_fee`, `amount_paid`, `company_costs`) and, on custom-offer rides, `client_notes` with the
+  fixed price. Drivers read only through `driver_jobs()` (open jobs, town to town) and `my_trips()`
+  (their own trips), which return their payout and never the client's price; stop snapshots come
+  without their price (`stops_for_driver()`, 0036). The one exception is `my_trips().cash_to_collect`
+  on cash trips. `npm run test:db` checks all of this. Traveller contact details and
   the private trip-page code live in **`trips`**, readable only by admins and the server.
   `trips.language` (`en` | `es`, default `en`) is the language the request was sent in; the
   traveller's emails, push notifications and trip page follow it.
