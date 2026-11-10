@@ -244,7 +244,7 @@ Legal pages (`/terms`, `/privacy`, `/cancellation`) are linked from every footer
    cards with the price per car and "from $X per person (N travellers)", the "Every ride includes"
    list (flight tracking on airport pickups, 60 min free waiting, child seats free on request, free
    cancellation up to 24 h), live route timeline with total duration, flight number or hotel
-   field, an optional "How many bags?" / "¿Cuántas maletas?" (suitcases and large backpacks, 0–20;
+   field, "How many bags?" / "¿Cuántas maletas?" (0–20; starts at 2 per traveller, 1 large suitcase + 1 carry-on, Jorge 2026-11-10, and the traveller can change it;
    website Extras step and the app's "When & who" step; shown to the driver), price breakdown. After a ride is added, an inline, dismissible suggestion of 1–2 day
    tours / expeditions in the drop-off region (Welcome Pickups-style).
 2. **1-Day Private Tours** — region filter, Smart En-Route Transfer upgrade (+$65).
