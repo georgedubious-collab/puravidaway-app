@@ -1,13 +1,17 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useCallback, useEffect, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
+import { useT } from "../i18n";
 import { supabase } from "../supabase";
 import { C, S } from "../theme";
 import type { Trip } from "../types";
 import { Card, IconLine, ScreenTitle, type IconName } from "../ui";
 
-const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const MONTHS = {
+  en: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
+  es: ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Setiembre", "Octubre", "Noviembre", "Diciembre"],
+};
+const WEEKDAYS = { en: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], es: ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"] };
 const CR_OFFSET_MS = 6 * 3600 * 1000;
 /** A timestamp's calendar day in Costa Rica (UTC−6 all year), "YYYY-MM-DD". */
 const crDay = (ms: number) => new Date(ms - CR_OFFSET_MS).toISOString().slice(0, 10);
@@ -25,6 +29,7 @@ export function Calendar({ trips, demoBlocked }: { trips: Trip[]; /** Sample blo
   const [blocked, setBlocked] = useState<Set<string>>(new Set(demoBlocked));
   const [busy, setBusy] = useState("");
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const { t, lang } = useT();
 
   const load = useCallback(async () => {
     if (demoBlocked) return;
@@ -51,9 +56,17 @@ export function Calendar({ trips, demoBlocked }: { trips: Trip[]; /** Sample blo
     setBusy("");
     if (error) {
       const known = /^(You have a trip|Pick a day|Only drivers)/.test(error.message);
-      return setMsg({ ok: false, text: known ? error.message : "Couldn't update that day. Check your connection and try again." });
+      return setMsg({
+        ok: false,
+        text: known ? error.message : t("No se pudo actualizar ese día. Revise su conexión e intente de nuevo.", "Couldn't update that day. Check your connection and try again."),
+      });
     }
-    setMsg({ ok: true, text: block ? "Blocked. You won't get jobs for that day." : "Open again. You'll get jobs for that day." });
+    setMsg({
+      ok: true,
+      text: block
+        ? t("Bloqueado. No recibirá trabajos para ese día.", "Blocked. You won't get jobs for that day.")
+        : t("Abierto de nuevo. Recibirá trabajos para ese día.", "Open again. You'll get jobs for that day."),
+    });
     await load();
   }
 
@@ -76,17 +89,20 @@ export function Calendar({ trips, demoBlocked }: { trips: Trip[]; /** Sample blo
 
   return (
     <ScrollView style={S.screen} contentContainerStyle={S.pad}>
-      <ScreenTitle title="Calendar" subtitle="Tap a day to block it when you can't work. Tap it again to open it." />
+      <ScreenTitle
+        title={t("Calendario", "Calendar")}
+        subtitle={t("Toque un día para bloquearlo cuando no pueda trabajar. Tóquelo otra vez para abrirlo.", "Tap a day to block it when you can't work. Tap it again to open it.")}
+      />
       <Card>
         <View style={S.row}>
-          <RoundBtn icon="chevron-back" label="Previous month" onPress={() => move(-1)} hidden={thisMonth} />
+          <RoundBtn icon="chevron-back" label={t("Mes anterior", "Previous month")} onPress={() => move(-1)} hidden={thisMonth} />
           <Text style={S.h2}>
-            {MONTHS[month]} {year}
+            {MONTHS[lang][month]} {year}
           </Text>
-          <RoundBtn icon="chevron-forward" label="Next month" onPress={() => move(1)} hidden={monthsAhead >= 11} />
+          <RoundBtn icon="chevron-forward" label={t("Mes siguiente", "Next month")} onPress={() => move(1)} hidden={monthsAhead >= 11} />
         </View>
         <View style={{ flexDirection: "row", marginTop: 4 }}>
-          {WEEKDAYS.map((w) => (
+          {WEEKDAYS[lang].map((w) => (
             <Text key={w} style={[S.label, { flex: 1, textAlign: "center", letterSpacing: 0 }]}>
               {w}
             </Text>
@@ -104,7 +120,9 @@ export function Calendar({ trips, demoBlocked }: { trips: Trip[]; /** Sample blo
                 <Pressable
                   key={i}
                   accessibilityRole="button"
-                  accessibilityLabel={day + (isBlocked ? ", blocked" : tripCount ? ", trip that day" : ", available")}
+                  accessibilityLabel={
+                    day + (isBlocked ? t(", bloqueado", ", blocked") : tripCount ? t(", viaje ese día", ", trip that day") : t(", disponible", ", available"))
+                  }
                   disabled={past || busy !== ""}
                   onPress={() => void toggle(day)}
                   style={({ pressed }) => ({
@@ -139,24 +157,33 @@ export function Calendar({ trips, demoBlocked }: { trips: Trip[]; /** Sample blo
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 14, marginTop: 6 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
             {dot(C.emerald)}
-            <Text style={S.muted}>Confirmed trip</Text>
+            <Text style={S.muted}>{t("Viaje confirmado", "Confirmed trip")}</Text>
           </View>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
             {dot("#FCA5A5")}
-            <Text style={S.muted}>Blocked by you</Text>
+            <Text style={S.muted}>{t("Bloqueado por usted", "Blocked by you")}</Text>
           </View>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
             <View style={{ width: 10, height: 10, borderRadius: 5, borderWidth: 2, borderColor: C.emeraldDark }} />
-            <Text style={S.muted}>Today</Text>
+            <Text style={S.muted}>{t("Hoy", "Today")}</Text>
           </View>
         </View>
         {msg ? <Text style={msg.ok ? { color: C.emerald, fontWeight: "700" } : S.error}>{msg.text}</Text> : null}
       </Card>
       <Card>
-        <IconLine icon="eye-off-outline" text="You won't see or be sent jobs for blocked days. Blocking a day withdraws any offers you sent for it." />
+        <IconLine
+          icon="eye-off-outline"
+          text={t(
+            "En los días bloqueados no verá ni recibirá trabajos. Bloquear un día retira las ofertas que haya enviado para ese día.",
+            "You won't see or be sent jobs for blocked days. Blocking a day withdraws any offers you sent for it.",
+          )}
+        />
         <IconLine
           icon="alert-circle-outline"
-          text="A day with a confirmed trip can't be blocked here. If you can't do a trip, contact support right away (Profile → Help) so we can reassign it."
+          text={t(
+            "Un día con un viaje confirmado no se puede bloquear aquí. Si no puede hacer un viaje, contacte a soporte de inmediato (Perfil → Ayuda) para que podamos reasignarlo.",
+            "A day with a confirmed trip can't be blocked here. If you can't do a trip, contact support right away (Profile → Help) so we can reassign it.",
+          )}
         />
       </Card>
     </ScrollView>

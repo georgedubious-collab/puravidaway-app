@@ -1,5 +1,7 @@
 import { StatusBar } from "expo-status-bar";
+import { useEffect } from "react";
 import { View } from "react-native";
+import { useT } from "./i18n";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { TabBar, TopBar, type Tab } from "../App";
 import { Calendar } from "./screens/Calendar";
@@ -19,7 +21,7 @@ import type { ChatMessage, DriverInfo, Job, Names, Trip, Vehicle } from "./types
  * Design previews: every screen with made-up data, no sign-in and no network.
  * Only used when the app is started with EXPO_PUBLIC_PREVIEW=1 in a browser
  * (`?s=jobs`, `trips`, `trip`, `trip2`, `calendar`, `earnings`, `profile`,
- * `documents`, `apply`, `help`, `signin`). Never part of a phone build's flow.
+ * `documents`, `apply`, `help`, `signin`; add `&lang=en` for English). Never part of a phone build's flow.
  */
 const H = 3600 * 1000;
 const at = (hoursFromNow: number) => new Date(Date.now() + hoursFromNow * H).toISOString();
@@ -103,7 +105,14 @@ const CR_OFFSET_MS = 6 * H;
 const crDay = (h: number) => new Date(Date.now() + h * H - CR_OFFSET_MS).toISOString().slice(0, 10);
 
 export function Preview() {
-  const s = new URLSearchParams(globalThis.location?.search ?? "").get("s") ?? "jobs";
+  const params = new URLSearchParams(globalThis.location?.search ?? "");
+  const s = params.get("s") ?? "jobs";
+  // `&lang=en` (or `es`) shows the screen in that language.
+  const { lang, setLang } = useT();
+  const want = params.get("lang");
+  useEffect(() => {
+    if ((want === "en" || want === "es") && want !== lang) setLang(want);
+  }, [want, lang, setLang]);
   if (s === "signin") {
     return (
       <SafeAreaProvider>

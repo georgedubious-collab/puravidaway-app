@@ -36,6 +36,17 @@ Apple asks why "Always" location is needed. The reason in both cases: the team c
 pickups and follows active trips; sharing is limited to the trip window and stated in the app
 before the permission prompt.
 
+## Language
+- The app is in **Spanish by default** (usted, Costa Rican wording) with English as an option:
+  Profile → "Idioma / Language", or the "ES | EN" switch on the sign-in screen. The choice is
+  saved on the phone (AsyncStorage key `lang`).
+- Every string sits in the code with both languages side by side: `t("Español", "English")` from
+  `useT()` in `src/i18n.tsx`. Code outside a screen (notifications, background location, upload
+  and connection messages) uses `tr(...)` with the saved language. Dates, plurals and town names
+  take a `lang` argument (`src/format.ts`). When you add or change text, write both languages.
+- Every `/api/v1` call sends `x-team-lang: es|en` so the website can answer in the same language;
+  without that support on the website, server messages stay in English.
+
 ## How it talks to the backend
 - Reads go straight to Supabase as the signed-in driver (`driver_jobs()`, `my_trips()`,
   own driver and vehicle rows). Row-level security decides what they can see; a driver
@@ -74,5 +85,5 @@ Every screen can be shown in a browser with made-up data, without signing in:
     EXPO_PUBLIC_PREVIEW=1 npx expo start --web
 
 Then open the address it prints and add `?s=jobs` (or `trips`, `trip`, `trip2`, `calendar`,
-`earnings`, `profile`, `documents`, `apply`, `help`, `signin`). The sample data lives in
+`earnings`, `profile`, `documents`, `apply`, `help`, `signin`; add `&lang=en` for English). The sample data lives in
 `src/preview.tsx`. Phone builds never set `EXPO_PUBLIC_PREVIEW`, so drivers never see it.

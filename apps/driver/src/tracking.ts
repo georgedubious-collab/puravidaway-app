@@ -3,6 +3,7 @@ import * as TaskManager from "expo-task-manager";
 import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { api } from "./api";
+import { loadLang, tr } from "./i18n";
 import { supabase } from "./supabase";
 
 /**
@@ -94,6 +95,7 @@ export async function syncTracking(consented: boolean): Promise<TrackingState> {
       return { kind: "off", reason: "no-trip" };
     }
     if (!(await Location.hasStartedLocationUpdatesAsync(TASK))) {
+      await loadLang();
       await Location.startLocationUpdatesAsync(TASK, {
         accuracy: Location.Accuracy.Balanced,
         // Android: a position every minute even when parked. iPhone reports by distance moved.
@@ -104,8 +106,11 @@ export async function syncTracking(consented: boolean): Promise<TrackingState> {
         activityType: Location.ActivityType.AutomotiveNavigation,
         // Android shows this notification the whole time location is being shared.
         foregroundService: {
-          notificationTitle: "Sharing your location for trip " + trip.booking_ref,
-          notificationBody: "Our team and your travellers can see where you are until the trip ends.",
+          notificationTitle: tr("Compartiendo su ubicación para el viaje ", "Sharing your location for trip ") + trip.booking_ref,
+          notificationBody: tr(
+            "Nuestro equipo y sus clientes pueden ver dónde está hasta que termine el viaje.",
+            "Our team and your travellers can see where you are until the trip ends.",
+          ),
           notificationColor: "#059669",
         },
       });

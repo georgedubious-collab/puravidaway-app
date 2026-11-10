@@ -21,15 +21,16 @@ import { supabase } from "./src/supabase";
 import { C } from "./src/theme";
 import type { IconName } from "./src/ui";
 import { Preview } from "./src/preview";
+import { LangProvider, useT } from "./src/i18n";
 import type { DriverInfo, Names, Trip, Vehicle } from "./src/types";
 
 export type Tab = "jobs" | "trips" | "calendar" | "earnings" | "profile";
-const TABS: { id: Tab; label: string; icon: IconName; iconOn: IconName }[] = [
-  { id: "jobs", label: "Jobs", icon: "briefcase-outline", iconOn: "briefcase" },
-  { id: "trips", label: "Trips", icon: "car-outline", iconOn: "car" },
-  { id: "calendar", label: "Calendar", icon: "calendar-outline", iconOn: "calendar" },
-  { id: "earnings", label: "Earnings", icon: "wallet-outline", iconOn: "wallet" },
-  { id: "profile", label: "Profile", icon: "person-outline", iconOn: "person" },
+const TABS: { id: Tab; label: [string, string]; icon: IconName; iconOn: IconName }[] = [
+  { id: "jobs", label: ["Trabajos", "Jobs"], icon: "briefcase-outline", iconOn: "briefcase" },
+  { id: "trips", label: ["Viajes", "Trips"], icon: "car-outline", iconOn: "car" },
+  { id: "calendar", label: ["Calendario", "Calendar"], icon: "calendar-outline", iconOn: "calendar" },
+  { id: "earnings", label: ["Ganancias", "Earnings"], icon: "wallet-outline", iconOn: "wallet" },
+  { id: "profile", label: ["Perfil", "Profile"], icon: "person-outline", iconOn: "person" },
 ];
 
 /** Design previews with sample data (web only, never in a phone build): EXPO_PUBLIC_PREVIEW=1. */
@@ -37,6 +38,7 @@ const PREVIEW = process.env.EXPO_PUBLIC_PREVIEW === "1";
 
 /** The slim brand line above every screen. */
 export function TopBar() {
+  const { t } = useT();
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 16, paddingTop: 6, paddingBottom: 8, backgroundColor: C.bg }}>
       <View style={{ width: 26, height: 26, borderRadius: 8, backgroundColor: C.emeraldDark, alignItems: "center", justifyContent: "center" }}>
@@ -46,7 +48,7 @@ export function TopBar() {
         Costa Rica Private Transfers
       </Text>
       <View style={{ backgroundColor: "#FDE68A", borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 }}>
-        <Text style={{ color: "#78350F", fontSize: 10, fontWeight: "800", letterSpacing: 0.8 }}>PARTNER</Text>
+        <Text style={{ color: "#78350F", fontSize: 10, fontWeight: "800", letterSpacing: 0.8 }}>{t("SOCIO", "PARTNER")}</Text>
       </View>
     </View>
   );
@@ -54,6 +56,7 @@ export function TopBar() {
 
 /** Bottom tabs: icon over label, filled icon and a tinted pill for the current one. */
 export function TabBar({ tab, onChange, tripsBadge }: { tab: Tab; onChange: (t: Tab) => void; tripsBadge?: number }) {
+  const { t: tr } = useT();
   return (
     <SafeAreaView edges={["bottom"]} style={{ backgroundColor: "#fff", borderTopWidth: 1, borderTopColor: C.border }}>
       <View style={{ flexDirection: "row", paddingTop: 6, paddingBottom: 4 }}>
@@ -63,7 +66,7 @@ export function TabBar({ tab, onChange, tripsBadge }: { tab: Tab; onChange: (t: 
             <Pressable
               key={t.id}
               accessibilityRole="tab"
-              accessibilityLabel={t.label}
+              accessibilityLabel={tr(...t.label)}
               accessibilityState={{ selected: on }}
               onPress={() => onChange(t.id)}
               style={{ flex: 1, minHeight: 52, alignItems: "center", justifyContent: "center", gap: 2 }}
@@ -76,7 +79,9 @@ export function TabBar({ tab, onChange, tripsBadge }: { tab: Tab; onChange: (t: 
                   </View>
                 ) : null}
               </View>
-              <Text style={{ fontWeight: on ? "800" : "600", fontSize: 11, color: on ? C.emerald : C.muted }}>{t.label}</Text>
+              <Text style={{ fontWeight: on ? "800" : "600", fontSize: 11, color: on ? C.emerald : C.muted }} numberOfLines={1}>
+                {tr(...t.label)}
+              </Text>
             </Pressable>
           );
         })}
@@ -98,20 +103,27 @@ export default function App() {
     return () => data.subscription.unsubscribe();
   }, []);
 
-  if (PREVIEW) return <Preview />;
+  if (PREVIEW)
+    return (
+      <LangProvider>
+        <Preview />
+      </LangProvider>
+    );
   return (
-    <SafeAreaProvider>
-      <StatusBar style={session ? "dark" : "light"} />
-      {session === undefined ? (
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: C.emeraldDark }}>
-          <ActivityIndicator color="#fff" />
-        </View>
-      ) : session ? (
-        <Home session={session} />
-      ) : (
-        <SignIn />
-      )}
-    </SafeAreaProvider>
+    <LangProvider>
+      <SafeAreaProvider>
+        <StatusBar style={session ? "dark" : "light"} />
+        {session === undefined ? (
+          <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: C.emeraldDark }}>
+            <ActivityIndicator color="#fff" />
+          </View>
+        ) : session ? (
+          <Home session={session} />
+        ) : (
+          <SignIn />
+        )}
+      </SafeAreaProvider>
+    </LangProvider>
   );
 }
 
