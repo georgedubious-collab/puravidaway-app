@@ -1,0 +1,1 @@
+- 2026-11-10 — Claude — Apps: saved each app's App Store Connect app number in eas.json so iPhone builds can be sent to TestFlight without prompts.
