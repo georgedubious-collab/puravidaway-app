@@ -140,6 +140,9 @@ export function TripDetail({
         {vehicle ? <InfoChip icon="car-outline" text={vehicle} /> : null}
         {facts.stops ? <InfoChip icon="camera-outline" text={plural(facts.stops, ["parada", "paradas"], ["stop", "stops"], lang)} /> : null}
         {trip.passenger_count ? <InfoChip icon="people-outline" text={String(trip.passenger_count)} /> : null}
+        {trip.luggage_count != null ? (
+          <InfoChip icon="briefcase-outline" text={String(trip.luggage_count)} a11y={plural(trip.luggage_count, ["maleta", "maletas"], ["bag", "bags"], lang)} />
+        ) : null}
         {facts.seats ? <InfoChip icon="happy-outline" text={plural(facts.seats, ["silla de niño", "sillas de niño"], ["child seat", "child seats"], lang)} /> : null}
         <TripIcons trip={trip} detail />
         <Text style={[S.muted, { fontSize: 12 }]}>{trip.booking_ref}</Text>
@@ -152,7 +155,7 @@ export function TripDetail({
             <Stop
               kind="start"
               title={pickup.label}
-              sub={t("Recogida", "Pickup") + (trip.scheduled_at ? " · " + crTime(trip.scheduled_at) : "")}
+              sub={t("Recogida", "Pickup") + (trip.scheduled_at ? " · " + crTime(trip.scheduled_at, lang) : "")}
               last={!stopList.length && !dropoff}
             />
           ) : null}
@@ -165,7 +168,14 @@ export function TripDetail({
               last={i === stopList.length - 1 && !dropoff}
             />
           ))}
-          {dropoff ? <Stop kind="end" title={dropoff.label} sub={t("Destino", "Drop-off")} last /> : null}
+          {dropoff ? (
+            <Stop
+              kind="end"
+              title={dropoff.label}
+              sub={t("Destino", "Drop-off") + (trip.arrive_at ? " · " + t("Llegada aprox. ", "Arrives approx. ") + crTime(trip.arrive_at, lang) : "")}
+              last
+            />
+          ) : null}
         </View>
         {pickup?.note || dropoff?.note ? <IconLine icon="boat-outline" text={t(...(pickup?.note ?? dropoff?.note)!)} color={C.amber} /> : null}
         {facts.ferry ? (
@@ -181,11 +191,15 @@ export function TripDetail({
       </Section>
 
       <Section title={t("Pasajeros", "Travellers")}>
+        {trip.passenger_name ? <Row label={t("Letrero", "Name sign")} value={trip.passenger_name} /> : null}
         {trip.passenger_count ? <Row label={t("Pasajeros", "Travellers")} value={String(trip.passenger_count)} /> : null}
+        {trip.luggage_count != null ? (
+          <Row label={t("Maletas", "Bags")} value={trip.luggage_count === 0 ? t("Sin maletas", "No bags") : plural(trip.luggage_count, ["maleta", "maletas"], ["bag", "bags"], lang)} />
+        ) : null}
         {trip.flight_or_hotel_notes ? <Row label={t("Vuelo / hotel", "Flight / hotel")} value={trip.flight_or_hotel_notes} /> : null}
         {asked.length ? <Row label={t("Pidió", "Asked for")} value={asked.join("\n")} /> : null}
         {trip.driver_notes ? <Row label={t("Nota", "Note")} value={"“" + trip.driver_notes + "”"} /> : null}
-        {!trip.passenger_count && !trip.flight_or_hotel_notes && !asked.length && !trip.driver_notes ? (
+        {!trip.passenger_name && !trip.passenger_count && trip.luggage_count == null && !trip.flight_or_hotel_notes && !asked.length && !trip.driver_notes ? (
           <Text style={S.muted}>{t("Sin detalles adicionales.", "No extra details.")}</Text>
         ) : null}
       </Section>

@@ -30,6 +30,31 @@ function Travellers() {
   );
 }
 
+/** "How many bags?" — optional; the driver sees the number. */
+function Bags() {
+  const { t } = useT();
+  const { state, set } = useBooking();
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 12, minHeight: 68, paddingVertical: 10 }}>
+      <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: C.emeraldTint, alignItems: "center", justifyContent: "center" }}>
+        <Ionicons name="briefcase-outline" size={20} color={C.emerald} />
+      </View>
+      <View style={{ flex: 1, gap: 1 }}>
+        <Text style={T.bodyStrong}>{t("How many bags?", "¿Cuántas maletas?")}</Text>
+        <Text style={T.small}>{t("Suitcases and large backpacks", "Maletas y mochilas grandes")}</Text>
+      </View>
+      <Stepper
+        value={state.bags ?? 0}
+        min={0}
+        max={20}
+        onChange={(bags) => set({ bags })}
+        lessLabel={t("One bag fewer", "Una maleta menos")}
+        moreLabel={t("One more bag", "Una maleta más")}
+      />
+    </View>
+  );
+}
+
 function DateCard() {
   const { lang } = useT();
   const { state, set } = useBooking();
@@ -57,6 +82,8 @@ export function BookWhen() {
           <PickRow icon="time-outline" label={t("Pickup time · Costa Rica time", "Hora de recogida · hora de Costa Rica")} value={time12(state.time)} onPress={() => nav.navigate("TimePicker")} />
           <Divider />
           <Travellers />
+          <Divider />
+          <Bags />
         </View>
       </Card>
       <QuoteProblem />

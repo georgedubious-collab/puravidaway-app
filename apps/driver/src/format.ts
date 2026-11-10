@@ -52,11 +52,13 @@ export function crDateTime(iso: string | null | undefined, lang: Lang = "es"): s
 }
 
 /** "8:30 AM" in Costa Rica time (the same in both languages, like crDateTime). */
-export function crTime(iso: string): string {
+export function crTime(iso: string, lang?: Lang): string {
   const d = new Date(new Date(iso).getTime() - CR_OFFSET_MS);
   const h = d.getUTCHours();
   const hour = h % 12 === 0 ? 12 : h % 12;
-  return hour + ":" + String(d.getUTCMinutes()).padStart(2, "0") + " " + (h < 12 ? "AM" : "PM");
+  // "3:45 p. m." in Spanish when asked for; "3:45 PM" otherwise (the date block keeps the short form).
+  const half = lang === "es" ? (h < 12 ? "a. m." : "p. m.") : h < 12 ? "AM" : "PM";
+  return hour + ":" + String(d.getUTCMinutes()).padStart(2, "0") + " " + half;
 }
 
 /** The trip card's date block: month, day number and time, in Costa Rica time. */

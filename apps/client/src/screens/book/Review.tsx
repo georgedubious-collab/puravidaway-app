@@ -78,6 +78,7 @@ export function BookReview() {
     if (err) setError(err);
   }
 
+  const bagsText = state.bags == null ? "" : " · " + (state.bags === 1 ? t("1 bag", "1 maleta") : t(state.bags + " bags", state.bags + " maletas"));
   const p = state.prefs;
   const extras: string[] = [];
   if (!isTour) {
@@ -136,7 +137,7 @@ export function BookReview() {
             <>
               <Row icon="navigate-outline" label={t("Route", "Ruta")} value={chosen.title} onEdit={() => nav.popTo("BookWhere")} />
               <Divider />
-              <Row icon="calendar-outline" label={t("Date and pickup time", "Fecha y hora de recogida")} value={longDate(chosen.date, lang)} detail={time12(state.time) + " · " + t("Costa Rica time", "hora de Costa Rica") + " · " + plural(state.pax, "traveller", lang)} onEdit={() => nav.popTo("BookWhen")} />
+              <Row icon="calendar-outline" label={t("Date and pickup time", "Fecha y hora de recogida")} value={longDate(chosen.date, lang)} detail={time12(state.time) + " · " + t("Costa Rica time", "hora de Costa Rica") + " · " + plural(state.pax, "traveller", lang) + bagsText} onEdit={() => nav.popTo("BookWhen")} />
               <Divider />
               <Row icon="car-outline" label={t("Vehicle", "Vehículo")} value={vehicle?.name ?? ""} detail={state.mode === "bid" ? t("Driver bids · your offer ", "Ofertas de conductores · su oferta ") + cents(chosen.totalCents) : t("Fixed price ", "Precio fijo ") + cents(chosen.totalCents)} onEdit={() => nav.popTo("BookRide")} />
               <Divider />

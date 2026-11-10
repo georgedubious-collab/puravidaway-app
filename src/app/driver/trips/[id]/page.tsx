@@ -9,10 +9,9 @@ import { setTripStatus } from "../actions";
 import { requireUser } from "@/lib/auth";
 import { bookingStatusLabel, serviceLabel, usd, type DriverTrip } from "@/lib/bookings";
 import { getCatalog } from "@/lib/catalogSource";
-import { formatScheduledAt } from "@/lib/dates";
+import { formatScheduledAt, formatTime12h, scheduledParts } from "@/lib/dates";
 import { googleMapsUrl, navTarget, wazeUrl, type NavTarget } from "@/lib/navigation";
 import { prefsSummary } from "@/lib/preferences";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { makeT, type TeamLang } from "@/lib/teamLang";
 import { getTeamLang } from "@/lib/teamLangServer";
@@ -64,12 +63,11 @@ async function Trip({ params, searchParams }: { params: Promise<{ id: string }>;
   const b = (mine ?? []).find((x) => x.id === id);
   if (!b) notFound();
 
-  // Only the traveller's first name, read here after the database confirmed (through the
-  // driver's own sign-in) that this trip is assigned to them. Drivers never get the
-  // traveller's phone or email (Jorge, 2026-11-10): they use the trip chat, or call our team.
-  const admin = createSupabaseAdminClient();
-  const { data: guest } =
-    admin && b.trip_id ? await admin.from("trips").select("guest_name").eq("id", b.trip_id).maybeSingle() : { data: null };
+  // The traveller's first name + last initial for the name sign ("Emily R.", my_trips(),
+  // migration 0035). Drivers never get the full name, phone or email (Jorge, 2026-11-10):
+  // they use the trip chat, or call our team.
+  // Estimated arrival (server: pickup + drive time + stops); nothing when the drive time is unknown.
+  const arrive = scheduledParts(b.arrive_at);
 
   const name =
     b.service_type === "transfer"
@@ -141,12 +139,14 @@ async function Trip({ params, searchParams }: { params: Promise<{ id: string }>;
               )}
             />
           )}
-          <Item k={tt("Cliente", "Traveller")} v={(guest?.guest_name ?? "").split(" ")[0] || "—"} />
+          <Item k={tt("Cliente", "Traveller")} v={b.passenger_name || "—"} />
           <Item
             k={tt("Contacto", "Contact")}
             v={tt("Por el chat del viaje (abajo) o llamando a nuestro equipo", "Through the trip chat (below) or by calling our team")}
           />
           {b.passenger_count && <Item k={tt("Pasajeros", "Passengers")} v={b.passenger_count} />}
+          {b.luggage_count != null && <Item k={tt("Maletas", "Bags")} v={b.luggage_count} />}
+          {arrive && <Item k={tt("Llegada aprox.", "Arrives approx.")} v={formatTime12h(arrive.time, lang)} />}
           {b.vehicle_class && (
             <Item k={tt("Tipo de vehículo", "Vehicle class")} v={catalog.vehicles.find((v) => v.id === b.vehicle_class)?.name ?? b.vehicle_class} />
           )}

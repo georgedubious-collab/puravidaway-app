@@ -8,7 +8,7 @@ import { getCatalog } from "@/lib/catalogSource";
 import { cashAllowed, itemPaymentMode, parsePaymentMode } from "@/lib/cart";
 import { costaRicaTimestamp, todayInCostaRica } from "@/lib/dates";
 import { ADMIN_EMAIL, SITE_URL, sendEmail } from "@/lib/email";
-import { stopTotalCents } from "@/lib/catalog";
+import { routeMinutes, stopTotalCents } from "@/lib/catalog";
 import { resolveTransfer } from "@/lib/googleMaps";
 import type { RidePlace, RideRoute } from "@/lib/places";
 import { notifyDriversOfJobs } from "@/lib/jobAlerts";
@@ -179,6 +179,11 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
       flight_or_hotel_notes: spec.kind === "transfer" ? (spec.notes ?? null) : null,
       preferences: spec.kind === "transfer" && spec.prefs ? spec.prefs : {},
       driver_notes: spec.kind === "transfer" ? (spec.driverNotes ?? null) : null,
+      // Optional "How many bags?" (migration 0035); shown to the assigned driver.
+      luggage_count: spec.kind === "transfer" && spec.bags !== undefined ? spec.bags : null,
+      // Door-to-door drive time for the driver's arrival estimate: Google's road route for typed
+      // places, else our per-corridor table between two towns. Never a straight-line guess.
+      drive_minutes: spec.kind === "transfer" ? driveMinutes(ride?.route ?? null, spec) : null,
       pricing_mode: spec.kind === "transfer" && spec.pricing === "bid" ? "bid" : "fixed",
       total_price: totalCents / 100,
       driver_payout: (payoutFor(spec.kind, totalCents, passThroughCents, companyCostCents)?.payoutCents ?? null) === null ? null : payoutFor(spec.kind, totalCents, passThroughCents, companyCostCents)!.payoutCents / 100,
@@ -279,4 +284,15 @@ function placeText(p: RidePlace): string {
 
 function placeCoords(p: RidePlace) {
   return { lat: p.lat, lng: p.lng, place_id: p.id, town: p.hub };
+}
+
+/**
+ * Door-to-door minutes for the driver's arrival estimate (bookings.drive_minutes): the Google
+ * route the ride was priced with (incl. the Drake Bay boat), or ROUTE_MINUTES between two of our
+ * towns. Null when neither applies, so the driver sees no estimate rather than a guess.
+ */
+function driveMinutes(route: RideRoute | null, spec: Extract<ItemSpec, { kind: "transfer" }>): number | null {
+  const typed = Boolean(spec.originPlace || spec.destinationPlace);
+  const min = typed ? (route?.totalMinutes ?? 0) : spec.origin === spec.destination ? 0 : routeMinutes(spec.origin, spec.destination);
+  return min > 0 ? Math.min(1440, Math.round(min)) : null;
 }

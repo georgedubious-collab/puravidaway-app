@@ -21,6 +21,8 @@ export interface BookingState {
   to: Place | null;
   date: string;
   pax: number;
+  /** "How many bags?" (suitcases and large backpacks); null until the traveller answers. Optional. */
+  bags: number | null;
   time: string;
   vehicleId: string;
   mode: "fixed" | "bid";
@@ -47,6 +49,7 @@ const fresh = (): BookingState => ({
   to: null,
   date: crDatePlus(14),
   pax: 2,
+  bags: null,
   time: "09:00",
   vehicleId: "sedan",
   mode: "fixed",
@@ -254,6 +257,7 @@ export function BookingProvider({
         ", " +
         plural(pax, "traveller", lang) +
         (pickedStops.length ? " + " + plural(pickedStops.length, "stop", lang) : "") +
+        (state.bags ? " · " + (state.bags === 1 ? t("1 bag", "1 maleta") : t(state.bags + " bags", state.bags + " maletas")) : "") +
         t(" · pickup ", " · recogida ") +
         time12(state.time) +
         (out.length ? " · " + out.join(", ") : ""),
@@ -272,6 +276,7 @@ export function BookingProvider({
         ...(state.notes.trim() ? { notes: state.notes.trim() } : {}),
         prefs: p,
         ...(state.driverNotes.trim() ? { driverNotes: state.driverNotes.trim() } : {}),
+        ...(state.bags != null ? { bags: state.bags } : {}),
       },
     };
     // pickedStops and p are derived from the listed values.
