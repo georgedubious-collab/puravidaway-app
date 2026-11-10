@@ -4,7 +4,7 @@ import * as Linking from "expo-linking";
 import * as Notifications from "expo-notifications";
 import { StatusBar } from "expo-status-bar";
 import * as WebBrowser from "expo-web-browser";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { api } from "./src/api";
@@ -20,18 +20,19 @@ import { C, S } from "./src/theme";
 import type { AppTrip } from "./src/types";
 import { Card, Divider, ListRow, ScreenTitle, type IconName } from "./src/ui";
 import { Preview } from "./src/preview";
+import { LangProvider, LangToggle, useT } from "./src/i18n";
 
 export type Tab = "trips" | "book" | "account";
-const TABS: { id: Tab; label: string; icon: IconName; iconOn: IconName }[] = [
-  { id: "trips", label: "My trips", icon: "map-outline", iconOn: "map" },
-  { id: "book", label: "Plan a trip", icon: "add-circle-outline", iconOn: "add-circle" },
-  { id: "account", label: "Account", icon: "person-outline", iconOn: "person" },
+const TABS: { id: Tab; en: string; es: string; icon: IconName; iconOn: IconName }[] = [
+  { id: "trips", en: "My trips", es: "Mis viajes", icon: "map-outline", iconOn: "map" },
+  { id: "book", en: "Plan a trip", es: "Planear un viaje", icon: "add-circle-outline", iconOn: "add-circle" },
+  { id: "account", en: "Account", es: "Cuenta", icon: "person-outline", iconOn: "person" },
 ];
 
 /** Design previews with sample data (web only, never in a phone build): EXPO_PUBLIC_PREVIEW=1. */
 const PREVIEW = process.env.EXPO_PUBLIC_PREVIEW === "1";
 
-/** The slim brand line above every screen. */
+/** The slim brand line above every screen, with the language switch on the right. */
 export function TopBar() {
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 16, paddingTop: 6, paddingBottom: 8, backgroundColor: C.bg }}>
@@ -41,12 +42,14 @@ export function TopBar() {
       <Text style={{ color: C.emeraldDark, fontSize: 13, fontWeight: "800", flex: 1 }} numberOfLines={1}>
         Costa Rica Private Transfers
       </Text>
+      <LangToggle />
     </View>
   );
 }
 
 /** Bottom tabs: icon over label, filled icon and a tinted pill for the current one. */
 export function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
+  const { t: tr } = useT();
   return (
     <SafeAreaView edges={["bottom"]} style={{ backgroundColor: "#fff", borderTopWidth: 1, borderTopColor: C.border }}>
       <View style={{ flexDirection: "row", paddingTop: 6, paddingBottom: 4 }}>
@@ -56,7 +59,7 @@ export function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void
             <Pressable
               key={t.id}
               accessibilityRole="tab"
-              accessibilityLabel={t.label}
+              accessibilityLabel={tr(t.en, t.es)}
               accessibilityState={{ selected: on }}
               onPress={() => onChange(t.id)}
               style={{ flex: 1, minHeight: 52, alignItems: "center", justifyContent: "center", gap: 2 }}
@@ -64,7 +67,9 @@ export function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void
               <View style={{ paddingHorizontal: 20, paddingVertical: 4, borderRadius: 999, backgroundColor: on ? C.emeraldSoft : "transparent" }}>
                 <Ionicons name={on ? t.iconOn : t.icon} size={22} color={on ? C.emerald : C.muted} />
               </View>
-              <Text style={{ fontWeight: on ? "800" : "600", fontSize: 11, color: on ? C.emerald : C.muted }}>{t.label}</Text>
+              <Text style={{ fontWeight: on ? "800" : "600", fontSize: 11, color: on ? C.emerald : C.muted }} numberOfLines={1}>
+                {tr(t.en, t.es)}
+              </Text>
             </Pressable>
           );
         })}
@@ -75,37 +80,46 @@ export function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void
 
 /** Who is signed in, how to reach us, the policies, and sign out. */
 export function Account({ email, whatsapp, onSignOut }: { email: string; whatsapp: string; onSignOut: () => void }) {
+  const { lang, setLang, t } = useT();
   return (
     <ScrollView style={S.screen} contentContainerStyle={S.pad}>
-      <ScreenTitle title="Account" />
+      <ScreenTitle title={t("Account", "Cuenta")} />
       <Card>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
           <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: C.emeraldDark, alignItems: "center", justifyContent: "center" }}>
             <Text style={{ color: "#fff", fontSize: 22, fontWeight: "800" }}>{(email[0] ?? "?").toUpperCase()}</Text>
           </View>
           <View style={{ flex: 1, gap: 2 }}>
-            <Text style={S.label}>Signed in as</Text>
+            <Text style={S.label}>{t("Signed in as", "Sesión iniciada como")}</Text>
             <Text style={{ fontSize: 16, fontWeight: "700", color: C.text }} numberOfLines={1}>
               {email}
             </Text>
           </View>
         </View>
-        <Text style={S.muted}>Your trips are found by this email. Use the same address when you send a trip request.</Text>
+        <Text style={S.muted}>{t("Your trips are found by this email. Use the same address when you send a trip request.", "Sus viajes se encuentran con este correo. Use la misma dirección cuando envíe una solicitud de viaje.")}</Text>
       </Card>
       {whatsapp ? (
         <Card>
-          <ListRow icon="logo-whatsapp" title="Message us on WhatsApp" detail="Questions before or during your trip" onPress={() => void Linking.openURL("https://wa.me/" + whatsapp)} />
+          <ListRow icon="logo-whatsapp" title={t("Message us on WhatsApp", "Escríbanos por WhatsApp")} detail={t("Questions before or during your trip", "Preguntas antes o durante su viaje")} onPress={() => void Linking.openURL("https://wa.me/" + whatsapp)} />
         </Card>
       ) : null}
       <Card>
-        <ListRow icon="document-text-outline" title="Terms" onPress={() => void WebBrowser.openBrowserAsync(SITE_URL + "/terms")} />
-        <Divider />
-        <ListRow icon="lock-closed-outline" title="Privacy policy" onPress={() => void WebBrowser.openBrowserAsync(SITE_URL + "/privacy")} />
-        <Divider />
-        <ListRow icon="calendar-clear-outline" title="Cancellation policy" detail="Free up to 24 hours before pickup" onPress={() => void WebBrowser.openBrowserAsync(SITE_URL + "/cancellation")} />
+        <ListRow
+          icon="language-outline"
+          title="Language / Idioma"
+          detail={lang === "es" ? "Español · toque para cambiar a inglés" : "English · tap to switch to Spanish"}
+          onPress={() => setLang(lang === "es" ? "en" : "es")}
+        />
       </Card>
       <Card>
-        <ListRow icon="log-out-outline" title="Sign out" onPress={onSignOut} tone="red" />
+        <ListRow icon="document-text-outline" title={t("Terms", "Términos")} onPress={() => void WebBrowser.openBrowserAsync(SITE_URL + "/terms")} />
+        <Divider />
+        <ListRow icon="lock-closed-outline" title={t("Privacy policy", "Política de privacidad")} onPress={() => void WebBrowser.openBrowserAsync(SITE_URL + "/privacy")} />
+        <Divider />
+        <ListRow icon="calendar-clear-outline" title={t("Cancellation policy", "Política de cancelación")} detail={t("Free up to 24 hours before pickup", "Gratis hasta 24 horas antes de la recogida")} onPress={() => void WebBrowser.openBrowserAsync(SITE_URL + "/cancellation")} />
+      </Card>
+      <Card>
+        <ListRow icon="log-out-outline" title={t("Sign out", "Cerrar sesión")} onPress={onSignOut} tone="red" />
       </Card>
     </ScrollView>
   );
@@ -127,6 +141,7 @@ export default function App() {
 
   if (PREVIEW) return <Preview />;
   return (
+    <LangProvider>
     <SafeAreaProvider>
       <StatusBar style={session ? "dark" : "light"} />
       {session === undefined ? (
@@ -139,10 +154,15 @@ export default function App() {
         <SignIn />
       )}
     </SafeAreaProvider>
+    </LangProvider>
   );
 }
 
 function Home({ session }: { session: Session }) {
+  const { t } = useT();
+  // Read inside load() without making it re-run (and re-register push) when the language changes.
+  const tRef = useRef(t);
+  tRef.current = t;
   const [tab, setTab] = useState<Tab>("trips");
   const [openId, setOpenId] = useState<string | null>(null);
   const [trips, setTrips] = useState<AppTrip[]>([]);
@@ -156,7 +176,7 @@ function Home({ session }: { session: Session }) {
     setLoading(true);
     const res = await api<{ trips: AppTrip[]; whatsapp: string }>("/client/trips");
     setLoading(false);
-    if (!res.ok || !res.data) return setError(res.error ?? "Couldn't load your trips.");
+    if (!res.ok || !res.data) return setError(res.error ?? tRef.current("Couldn't load your trips.", "No pudimos cargar sus viajes."));
     setError("");
     setTrips(res.data.trips);
     setWhatsapp(res.data.whatsapp ?? "");

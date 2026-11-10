@@ -25,6 +25,19 @@ Its own project: Vercel ignores this folder.
 Not yet: real card payments, expeditions and "name your price" in the app, and account deletion
 inside the app (both stores require it before publishing).
 
+## Language
+English by default. A small flag button at the top right of every screen (and on the sign-in
+screen) switches the app to Spanish: 🇨🇷 ES in English, 🇺🇸 EN in Spanish to switch back. The
+Account screen also has a "Language / Idioma" row. The choice is remembered on the phone.
+
+- `src/i18n.tsx` holds the switch: `useT()` gives `{ lang, setLang, t }`, and every text is written
+  in place as `t("English", "Español")`. Helpers that build text (`crDateTime`, `plural`,
+  `longDate`, `bookingStage`) take a `lang` argument.
+- Spanish is neutral Latin American and uses "usted".
+- What the server sends stays in English for now: vehicle names, badges and luggage, tour names
+  and highlights, stops, season names, driver bios and server error messages. Town and airport
+  names are also kept as they are.
+
 ## How it talks to the backend
 - `GET /api/v1/client/trips` returns the trips for the signed-in email (the server looks them up;
   travellers book as guests, so there are no rows of "their own" to read directly). Only
@@ -48,5 +61,5 @@ Every screen can be shown in a browser with made-up data, without signing in:
     EXPO_PUBLIC_PREVIEW=1 npx expo start --web
 
 Then open the address it prints and add `?s=trips` (or `empty`, `trip`, `trip2`, `rate`, `book`,
-`date`, `tours`, `send`, `checkout`, `account`, `signin`). The sample data lives in
+`date`, `tours`, `send`, `checkout`, `account`, `signin`); add `&lang=es` to see it in Spanish. The sample data lives in
 `src/preview.tsx`. Phone builds never set `EXPO_PUBLIC_PREVIEW`, so travellers never see it.
