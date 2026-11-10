@@ -40,3 +40,13 @@ Same steps as `apps/driver/README.md`, inside `apps/client`: `npm install`,
 
 `src/config.ts`, `supabase.ts`, `api.ts`, `theme.ts`, `ui.tsx`, `format.ts` and `push.ts` started
 as copies of the driver app's files. If one changes in a way both apps need, change both.
+
+## Design previews (no phone needed)
+
+Every screen can be shown in a browser with made-up data, without signing in:
+
+    EXPO_PUBLIC_PREVIEW=1 npx expo start --web
+
+Then open the address it prints and add `?s=trips` (or `empty`, `trip`, `trip2`, `rate`, `book`,
+`date`, `tours`, `send`, `checkout`, `account`, `signin`). The sample data lives in
+`src/preview.tsx`. Phone builds never set `EXPO_PUBLIC_PREVIEW`, so travellers never see it.

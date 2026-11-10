@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import type { Session } from "@supabase/supabase-js";
 import * as Linking from "expo-linking";
 import * as Notifications from "expo-notifications";
@@ -17,14 +18,98 @@ import { Trips } from "./src/screens/Trips";
 import { supabase } from "./src/supabase";
 import { C, S } from "./src/theme";
 import type { AppTrip } from "./src/types";
-import { Btn, Card, Field } from "./src/ui";
+import { Card, Divider, ListRow, ScreenTitle, type IconName } from "./src/ui";
+import { Preview } from "./src/preview";
 
-type Tab = "trips" | "book" | "account";
-const TABS: { id: Tab; label: string }[] = [
-  { id: "trips", label: "My trips" },
-  { id: "book", label: "Plan a trip" },
-  { id: "account", label: "Account" },
+export type Tab = "trips" | "book" | "account";
+const TABS: { id: Tab; label: string; icon: IconName; iconOn: IconName }[] = [
+  { id: "trips", label: "My trips", icon: "map-outline", iconOn: "map" },
+  { id: "book", label: "Plan a trip", icon: "add-circle-outline", iconOn: "add-circle" },
+  { id: "account", label: "Account", icon: "person-outline", iconOn: "person" },
 ];
+
+/** Design previews with sample data (web only, never in a phone build): EXPO_PUBLIC_PREVIEW=1. */
+const PREVIEW = process.env.EXPO_PUBLIC_PREVIEW === "1";
+
+/** The slim brand line above every screen. */
+export function TopBar() {
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 16, paddingTop: 6, paddingBottom: 8, backgroundColor: C.bg }}>
+      <View style={{ width: 26, height: 26, borderRadius: 8, backgroundColor: C.emeraldDark, alignItems: "center", justifyContent: "center" }}>
+        <Ionicons name="car-sport" size={15} color="#fff" />
+      </View>
+      <Text style={{ color: C.emeraldDark, fontSize: 13, fontWeight: "800", flex: 1 }} numberOfLines={1}>
+        Costa Rica Private Transfers
+      </Text>
+    </View>
+  );
+}
+
+/** Bottom tabs: icon over label, filled icon and a tinted pill for the current one. */
+export function TabBar({ tab, onChange }: { tab: Tab; onChange: (t: Tab) => void }) {
+  return (
+    <SafeAreaView edges={["bottom"]} style={{ backgroundColor: "#fff", borderTopWidth: 1, borderTopColor: C.border }}>
+      <View style={{ flexDirection: "row", paddingTop: 6, paddingBottom: 4 }}>
+        {TABS.map((t) => {
+          const on = tab === t.id;
+          return (
+            <Pressable
+              key={t.id}
+              accessibilityRole="tab"
+              accessibilityLabel={t.label}
+              accessibilityState={{ selected: on }}
+              onPress={() => onChange(t.id)}
+              style={{ flex: 1, minHeight: 52, alignItems: "center", justifyContent: "center", gap: 2 }}
+            >
+              <View style={{ paddingHorizontal: 20, paddingVertical: 4, borderRadius: 999, backgroundColor: on ? C.emeraldSoft : "transparent" }}>
+                <Ionicons name={on ? t.iconOn : t.icon} size={22} color={on ? C.emerald : C.muted} />
+              </View>
+              <Text style={{ fontWeight: on ? "800" : "600", fontSize: 11, color: on ? C.emerald : C.muted }}>{t.label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </SafeAreaView>
+  );
+}
+
+/** Who is signed in, how to reach us, the policies, and sign out. */
+export function Account({ email, whatsapp, onSignOut }: { email: string; whatsapp: string; onSignOut: () => void }) {
+  return (
+    <ScrollView style={S.screen} contentContainerStyle={S.pad}>
+      <ScreenTitle title="Account" />
+      <Card>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
+          <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: C.emeraldDark, alignItems: "center", justifyContent: "center" }}>
+            <Text style={{ color: "#fff", fontSize: 22, fontWeight: "800" }}>{(email[0] ?? "?").toUpperCase()}</Text>
+          </View>
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={S.label}>Signed in as</Text>
+            <Text style={{ fontSize: 16, fontWeight: "700", color: C.text }} numberOfLines={1}>
+              {email}
+            </Text>
+          </View>
+        </View>
+        <Text style={S.muted}>Your trips are found by this email. Use the same address when you send a trip request.</Text>
+      </Card>
+      {whatsapp ? (
+        <Card>
+          <ListRow icon="logo-whatsapp" title="Message us on WhatsApp" detail="Questions before or during your trip" onPress={() => void Linking.openURL("https://wa.me/" + whatsapp)} />
+        </Card>
+      ) : null}
+      <Card>
+        <ListRow icon="document-text-outline" title="Terms" onPress={() => void WebBrowser.openBrowserAsync(SITE_URL + "/terms")} />
+        <Divider />
+        <ListRow icon="lock-closed-outline" title="Privacy policy" onPress={() => void WebBrowser.openBrowserAsync(SITE_URL + "/privacy")} />
+        <Divider />
+        <ListRow icon="calendar-clear-outline" title="Cancellation policy" detail="Free up to 24 hours before pickup" onPress={() => void WebBrowser.openBrowserAsync(SITE_URL + "/cancellation")} />
+      </Card>
+      <Card>
+        <ListRow icon="log-out-outline" title="Sign out" onPress={onSignOut} tone="red" />
+      </Card>
+    </ScrollView>
+  );
+}
 
 /**
  * Costa Rica Private Transfers (traveller app). Travellers sign in with the email
@@ -40,9 +125,10 @@ export default function App() {
     return () => data.subscription.unsubscribe();
   }, []);
 
+  if (PREVIEW) return <Preview />;
   return (
     <SafeAreaProvider>
-      <StatusBar style="light" />
+      <StatusBar style={session ? "dark" : "light"} />
       {session === undefined ? (
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: C.emeraldDark }}>
           <ActivityIndicator color="#fff" />
@@ -103,10 +189,8 @@ function Home({ session }: { session: Session }) {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: C.emeraldDark }} edges={["top"]}>
-      <View style={{ paddingHorizontal: 16, paddingVertical: 12 }}>
-        <Text style={{ color: "#fff", fontSize: 17, fontWeight: "800" }}>Costa Rica Private Transfers</Text>
-      </View>
+    <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }} edges={["top"]}>
+      <TopBar />
       <View style={{ flex: 1, backgroundColor: C.bg }}>
         {tab === "trips" && open ? (
           <TripDetail booking={open.b} token={open.t.token} onBack={() => setOpenId(null)} onChanged={load} />
@@ -133,40 +217,18 @@ function Home({ session }: { session: Session }) {
             }}
           />
         ) : (
-          <ScrollView style={S.screen} contentContainerStyle={S.pad}>
-            <Text style={S.h1}>Account</Text>
-            <Card>
-              <Field label="Signed in as" value={session.user.email} />
-              <Text style={S.muted}>Your trips are found by this email. Use the same address when you send a trip request.</Text>
-            </Card>
-            {whatsapp ? <Btn label="Message us on WhatsApp" alt onPress={() => void Linking.openURL("https://wa.me/" + whatsapp)} /> : null}
-            <Btn label="Terms" alt onPress={() => void WebBrowser.openBrowserAsync(SITE_URL + "/terms")} />
-            <Btn label="Privacy policy" alt onPress={() => void WebBrowser.openBrowserAsync(SITE_URL + "/privacy")} />
-            <Btn label="Cancellation policy" alt onPress={() => void WebBrowser.openBrowserAsync(SITE_URL + "/cancellation")} />
-            <Btn label="Sign out" onPress={signOut} color={C.red} />
-          </ScrollView>
+          <Account email={session.user.email ?? ""} whatsapp={whatsapp} onSignOut={() => void signOut()} />
         )}
       </View>
-      <SafeAreaView edges={["bottom"]} style={{ backgroundColor: "#fff", borderTopWidth: 1, borderTopColor: C.border }}>
-        <View style={{ flexDirection: "row" }}>
-          {TABS.map((t) => (
-            <Pressable
-              key={t.id}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: tab === t.id }}
-              onPress={() => {
-                setTab(t.id);
-                setOpenId(null);
-                if (t.id !== "book") setSent(null);
-                if (t.id === "trips") void load();
-              }}
-              style={{ flex: 1, minHeight: 52, alignItems: "center", justifyContent: "center" }}
-            >
-              <Text style={{ fontWeight: "800", fontSize: 13, color: tab === t.id ? C.emerald : C.muted }}>{t.label}</Text>
-            </Pressable>
-          ))}
-        </View>
-      </SafeAreaView>
+      <TabBar
+        tab={tab}
+        onChange={(id) => {
+          setTab(id);
+          setOpenId(null);
+          if (id !== "book") setSent(null);
+          if (id === "trips") void load();
+        }}
+      />
     </SafeAreaView>
   );
 }

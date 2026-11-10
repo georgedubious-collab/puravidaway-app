@@ -1,15 +1,26 @@
-import { FlatList, Pressable, RefreshControl, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { Pressable, RefreshControl, SectionList, Text, View } from "react-native";
 import { crDateTime, usd } from "../format";
 import { C, S } from "../theme";
-import { TRAVELLER_STATUS, type AppBooking, type AppTrip } from "../types";
-import { Badge, Btn, Empty } from "../ui";
+import type { AppBooking, AppTrip } from "../types";
+import { Badge, Btn, Empty, ScreenTitle, type IconName } from "../ui";
 
 export interface Row {
   trip: AppTrip;
   booking: AppBooking;
 }
 
-/** Every ride, tour and expedition booked with this email, upcoming first. */
+/** Where a booking stands, in a couple of words, with a colour and an icon. */
+export function bookingStage(b: AppBooking): { text: string; tone?: "sky" | "amber" | "red" | "grey"; icon: IconName } {
+  if (b.status === "in_progress") return { text: "On the road", icon: "car" };
+  if (b.status === "completed") return { text: "Completed", tone: "grey", icon: "checkmark-circle" };
+  if (b.status === "cancelled") return { text: "Cancelled", tone: "red", icon: "close-circle" };
+  if (b.status === "confirmed") return b.driverOnTheWay ? { text: "Driver on the way", tone: "sky", icon: "navigate" } : { text: "Confirmed", icon: "checkmark-circle" };
+  if (b.status === "pending_bids") return { text: "Finding your driver", tone: "amber", icon: "search" };
+  return { text: "Request received", tone: "amber", icon: "time-outline" };
+}
+
+/** Every ride, tour and expedition booked with this email: what's coming up, then what's done. */
 export function Trips({
   trips,
   loading,
@@ -24,37 +35,59 @@ export function Trips({
   onBook: () => void;
 }) {
   const rows: Row[] = trips.flatMap((trip) => trip.bookings.map((booking) => ({ trip, booking })));
-  const rank = (s: string) => (s === "in_progress" ? 0 : s === "completed" || s === "cancelled" ? 2 : 1);
-  rows.sort((a, b) => rank(a.booking.status) - rank(b.booking.status) || (a.booking.scheduledAt ?? "").localeCompare(b.booking.scheduledAt ?? ""));
+  const past = (s: string) => s === "completed" || s === "cancelled";
+  const byDate = (a: Row, b: Row) => (a.booking.scheduledAt ?? "").localeCompare(b.booking.scheduledAt ?? "");
+  const upcoming = rows.filter((r) => !past(r.booking.status)).sort((a, b) => Number(b.booking.status === "in_progress") - Number(a.booking.status === "in_progress") || byDate(a, b));
+  const done = rows.filter((r) => past(r.booking.status)).sort((a, b) => byDate(b, a));
+  const sections = [
+    { title: "Upcoming", data: upcoming },
+    { title: "Past trips", data: done },
+  ].filter((s) => s.data.length > 0);
   return (
-    <FlatList
+    <SectionList
       style={S.screen}
       contentContainerStyle={S.pad}
-      data={rows}
+      sections={sections}
       keyExtractor={(r) => r.booking.id}
+      stickySectionHeadersEnabled={false}
       refreshControl={<RefreshControl refreshing={loading} onRefresh={onRefresh} tintColor={C.emerald} />}
-      ListHeaderComponent={<Text style={S.h1}>Your trips</Text>}
+      ListHeaderComponent={<ScreenTitle title="Your trips" />}
       ListEmptyComponent={
         loading ? undefined : (
-          <View style={{ gap: 12 }}>
-            <Empty text="No trips yet for this email. If you booked with another address, sign in with that one." />
-            <Btn label="Plan a trip" onPress={onBook} />
+          <View style={{ gap: 4 }}>
+            <Empty icon="map-outline" text="No trips yet for this email. If you booked with another address, sign in with that one." />
+            <Btn label="Plan a trip" icon="add-circle-outline" onPress={onBook} color={C.emerald} />
           </View>
         )
       }
-      renderItem={({ item: { booking: b } }) => (
-        <Pressable accessibilityRole="button" onPress={() => onOpen(b.id)} style={[S.card, b.status === "in_progress" ? { borderColor: C.emerald, borderWidth: 2 } : null]}>
-          <Text style={S.label}>
-            {crDateTime(b.scheduledAt)} · {b.ref}
-          </Text>
-          <Text style={S.h2}>{b.title}</Text>
-          {b.driverOnTheWay ? <Badge text={(b.driver?.firstName ?? "Your driver") + " is on the way"} /> : null}
-          <View style={S.row}>
-            <Text style={[S.muted, { flex: 1 }]}>{TRAVELLER_STATUS[b.status] ?? b.status}</Text>
-            <Text style={{ fontWeight: "800", color: C.emerald }}>{usd(b.dueUsd)}</Text>
-          </View>
-        </Pressable>
-      )}
+      renderSectionHeader={({ section }) => <Text style={[S.label, { marginTop: 6 }]}>{section.title}</Text>}
+      renderItem={({ item: { booking: b } }) => {
+        const stage = bookingStage(b);
+        return (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => onOpen(b.id)}
+            style={({ pressed }) => [S.card, b.status === "in_progress" || b.driverOnTheWay ? { borderWidth: 2, borderColor: C.emerald } : null, pressed ? { opacity: 0.75 } : null]}
+          >
+            <View style={S.row}>
+              <Badge text={stage.text} tone={stage.tone} icon={stage.icon} />
+              {b.status === "cancelled" ? null : b.dueUsd > 0 ? (
+                <Text style={{ fontWeight: "800", color: C.text, fontSize: 17 }}>{usd(b.dueUsd)}</Text>
+              ) : (
+                <Text style={{ fontWeight: "800", color: C.emerald, fontSize: 14 }}>Paid</Text>
+              )}
+            </View>
+            <Text style={S.h2}>{b.title}</Text>
+            <View style={S.row}>
+              <Text style={[S.muted, { flex: 1 }]}>
+                {crDateTime(b.scheduledAt)}
+                {b.driver ? " · with " + b.driver.firstName : ""}
+              </Text>
+              <Ionicons name="chevron-forward" size={18} color={C.faint} />
+            </View>
+          </Pressable>
+        );
+      }}
     />
   );
 }

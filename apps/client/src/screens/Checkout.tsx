@@ -1,9 +1,10 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 import { api } from "../api";
 import { usd } from "../format";
-import { C, S } from "../theme";
-import { Btn, Card } from "../ui";
+import { C, R, S } from "../theme";
+import { Btn, Card, IconLine } from "../ui";
 
 /**
  * After a request is sent. Paying online uses a TEST checkout for now (Jorge,
@@ -41,40 +42,46 @@ export function Checkout({
 
   return (
     <ScrollView style={S.screen} contentContainerStyle={S.pad}>
-      <Text style={S.h1}>{paid ? "Payment received" : "Request sent"}</Text>
+      <View style={{ alignItems: "center", gap: 10, paddingTop: 20, paddingBottom: 6 }}>
+        <View style={{ width: 84, height: 84, borderRadius: 42, backgroundColor: C.emeraldSoft, alignItems: "center", justifyContent: "center" }}>
+          <Ionicons name={paid ? "checkmark-done" : "checkmark"} size={44} color={C.emerald} />
+        </View>
+        <Text style={[S.title, { textAlign: "center" }]}>{paid ? "Payment received" : "Request sent"}</Text>
+        <Text style={[S.text, { textAlign: "center" }]}>{paid ? "Thank you! Your trip is paid." : "We got your request. Nothing has been charged."}</Text>
+      </View>
       <Card>
-        <Text style={{ color: C.emerald, fontWeight: "800", fontSize: 16 }}>
-          {paid ? "Thank you! Your trip is paid." : "We got your request. Nothing has been charged."}
-        </Text>
-        <Text style={S.text}>Our team is confirming your driver and pickup time. You&apos;ll get a notification and an email, and the trip is in My trips.</Text>
+        <Text style={S.label}>What happens next</Text>
+        <IconLine icon="person-circle-outline" text="Our team confirms your driver and pickup time." />
+        <IconLine icon="notifications-outline" text="You get a notification and an email." />
+        <IconLine icon="map-outline" text="The trip is in My trips, with your driver, the car and a chat." />
       </Card>
 
       {payOnline && !paid ? (
         <Card>
           <View style={S.row}>
-            <Text style={S.h2}>To pay online</Text>
+            <Text style={S.label}>To pay online</Text>
             <Text style={S.money}>{usd(totalCents / 100)}</Text>
           </View>
           {testCheckout && tripToken ? (
             <>
-              <View style={{ backgroundColor: C.amberSoft, borderRadius: 10, padding: 10 }}>
+              <View style={{ backgroundColor: C.amberSoft, borderRadius: R.control, padding: 12, gap: 2 }}>
                 <Text style={{ color: C.amber, fontWeight: "800" }}>Test checkout</Text>
-                <Text style={{ color: C.amber }}>No card is needed and no money is charged. This marks the trip as paid for testing.</Text>
+                <Text style={{ color: C.amber, fontSize: 13, lineHeight: 18 }}>No card is needed and no money is charged. This marks the trip as paid for testing.</Text>
               </View>
-              <Btn label={"Pay " + usd(totalCents / 100) + " (test)"} onPress={pay} busy={busy} color={C.emerald} />
+              <Btn label={"Pay " + usd(totalCents / 100) + " (test)"} icon="lock-closed-outline" onPress={pay} busy={busy} color={C.emerald} />
               {error ? <Text style={S.error}>{error}</Text> : null}
             </>
           ) : (
-            <Text style={S.muted}>We&apos;ll send you a secure payment link once your trip is confirmed.</Text>
+            <IconLine icon="card-outline" text="We'll send you a secure payment link once your trip is confirmed." />
           )}
         </Card>
       ) : null}
       {!payOnline ? (
         <Card>
-          <Text style={S.text}>You&apos;ll pay your driver in cash on the day. The amount is in My trips.</Text>
+          <IconLine icon="cash-outline" text="You'll pay your driver in cash on the day. The amount is in My trips." />
         </Card>
       ) : null}
-      <Btn label="Go to my trips" onPress={onDone} />
+      <Btn label="Go to my trips" icon="map-outline" alt={payOnline && !paid && testCheckout && Boolean(tripToken)} onPress={onDone} />
     </ScrollView>
   );
 }
