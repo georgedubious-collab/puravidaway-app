@@ -1,0 +1,1 @@
+- 2026-11-09 — Claude — Customer app: book without an account. The app opens on Plan a trip with prices for anyone; sending a request asks for name, WhatsApp and email, and the email is confirmed with a 6-digit code (no account, no password). My trips and Account offer "Already booked?" to see trips with the same code.
