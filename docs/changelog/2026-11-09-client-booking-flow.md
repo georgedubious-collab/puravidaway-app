@@ -1,0 +1,1 @@
+- 2026-11-09 — Claude — Customer app fixes: prices now load for travellers who are not signed in (the app refused to ask the server without a sign-in), and the ride screen has a bar pinned to the bottom with the total and Continue, so the next step is always visible.
