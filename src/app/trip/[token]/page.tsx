@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { Car, CheckCircle2, Compass, Languages, ShieldCheck } from "lucide-react";
 import { ChatBox } from "@/components/ChatBox";
+import { LiveRefresh } from "@/components/LiveRefresh";
 import { RateDriver } from "@/components/RateDriver";
 import { rateDriver } from "./actions";
 import { SERVICE_LABEL, TRIP_TOKEN, bookingDue, usd, type BookingRow, type BookingStatus } from "@/lib/bookings";
@@ -73,6 +74,13 @@ export default async function TripPage({ params }: { params: Promise<{ token: st
     .from("driver_reviews")
     .select("booking_id, stars")
     .in("booking_id", bookings.map((b) => b.id));
+  // Where each driver is, only while they share location for that booking (trip window).
+  const { data: locs } = await db
+    .from("driver_locations")
+    .select("booking_id, lat, lng, recorded_at, eta_at, late_min")
+    .in("booking_id", bookings.map((b) => b.id));
+  type Loc = { booking_id: string; lat: number; lng: number; recorded_at: string; eta_at: string | null; late_min: number | null };
+  const locationOf = (id: string) => (locs as Loc[] | null)?.find((l) => l.booking_id === id);
   const ratingOf = (id: string) => (reviews as { booking_id: string; stars: number }[] | null)?.find((r) => r.booking_id === id)?.stars;
 
   // Driver + car cards for confirmed bookings only.
@@ -185,6 +193,7 @@ export default async function TripPage({ params }: { params: Promise<{ token: st
           </p>
         </div>
 
+        {(locs ?? []).length > 0 && <LiveRefresh seconds={20} />}
         {bookings.map((b) => {
           const driver = driverCard(b.assigned_driver_id);
           const car = carCard(b.assigned_vehicle_id);
@@ -271,6 +280,26 @@ export default async function TripPage({ params }: { params: Promise<{ token: st
                     We&apos;re matching you with a hand-picked local driver. Their profile and car photos will show here.
                   </p>
                 )
+              )}
+
+              {showDriver && locationOf(b.id) && (b.status === "confirmed" || b.status === "in_progress") && (
+                <div className="rounded-xl border border-emerald-200 bg-white p-4">
+                  <p className="text-sm font-extrabold text-slate-900">
+                    {b.status === "in_progress" ? "You're on the road" : `Where ${driver.firstName} is now`}
+                  </p>
+                  {b.status === "confirmed" && locationOf(b.id)!.eta_at && (
+                    <p className="text-sm text-slate-700">
+                      Arriving at your pickup around {formatScheduledAt(locationOf(b.id)!.eta_at).split(" · ").pop()} with current traffic.
+                    </p>
+                  )}
+                  <iframe
+                    title={`Map: ${driver.firstName}`}
+                    className="mt-2 h-56 w-full rounded-lg border border-slate-200"
+                    loading="lazy"
+                    src={`https://www.openstreetmap.org/export/embed.html?bbox=${locationOf(b.id)!.lng - 0.02},${locationOf(b.id)!.lat - 0.02},${locationOf(b.id)!.lng + 0.02},${locationOf(b.id)!.lat + 0.02}&layer=mapnik&marker=${locationOf(b.id)!.lat},${locationOf(b.id)!.lng}`}
+                  />
+                  <p className="mt-1 text-xs text-slate-500">Updates by itself. Shown from 3 hours before your pickup until the trip ends.</p>
+                </div>
               )}
 
               {b.status === "completed" && driver && (

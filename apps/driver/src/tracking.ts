@@ -105,7 +105,7 @@ export async function syncTracking(consented: boolean): Promise<TrackingState> {
         // Android shows this notification the whole time location is being shared.
         foregroundService: {
           notificationTitle: "Sharing your location for trip " + trip.booking_ref,
-          notificationBody: "Our team can see where you are until the trip is completed.",
+          notificationBody: "Our team and your travellers can see where you are until the trip ends.",
           notificationColor: "#059669",
         },
       });

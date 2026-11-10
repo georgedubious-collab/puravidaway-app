@@ -1,5 +1,6 @@
 import "server-only";
 import { SITE_URL, sendEmail } from "./email";
+import { sendPushToEmail } from "./push";
 import { createSupabaseAdminClient } from "./supabase/admin";
 
 /**
@@ -32,6 +33,7 @@ export async function requestDriverReview(bookingId: string): Promise<void> {
     if (!marked.data?.length) return;
     const first = (who?.full_name ?? "your driver").split(" ")[0];
     const ride = b.service_type === "transfer";
+    await sendPushToEmail(trip.guest_email, { title: `How was your ${ride ? "ride" : "trip"} with ${first}?`, body: "Tap to rate. It takes 10 seconds.", data: { screen: "trip", id: b.id } });
     await sendEmail({
       to: trip.guest_email,
       subject: `How was your ${ride ? "ride" : "trip"} with ${first}? (${b.booking_ref})`,

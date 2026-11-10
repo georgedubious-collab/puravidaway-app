@@ -58,3 +58,16 @@ export async function sendPush(userIds: string[], message: PushMessage, app?: "d
     return 0;
   }
 }
+
+/** Push to the customer app of whoever signed in with this email (no-op if they don't have the app). */
+export async function sendPushToEmail(email: string | null | undefined, message: PushMessage): Promise<number> {
+  try {
+    const db = createSupabaseAdminClient();
+    const clean = (email ?? "").trim().toLowerCase();
+    if (!db || !clean) return 0;
+    const { data } = await db.from("profiles").select("id").ilike("email", clean.replace(/[%_\\]/g, "\\$&")).limit(5);
+    return sendPush((data ?? []).map((p) => p.id as string), message, "client");
+  } catch {
+    return 0;
+  }
+}

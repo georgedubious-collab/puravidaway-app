@@ -1,0 +1,29 @@
+{
+  "expo": {
+    "name": "CR Transfers",
+    "slug": "crpt-traveller",
+    "scheme": "crpttraveller",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.costaricaprivatetransfers.app"
+    },
+    "android": {
+      "package": "com.costaricaprivatetransfers.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#022C22",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "plugins": [
+      ["expo-notifications", { "color": "#059669", "defaultChannel": "trips" }],
+      "expo-web-browser"
+    ]
+  }
+}

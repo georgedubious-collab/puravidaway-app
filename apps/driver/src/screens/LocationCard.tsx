@@ -46,11 +46,12 @@ export function LocationCard({
       <Card>
         <Text style={S.h2}>Share your location during trips</Text>
         <Text style={S.text}>
-          To coordinate pickups and keep travellers informed, the app shares this phone&apos;s location with our team from 3 hours before each
+          To coordinate pickups and keep travellers informed, the app shares this phone&apos;s location with our team and with the travellers
+          you&apos;re driving, from 3 hours before each
           pickup (or from the moment you tap &quot;I&apos;m on my way&quot;) until you end the trip, also when the app is closed.
         </Text>
         <Text style={S.muted}>
-          Nothing is shared at any other time. We keep only your latest position, not a history, and only our team sees it. You can stop
+          Nothing is shared at any other time. We keep only your latest position, not a history; travellers see it only for their own trip. You can stop
           sharing here whenever you like.
         </Text>
         <Btn label="Agree and allow location" onPress={agree} busy={busy} color={C.emerald} />
@@ -75,7 +76,7 @@ export function LocationCard({
         <Text style={S.muted}>Off right now. It turns on by itself 3 hours before your next pickup, or when you tap &quot;I&apos;m on my way&quot;.</Text>
       )}
       <Btn label="Stop sharing my location" alt onPress={withdraw} busy={busy} />
-      <Text style={S.muted}>Our team needs location during trips, so drivers who stop sharing may not be assigned rides.</Text>
+      <Text style={S.muted}>Our team and your travellers follow the trip with it, so drivers who stop sharing may not be assigned rides.</Text>
     </Card>
   );
 }

@@ -541,6 +541,16 @@ await expectRows("driver starts the trip", "driver", `select public.driver_set_t
 await expectBlocked("driver cannot start it twice", "driver", `select public.driver_set_trip_status(${J3}, 'in_progress')`);
 await expectBlocked("driver cannot set other statuses", "driver", `select public.driver_set_trip_status(${J3}, 'cancelled')`);
 await expectRows("driver completes the trip", "driver", `select public.driver_set_trip_status(${J3}, 'completed') as ref`, 1);
+// Migration 0030: test checkout payments are marked as such.
+await expectOk("server records a test payment", "server", `
+  insert into public.payments (booking_id, provider, amount, type, status) values ('10000000-0000-0000-0000-000000000002', 'test', 200, 'full', 'succeeded')`);
+await expectBlocked("unknown payment provider refused", "server", `
+  insert into public.payments (booking_id, provider, amount, type, status) values ('10000000-0000-0000-0000-000000000002', 'paypal', 200, 'full', 'succeeded')`);
+await expectBlocked("a client cannot record a payment", "client2", `
+  insert into public.payments (booking_id, provider, amount, type, status) values ('10000000-0000-0000-0000-000000000002', 'test', 1, 'full', 'succeeded')`);
+await expectBlocked("a driver cannot record a payment", "driver", `
+  insert into public.payments (booking_id, provider, amount, type, status) values ('10000000-0000-0000-0000-000000000002', 'test', 1, 'full', 'succeeded')`);
+await expectOk("server removes the test payment", "server", "delete from public.payments where provider = 'test'");
 // Migration 0028: driver location around trips, with consent.
 await expectRows("no position is stored without consent", "driver", "select public.report_location(9.99, -84.2) as ok", 1);
 await expectRows("nothing stored yet", "admin", "select * from public.driver_locations", 0);

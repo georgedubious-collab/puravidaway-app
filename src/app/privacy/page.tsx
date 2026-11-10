@@ -110,8 +110,9 @@ export default function PrivacyPage() {
             “I’m on my way”) until you end the trip, including when the app is in the background.
             Before the pickup we use it, with live traffic data from Google Maps, to estimate your
             arrival time. Nothing is shared outside that
-            window. We keep only your latest position, not a history; only our team sees it; and you
-            can stop sharing in the app at any time.
+            window. We keep only your latest position, not a history. It is seen by our team and, during
+            that window, by the travellers you are driving (on their trip page and in their app),
+            and you can stop sharing in the app at any time.
           </li>
         </ul>
         <p>
