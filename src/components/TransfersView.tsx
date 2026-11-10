@@ -151,17 +151,6 @@ export function TransfersView({
   const effectivePrefs: RidePrefs = spanishDriver ? { ...prefs, language: "spanish_ok" } : prefs;
   // "4 large bags + 4 carry-ons" / "4 maletas grandes + 4 de mano" for the trip summary and the extras line.
   const bagWords = [bagsSummary(largeBags, carryOns, lang)];
-  // A gentle hint, never a block: more large suitcases than the chosen vehicle lists.
-  const vehicleFits = luggageCapacity(selectedVehicle?.luggage);
-  const luggageNote =
-    mode === "fixed" && vehicleFits != null && largeBags > vehicleFits ? (
-      <p className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm font-semibold text-amber-900">
-        {t(
-          `This vehicle lists ${vehicleFits} ${vehicleFits === 1 ? "suitcase" : "suitcases"} and you have ${largeBags} large. Consider a larger vehicle or ask our team.`,
-          `Este vehículo indica ${vehicleFits} ${vehicleFits === 1 ? "maleta" : "maletas"} y usted lleva ${largeBags} grandes. Considere un vehículo más grande o consulte a nuestro equipo.`,
-        )}
-      </p>
-    ) : null;
   const stopsKey = effectiveStopIds.join(",");
 
   // Shareable link: mirror the ride choices in the address bar (debounced), never personal details.
@@ -517,7 +506,7 @@ export function TransfersView({
                       );
                     })}
                   </div>
-                  {luggageNote}
+                  {mode === "fixed" && <LuggageHint luggage={selectedVehicle?.luggage} largeBags={largeBags} />}
                   <RidePromises airport={airportPickup} />
                 </>
               ) : (
@@ -691,27 +680,8 @@ export function TransfersView({
               <fieldset className="mb-4">
                 <legend className="text-sm font-bold text-slate-700 mb-2">{t("How many bags?", "¿Cuántas maletas?")}</legend>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-                  {(
-                    [
-                      [t("Large suitcases", "Maletas grandes"), largeBags, setLargePick],
-                      [t("Carry-ons", "Maletas de mano"), carryOns, setCarryPick],
-                    ] as const
-                  ).map(([label, value, setValue]) => (
-                    <label key={label} className="flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 pl-3 pr-1 font-semibold">
-                      <span>{label}</span>
-                      <select
-                        value={value}
-                        onChange={(e) => setValue(Number(e.target.value))}
-                        className="ml-auto min-h-11 min-w-16 rounded-lg border border-slate-300 bg-white px-2 text-base font-bold"
-                      >
-                        {Array.from({ length: MAX_BAGS + 1 }, (_, n) => (
-                          <option key={n} value={n}>
-                            {n}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  ))}
+                  <BagSelect label={t("Large suitcases", "Maletas grandes")} value={largeBags} onChange={setLargePick} />
+                  <BagSelect label={t("Carry-ons", "Maletas de mano")} value={carryOns} onChange={setCarryPick} />
                 </div>
                 <p className="mt-2 text-sm text-slate-600">
                   {t(
@@ -719,7 +689,7 @@ export function TransfersView({
                     "Empezamos con 1 maleta grande y 1 de mano por persona. Cámbielo si lleva más o menos.",
                   )}
                 </p>
-                {luggageNote}
+                {mode === "fixed" && <LuggageHint luggage={selectedVehicle?.luggage} largeBags={largeBags} />}
               </fieldset>
               <fieldset>
                 <legend className="text-sm font-bold text-slate-700 mb-2">{t("Driver's language", "Idioma del conductor")}</legend>
@@ -993,6 +963,41 @@ export function TransfersView({
         </div>
       )}
     </section>
+  );
+}
+
+/** One bags counter (large suitcases or carry-ons), 0–20. */
+function BagSelect({ label, value, onChange }: { label: string; value: number; onChange: (n: number) => void }) {
+  return (
+    <label className="flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 pl-3 pr-1 font-semibold">
+      <span>{label}</span>
+      <select
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="ml-auto min-h-11 min-w-16 rounded-lg border border-slate-300 bg-white px-2 text-base font-bold"
+      >
+        {Array.from({ length: MAX_BAGS + 1 }, (_, n) => (
+          <option key={n} value={n}>
+            {n}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+/** A gentle amber note (never a block): more large suitcases than the chosen vehicle lists. */
+function LuggageHint({ luggage, largeBags }: { luggage: string | undefined; largeBags: number }) {
+  const t = useT();
+  const fits = luggageCapacity(luggage);
+  if (fits == null || largeBags <= fits) return null;
+  return (
+    <p className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm font-semibold text-amber-900">
+      {t(
+        `This vehicle lists ${fits} ${fits === 1 ? "suitcase" : "suitcases"} and you have ${largeBags} large. Consider a larger vehicle or ask our team.`,
+        `Este vehículo indica ${fits} ${fits === 1 ? "maleta" : "maletas"} y usted lleva ${largeBags} grandes. Considere un vehículo más grande o consulte a nuestro equipo.`,
+      )}
+    </p>
   );
 }
 

@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import { Pressable, View } from "react-native";
-import { bagsFor, cents, useBooking } from "../../booking";
+import { bagsFor, bagsSummary, cents, useBooking } from "../../booking";
 import { longDate } from "../../DatePicker";
 import { useDemo } from "../../demo";
 import { plural } from "../../format";
@@ -78,8 +78,7 @@ export function BookReview() {
     if (err) setError(err);
   }
 
-  const bagCount = bagsFor(state);
-  const bagsText = " · " + (bagCount === 1 ? t("1 bag", "1 maleta") : t(bagCount + " bags", bagCount + " maletas"));
+  const bagsText = " · " + bagsSummary(bagsFor(state), lang);
   const p = state.prefs;
   const extras: string[] = [];
   if (!isTour) {

@@ -30,27 +30,45 @@ function Travellers() {
   );
 }
 
-/** "How many bags?" — starts at 2 per traveller; the driver sees the number. */
+/** One bags counter: an icon, a label and − n +. */
+function BagRow({ icon, label, value, onChange, less, more }: { icon: "briefcase-outline" | "bag-handle-outline"; label: string; value: number; onChange: (n: number) => void; less: string; more: string }) {
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 12, minHeight: 62, paddingVertical: 8 }}>
+      <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: C.emeraldTint, alignItems: "center", justifyContent: "center" }}>
+        <Ionicons name={icon} size={20} color={C.emerald} />
+      </View>
+      <Text style={[T.bodyStrong, { flex: 1 }]}>{label}</Text>
+      <Stepper value={value} min={0} max={20} onChange={onChange} lessLabel={less} moreLabel={more} />
+    </View>
+  );
+}
+
+/** Bags: large suitcases and carry-ons, each starting at 1 per traveller; the driver sees both numbers. */
 function Bags() {
   const { t } = useT();
   const { state, set } = useBooking();
+  const bags = bagsFor(state);
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", gap: 12, minHeight: 68, paddingVertical: 10 }}>
-      <View style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: C.emeraldTint, alignItems: "center", justifyContent: "center" }}>
-        <Ionicons name="briefcase-outline" size={20} color={C.emerald} />
-      </View>
-      <View style={{ flex: 1, gap: 1 }}>
-        <Text style={T.bodyStrong}>{t("How many bags?", "¿Cuántas maletas?")}</Text>
-        <Text style={T.small}>{t("1 large suitcase + 1 carry-on per person. Change it if you bring more or less.", "1 maleta grande y 1 de mano por persona. Cámbielo si lleva más o menos.")}</Text>
-      </View>
-      <Stepper
-        value={bagsFor(state)}
-        min={0}
-        max={20}
-        onChange={(bags) => set({ bags })}
-        lessLabel={t("One bag fewer", "Una maleta menos")}
-        moreLabel={t("One more bag", "Una maleta más")}
+    <View style={{ paddingBottom: 10 }}>
+      <BagRow
+        icon="briefcase-outline"
+        label={t("Large suitcases", "Maletas grandes")}
+        value={bags.large}
+        onChange={(n) => set({ bags: n })}
+        less={t("One large suitcase fewer", "Una maleta grande menos")}
+        more={t("One more large suitcase", "Una maleta grande más")}
       />
+      <BagRow
+        icon="bag-handle-outline"
+        label={t("Carry-ons", "Maletas de mano")}
+        value={bags.carryOns}
+        onChange={(n) => set({ carryOns: n })}
+        less={t("One carry-on fewer", "Una maleta de mano menos")}
+        more={t("One more carry-on", "Una maleta de mano más")}
+      />
+      <Text style={T.small}>
+        {t("We start with 1 large suitcase and 1 carry-on per person. Change it if you bring more or less.", "Empezamos con 1 maleta grande y 1 de mano por persona. Cámbielo si lleva más o menos.")}
+      </Text>
     </View>
   );
 }

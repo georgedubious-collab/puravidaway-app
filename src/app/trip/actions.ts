@@ -212,7 +212,7 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
     if (saved.error && /carry_on_count/.test(saved.error.message ?? "")) {
       saved = await db
         .from("bookings")
-        .insert(rows.map(({ carry_on_count: _later, ...row }) => row))
+        .insert(rows.map((row) => ({ ...row, carry_on_count: undefined })))
         .select("id, booking_ref, status");
     }
     const { data, error } = saved;
