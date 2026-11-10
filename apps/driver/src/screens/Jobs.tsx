@@ -67,7 +67,9 @@ export function Jobs({
           {!approved ? (
             <Card>
               <Text style={{ color: C.amber, fontWeight: "700" }}>
-                You can see jobs, but offering needs an approved profile and vehicle. Finish your documents on the website.
+                {driver
+                  ? "You can see jobs once our team approves your profile and a vehicle. Add your documents under Profile."
+                  : "Apply to drive under Profile; jobs appear here once our team approves you."}
               </Text>
             </Card>
           ) : null}
