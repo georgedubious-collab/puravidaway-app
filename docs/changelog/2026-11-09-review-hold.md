@@ -1,0 +1,1 @@
+- 2026-11-09 — Claude — Replacing a key document after approval pauses new jobs until the team checks it (migration 0031, `review_hold` on drivers and vehicles; `offer_job` refuses while on hold). Trips already assigned are unaffected; small edits only raise the "changed since last review" flag. Shown in the driver app, the driver website and the admin.

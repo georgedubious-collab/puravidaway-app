@@ -8,7 +8,7 @@ import { nearHome, returnMatch, townName as areaName } from "@/lib/matching";
 import { HUBS } from "@/lib/catalog";
 import { getCatalog } from "@/lib/catalogSource";
 import { formatScheduledAt, todayInCostaRica } from "@/lib/dates";
-import { canTakeTrips, vehicleRoadLegal, type DriverRecord, type VehicleRecord } from "@/lib/driverKyc";
+import { HOLD_MESSAGE, canTakeTrips, vehicleRoadLegal, type DriverRecord, type VehicleRecord } from "@/lib/driverKyc";
 import { prefsSummary } from "@/lib/preferences";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { DriverHeader } from "../DriverHeader";
@@ -63,7 +63,10 @@ async function Jobs() {
         </p>
       </div>
 
-      {!ready && (
+      {d.data?.review_hold && (
+        <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900">{HOLD_MESSAGE}</p>
+      )}
+      {!ready && !d.data?.review_hold && (
         <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
           You can see open jobs, but offering needs an approved profile, a current licence and at
           least one approved vehicle with current documents.{" "}

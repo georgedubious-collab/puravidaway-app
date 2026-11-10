@@ -32,6 +32,7 @@ const RENEW: Record<string, { ask: string; placeholder: string }> = {
 const STATUS: Record<string, string> = { pending: "Waiting for review", approved: "Approved", rejected: "Not approved", suspended: "Suspended" };
 
 interface DriverRow {
+  review_hold?: boolean;
   kyc_status: string;
   kyc_note: string | null;
   cedula_number: string | null;
@@ -59,6 +60,7 @@ interface VehicleRow {
   photos: string[] | null;
   status: string;
   note: string | null;
+  review_hold?: boolean;
 }
 type Fields = Record<string, string>;
 const str = (v: string | number | null | undefined) => (v === null || v === undefined ? "" : String(v));
@@ -171,6 +173,13 @@ export function Documents({ userId, onBack, onChanged }: { userId: string; onBac
         Your application: {STATUS[driver.kyc_status] ?? driver.kyc_status}
         {driver.kyc_note ? ". Note from our team: " + driver.kyc_note : ""}
       </Text>
+      {reviewed ? (
+        <Text style={S.muted}>
+          Replacing a licence, ID, criminal record or vehicle document pauses new jobs until our team checks it. Trips you already have are not
+          affected.
+        </Text>
+      ) : null}
+      {driver.review_hold ? <Text style={{ color: C.amber, fontWeight: "700" }}>Your new documents are being checked. New jobs are paused until then.</Text> : null}
       {msg ? <Text style={msg.ok ? { color: C.emerald, fontWeight: "700" } : S.error}>{msg.text}</Text> : null}
 
       <Card>
@@ -254,6 +263,7 @@ function VehicleCard({
         {(v.make_model ?? "Vehicle") + " " + (v.plate ?? "")} · {STATUS[v.status] ?? v.status}
       </Text>
       {v.note ? <Text style={{ color: C.amber }}>Note from our team: {v.note}</Text> : null}
+      {v.review_hold ? <Text style={{ color: C.amber, fontWeight: "700" }}>Its new documents are being checked; it can&apos;t be offered until then.</Text> : null}
       <VehicleForm
         v={v}
         lockDates={reviewed}

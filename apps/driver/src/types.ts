@@ -57,6 +57,8 @@ export interface Vehicle {
   plate: string | null;
   passenger_capacity: number | null;
   status: string;
+  /** Its replaced documents are waiting for the team's check: can't be offered. */
+  review_hold?: boolean;
 }
 
 export interface DriverInfo {
@@ -64,6 +66,8 @@ export interface DriverInfo {
   home_hub: string | null;
   rating_avg: number | string | null;
   rating_count: number | null;
+  /** Replaced key documents are waiting for the team's check: no new offers. */
+  review_hold?: boolean;
   /** Set when the driver agreed to share location around trips. */
   location_consent_at: string | null;
 }

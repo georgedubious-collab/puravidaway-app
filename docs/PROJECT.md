@@ -509,7 +509,11 @@ and `season_for_date(date)` returns the season for a travel date.
    or refund of the affected service. The cash-booking fee is non-refundable within 24 h.
 8. **Custom domain** for the app (removes the Vercel login wall on previews and looks
    professional).
-9. **Driver edits after approval.** (Expired licence / insurance / Dekra / Marchamo already block trips
+9. **Driver edits after approval: decided (Jorge, 2026-11-09), built in migration 0031.**
+   Replacing a licence, ID, criminal-record or vehicle document, or changing their dates or a
+   plate, pauses NEW jobs for that driver / vehicle (`review_hold`) until the team checks it;
+   trips already assigned are unaffected; small edits only raise the flag. Original note:
+   **Driver edits after approval.** (Expired licence / insurance / Dekra / Marchamo already block trips
    automatically, see §7.7; this is about other edits.) Built as: the driver stays approved and the record is flagged
    "changed since last review" for the admin. Stricter alternative: any change sends them back to
    *pending* (off the job board) until re-approved. Decide before drivers can receive trips (Phase 3).

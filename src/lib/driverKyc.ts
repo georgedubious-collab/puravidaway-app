@@ -65,6 +65,8 @@ export interface DriverRecord {
   kyc_status: KycStatus;
   kyc_note: string | null;
   needs_review: boolean;
+  /** A replaced key document is waiting for the team's check: no new offers (migration 0031). */
+  review_hold?: boolean;
   documents: Record<string, string>;
   submitted_at: string | null;
   reviewed_at: string | null;
@@ -91,8 +93,14 @@ export interface VehicleRecord {
   status: KycStatus;
   note: string | null;
   needs_review: boolean;
+  /** A replaced vehicle document, date or plate is waiting for the team's check (migration 0031). */
+  review_hold?: boolean;
   reviewed_at: string | null;
 }
+
+/** Shown to a driver whose replaced documents are waiting for the team's check. */
+export const HOLD_MESSAGE =
+  "Your new documents are being checked. You can send offers again once our team approves them; trips you already have are not affected.";
 
 /**
  * Dated documents that must be RE-UPLOADED when renewed: after the first
@@ -204,16 +212,19 @@ export function vehicleIssues(v: VehicleRecord, today: string, soon: string): Is
   return out;
 }
 
+/** Can this vehicle be offered on new jobs? Road-legal and not waiting for a document check. */
 export function vehicleRoadLegal(v: VehicleRecord, today: string): boolean {
   return (
+    !v.review_hold &&
     !!v.ins_insurance_expiry && !!v.dekra_inspection_expiry && v.marchamo_year !== null &&
     !vehicleIssues(v, today, today).some((i) => i.blocking)
   );
 }
 
-/** Mirrors is_approved_driver(): approved, licence current, ≥1 approved road-legal vehicle. */
+/** Can this driver take NEW jobs: approved, not on a document hold, licence current, ≥1 approved road-legal vehicle. */
 export function canTakeTrips(d: DriverRecord, vehicles: VehicleRecord[], today: string): boolean {
   return (
+    !d.review_hold &&
     d.kyc_status === "approved" &&
     !!d.license_expiry && d.license_expiry >= today &&
     vehicles.some((v) => v.status === "approved" && vehicleRoadLegal(v, today))
