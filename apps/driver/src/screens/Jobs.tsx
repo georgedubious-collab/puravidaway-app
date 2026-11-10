@@ -6,7 +6,7 @@ import { useT } from "../i18n";
 import { supabase } from "../supabase";
 import { C, S } from "../theme";
 import type { DriverInfo, Job, Names, Trip, Vehicle } from "../types";
-import { Badge, Btn, Card, Chip, Empty, IconLine, LinkBtn, RouteLine, ScreenTitle } from "../ui";
+import { Badge, Btn, Card, Chip, Empty, IconLine, LinkBtn, RouteLine } from "../ui";
 
 const DAY_MS = 86400000;
 const CR_OFFSET_MS = 6 * 3600 * 1000;
@@ -23,6 +23,7 @@ export function Jobs({
   names,
   trips,
   focusId,
+  onCount,
   demo,
 }: {
   driver: DriverInfo | null;
@@ -33,6 +34,8 @@ export function Jobs({
   focusId?: string;
   /** Sample jobs for design previews; skips loading. */
   demo?: Job[];
+  /** Told how many jobs are open after each load (the menu's gold count). */
+  onCount?: (n: number) => void;
 }) {
   const [jobs, setJobs] = useState<Job[] | null>(demo ?? null);
   const [loading, setLoading] = useState(false);
@@ -46,8 +49,10 @@ export function Jobs({
     setLoading(false);
     if (err) return setError(true);
     setError(false);
-    setJobs((data as Job[] | null) ?? []);
-  }, [demo]);
+    const list = (data as Job[] | null) ?? [];
+    setJobs(list);
+    onCount?.(list.length);
+  }, [demo, onCount]);
 
   useEffect(() => {
     void load();
@@ -70,17 +75,14 @@ export function Jobs({
       refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={C.emerald} />}
       ListHeaderComponent={
         <View style={{ gap: 12 }}>
-          <ScreenTitle
-            title={t("Trabajos disponibles", "Open jobs")}
-            subtitle={
-              jobs?.length
-                ? t(
-                    plural(jobs.length, ["trabajo", "trabajos"], ["job", "jobs"], "es") + " en los que puede ofertar",
-                    plural(jobs.length, ["trabajo", "trabajos"], ["job", "jobs"], "en") + " you can offer on",
-                  )
-                : undefined
-            }
-          />
+          {jobs?.length ? (
+            <Text style={S.muted}>
+              {t(
+                plural(jobs.length, ["trabajo", "trabajos"], ["job", "jobs"], "es") + " en los que puede ofertar",
+                plural(jobs.length, ["trabajo", "trabajos"], ["job", "jobs"], "en") + " you can offer on",
+              )}
+            </Text>
+          ) : null}
           {onHold ? (
             <Card tone="amber">
               <IconLine
@@ -101,12 +103,12 @@ export function Jobs({
                 text={
                   driver
                     ? t(
-                        "Podrá enviar ofertas cuando nuestro equipo apruebe su perfil y un vehículo. Agregue sus documentos en Perfil.",
-                        "You can send offers once our team approves your profile and a vehicle. Add your documents under Profile.",
+                        "Podrá enviar ofertas cuando nuestro equipo apruebe su perfil y un vehículo. Agregue sus documentos en Documentos (menú ☰).",
+                        "You can send offers once our team approves your profile and a vehicle. Add your documents under Documents (☰ menu).",
                       )
                     : t(
-                        "Postúlese como conductor en Perfil. Los trabajos se habilitan cuando nuestro equipo lo apruebe.",
-                        "Apply to drive under Profile. Jobs open up once our team approves you.",
+                        "Postúlese como conductor en Documentos (menú ☰). Los trabajos se habilitan cuando nuestro equipo lo apruebe.",
+                        "Apply to drive under Documents (☰ menu). Jobs open up once our team approves you.",
                       )
                 }
               />

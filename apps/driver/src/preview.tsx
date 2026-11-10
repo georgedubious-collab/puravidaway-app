@@ -1,9 +1,10 @@
 import { StatusBar } from "expo-status-bar";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { View } from "react-native";
 import { useT } from "./i18n";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
-import { TabBar, TopBar, type Tab } from "../App";
+import { crDateTime } from "./format";
+import { Bar, Drawer, drawerProfile, SECTION_TITLE, SEGMENT_TITLE, type Section, type Segment } from "./nav";
 import { Calendar } from "./screens/Calendar";
 import { Documents } from "./screens/Documents";
 import { Earnings } from "./screens/Earnings";
@@ -20,15 +21,20 @@ import type { ChatMessage, DriverInfo, Job, Names, Trip, Vehicle } from "./types
 /**
  * Design previews: every screen with made-up data, no sign-in and no network.
  * Only used when the app is started with EXPO_PUBLIC_PREVIEW=1 in a browser
- * (`?s=jobs`, `trips`, `trip`, `trip2`, `calendar`, `earnings`, `profile`,
- * `documents`, `apply`, `help`, `signin`; add `&lang=en` for English). Never part of a phone build's flow.
+ * (`?s=trips` (home), `today`, `past`, `menu` (side menu open), `trip`, `trip2`, `trip3`,
+ * `jobs`, `calendar`, `earnings`, `profile`, `documents`, `apply`, `help`, `signin`;
+ * add `&lang=en` for English). Never part of a phone build's flow.
  */
 const H = 3600 * 1000;
 const at = (hoursFromNow: number) => new Date(Date.now() + hoursFromNow * H).toISOString();
 const noop = () => {};
 const done = async () => {};
 
-const names: Names = { tours: { arenal: "Arenal Volcano & Hot Springs day tour" }, stops: { crocs: "Tárcoles crocodile bridge", lapaz: "La Paz Waterfall Gardens" } };
+const names: Names = {
+  tours: { arenal: "Arenal Volcano & Hot Springs day tour" },
+  stops: { crocs: "Tárcoles crocodile bridge", lapaz: "La Paz Waterfall Gardens", carara: "Carara National Park Scarlet Macaw Walk" },
+  stopMinutes: { crocs: 45, lapaz: 120, carara: 90 },
+};
 const driver: DriverInfo = { kyc_status: "approved", home_hub: "SJO", rating_avg: 4.9, rating_count: 37, location_consent_at: at(-500) };
 const vehicles: Vehicle[] = [
   { id: "v1", make_model: "Toyota Hiace", plate: "BRT-482", passenger_capacity: 10, status: "approved" },
@@ -62,11 +68,87 @@ const trip = (o: Partial<Trip>): Trip => ({
 });
 
 const trips: Trip[] = [
-  trip({ id: "t1", booking_ref: "CRPT-1042", status: "in_progress", scheduled_at: at(-1), en_route_at: at(-2), flight_or_hotel_notes: "Flight UA1090, lands 1:35 PM", driver_notes: "Two child seats please", cash_to_collect: 160 }),
-  trip({ id: "t2", booking_ref: "CRPT-1047", scheduled_at: at(26), origin: "Hotel Arenal Springs, La Fortuna", destination: "Monteverde Lodge", driver_payout: 96, sightseeing_stops: [{ id: "lapaz" }] }),
-  trip({ id: "t3", booking_ref: "CRPT-1051", scheduled_at: at(75), service_type: "tour", catalog_item_id: "arenal", driver_payout: 140 }),
-  trip({ id: "t4", booking_ref: "CRPT-1019", status: "completed", scheduled_at: at(-50), driver_payout: 132, origin: "Manuel Antonio", destination: "SJO Airport" }),
-  trip({ id: "t5", booking_ref: "CRPT-1003", status: "completed", scheduled_at: at(-200), driver_payout: 104, cash_to_collect: 130, origin: "Liberia Airport (LIR)", destination: "Tamarindo" }),
+  trip({
+    id: "t1",
+    booking_ref: "CRPT-1042",
+    scheduled_at: at(3.4),
+    vehicle_class: "sedan",
+    origin: "SJO Airport, Alajuela",
+    destination: "Hotel Si Como No, Manuel Antonio",
+    destination_coords: { lat: 9.39, lng: -84.14, town: "ManuelAntonio" },
+    flight_or_hotel_notes: "Flight UA1090, lands 1:35 PM",
+    driver_payout: 168,
+  }),
+  trip({
+    id: "t2",
+    booking_ref: "CRPT-1047",
+    scheduled_at: at(46),
+    vehicle_class: "suv",
+    origin: "Hotel Arenal Springs, La Fortuna",
+    origin_coords: { lat: 10.47, lng: -84.64, town: "Arenal" },
+    destination: "Hotel Parador, Quepos",
+    destination_coords: { lat: 9.4, lng: -84.16, town: "ManuelAntonio" },
+    passenger_count: 3,
+    preferences: { language: "english", childSeats: 1, wifi: false, stroller: false, pets: false },
+    driver_notes: "Our daughter is 4",
+    driver_payout: 214,
+    sightseeing_stops: [{ id: "lapaz" }, { id: "carara" }, { id: "crocs" }],
+  }),
+  trip({
+    id: "t7",
+    booking_ref: "CRPT-1055",
+    scheduled_at: at(98),
+    vehicle_class: "sedan",
+    origin: "Manuel Antonio",
+    origin_coords: { town: "ManuelAntonio" },
+    destination: "Santa Teresa",
+    destination_coords: { town: "SouthNicoya" },
+    passenger_count: 2,
+    driver_payout: 236,
+    payment_mode: "cash_driver",
+    cash_to_collect: 310,
+  }),
+  trip({
+    id: "t3",
+    booking_ref: "CRPT-1051",
+    scheduled_at: at(130),
+    service_type: "tour",
+    catalog_item_id: "arenal",
+    vehicle_class: "van",
+    passenger_count: 6,
+    driver_payout: 140,
+  }),
+  trip({
+    id: "t8",
+    booking_ref: "CRPT-1060",
+    scheduled_at: at(360),
+    vehicle_class: "sierpe_combo",
+    origin: "Drake Bay",
+    origin_coords: { town: "DrakeBay" },
+    destination: "SJO Airport",
+    destination_coords: { lat: 9.99, lng: -84.2, town: "SJO" },
+    passenger_count: 2,
+    driver_payout: 290,
+  }),
+  trip({
+    id: "t4",
+    booking_ref: "CRPT-1019",
+    status: "completed",
+    scheduled_at: at(-50),
+    driver_payout: 132,
+    origin: "Manuel Antonio",
+    destination: "SJO Airport",
+  }),
+  trip({
+    id: "t5",
+    booking_ref: "CRPT-1003",
+    status: "completed",
+    scheduled_at: at(-200),
+    driver_payout: 104,
+    cash_to_collect: 130,
+    origin: "Liberia Airport (LIR)",
+    destination: "Tamarindo",
+  }),
   trip({ id: "t6", booking_ref: "CRPT-0988", status: "completed", scheduled_at: at(-400), driver_payout: 118, driver_settled_at: at(-300) }),
 ];
 
@@ -91,7 +173,17 @@ const job = (o: Partial<Job>): Job => ({
 });
 const jobs: Job[] = [
   job({ id: "j1", sightseeing_stops: [{ id: "crocs" }], driver_notes: "Surfboards, 2 large bags" }),
-  job({ id: "j2", origin_town: "Arenal", destination_town: "Monteverde", scheduled_at: at(29), passenger_count: 2, driver_payout: 96, my_offer: 100, my_offer_status: "submitted", my_offer_id: "b1" }),
+  job({
+    id: "j2",
+    origin_town: "Arenal",
+    destination_town: "Monteverde",
+    scheduled_at: at(29),
+    passenger_count: 2,
+    driver_payout: 96,
+    my_offer: 100,
+    my_offer_status: "submitted",
+    my_offer_id: "b1",
+  }),
   job({ id: "j3", service_type: "tour", catalog_item_id: "arenal", scheduled_at: at(120), passenger_count: 6, driver_payout: 150 }),
 ];
 
@@ -108,7 +200,9 @@ export function Preview() {
   const params = new URLSearchParams(globalThis.location?.search ?? "");
   const s = params.get("s") ?? "jobs";
   // `&lang=en` (or `es`) shows the screen in that language.
-  const { lang, setLang } = useT();
+  const { lang, setLang, t } = useT();
+  const [menu, setMenu] = useState(s === "menu");
+  const [segOverride, setSeg] = useState<Segment | null>(null);
   const want = params.get("lang");
   useEffect(() => {
     if ((want === "en" || want === "es") && want !== lang) setLang(want);
@@ -121,36 +215,78 @@ export function Preview() {
       </SafeAreaProvider>
     );
   }
-  const tab: Tab = s === "jobs" || s === "calendar" || s === "earnings" ? s : s.startsWith("trip") ? "trips" : "profile";
   const docs = {
-    driver: { kyc_status: "approved", kyc_note: null, cedula_number: "1-1234-0567", license_number: "B1-889201", license_expiry: "2028-05-31", criminal_record_date: "2026-10-20", ict_permit_number: "", home_hub: "SJO", bio: "", english_level: "fluent", documents: { driver_photo: "x", id_front: "x", id_back: "x", license: "x" } },
-    vehicles: [{ id: "v1", plate: "BRT-482", make_model: "Toyota Hiace", year: 2022, color: "White", passenger_capacity: 10, ins_policy_number: "INS-77120", ins_insurance_expiry: "2027-03-01", dekra_inspection_expiry: "2027-06-30", marchamo_year: 2026, documents: { insurance: "x", dekra: "x" }, photos: ["a", "b"], status: "approved", note: null }],
-    me: { full_name: "Carlos Rojas", phone: "+506 8888 8888", cedula_number: "1-1234-0567", license_number: "B1-889201", license_expiry: "2028-05-31", criminal_record_date: "2026-10-20", ict_permit_number: "", home_hub: "SJO", bio: "", english_level: "fluent" },
+    driver: {
+      kyc_status: "approved",
+      kyc_note: null,
+      cedula_number: "1-1234-0567",
+      license_number: "B1-889201",
+      license_expiry: "2028-05-31",
+      criminal_record_date: "2026-10-20",
+      ict_permit_number: "",
+      home_hub: "SJO",
+      bio: "",
+      english_level: "fluent",
+      documents: { driver_photo: "x", id_front: "x", id_back: "x", license: "x" },
+    },
+    vehicles: [
+      {
+        id: "v1",
+        plate: "BRT-482",
+        make_model: "Toyota Hiace",
+        year: 2022,
+        color: "White",
+        passenger_capacity: 10,
+        ins_policy_number: "INS-77120",
+        ins_insurance_expiry: "2027-03-01",
+        dekra_inspection_expiry: "2027-06-30",
+        marchamo_year: 2026,
+        documents: { insurance: "x", dekra: "x" },
+        photos: ["a", "b"],
+        status: "approved",
+        note: null,
+      },
+    ],
+    me: {
+      full_name: "Carlos Rojas",
+      phone: "+506 8888 8888",
+      cedula_number: "1-1234-0567",
+      license_number: "B1-889201",
+      license_expiry: "2028-05-31",
+      criminal_record_date: "2026-10-20",
+      ict_permit_number: "",
+      home_hub: "SJO",
+      bio: "",
+      english_level: "fluent",
+    },
   };
+  const section: Section =
+    s === "jobs" || s === "calendar" || s === "earnings" || s === "documents" || s === "help" || s === "profile" ? s : s === "apply" ? "documents" : "trips";
+  const openTrip = s === "trip" ? trips[0] : s === "trip2" ? trips[1] : s === "trip3" ? trips[2] : undefined;
+  const segment: Segment = segOverride ?? (s === "today" ? "today" : s === "past" ? "past" : "upcoming");
+  const title = openTrip ? crDateTime(openTrip.scheduled_at, lang) : section === "trips" ? t(...SEGMENT_TITLE[segment]) : t(...SECTION_TITLE[section]);
   return (
     <SafeAreaProvider>
       <StatusBar style="dark" />
-      <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }} edges={["top"]}>
-        <TopBar />
+      <SafeAreaView style={{ flex: 1, backgroundColor: C.card }} edges={["top"]}>
+        <Bar title={title} onMenu={() => setMenu(true)} onBack={openTrip ? noop : undefined} onBell={openTrip ? undefined : noop} bellCount={jobs.length} />
         <View style={{ flex: 1, backgroundColor: C.bg }}>
-          {s === "jobs" ? (
+          {openTrip ? (
+            <TripDetail trip={openTrip} names={names} onChanged={done} demoChat={s === "trip" ? chat : []} demoSupport="50665000000" />
+          ) : section === "trips" ? (
+            <Trips trips={trips} names={names} loading={false} onRefresh={noop} onOpen={noop} segment={segment} onSegment={setSeg} />
+          ) : section === "jobs" ? (
             <Jobs driver={driver} vehicles={vehicles} names={names} trips={trips} demo={jobs} />
-          ) : s === "trips" ? (
-            <Trips trips={trips} names={names} loading={false} onRefresh={noop} onOpen={noop} />
-          ) : s === "trip" ? (
-            <TripDetail trip={trips[0]} names={names} onBack={noop} onChanged={done} demoChat={chat} />
-          ) : s === "trip2" ? (
-            <TripDetail trip={trips[1]} names={names} onBack={noop} onChanged={done} demoChat={[]} />
-          ) : s === "calendar" ? (
+          ) : section === "calendar" ? (
             <Calendar trips={trips} demoBlocked={[crDay(96), crDay(120), crDay(240)]} />
-          ) : s === "earnings" ? (
+          ) : section === "earnings" ? (
             <Earnings trips={trips} names={names} loading={false} onRefresh={noop} />
-          ) : s === "help" ? (
-            <Help onBack={noop} demoSupport={{ whatsapp: "50665000000", email: "drivers@costaricaprivatetransfers.com" }} />
-          ) : s === "documents" ? (
-            <Documents userId="demo" onBack={noop} onChanged={noop} demo={docs} />
+          ) : section === "help" ? (
+            <Help demoSupport={{ whatsapp: "50665000000", email: "drivers@costaricaprivatetransfers.com" }} />
           ) : s === "apply" ? (
-            <Documents userId="demo" onBack={noop} onChanged={noop} demo={{ driver: null, vehicles: [], me: {} }} />
+            <Documents userId="demo" onChanged={noop} demo={{ driver: null, vehicles: [], me: {} }} />
+          ) : section === "documents" ? (
+            <Documents userId="demo" onChanged={noop} demo={docs} />
           ) : (
             <Profile
               email="carlos.rojas@example.com"
@@ -163,7 +299,15 @@ export function Preview() {
             />
           )}
         </View>
-        <TabBar tab={tab} onChange={noop} tripsBadge={3} />
+        <Drawer
+          open={menu}
+          onClose={() => setMenu(false)}
+          current={section}
+          onGo={noop}
+          offers={jobs.length}
+          onSignOut={noop}
+          profile={drawerProfile(driver, "Carlos Rojas", t)}
+        />
       </SafeAreaView>
     </SafeAreaProvider>
   );

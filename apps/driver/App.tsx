@@ -1,9 +1,8 @@
-import { Ionicons } from "@expo/vector-icons";
 import type { Session } from "@supabase/supabase-js";
 import * as Notifications from "expo-notifications";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { registerForPush, unregisterPush } from "./src/push";
 import { LocationCard } from "./src/screens/LocationCard";
@@ -19,80 +18,18 @@ import { TripDetail } from "./src/screens/TripDetail";
 import { Trips } from "./src/screens/Trips";
 import { supabase } from "./src/supabase";
 import { C } from "./src/theme";
-import type { IconName } from "./src/ui";
+import { crDateTime } from "./src/format";
+import { Bar, Drawer, drawerProfile, SECTION_TITLE, SEGMENT_TITLE, type Section, type Segment } from "./src/nav";
 import { Preview } from "./src/preview";
 import { LangProvider, useT } from "./src/i18n";
 import type { DriverInfo, Names, Trip, Vehicle } from "./src/types";
 
-export type Tab = "jobs" | "trips" | "calendar" | "earnings" | "profile";
-const TABS: { id: Tab; label: [string, string]; icon: IconName; iconOn: IconName }[] = [
-  { id: "jobs", label: ["Trabajos", "Jobs"], icon: "briefcase-outline", iconOn: "briefcase" },
-  { id: "trips", label: ["Viajes", "Trips"], icon: "car-outline", iconOn: "car" },
-  { id: "calendar", label: ["Calendario", "Calendar"], icon: "calendar-outline", iconOn: "calendar" },
-  { id: "earnings", label: ["Ganancias", "Earnings"], icon: "wallet-outline", iconOn: "wallet" },
-  { id: "profile", label: ["Perfil", "Profile"], icon: "person-outline", iconOn: "person" },
-];
-
 /** Design previews with sample data (web only, never in a phone build): EXPO_PUBLIC_PREVIEW=1. */
 const PREVIEW = process.env.EXPO_PUBLIC_PREVIEW === "1";
 
-/** The slim brand line above every screen. */
-export function TopBar() {
-  const { t } = useT();
-  return (
-    <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 16, paddingTop: 6, paddingBottom: 8, backgroundColor: C.bg }}>
-      <View style={{ width: 26, height: 26, borderRadius: 8, backgroundColor: C.emeraldDark, alignItems: "center", justifyContent: "center" }}>
-        <Ionicons name="car-sport" size={15} color="#fff" />
-      </View>
-      <Text style={{ color: C.emeraldDark, fontSize: 13, fontWeight: "800", flex: 1 }} numberOfLines={1}>
-        Costa Rica Private Transfers
-      </Text>
-      <View style={{ backgroundColor: "#FDE68A", borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 }}>
-        <Text style={{ color: "#78350F", fontSize: 10, fontWeight: "800", letterSpacing: 0.8 }}>{t("SOCIO", "PARTNER")}</Text>
-      </View>
-    </View>
-  );
-}
-
-/** Bottom tabs: icon over label, filled icon and a tinted pill for the current one. */
-export function TabBar({ tab, onChange, tripsBadge }: { tab: Tab; onChange: (t: Tab) => void; tripsBadge?: number }) {
-  const { t: tr } = useT();
-  return (
-    <SafeAreaView edges={["bottom"]} style={{ backgroundColor: "#fff", borderTopWidth: 1, borderTopColor: C.border }}>
-      <View style={{ flexDirection: "row", paddingTop: 6, paddingBottom: 4 }}>
-        {TABS.map((t) => {
-          const on = tab === t.id;
-          return (
-            <Pressable
-              key={t.id}
-              accessibilityRole="tab"
-              accessibilityLabel={tr(...t.label)}
-              accessibilityState={{ selected: on }}
-              onPress={() => onChange(t.id)}
-              style={{ flex: 1, minHeight: 52, alignItems: "center", justifyContent: "center", gap: 2 }}
-            >
-              <View style={{ paddingHorizontal: 16, paddingVertical: 4, borderRadius: 999, backgroundColor: on ? C.emeraldSoft : "transparent" }}>
-                <Ionicons name={on ? t.iconOn : t.icon} size={22} color={on ? C.emerald : C.muted} />
-                {t.id === "trips" && tripsBadge ? (
-                  <View style={{ position: "absolute", top: -2, right: 6, minWidth: 16, height: 16, borderRadius: 8, backgroundColor: C.amber, alignItems: "center", justifyContent: "center", paddingHorizontal: 3 }}>
-                    <Text style={{ color: "#fff", fontSize: 10, fontWeight: "800" }}>{tripsBadge}</Text>
-                  </View>
-                ) : null}
-              </View>
-              <Text style={{ fontWeight: on ? "800" : "600", fontSize: 11, color: on ? C.emerald : C.muted }} numberOfLines={1}>
-                {tr(...t.label)}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-    </SafeAreaView>
-  );
-}
-
 /**
- * Costa Rica Private Transfers Partner (driver app). Five tabs and a trip screen; a small
- * hand-rolled navigator keeps the first version simple. Reading goes straight
+ * Costa Rica Private Transfers Partner (driver app). A side menu (☰) over the sections and a
+ * trip screen; a small hand-rolled navigator, no navigation library. Reading goes straight
  * to Supabase as the signed-in driver; actions go through the website's /api/v1.
  */
 export default function App() {
@@ -128,45 +65,55 @@ export default function App() {
 }
 
 function Home({ session }: { session: Session }) {
-  const [tab, setTab] = useState<Tab>("jobs");
+  const { t, lang } = useT();
+  // Upcoming trips are the home screen; everything else is in the side menu.
+  const [section, setSection] = useState<Section>("trips");
+  const [segment, setSegment] = useState<Segment>("upcoming");
+  const [menuOpen, setMenuOpen] = useState(false);
   const [tripId, setTripId] = useState<string | null>(null);
   const [focusJob, setFocusJob] = useState<string | undefined>(undefined);
   const [driver, setDriver] = useState<DriverInfo | null>(null);
+  const [fullName, setFullName] = useState("");
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [trips, setTrips] = useState<Trip[]>([]);
+  const [offers, setOffers] = useState(0);
   const [names, setNames] = useState<Names>({ tours: {}, stops: {} });
   const [loading, setLoading] = useState(false);
   const [tracking, setTracking] = useState<TrackingState | null>(null);
-  const [docsOpen, setDocsOpen] = useState(false);
-  const [helpOpen, setHelpOpen] = useState(false);
   const askedToApply = useRef(false);
   const userId = session.user.id;
 
   const loadDriver = useCallback(async () => {
-    const { data } = await supabase
-      .from("drivers")
-      .select("*")
-      .eq("id", userId)
-      .maybeSingle();
+    const [{ data }, prof] = await Promise.all([
+      supabase.from("drivers").select("*").eq("id", userId).maybeSingle(),
+      supabase.from("profiles").select("full_name").eq("id", userId).maybeSingle(),
+    ]);
     const d = (data as DriverInfo | null) ?? null;
     setDriver(d);
+    setFullName(((prof.data as { full_name?: string | null } | null)?.full_name ?? "").trim());
     // Someone new, with no application yet: take them straight to the application form.
     if (!d && !askedToApply.current) {
       askedToApply.current = true;
-      setTab("profile");
-      setDocsOpen(true);
+      setSection("documents");
     }
     // Location sharing follows the driver's trips: on inside the trip window, off outside it.
     setTracking(await syncTracking(Boolean(d?.location_consent_at)));
   }, [userId]);
+
+  // How many open jobs the driver can offer on (the gold count in the menu and on the bell).
+  const loadOffers = useCallback(async () => {
+    const { data, error } = await supabase.rpc("driver_jobs");
+    if (!error) setOffers(((data as unknown[] | null) ?? []).length);
+  }, []);
 
   const loadTrips = useCallback(async () => {
     setLoading(true);
     const { data } = await supabase.rpc("my_trips");
     setLoading(false);
     setTrips((data as Trip[] | null) ?? []);
+    void loadOffers();
     await loadDriver();
-  }, [loadDriver]);
+  }, [loadDriver, loadOffers]);
 
   const loadVehicles = useCallback(async () => {
     const v = await supabase.from("driver_vehicles").select("*").eq("driver_id", userId).order("created_at");
@@ -178,10 +125,16 @@ function Home({ session }: { session: Session }) {
     void (async () => {
       const [tours, stops] = await Promise.all([
         supabase.from("day_tours").select("id, name"),
-        supabase.from("sightseeing_stops").select("id, name"),
+        supabase.from("sightseeing_stops").select("id, name, duration_min"),
       ]);
-      const toMap = (rows: { id: string; name: string }[] | null) => Object.fromEntries((rows ?? []).map((r) => [r.id, r.name]));
-      setNames({ tours: toMap(tours.data as { id: string; name: string }[] | null), stops: toMap(stops.data as { id: string; name: string }[] | null) });
+      type Row = { id: string; name: string; duration_min?: number };
+      const toMap = (rows: Row[] | null) => Object.fromEntries((rows ?? []).map((r) => [r.id, r.name]));
+      const stopRows = stops.data as Row[] | null;
+      setNames({
+        tours: toMap(tours.data as Row[] | null),
+        stops: toMap(stopRows),
+        stopMinutes: Object.fromEntries((stopRows ?? []).filter((r) => r.duration_min).map((r) => [r.id, Number(r.duration_min)])),
+      });
     })();
     void loadTrips();
     void registerForPush();
@@ -193,12 +146,12 @@ function Home({ session }: { session: Session }) {
       const data = response.notification.request.content.data as { screen?: string; id?: string } | undefined;
       if (data?.screen === "trip" && data.id) {
         void loadTrips();
-        setTab("trips");
+        setSection("trips");
         setTripId(data.id);
       } else if (data?.screen === "job") {
         setTripId(null);
         setFocusJob(data.id);
-        setTab("jobs");
+        setSection("jobs");
       }
     });
     return () => sub.remove();
@@ -210,35 +163,50 @@ function Home({ session }: { session: Session }) {
     await supabase.auth.signOut();
   }
 
-  const openTrip = tripId ? trips.find((t) => t.id === tripId) : undefined;
+  function go(s: Section) {
+    setSection(s);
+    setTripId(null);
+    if (s === "calendar" || s === "trips" || s === "earnings") void loadTrips();
+  }
+
+  const openTrip = section === "trips" && tripId ? trips.find((x) => x.id === tripId) : undefined;
+  const title = openTrip ? crDateTime(openTrip.scheduled_at, lang) : section === "trips" ? t(...SEGMENT_TITLE[segment]) : t(...SECTION_TITLE[section]);
+  const location = driver ? <LocationCard consented={Boolean(driver.location_consent_at)} state={tracking} onChanged={loadDriver} /> : undefined;
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }} edges={["top"]}>
-      <TopBar />
+    <SafeAreaView style={{ flex: 1, backgroundColor: C.card }} edges={["top"]}>
+      <Bar
+        title={title}
+        onMenu={() => setMenuOpen(true)}
+        onBack={openTrip ? () => setTripId(null) : undefined}
+        onBell={openTrip ? undefined : () => go("jobs")}
+        bellCount={offers}
+      />
       <View style={{ flex: 1, backgroundColor: C.bg }}>
-        {tab === "trips" && openTrip ? (
-          <TripDetail trip={openTrip} names={names} onBack={() => setTripId(null)} onChanged={loadTrips} />
-        ) : tab === "jobs" ? (
-          <Jobs driver={driver} vehicles={vehicles} names={names} trips={trips} focusId={focusJob} />
-        ) : tab === "trips" ? (
+        {openTrip ? (
+          <TripDetail trip={openTrip} names={names} onChanged={loadTrips} />
+        ) : section === "trips" ? (
           <Trips
             trips={trips}
             names={names}
             loading={loading}
             onRefresh={loadTrips}
             onOpen={setTripId}
-            header={driver && !driver.location_consent_at ? <LocationCard consented={false} state={tracking} onChanged={loadDriver} /> : undefined}
+            segment={segment}
+            onSegment={setSegment}
+            header={driver && !driver.location_consent_at ? location : undefined}
           />
-        ) : tab === "calendar" ? (
+        ) : section === "jobs" ? (
+          <Jobs driver={driver} vehicles={vehicles} names={names} trips={trips} focusId={focusJob} onCount={setOffers} />
+        ) : section === "calendar" ? (
           <Calendar trips={trips} />
-        ) : tab === "earnings" ? (
+        ) : section === "earnings" ? (
           <Earnings trips={trips} names={names} loading={loading} onRefresh={loadTrips} />
-        ) : helpOpen ? (
-          <Help onBack={() => setHelpOpen(false)} />
-        ) : docsOpen ? (
+        ) : section === "help" ? (
+          <Help />
+        ) : section === "documents" ? (
           <Documents
             userId={userId}
-            onBack={() => setDocsOpen(false)}
             onChanged={() => {
               void loadVehicles();
               void loadDriver();
@@ -247,25 +215,23 @@ function Home({ session }: { session: Session }) {
         ) : (
           <Profile
             email={session.user.email ?? ""}
-            onDocuments={() => setDocsOpen(true)}
-            onHelp={() => setHelpOpen(true)}
+            onDocuments={() => go("documents")}
+            onHelp={() => go("help")}
             driver={driver}
             vehicles={vehicles}
             onSignOut={signOut}
-            location={driver ? <LocationCard consented={Boolean(driver.location_consent_at)} state={tracking} onChanged={loadDriver} /> : undefined}
+            location={location}
           />
         )}
       </View>
-      <TabBar
-        tab={tab}
-        tripsBadge={trips.filter((t) => t.status === "confirmed" || t.status === "in_progress").length}
-        onChange={(id) => {
-          setTab(id);
-          setDocsOpen(false);
-          setHelpOpen(false);
-          if (id !== "trips") setTripId(null);
-          if (id === "calendar" || id === "trips" || id === "earnings") void loadTrips();
-        }}
+      <Drawer
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        current={section}
+        onGo={go}
+        offers={offers}
+        onSignOut={() => void signOut()}
+        profile={drawerProfile(driver, fullName || (session.user.email ?? ""), t)}
       />
     </SafeAreaView>
   );

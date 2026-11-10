@@ -5,22 +5,22 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import { SITE_URL } from "../config";
 import { useT } from "../i18n";
 import { C, S } from "../theme";
-import { Back, Btn, Card, Divider, ScreenTitle } from "../ui";
+import { Btn, Card, Divider } from "../ui";
 
 /** Answers to what drivers ask most, as [Spanish, English]. Keep in line with how the app actually works. */
 const FAQ: { q: [string, string]; a: [string, string] }[] = [
   {
     q: ["¿Cómo consigo viajes?", "How do I get trips?"],
     a: [
-      "Los trabajos disponibles aparecen en la pestaña Trabajos y le llega una notificación por cada uno nuevo. Cada trabajo muestra un pago sugerido. Envíe una oferta por ese monto o por el suyo, y nuestro equipo elige un conductor. Le avisamos si el viaje es suyo; luego aparece en Viajes.",
-      "Open jobs appear in the Jobs tab and you get a notification for each new one. Each job shows a suggested payout. Send an offer at that amount or your own, and our team picks a driver. You're notified if the trip is yours; it then appears under Trips.",
+      "Los trabajos disponibles aparecen en Ofertas (menú ☰) y le llega una notificación por cada uno nuevo. Cada trabajo muestra un pago sugerido. Envíe una oferta por ese monto o por el suyo, y nuestro equipo elige un conductor. Le avisamos si el viaje es suyo; luego aparece en Próximos viajes.",
+      "Open jobs appear under Offers (☰ menu) and you get a notification for each new one. Each job shows a suggested payout. Send an offer at that amount or your own, and our team picks a driver. You're notified if the trip is yours; it then appears under Upcoming trips.",
     ],
   },
   {
     q: ["¿A quién eligen para un trabajo?", "Who gets chosen for a job?"],
     a: [
-      "Nuestro equipo mira primero a los conductores que ya tienen un viaje que termina cerca de la recogida ese día, luego las calificaciones, luego a los conductores con base cerca de la recogida y luego la oferta. Mantener una buena calificación e indicar dónde está su base (Perfil → Documentos y vehículos) le ayudan.",
-      "Our team looks first at drivers who already have a trip ending near the pickup that day, then at ratings, then at drivers based near the pickup, then at the offer. Keeping your rating high and setting where you're based (Profile → Documents and vehicles) both help.",
+      "Nuestro equipo mira primero a los conductores que ya tienen un viaje que termina cerca de la recogida ese día, luego las calificaciones, luego a los conductores con base cerca de la recogida y luego la oferta. Mantener una buena calificación e indicar dónde está su base (menú ☰ → Documentos) le ayudan.",
+      "Our team looks first at drivers who already have a trip ending near the pickup that day, then at ratings, then at drivers based near the pickup, then at the offer. Keeping your rating high and setting where you're based (☰ menu → Documents) both help.",
     ],
   },
   {
@@ -33,29 +33,29 @@ const FAQ: { q: [string, string]; a: [string, string] }[] = [
   {
     q: ["¿Por qué la app comparte mi ubicación?", "Why does the app share my location?"],
     a: [
-      'Desde 3 horas antes de una recogida (o desde que toca "Voy en camino") hasta que termina el viaje, su ubicación se comparte con nuestro equipo y con los clientes que usted lleva, para coordinar las recogidas y que todos sepan cuándo va a llegar. No se comparte nada en ningún otro momento, y solo se guarda su última posición. Puede dejar de compartir en Perfil, pero a los conductores que lo hacen quizá no se les asignen viajes.',
-      "From 3 hours before a pickup (or from when you tap \"I'm on my way\") until you end the trip, your location is shared with our team and with the travellers you're driving, so pickups can be coordinated and everyone knows when you'll arrive. Nothing is shared at any other time, and only your latest position is kept. You can stop sharing in Profile, but drivers who do may not be assigned trips.",
+      'Desde 3 horas antes de una recogida (o desde que toca "Voy en camino") hasta que termina el viaje, su ubicación se comparte con nuestro equipo y con los clientes que usted lleva, para coordinar las recogidas y que todos sepan cuándo va a llegar. No se comparte nada en ningún otro momento, y solo se guarda su última posición. Puede dejar de compartir en Mi cuenta, pero a los conductores que lo hacen quizá no se les asignen viajes.',
+      "From 3 hours before a pickup (or from when you tap \"I'm on my way\") until you end the trip, your location is shared with our team and with the travellers you're driving, so pickups can be coordinated and everyone knows when you'll arrive. Nothing is shared at any other time, and only your latest position is kept. You can stop sharing in My account, but drivers who do may not be assigned trips.",
     ],
   },
   {
     q: ["¿Cómo y cuándo me pagan?", "How and when am I paid?"],
     a: [
-      'Cada viaje muestra su pago. En los viajes pagados en línea, nosotros le hacemos su pago. En los viajes en efectivo, usted cobra al cliente el monto que aparece como "Cobre en efectivo", se queda con su pago y nos entrega el resto. Liquidamos cada semana; la pestaña Ganancias muestra el saldo, sea a su favor o a favor nuestro.',
-      'Each trip shows your payout. For trips paid online, we pay you your payout. For cash trips, you collect the amount shown as "Collect in cash" from the traveller, keep your payout and pass on the rest. We settle weekly; the Earnings tab shows the balance either way.',
+      'Cada viaje muestra su pago. En los viajes pagados en línea, nosotros le hacemos su pago. En los viajes en efectivo, usted cobra al cliente el monto que aparece como "Cobre en efectivo", se queda con su pago y nos entrega el resto. Liquidamos cada semana; Ganancias (menú ☰) muestra el saldo, sea a su favor o a favor nuestro.',
+      'Each trip shows your payout. For trips paid online, we pay you your payout. For cash trips, you collect the amount shown as "Collect in cash" from the traveller, keep your payout and pass on the rest. We settle weekly; Earnings (☰ menu) shows the balance either way.',
     ],
   },
   {
     q: ["¿Cómo funcionan las calificaciones?", "How do ratings work?"],
     a: [
-      "Después de cada viaje se le pide al cliente que lo califique de 1 a 5 estrellas. Una calificación con un comentario escrito cuenta doble. A los conductores mejor calificados se les ofrecen más viajes. Puede ver su calificación en Perfil.",
-      "After each trip the traveller is asked to rate you from 1 to 5 stars. A rating with a written comment counts double. Better-rated drivers are offered more trips. You can see your rating in Profile.",
+      "Después de cada viaje se le pide al cliente que lo califique de 1 a 5 estrellas. Una calificación con un comentario escrito cuenta doble. A los conductores mejor calificados se les ofrecen más viajes. Puede ver su calificación en Mi cuenta.",
+      "After each trip the traveller is asked to rate you from 1 to 5 stars. A rating with a written comment counts double. Better-rated drivers are offered more trips. You can see your rating in My account.",
     ],
   },
   {
     q: ["Algunos días no puedo trabajar. ¿Qué hago?", "I can't work on some days. What do I do?"],
     a: [
-      "Abra la pestaña Calendario y toque esos días para bloquearlos. En los días bloqueados no verá ni recibirá trabajos. Un día con un viaje confirmado no se puede bloquear: contacte a soporte para que podamos reasignar el viaje.",
-      "Open the Calendar tab and tap those days to block them. You won't see or be sent jobs for blocked days. A day with a confirmed trip can't be blocked: contact support so we can reassign the trip.",
+      "Abra Disponibilidad (menú ☰) y toque esos días para bloquearlos. En los días bloqueados no verá ni recibirá trabajos. Un día con un viaje confirmado no se puede bloquear: contacte a soporte para que podamos reasignar el viaje.",
+      "Open Availability (☰ menu) and tap those days to block them. You won't see or be sent jobs for blocked days. A day with a confirmed trip can't be blocked: contact support so we can reassign the trip.",
     ],
   },
   {
@@ -68,8 +68,8 @@ const FAQ: { q: [string, string]; a: [string, string] }[] = [
   {
     q: ["¿Cómo renuevo un documento que está por vencer?", "How do I renew a document that is expiring?"],
     a: [
-      "Vaya a Perfil → Documentos y vehículos, escriba la fecha nueva y tome una foto del documento nuevo (o elija un PDF). Reemplazar la licencia, la identificación, la hoja de delincuencia o un documento del vehículo pausa los trabajos nuevos hasta que nuestro equipo lo revise; los viajes que ya tiene no se ven afectados.",
-      "Go to Profile → Documents and vehicles, enter the new date and take a photo of the new document (or choose a PDF). Replacing a licence, ID, criminal record or vehicle document pauses new jobs until our team checks it; trips you already have are not affected.",
+      "Vaya a Documentos (menú ☰), escriba la fecha nueva y tome una foto del documento nuevo (o elija un PDF). Reemplazar la licencia, la identificación, la hoja de delincuencia o un documento del vehículo pausa los trabajos nuevos hasta que nuestro equipo lo revise; los viajes que ya tiene no se ven afectados.",
+      "Go to Documents (☰ menu), enter the new date and take a photo of the new document (or choose a PDF). Replacing a licence, ID, criminal record or vehicle document pauses new jobs until our team checks it; trips you already have are not affected.",
     ],
   },
   {
@@ -82,7 +82,7 @@ const FAQ: { q: [string, string]; a: [string, string] }[] = [
 ];
 
 /** Help: common questions, then driver support by WhatsApp or email. */
-export function Help({ onBack, demoSupport }: { onBack: () => void; /** Sample contacts for design previews; skips loading. */ demoSupport?: { whatsapp: string; email: string } }) {
+export function Help({ demoSupport }: { /** Sample contacts for design previews; skips loading. */ demoSupport?: { whatsapp: string; email: string } }) {
   const { t } = useT();
   const [open, setOpen] = useState<number | null>(0);
   const [support, setSupport] = useState<{ whatsapp: string; email: string } | null>(demoSupport ?? null);
@@ -97,8 +97,7 @@ export function Help({ onBack, demoSupport }: { onBack: () => void; /** Sample c
 
   return (
     <ScrollView style={S.screen} contentContainerStyle={S.pad}>
-      <Back label={t("Perfil", "Profile")} onPress={onBack} />
-      <ScreenTitle title={t("Ayuda", "Help")} subtitle={t("Respuestas rápidas, y nuestro equipo cuando necesite a una persona.", "Quick answers, and our team when you need a person.")} />
+      <Text style={S.muted}>{t("Respuestas rápidas, y nuestro equipo cuando necesite a una persona.", "Quick answers, and our team when you need a person.")}</Text>
       <Card>
         <Text style={S.h2}>{t("Soporte para conductores", "Driver support")}</Text>
         <Text style={S.muted}>{t("Para cualquier urgencia el día de un viaje, use WhatsApp.", "For anything urgent on the day of a trip, use WhatsApp.")}</Text>
