@@ -429,8 +429,8 @@ export function TransfersView({
                 <p className="mt-2 text-sm text-slate-600">
                   {mode === "fixed"
                     ? t(
-                        "The price you see is the price you pay: per car, tolls and fuel included.",
-                        "El precio que ve es el que paga: por vehículo, con peajes y combustible incluidos.",
+                        "The price you see is the price you pay, per car: no surge and no fuel surcharge.",
+                        "El precio que ve es el que paga, por vehículo: sin tarifas dinámicas ni recargo por combustible.",
                       )
                     : t(
                         "You propose a price, our partner drivers answer, and our team confirms the best match. It can take longer than a fixed price.",
