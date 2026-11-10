@@ -76,6 +76,8 @@ export interface DriverInfo {
 export interface Names {
   tours: Record<string, string>;
   stops: Record<string, string>;
+  /** How long the travellers spend at each stop, in minutes (sightseeing_stops.duration_min). */
+  stopMinutes?: Record<string, number>;
 }
 
 export interface ChatMessage {

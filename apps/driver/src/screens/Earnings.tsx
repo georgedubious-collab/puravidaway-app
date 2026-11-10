@@ -4,7 +4,7 @@ import { crDateTime, plural, usd } from "../format";
 import { useT, type Lang } from "../i18n";
 import { C, R, S, SHADOW } from "../theme";
 import type { Names, Trip } from "../types";
-import { Empty, ScreenTitle } from "../ui";
+import { Empty } from "../ui";
 import { tripTitle } from "./Trips";
 
 /** Positive: we owe the driver. Negative: the driver owes us (they collected cash). */
@@ -35,7 +35,6 @@ export function Earnings({ trips, names, loading, onRefresh }: { trips: Trip[]; 
       refreshControl={<RefreshControl refreshing={loading} onRefresh={onRefresh} tintColor={C.emerald} />}
       ListHeaderComponent={
         <View style={{ gap: 14 }}>
-          <ScreenTitle title={t("Ganancias", "Earnings")} />
           <View style={[{ backgroundColor: C.emeraldDark, borderRadius: R.card, padding: 20, gap: 6 }, SHADOW]}>
             <Text style={[S.label, { color: "#6EE7B7" }]}>
               {even ? t("Por liquidar", "To settle") : balance > 0 ? t("Le debemos", "We owe you") : t("Nos debe", "You owe us")}
