@@ -108,9 +108,11 @@ function Home({ session }: { session: Session }) {
 
   const loadTrips = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase.rpc("my_trips");
+    const [{ data }, unread] = await Promise.all([supabase.rpc("my_trips"), supabase.rpc("my_chat_unread")]);
     setLoading(false);
-    setTrips((data as Trip[] | null) ?? []);
+    // Unread chat messages per trip (badge on the trip card); missing before migration 0034.
+    const counts = new Map(((unread.data as { booking_id: string; unread: number }[] | null) ?? []).map((u) => [u.booking_id, u.unread]));
+    setTrips(((data as Trip[] | null) ?? []).map((x) => ({ ...x, unread_chat: counts.get(x.id) ?? 0 })));
     void loadOffers();
     await loadDriver();
   }, [loadDriver, loadOffers]);
