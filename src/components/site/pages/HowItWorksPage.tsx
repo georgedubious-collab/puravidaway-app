@@ -100,6 +100,7 @@ export function HowItWorksPage({ lang, cashFeeBps }: { lang: PublicLang; cashFee
     <PublicPage
       lang={lang}
       current="how"
+      photo="route-27-highway"
       path={localizedHref(HOW_PATH, lang)}
       crumbs={[{ label: t(lang, "How it works", "Cómo funciona") }]}
       eyebrow={t(lang, "How it works", "Cómo funciona")}

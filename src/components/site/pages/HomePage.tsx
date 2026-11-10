@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
+import { HomeSections } from "@/components/site/HomeSections";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { Storefront } from "@/components/Storefront";
 import { getCatalog } from "@/lib/catalogSource";
@@ -35,5 +36,13 @@ export async function HomePage({
   }
   const today = todayInCostaRica();
   const catalog = await getCatalog();
-  return <Storefront lang={lang} today={today} catalog={catalog} footer={<SiteFooter lang={lang} />} />;
+  return (
+    <Storefront
+      lang={lang}
+      today={today}
+      catalog={catalog}
+      below={<HomeSections lang={lang} />}
+      footer={<SiteFooter lang={lang} />}
+    />
+  );
 }

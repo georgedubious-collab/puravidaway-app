@@ -55,12 +55,15 @@ export function Storefront({
   today,
   catalog: rawCatalog,
   footer,
+  below,
   lang = "en",
 }: {
   today: string;
   catalog: CatalogData;
   /** "es" on /es. */
   lang?: PublicLang;
+  /** Sections under the builder (photos, popular routes…), rendered on the server by the page. */
+  below?: React.ReactNode;
   /** The site footer, rendered on the server by the page. */
   footer?: React.ReactNode;
 }) {
@@ -275,6 +278,8 @@ export function Storefront({
           )}
         </main>
       </div>
+
+      {below}
 
       <div className={items.length ? "pb-20 xl:pb-0" : ""}>{footer}</div>
 

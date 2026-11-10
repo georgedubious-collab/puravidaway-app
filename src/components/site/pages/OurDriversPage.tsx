@@ -84,6 +84,7 @@ export function OurDriversPage({ lang }: { lang: PublicLang }) {
     <PublicPage
       lang={lang}
       current="drivers"
+      photo="gulf-sunset-ferry"
       path={localizedHref(DRIVERS_PATH, lang)}
       crumbs={[{ label: t(lang, "Our drivers & safety", "Nuestros conductores") }]}
       eyebrow={t(lang, "Our drivers & safety", "Conductores y seguridad")}

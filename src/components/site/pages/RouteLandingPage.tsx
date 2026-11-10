@@ -2,6 +2,7 @@ import { ArrowRight, Check, Clock, Luggage, Ticket, User, Users } from "lucide-r
 import type { Metadata, ResolvingMetadata } from "next";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/site/Breadcrumbs";
+import { Photo } from "@/components/site/Photo";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
 import { DriverStandards } from "@/components/trust/DriverStandards";
@@ -12,6 +13,7 @@ import { getCatalog } from "@/lib/catalogSource";
 import { applyMultiplier, formatDuration, formatUSD, perPersonCents, perPersonShare, rideCents } from "@/lib/pricing";
 import { bilingualAlternates, localizedHref, t, type PublicLang } from "@/lib/publicLang";
 import { builderHref, fillFaq, relatedHref, type RoutePage } from "@/lib/routePages";
+import { drivePhoto, routePhoto } from "@/lib/photos";
 import { localizeRoutePage } from "@/lib/routePagesEs";
 import { SITE_NAME } from "@/lib/site";
 import { guarantees, ridePromises } from "@/lib/trust";
@@ -88,6 +90,8 @@ export async function RouteLandingPage({ page: enPage, lang }: { page: RoutePage
   const enRouteLabel = `${HUBS.find((h) => h.id === page.origin)!.name.split(" /")[0]} → ${HUBS.find((h) => h.id === page.destination)!.name}`;
   const share = perPersonShare(perPerson.v.maxPax);
   const seasonName = defaultSeason?.name ?? t(lang, "Green season", "Temporada verde");
+  const heroPhoto = routePhoto(page.origin, page.destination);
+  const roadPhoto = drivePhoto(page.origin, page.destination);
 
   return (
     <div className="flex-1 bg-slate-50">
@@ -102,12 +106,20 @@ export async function RouteLandingPage({ page: enPage, lang }: { page: RoutePage
         />
       </div>
 
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 pt-4 pb-14 grid gap-10 lg:grid-cols-[minmax(0,1fr)_380px] items-start">
-        <div>
-          <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-slate-900 leading-[1.08]">
+      {/* Hero: the destination's photo (or its drawn placeholder) behind the H1. */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-4">
+        <div className="relative overflow-hidden rounded-2xl bg-emerald-950">
+          <Photo id={heroPhoto} lang={lang} fill priority sizes="(min-width: 1152px) 1104px, 100vw" />
+          <div className="absolute inset-0 bg-gradient-to-t from-emerald-950/90 via-emerald-950/45 to-emerald-950/5" aria-hidden />
+          <h1 className="relative px-5 sm:px-8 pt-28 sm:pt-44 pb-5 sm:pb-7 max-w-4xl text-3xl sm:text-5xl font-extrabold tracking-tight text-white leading-[1.08]">
             {page.title}
           </h1>
-          <p className="mt-4 text-lg leading-relaxed text-slate-600">{page.intro}</p>
+        </div>
+      </div>
+
+      <section className="max-w-6xl mx-auto px-4 sm:px-6 pt-6 pb-14 grid gap-10 lg:grid-cols-[minmax(0,1fr)_380px] items-start">
+        <div>
+          <p className="text-lg leading-relaxed text-slate-600">{page.intro}</p>
           <dl className="mt-8 grid grid-cols-2 sm:grid-cols-4 gap-3">
             <Fact
               icon={<Clock className="w-4 h-4" />}
@@ -206,6 +218,14 @@ export async function RouteLandingPage({ page: enPage, lang }: { page: RoutePage
           <div>
             <h2 className="text-2xl font-extrabold text-slate-900">{page.driveTitle}</h2>
             <p className="mt-3 leading-relaxed text-slate-600">{page.drive}</p>
+            {roadPhoto && (
+              <Photo
+                id={roadPhoto}
+                lang={lang}
+                sizes="(min-width: 768px) 540px, 100vw"
+                className="mt-5 aspect-[3/2] rounded-2xl"
+              />
+            )}
           </div>
           <div>
             <h2 className="text-2xl font-extrabold text-slate-900">{t(lang, "Stops you can add", "Paradas que puede agregar")}</h2>

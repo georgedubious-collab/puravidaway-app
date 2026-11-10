@@ -25,6 +25,7 @@ export function ContactPage({ lang }: { lang: PublicLang }) {
     <PublicPage
       lang={lang}
       current="contact"
+      photo="guanacaste-beach-islet"
       path={localizedHref(CONTACT_PATH, lang)}
       crumbs={[{ label: t(lang, "Contact", "Contacto") }]}
       eyebrow={t(lang, "Contact", "Contacto")}

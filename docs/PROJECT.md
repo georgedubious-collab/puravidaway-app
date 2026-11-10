@@ -178,6 +178,13 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
   mail apps don't show SVG), `logo-mark-1024.png` (profile picture for Facebook / Instagram /
   TikTok), `logo-lockup-white-1600x500.png` and `logo-lockup-green-1600x500.png` (covers), and
   `logo-mark.svg`. Change them together.
+- **Photos (2026-11-10):** every picture goes through the registry `src/lib/photos.ts` (file, alt
+  text in English and Spanish, focal point, credit) and the `Photo` component
+  (`src/components/site/Photo.tsx`, `next/image`, AVIF / WebP). Files are in `public/photos/`,
+  metadata-free. An entry without a file shows a drawn placeholder (Arenal, Monteverde, Drake Bay,
+  Corcovado, Poás, all vehicle classes) until a real photo is added with one registry line. The
+  rules (own photos only, never shared with any other business, a photo shows what its caption
+  says, no people / plates / metadata) and the list of published photos are in `docs/PHOTOS.md`.
 - **Site shell (2026-11-09):** every public page (home, `/transfers/*`, legal and info pages; not
   `/admin`, `/driver`, `/trip`, `/login`) shares `SiteHeader` (menu Transfers / Tours / Multi-day /
   Help from `src/lib/siteNav.ts`, WhatsApp, a flag language button always visible in the bar, phones

@@ -77,6 +77,7 @@ export function AboutPage({ lang }: { lang: PublicLang }) {
     <PublicPage
       lang={lang}
       current="about"
+      photo="pacific-bay-aerial"
       path={path}
       crumbs={[{ label: t(lang, "About us", "Quiénes somos") }]}
       eyebrow={t(lang, "About us", "Quiénes somos")}

@@ -7,6 +7,7 @@ import { entranceLabel, hubName } from "@/lib/catalogEs";
 import { seasonForYmd } from "@/lib/catalogModel";
 import { useCatalog } from "./CatalogContext";
 import { PlaceInput } from "./PlaceInput";
+import { Photo } from "./site/Photo";
 import { usePublicLang, useT } from "./PublicLangContext";
 import { localizeServerMessage } from "@/lib/serverMessagesEs";
 import { hubPlace, isAirportPickup, isHubPlace, mapsDirectionsUrl, needsRoute, type RidePlace, type RideRoute } from "@/lib/places";
@@ -15,6 +16,7 @@ import { DEFAULT_PICKUP_TIME, PICKUP_TIMES, addDays, formatTime12h } from "@/lib
 import { applyMultiplier, ferryCents, formatDuration, formatUSD, perPersonCents, perPersonShare, quoteTransfer, rideCents } from "@/lib/pricing";
 import { MAX_SHARED_PAX, rideLinkQuery, type RideLinkState } from "@/lib/shareLink";
 import { MIN_OFFER_USD } from "@/lib/tripRequest";
+import { HOME_HERO_PHOTO } from "@/lib/photos";
 import { ridePromises } from "@/lib/trust";
 import { DEFAULT_PREFS, LANGUAGE_LABEL, hasContactDetails, prefsSummary, type DriverLanguage, type RidePrefs } from "@/lib/preferences";
 
@@ -279,7 +281,12 @@ export function TransfersView({
   return (
     <section className="space-y-6">
       {/* HERO + ROUTE CONFIGURATOR */}
-      <div className="bg-gradient-to-r from-emerald-900 via-emerald-800 to-teal-900 rounded-2xl p-5 sm:p-6 text-white shadow-xl">
+      <div className="relative bg-emerald-950 rounded-2xl text-white shadow-xl">
+        <div className="absolute inset-0 overflow-hidden rounded-2xl" aria-hidden>
+          <Photo id={HOME_HERO_PHOTO} lang={lang} fill decorative priority sizes="(min-width: 1280px) 1060px, 100vw" />
+          <div className="absolute inset-0 bg-gradient-to-b from-emerald-950/85 via-emerald-950/70 to-emerald-950/85" />
+        </div>
+        <div className="relative p-5 sm:p-6">
         <div className="max-w-3xl">
           <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider bg-amber-400/20 text-amber-300 border border-amber-400/30 px-3 py-1 rounded-full mb-3">
             {t("Sightseeing transfers + driver bidding", "Paradas turísticas + ofertas de conductores")}
@@ -379,6 +386,7 @@ export function TransfersView({
             {routeError}
           </p>
         )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
