@@ -37,7 +37,7 @@ export async function offerJob(_prev: FormState, fd: FormData): Promise<FormStat
     });
     if (error) {
       // The function raises plain-language messages; anything else is a real failure.
-      if (/^(Your driver account|Pick one of|This job|That vehicle|Offers must|Please keep)/.test(error.message)) {
+      if (/^(Your driver account|Your new documents|Pick one of|This job|That vehicle|Offers must|Please keep)/.test(error.message)) {
         throw new InputError(error.message);
       }
       throw new Error(error.message);

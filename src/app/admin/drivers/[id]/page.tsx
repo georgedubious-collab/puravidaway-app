@@ -87,6 +87,7 @@ export default async function DriverDetail({ params }: { params: Promise<{ id: s
         <p className="mt-1 text-sm">
           <strong>{STATUS_LABEL[d.kyc_status]}</strong>
           {d.needs_review && <span className="ml-2 rounded bg-amber-100 px-2 py-0.5 text-amber-900 font-bold">Changed since last review</span>}
+          {d.review_hold && <span className="ml-2 rounded bg-red-100 px-2 py-0.5 text-red-900 font-bold">Paused from new jobs until you check the new documents</span>}
           {d.submitted_at && <span className="text-slate-500"> · applied {d.submitted_at.slice(0, 10)}</span>}
           {d.reviewed_at && <span className="text-slate-500"> · last reviewed {d.reviewed_at.slice(0, 10)}</span>}
           {d.kyc_status === "approved" && !canTakeTrips(d, vehicles, today) && (
@@ -180,6 +181,7 @@ export default async function DriverDetail({ params }: { params: Promise<{ id: s
               {v.plate && <span className="rounded bg-slate-100 px-2 py-0.5 text-sm font-bold">{v.plate}</span>}
               <strong className="text-sm">{STATUS_LABEL[v.status]}</strong>
               {v.needs_review && <span className="rounded bg-amber-100 px-2 py-0.5 text-sm text-amber-900 font-bold">Changed since last review</span>}
+              {v.review_hold && <span className="rounded bg-red-100 px-2 py-0.5 text-sm text-red-900 font-bold">Can&apos;t be offered until you check its new documents</span>}
             </div>
             {(vIssues.length > 0 || todo.length > 0) && (
               <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-900">

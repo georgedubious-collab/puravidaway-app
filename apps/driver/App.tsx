@@ -72,7 +72,7 @@ function Home({ session }: { session: Session }) {
   const loadDriver = useCallback(async () => {
     const { data } = await supabase
       .from("drivers")
-      .select("kyc_status, home_hub, rating_avg, rating_count, location_consent_at")
+      .select("*")
       .eq("id", userId)
       .maybeSingle();
     const d = (data as DriverInfo | null) ?? null;
@@ -96,7 +96,7 @@ function Home({ session }: { session: Session }) {
   }, [loadDriver]);
 
   const loadVehicles = useCallback(async () => {
-    const v = await supabase.from("driver_vehicles").select("id, make_model, plate, passenger_capacity, status").eq("driver_id", userId).order("created_at");
+    const v = await supabase.from("driver_vehicles").select("*").eq("driver_id", userId).order("created_at");
     setVehicles((v.data as Vehicle[] | null) ?? []);
   }, [userId]);
 

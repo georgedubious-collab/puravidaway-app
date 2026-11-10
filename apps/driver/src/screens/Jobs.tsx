@@ -50,7 +50,8 @@ export function Jobs({
   }, [load]);
 
   const approved = driver?.kyc_status === "approved";
-  const usable = vehicles.filter((v) => v.status === "approved");
+  const usable = vehicles.filter((v) => v.status === "approved" && !v.review_hold);
+  const onHold = Boolean(driver?.review_hold);
   const sorted = [...(jobs ?? [])].sort((a, b) => Number(b.id === focusId) - Number(a.id === focusId));
 
   return (
@@ -64,7 +65,15 @@ export function Jobs({
         <View style={{ gap: 8 }}>
           <Text style={S.h1}>Open jobs</Text>
           <Text style={S.muted}>Send an offer at the suggested payout, or name your own. Our team picks a driver and you get a notification.</Text>
-          {!approved ? (
+          {onHold ? (
+            <Card>
+              <Text style={{ color: C.amber, fontWeight: "700" }}>
+                Your new documents are being checked. You can send offers again once our team approves them; trips you already have are not
+                affected.
+              </Text>
+            </Card>
+          ) : null}
+          {!approved && !onHold ? (
             <Card>
               <Text style={{ color: C.amber, fontWeight: "700" }}>
                 {driver
@@ -82,7 +91,7 @@ export function Jobs({
           job={item}
           names={names}
           vehicles={usable.filter((v) => (v.passenger_capacity ?? 0) >= (item.passenger_count ?? 1))}
-          canOffer={approved}
+          canOffer={approved && !onHold}
           homeHub={driver?.home_hub ?? null}
           trips={trips}
           onChanged={load}

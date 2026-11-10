@@ -541,6 +541,26 @@ await expectRows("driver starts the trip", "driver", `select public.driver_set_t
 await expectBlocked("driver cannot start it twice", "driver", `select public.driver_set_trip_status(${J3}, 'in_progress')`);
 await expectBlocked("driver cannot set other statuses", "driver", `select public.driver_set_trip_status(${J3}, 'cancelled')`);
 await expectRows("driver completes the trip", "driver", `select public.driver_set_trip_status(${J3}, 'completed') as ref`, 1);
+// Migration 0031: replacing key documents pauses new jobs until the team checks them.
+await expectOk("server makes sure the driver is approved with a fresh review", "server", `update public.drivers set needs_review = false where id = '${U.driver}'`);
+await expectOk("driver edits their bio (small change)", "driver", `update public.drivers set bio = 'Twenty years driving visitors around Arenal and the northern plains, birder.' where id = '${U.driver}'`);
+await expectRows("a small edit flags but does not pause", "admin", `select 1 from public.drivers where id = '${U.driver}' and needs_review and not review_hold`, 1);
+await expectOk("driver replaces their licence file", "driver", `update public.drivers set documents = documents || '{"license": "${U.driver}/license-new.pdf"}' where id = '${U.driver}'`);
+await expectRows("replacing the licence pauses new jobs", "admin", `select 1 from public.drivers where id = '${U.driver}' and review_hold and kyc_status = 'approved'`, 1);
+await expectOk("driver tries to clear the hold", "driver", `update public.drivers set review_hold = false where id = '${U.driver}'`);
+await expectRows("a driver cannot clear the hold", "admin", `select 1 from public.drivers where id = '${U.driver}' and review_hold`, 1);
+await expectOk("server posts a job for the hold test", "server", `
+  insert into public.bookings (id, client_id, service_type, total_price, driver_payout, platform_fee, status, passenger_count, scheduled_at)
+  values ('10000000-0000-0000-0000-000000000007', '${U.client}', 'transfer', 100, 80, 20, 'pending_bids', 1, now() + interval '4 days')`);
+await expectBlocked("a driver on hold cannot send offers", "driver", `select public.offer_job('10000000-0000-0000-0000-000000000007', '30000000-0000-0000-0000-000000000001', 80)`);
+await expectOk("admin checks the change", "admin", `update public.drivers set needs_review = false where id = '${U.driver}'`);
+await expectRows("the admin's check clears the hold", "admin", `select 1 from public.drivers where id = '${U.driver}' and not review_hold`, 1);
+await expectOk("driver replaces the vehicle's insurance", "driver", `update public.driver_vehicles set documents = documents || '{"insurance": "${U.driver}/vehicles/1/insurance-new.pdf"}' where id = '30000000-0000-0000-0000-000000000001'`);
+await expectRows("the vehicle is paused", "admin", "select 1 from public.driver_vehicles where id = '30000000-0000-0000-0000-000000000001' and review_hold and status = 'approved'", 1);
+await expectBlocked("a vehicle on hold cannot be offered", "driver", `select public.offer_job('10000000-0000-0000-0000-000000000007', '30000000-0000-0000-0000-000000000001', 80)`);
+await expectOk("admin checks the vehicle", "admin", "update public.driver_vehicles set needs_review = false where id = '30000000-0000-0000-0000-000000000001'");
+await expectRows("offers work again", "driver", `select public.offer_job('10000000-0000-0000-0000-000000000007', '30000000-0000-0000-0000-000000000001', 80) as ref`, 1);
+await expectOk("server removes the hold-test job", "server", "delete from public.bookings where id = '10000000-0000-0000-0000-000000000007'");
 // Migration 0030: test checkout payments are marked as such.
 await expectOk("server records a test payment", "server", `
   insert into public.payments (booking_id, provider, amount, type, status) values ('10000000-0000-0000-0000-000000000002', 'test', 200, 'full', 'succeeded')`);
