@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useCallback, useEffect, useState } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { api } from "../api";
@@ -5,7 +6,7 @@ import { TOWNS } from "../format";
 import { supabase } from "../supabase";
 import { C, S } from "../theme";
 import { pickAndUpload, type UploadSource, type UploadTarget } from "../upload";
-import { Btn, Card } from "../ui";
+import { Back, Badge, Btn, Card, Chip, IconLine, ScreenTitle } from "../ui";
 
 /** Same lists as the website (src/lib/driverKyc.ts). */
 const DRIVER_DOCS = [
@@ -31,7 +32,7 @@ const RENEW: Record<string, { ask: string; placeholder: string }> = {
 };
 const STATUS: Record<string, string> = { pending: "Waiting for review", approved: "Approved", rejected: "Not approved", suspended: "Suspended" };
 
-interface DriverRow {
+export interface DriverRow {
   review_hold?: boolean;
   kyc_status: string;
   kyc_note: string | null;
@@ -45,7 +46,7 @@ interface DriverRow {
   english_level: string | null;
   documents: Record<string, string> | null;
 }
-interface VehicleRow {
+export interface VehicleRow {
   id: string;
   plate: string | null;
   make_model: string | null;
@@ -63,6 +64,8 @@ interface VehicleRow {
   review_hold?: boolean;
 }
 type Fields = Record<string, string>;
+/** Form labels read as sentences; the small capitals are kept for section labels. */
+const FIELD_LABEL = { fontSize: 13, fontWeight: "600", color: C.body } as const;
 const str = (v: string | number | null | undefined) => (v === null || v === undefined ? "" : String(v));
 
 /**
@@ -70,14 +73,26 @@ const str = (v: string | number | null | undefined) => (v === null || v === unde
  * document straight from the camera, and their vehicles. Everything is saved
  * through the same server rules as the website.
  */
-export function Documents({ userId, onBack, onChanged }: { userId: string; onBack: () => void; onChanged: () => void }) {
-  const [driver, setDriver] = useState<DriverRow | null | undefined>(undefined);
-  const [vehicles, setVehicles] = useState<VehicleRow[]>([]);
-  const [me, setMe] = useState<Fields>({});
+export function Documents({
+  userId,
+  onBack,
+  onChanged,
+  demo,
+}: {
+  userId: string;
+  onBack: () => void;
+  onChanged: () => void;
+  /** Sample data for design previews; skips loading. */
+  demo?: { driver: DriverRow | null; vehicles: VehicleRow[]; me: Fields };
+}) {
+  const [driver, setDriver] = useState<DriverRow | null | undefined>(demo ? demo.driver : undefined);
+  const [vehicles, setVehicles] = useState<VehicleRow[]>(demo?.vehicles ?? []);
+  const [me, setMe] = useState<Fields>(demo?.me ?? {});
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState("");
 
   const load = useCallback(async () => {
+    if (demo) return;
     const [d, v, p] = await Promise.all([
       supabase.from("drivers").select("*").eq("id", userId).maybeSingle(),
       supabase.from("driver_vehicles").select("*").eq("driver_id", userId).order("created_at"),
@@ -98,7 +113,7 @@ export function Documents({ userId, onBack, onChanged }: { userId: string; onBac
       bio: str(row?.bio),
       english_level: str(row?.english_level),
     });
-  }, [userId]);
+  }, [userId, demo]);
 
   useEffect(() => {
     void load();
@@ -142,7 +157,7 @@ export function Documents({ userId, onBack, onChanged }: { userId: string; onBac
   if (driver === null) {
     return (
       <ScrollView style={S.screen} contentContainerStyle={S.pad}>
-        <Btn label="← Profile" alt onPress={onBack} />
+        <Back label="Profile" onPress={onBack} />
         <Apply
           me={me}
           set={(k, t) => setMe((m) => ({ ...m, [k]: t }))}
@@ -167,19 +182,28 @@ export function Documents({ userId, onBack, onChanged }: { userId: string; onBac
 
   return (
     <ScrollView style={S.screen} contentContainerStyle={S.pad} keyboardShouldPersistTaps="handled">
-      <Btn label="← Profile" alt onPress={onBack} />
-      <Text style={S.h1}>Documents and vehicles</Text>
-      <Text style={S.muted}>
-        Your application: {STATUS[driver.kyc_status] ?? driver.kyc_status}
-        {driver.kyc_note ? ". Note from our team: " + driver.kyc_note : ""}
-      </Text>
-      {reviewed ? (
-        <Text style={S.muted}>
-          Replacing a licence, ID, criminal record or vehicle document pauses new jobs until our team checks it. Trips you already have are not
-          affected.
-        </Text>
+      <Back label="Profile" onPress={onBack} />
+      <ScreenTitle title="Documents and vehicles" />
+      <Badge
+        text={"Application: " + (STATUS[driver.kyc_status] ?? driver.kyc_status)}
+        tone={driver.kyc_status === "approved" ? undefined : driver.kyc_status === "pending" ? "amber" : "red"}
+        icon={driver.kyc_status === "approved" ? "shield-checkmark" : "time-outline"}
+      />
+      {driver.kyc_note ? (
+        <Card tone="amber">
+          <IconLine icon="chatbox-ellipses-outline" color={C.amber} text={"Note from our team: " + driver.kyc_note} />
+        </Card>
       ) : null}
-      {driver.review_hold ? <Text style={{ color: C.amber, fontWeight: "700" }}>Your new documents are being checked. New jobs are paused until then.</Text> : null}
+      {driver.review_hold ? (
+        <Card tone="amber">
+          <IconLine icon="time-outline" color={C.amber} text="Your new documents are being checked. New jobs are paused until then." />
+        </Card>
+      ) : reviewed ? (
+        <IconLine
+          icon="information-circle-outline"
+          text="Replacing a licence, ID, criminal record or vehicle document pauses new jobs until our team checks it. Trips you already have are not affected."
+        />
+      ) : null}
       {msg ? <Text style={msg.ok ? { color: C.emerald, fontWeight: "700" } : S.error}>{msg.text}</Text> : null}
 
       <Card>
@@ -195,9 +219,9 @@ export function Documents({ userId, onBack, onChanged }: { userId: string; onBac
         )}
         <Input label="Criminal record certificate: date issued (YYYY-MM-DD)" value={me.criminal_record_date} onChange={set("criminal_record_date")} />
         <Input label="ICT permit number (optional)" value={me.ict_permit_number} onChange={set("ict_permit_number")} />
-        <Text style={S.label}>Where are you based?</Text>
+        <Text style={[FIELD_LABEL, { marginTop: 4 }]}>Where are you based?</Text>
         <Chips options={Object.entries(TOWNS)} value={me.home_hub} onChange={set("home_hub")} />
-        <Text style={S.label}>Your English</Text>
+        <Text style={[FIELD_LABEL, { marginTop: 4 }]}>Your English</Text>
         <Chips
           options={[
             ["fluent", "Fluent"],
@@ -259,11 +283,17 @@ function VehicleCard({
     void run(id, () => pickAndUpload(userId, target, from, renewed), done);
   return (
     <Card>
-      <Text style={S.h2}>
-        {(v.make_model ?? "Vehicle") + " " + (v.plate ?? "")} · {STATUS[v.status] ?? v.status}
-      </Text>
-      {v.note ? <Text style={{ color: C.amber }}>Note from our team: {v.note}</Text> : null}
-      {v.review_hold ? <Text style={{ color: C.amber, fontWeight: "700" }}>Its new documents are being checked; it can&apos;t be offered until then.</Text> : null}
+      <View style={S.row}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1 }}>
+          <Ionicons name="car-outline" size={20} color={C.emerald} />
+          <Text style={[S.h2, { flex: 1 }]} numberOfLines={1}>
+            {(v.make_model ?? "Vehicle") + " " + (v.plate ?? "")}
+          </Text>
+        </View>
+        <Badge text={STATUS[v.status] ?? v.status} tone={v.status === "approved" ? undefined : v.status === "pending" ? "amber" : "red"} />
+      </View>
+      {v.note ? <IconLine icon="chatbox-ellipses-outline" color={C.amber} text={"Note from our team: " + v.note} /> : null}
+      {v.review_hold ? <IconLine icon="time-outline" color={C.amber} text="Its new documents are being checked; it can't be offered until then." /> : null}
       <VehicleForm
         v={v}
         lockDates={reviewed}
@@ -358,7 +388,7 @@ function VehicleForm({
       <Btn label={button} onPress={() => onSave(body())} busy={busy} />
     </>
   );
-  return title ? <Card>{inner}</Card> : <View style={{ gap: 6 }}>{inner}</View>;
+  return title ? <Card>{inner}</Card> : <View style={{ gap: 10 }}>{inner}</View>;
 }
 
 /** One document: its state, and buttons to photograph it or pick an existing photo. */
@@ -391,10 +421,10 @@ function UploadRow({
   };
   return (
     <View style={{ gap: 6, borderTopWidth: 1, borderTopColor: C.border, paddingTop: 10, marginTop: 4 }}>
-      <Text style={[S.text, { fontWeight: "700" }]}>
-        {uploaded ? "✓ " : ""}
-        {label}
-      </Text>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+        <Ionicons name={uploaded ? "checkmark-circle" : "ellipse-outline"} size={20} color={uploaded ? C.emerald : C.faint} />
+        <Text style={{ fontSize: 15, fontWeight: "700", color: C.text, flex: 1 }}>{label}</Text>
+      </View>
       {hint ? <Text style={S.muted}>{hint}</Text> : null}
       {renew ? (
         <TextInput
@@ -402,19 +432,24 @@ function UploadRow({
           value={renewed}
           onChangeText={setRenewed}
           placeholder={renew.ask + " (" + renew.placeholder + ")"}
+          placeholderTextColor={C.faint}
           style={S.input}
         />
       ) : null}
       {need && renew ? <Text style={S.error}>Enter the {renew.ask.toLowerCase()} first.</Text> : null}
       <View style={{ flexDirection: "row", gap: 8 }}>
         <View style={{ flex: 1 }}>
-          <Btn label={addLabel ?? (uploaded ? "Retake photo" : "Take photo")} onPress={() => go("camera")} busy={busy} />
+          <Btn label={addLabel ?? (uploaded ? "Retake" : "Take photo")} icon="camera-outline" alt={uploaded} onPress={() => go("camera")} busy={busy} />
         </View>
         <View style={{ flex: 1 }}>
-          <Btn label="Choose photo" alt onPress={() => go("library")} disabled={busy} />
+          <Btn label="Gallery" icon="images-outline" alt onPress={() => go("library")} disabled={busy} />
         </View>
+        {!photosOnly ? (
+          <View style={{ flex: 1 }}>
+            <Btn label="PDF" icon="document-attach-outline" alt onPress={() => go("file")} disabled={busy} />
+          </View>
+        ) : null}
       </View>
-      {!photosOnly ? <Btn label="Choose a PDF or file" alt onPress={() => go("file")} disabled={busy} /> : null}
     </View>
   );
 }
@@ -459,7 +494,7 @@ function Apply({
             justifyContent: "center",
           }}
         >
-          {agree ? <Text style={{ color: "#fff", fontWeight: "800" }}>✓</Text> : null}
+          {agree ? <Ionicons name="checkmark" size={16} color="#fff" /> : null}
         </View>
         <Text style={[S.text, { flex: 1 }]}>
           I work as an independent driver or transport company. I hold, and will keep current, the licences, permits and insurance the law
@@ -489,13 +524,14 @@ function Input({
   caps?: boolean;
 }) {
   return (
-    <View style={{ gap: 2 }}>
-      <Text style={S.label}>{label}</Text>
+    <View style={{ gap: 5, marginTop: 4 }}>
+      <Text style={FIELD_LABEL}>{label}</Text>
       <TextInput
         accessibilityLabel={label}
         value={value}
         onChangeText={onChange}
         placeholder={placeholder}
+        placeholderTextColor={C.faint}
         keyboardType={keyboard}
         multiline={multiline}
         autoCapitalize={caps ? "characters" : "sentences"}
@@ -507,9 +543,9 @@ function Input({
 
 function Locked({ label, value }: { label: string; value: string | number | null | undefined }) {
   return (
-    <View style={{ gap: 2 }}>
-      <Text style={S.label}>{label}</Text>
-      <Text style={S.text}>{value ?? "—"}</Text>
+    <View style={{ gap: 2, marginTop: 4 }}>
+      <Text style={FIELD_LABEL}>{label}</Text>
+      <Text style={[S.text, { color: C.text, fontWeight: "700" }]}>{value ?? "—"}</Text>
       <Text style={S.muted}>To change it, upload the renewed document below with its new date.</Text>
     </View>
   );
@@ -519,22 +555,7 @@ function Chips({ options, value, onChange }: { options: [string, string][]; valu
   return (
     <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
       {options.map(([id, label]) => (
-        <Pressable
-          key={id}
-          accessibilityRole="radio"
-          accessibilityState={{ selected: value === id }}
-          onPress={() => onChange(id)}
-          style={{
-            borderWidth: 2,
-            borderColor: value === id ? C.emerald : C.border,
-            backgroundColor: value === id ? C.emeraldSoft : "#fff",
-            borderRadius: 10,
-            paddingHorizontal: 10,
-            paddingVertical: 8,
-          }}
-        >
-          <Text style={{ fontWeight: "700", color: C.text }}>{label}</Text>
-        </Pressable>
+        <Chip key={id} label={label} on={value === id} onPress={() => onChange(id)} />
       ))}
     </View>
   );

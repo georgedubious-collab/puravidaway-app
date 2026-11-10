@@ -1,9 +1,10 @@
+import { Ionicons } from "@expo/vector-icons";
 import * as Linking from "expo-linking";
 import { useEffect, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { SITE_URL } from "../config";
 import { C, S } from "../theme";
-import { Btn, Card } from "../ui";
+import { Back, Btn, Card, Divider, ScreenTitle } from "../ui";
 
 /** Answers to what drivers ask most. Keep in line with how the app actually works. */
 const FAQ: { q: string; a: string }[] = [
@@ -50,44 +51,58 @@ const FAQ: { q: string; a: string }[] = [
 ];
 
 /** Help: common questions, then driver support by WhatsApp or email. */
-export function Help({ onBack }: { onBack: () => void }) {
+export function Help({ onBack, demoSupport }: { onBack: () => void; /** Sample contacts for design previews; skips loading. */ demoSupport?: { whatsapp: string; email: string } }) {
   const [open, setOpen] = useState<number | null>(0);
-  const [support, setSupport] = useState<{ whatsapp: string; email: string } | null>(null);
+  const [support, setSupport] = useState<{ whatsapp: string; email: string } | null>(demoSupport ?? null);
 
   useEffect(() => {
+    if (demoSupport) return;
     void fetch(SITE_URL + "/api/v1/support")
       .then((r) => r.json() as Promise<{ whatsapp?: string; email?: string }>)
       .then((d) => setSupport({ whatsapp: d.whatsapp ?? "", email: d.email ?? "" }))
       .catch(() => setSupport({ whatsapp: "", email: "" }));
-  }, []);
+  }, [demoSupport]);
 
   return (
     <ScrollView style={S.screen} contentContainerStyle={S.pad}>
-      <Btn label="← Profile" alt onPress={onBack} />
-      <Text style={S.h1}>Help</Text>
-      {FAQ.map((f, i) => (
-        <Pressable key={f.q} accessibilityRole="button" accessibilityState={{ expanded: open === i }} onPress={() => setOpen(open === i ? null : i)} style={S.card}>
-          <View style={S.row}>
-            <Text style={[S.text, { fontWeight: "800", flex: 1 }]}>{f.q}</Text>
-            <Text style={{ fontWeight: "800", color: C.emerald, fontSize: 18 }}>{open === i ? "−" : "+"}</Text>
-          </View>
-          {open === i ? <Text style={S.text}>{f.a}</Text> : null}
-        </Pressable>
-      ))}
+      <Back label="Profile" onPress={onBack} />
+      <ScreenTitle title="Help" subtitle="Quick answers, and our team when you need a person." />
       <Card>
         <Text style={S.h2}>Driver support</Text>
-        <Text style={S.muted}>Didn&apos;t find your answer, or need help with a trip? Our team is here. For anything urgent on the day of a trip, use WhatsApp.</Text>
+        <Text style={S.muted}>For anything urgent on the day of a trip, use WhatsApp.</Text>
         {support?.whatsapp ? (
           <Btn
-            label="WhatsApp driver support"
+            label="WhatsApp us"
+            icon="logo-whatsapp"
             onPress={() => void Linking.openURL("https://wa.me/" + support.whatsapp + "?text=" + encodeURIComponent("Hi! I'm a partner driver and I need help."))}
-            color={C.emerald}
+            color="#128C7E"
           />
         ) : null}
         {support?.email ? (
-          <Btn label={"Email " + support.email} alt onPress={() => void Linking.openURL("mailto:" + support.email + "?subject=" + encodeURIComponent("Driver support"))} />
+          <Btn label="Email us" icon="mail-outline" alt onPress={() => void Linking.openURL("mailto:" + support.email + "?subject=" + encodeURIComponent("Driver support"))} />
         ) : null}
+        {support?.email ? <Text style={[S.muted, { textAlign: "center" }]}>{support.email}</Text> : null}
         {support && !support.whatsapp && !support.email ? <Text style={S.error}>Support contacts couldn&apos;t be loaded. Check your connection.</Text> : null}
+      </Card>
+      <Text style={[S.label, { marginTop: 4 }]}>Common questions</Text>
+      <Card>
+        {FAQ.map((f, i) => (
+          <View key={f.q}>
+            {i > 0 ? <Divider /> : null}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ expanded: open === i }}
+              onPress={() => setOpen(open === i ? null : i)}
+              style={({ pressed }) => ({ paddingVertical: 12, gap: 8, opacity: pressed ? 0.6 : 1 })}
+            >
+              <View style={S.row}>
+                <Text style={{ fontSize: 15, fontWeight: "700", color: C.text, flex: 1 }}>{f.q}</Text>
+                <Ionicons name={open === i ? "chevron-up" : "chevron-down"} size={18} color={C.faint} />
+              </View>
+              {open === i ? <Text style={S.text}>{f.a}</Text> : null}
+            </Pressable>
+          </View>
+        ))}
       </Card>
     </ScrollView>
   );
