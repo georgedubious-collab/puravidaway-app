@@ -1,0 +1,43 @@
+import { ROUTE_PAGES } from "@/lib/routePages";
+import { CONTACT_EMAIL, SITE_NAME, SITE_URL } from "@/lib/site";
+
+/**
+ * /llms.txt — a plain-text summary of the business for AI assistants
+ * (https://llmstxt.org). Only true facts (docs/PROJECT.md §10); built at deploy time.
+ */
+export const dynamic = "force-static";
+
+export function GET() {
+  const u = (p: string) => `${SITE_URL}${p}`;
+  const text = `# ${SITE_NAME}
+
+> Private door-to-door transfers, 1-day private tours and multi-day trips across Costa Rica, with vetted independent local drivers. Fixed price per vehicle before booking, or "driver bids" where the traveller names an offer. Support by WhatsApp and email (${CONTACT_EMAIL}). English and Spanish.
+
+Key facts:
+- Prices are per vehicle in USD, confirmed before payment; season and ferry fares are included in the shown price.
+- Every ride: 60 minutes free waiting; flight tracking on airport pickups; child seats free on request; free cancellation up to 24 hours before pickup on rides and 1-day tours.
+- Payment: online in full (secure link sent after the team confirms), or cash to the driver on rides and 1-day tours plus a cash booking fee. Multi-day trips are paid online in full.
+- Drivers are interviewed and checked (criminal and driving records, licence, INS commercial insurance, Dekra/RTV inspection, Marchamo). An ICT tourism permit is shown as a badge on the profile of drivers who hold one.
+- Drive times are realistic for Costa Rica's mountain roads. Santa Teresa / Southern Nicoya rides use the Paquera ferry (fares included); Drake Bay is reached by river boat from Sierpe.
+
+## Main pages
+- [Book a ride, tour or multi-day trip](${u("/")}): trip builder with prices
+- [About us](${u("/about")}): who we are and what we offer
+- [How it works](${u("/how-it-works")}): booking steps, payment and what happens on the day
+- [Our drivers & safety](${u("/our-drivers")}): how drivers are vetted, ratings and location sharing
+- [Help & FAQ](${u("/faq")}): answers about booking, prices, waiting time, vehicles, cancellation, ferries and boats
+- [Contact](${u("/contact")}): WhatsApp, email and contact form
+- [Cancellation policy](${u("/cancellation")}): refund rules for rides, tours and multi-day trips
+
+## Popular routes
+${ROUTE_PAGES.map((p) => `- [${p.title}](${u(`/transfers/${p.slug}`)}): ${p.metaDescription}`).join("\n")}
+
+## Spanish
+- [Quiénes somos](${u("/es/nosotros")})
+- [Cómo funciona](${u("/es/como-funciona")})
+- [Nuestros conductores](${u("/es/nuestros-conductores")})
+- [Preguntas frecuentes](${u("/es/preguntas-frecuentes")})
+- [Contacto](${u("/es/contacto")})
+`;
+  return new Response(text, { headers: { "Content-Type": "text/plain; charset=utf-8" } });
+}

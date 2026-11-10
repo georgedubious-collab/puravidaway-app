@@ -67,12 +67,12 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
 - `src/lib/pricing.ts` — the §6 pricing engine (season multipliers in basis points, cents math).
 - `src/lib/cart.ts` — Trip Cart model, payment options (online in full / cash to the driver +
   cash booking fee, `cartTotals()`), WhatsApp deep-link builder.
-- `src/components/` — storefront UI: `Header`, `TransfersView`, `DayToursView`,
+- `src/components/` — storefront UI: `site/SiteHeader`, `site/SiteFooter`, `TransfersView`, `DayToursView`,
   `ExpeditionsView`, `CartDrawer`, `Toast`, `Storefront` (state + localStorage cart).
 - Legal pages (2026-11-08, **draft pending review by a Costa Rican lawyer**): `/terms`,
   `/privacy`, `/cancellation`, sharing `src/components/legal/LegalPage.tsx`. The operator's legal
   name, cédula jurídica and address are a placeholder (`LEGAL_ENTITY_PLACEHOLDER`) until filled
-  in. Footers link to all three; the trip request form says sending it accepts them.
+  in. The site footer links to all three; the trip request form says sending it accepts them.
 - `legacy/index.html` — the original static prototype, kept as the **design reference**.
 - Logins: `/login` (email + 6-digit code), `src/proxy.ts` (session refresh on account pages),
   `src/lib/auth.ts` (`requireRole`). `/admin` (dashboard) and `/admin/users` (roles) are live
@@ -104,8 +104,11 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
   matching landing page when one exists, otherwise the trip builder.
 - Search engines (2026-11-08): **the whole site is `noindex` and `robots.txt` blocks all
   crawlers until `NEXT_PUBLIC_SITE_INDEXABLE=true` is set** (Vercel, Production only). Then
-  `robots.txt` blocks only `/admin`, `/driver`, `/trip`, `/login`, `/auth`, `/api` and points to
-  `sitemap.xml` (home, route pages, `/terms`, `/privacy`, `/cancellation`).
+  `robots.txt` blocks only `/admin`, `/driver`, `/trip`, `/login`, `/auth`, `/api`, explicitly
+  welcomes search and AI crawlers (Googlebot, Bingbot, GPTBot, OAI-SearchBot, PerplexityBot,
+  ClaudeBot, Claude-SearchBot, Google-Extended) on everything else, and points to
+  `sitemap.xml` (home, route pages, the info pages in English and Spanish with hreflang,
+  `/terms`, `/privacy`, `/cancellation`).
   `NEXT_PUBLIC_SITE_URL` (default `https://puravidaway-app.vercel.app`) sets canonical and
   link-preview URLs; the preview image is `src/app/opengraph-image.tsx`. Custom 404 and error
   pages (`not-found.tsx`, `error.tsx`, `global-error.tsx`). Vercel Web Analytics
@@ -132,7 +135,28 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
   `/api/v1` calls from the apps get English unless they send an `x-team-lang: es|en` header.
   The **driver app** is Spanish by default with English in Profile, and the **customer app** is
   English with a Costa Rica flag toggle for Spanish (branches `feat/driver-app-spanish` and
-  `feat/client-app-spanish`). The public website, trip pages, legal pages and all emails stay English.
+  `feat/client-app-spanish`). Trip pages, legal pages, the booking app (home, route pages) and all
+  emails stay English. **Public website in Spanish (2026-11-09, site shell):** the info pages exist
+  in English and Spanish; Spanish lives under `/es` with Spanish slugs (`ES_PATHS` in
+  `src/lib/publicLang.ts`, the one list read by the language switch, hreflang links and the
+  sitemap). Spanish copy is neutral Latin American Spanish with "usted" and "conductor".
+- **Site shell (2026-11-09):** every public page (home, `/transfers/*`, legal and info pages; not
+  `/admin`, `/driver`, `/trip`, `/login`) shares `SiteHeader` (menu Transfers / Tours / Multi-day /
+  Help from `src/lib/siteNav.ts`, WhatsApp, an EN | ES switch shown only when the page has a
+  version in the other language, a phone menu) and `SiteFooter` (Company, Partners, Popular routes,
+  Support, Legal, social icons, the TravelAgency structured data). The menu's Transfers / Tours /
+  Multi-day open the booking app on that tab (`/?tab=transfers|tours|multiday`). Destinations and
+  Travel guides are commented placeholders in `siteNav.ts` for later PRs. Info pages (EN · ES):
+  `/about` · `/es/nosotros`, `/how-it-works` · `/es/como-funciona`, `/our-drivers` ·
+  `/es/nuestros-conductores`, `/faq` · `/es/preguntas-frecuentes` (FAQ content in `src/lib/faq.ts`,
+  FAQPage structured data), `/contact` · `/es/contacto` (WhatsApp, hello@costaricaprivatetransfers.com
+  and a form that emails `ADMIN_NOTIFY_EMAIL` through Resend with the sender as reply-to; nothing
+  stored, honeypot against bots; without Resend it asks people to use WhatsApp or email). Each has
+  breadcrumbs (visible + BreadcrumbList data); route pages too. `<html lang>` stays "en" in the
+  server HTML (one root layout shared with /admin and /driver); the `/es` layout marks its content
+  `lang="es"` and switches `<html lang>` once loaded. Social icons appear only when their
+  `NEXT_PUBLIC_SOCIAL_FACEBOOK|INSTAGRAM|TIKTOK|YOUTUBE|X` URL is set (`src/lib/social.ts`).
+  `/llms.txt` summarises the business for AI assistants.
 
 ## 4. Product modules
 

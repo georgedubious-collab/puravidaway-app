@@ -21,6 +21,8 @@ export interface Email {
   /** Plain paragraphs; the first link button is optional. */
   lines: string[];
   button?: { label: string; url: string };
+  /** Where replies go (e.g. the traveller who used the contact form). */
+  replyTo?: string;
 }
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -50,6 +52,7 @@ export async function sendEmail(e: Email): Promise<boolean> {
         from: process.env.EMAIL_FROM || "Costa Rica Private Transfers <onboarding@resend.dev>",
         to: [e.to],
         subject: e.subject,
+        ...(e.replyTo ? { reply_to: e.replyTo } : {}),
         html: html(e),
         text: [...e.lines, e.button ? `${e.button.label}: ${e.button.url}` : ""].filter(Boolean).join("\n\n"),
       }),
