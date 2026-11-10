@@ -23,6 +23,8 @@ export interface Email {
   button?: { label: string; url: string };
   /** Where replies go (e.g. the traveller who used the contact form). */
   replyTo?: string;
+  /** "es" for emails to travellers who booked in Spanish (footer line); everything else is English. */
+  lang?: "en" | "es";
 }
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -32,9 +34,10 @@ function html(e: Email): string {
   const btn = e.button
     ? `<p style="margin:22px 0"><a href="${esc(e.button.url)}" style="background:#022c22;color:#fff;text-decoration:none;font-weight:700;padding:12px 20px;border-radius:10px;display:inline-block">${esc(e.button.label)}</a></p>`
     : "";
-  return `<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:560px;margin:0 auto;padding:24px">
+  const tagline = e.lang === "es" ? "Traslados, tours y expediciones" : "Transfers, tours and expeditions";
+  return `<div${e.lang === "es" ? ' lang="es"' : ""} style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:560px;margin:0 auto;padding:24px">
 <p style="font-size:20px;font-weight:800;color:#022c22;margin:0 0 20px">Costa Rica Private Transfers</p>${paras}${btn}
-<p style="font-size:12px;color:#64748b;margin-top:28px">Costa Rica Private Transfers · Transfers, tours and expeditions</p></div>`;
+<p style="font-size:12px;color:#64748b;margin-top:28px">Costa Rica Private Transfers · ${tagline}</p></div>`;
 }
 
 /** Send one email. Never throws: a failed email must not break a booking or a chat message. */

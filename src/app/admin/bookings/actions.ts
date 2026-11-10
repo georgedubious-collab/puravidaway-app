@@ -4,15 +4,18 @@ import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { requireRole } from "@/lib/auth";
 import { BOOKING_STATUSES, usd } from "@/lib/bookings";
-import { formatScheduledAt } from "@/lib/dates";
+import { placeNameFor } from "@/lib/catalogEs";
+import { formatScheduledAt, formatScheduledAtFor } from "@/lib/dates";
 import { SITE_URL, sendEmail } from "@/lib/email";
 import { notifyDriversOfJobs } from "@/lib/jobAlerts";
+import { parsePublicLang } from "@/lib/publicLang";
 import { sendPush, sendPushToEmail } from "@/lib/push";
 import { requestDriverReview } from "@/lib/reviewRequest";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { InputError, runAction, type FormState } from "@/lib/forms/formState";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { makeT } from "@/lib/teamLang";
+import { clientLanguageNote, driverFirstName, rideConfirmedEmail, rideConfirmedPush } from "@/lib/travellerMessages";
 import { getTeamLang } from "@/lib/teamLangServer";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -46,22 +49,30 @@ export async function acceptOffer(_prev: FormState, fd: FormData): Promise<FormS
     const admin = createSupabaseAdminClient();
     const { data: guest } =
       admin && b?.trip_id
-        ? await admin.from("trips").select("guest_name, guest_email, access_token").eq("id", b.trip_id).maybeSingle()
+        ? await admin.from("trips").select("guest_name, guest_email, access_token, language").eq("id", b.trip_id).maybeSingle()
         : { data: null };
+    // The traveller hears about it in the language they booked in.
+    const guestLang = parsePublicLang(guest?.language);
     after(async () => {
       const when = b?.scheduled_at ? formatScheduledAt(b.scheduled_at) : "";
       if (guest?.guest_email) {
-        const first = (who?.full_name ?? "Your driver").split(" ")[0];
-        await sendPushToEmail(guest.guest_email, { title: "Your ride is confirmed", body: `${first} will drive you · ${when}`, data: { screen: "trip", id: bookingId } });
+        const driver = driverFirstName(guestLang, who?.full_name);
+        const guestWhen = b?.scheduled_at ? formatScheduledAtFor(b.scheduled_at, guestLang) : "";
+        await sendPushToEmail(guest.guest_email, {
+          ...rideConfirmedPush(guestLang, { driver, when: guestWhen }),
+          data: { screen: "trip", id: bookingId },
+        });
         await sendEmail({
           to: guest.guest_email,
-          subject: `Your ride is confirmed (${ref}) · ${when}`,
-          lines: [
-            `Hi ${(guest.guest_name ?? "").split(" ")[0] || "there"},`,
-            `Good news: ${first} will drive you, ${b?.origin ?? ""} → ${b?.destination ?? ""}, pickup ${when} (Costa Rica time).`,
-            "Your trip page shows your driver's profile and car photos, and has a chat with them and our team.",
-          ],
-          button: { label: "Open your trip page", url: `${SITE_URL}/trip/${guest.access_token}` },
+          ...rideConfirmedEmail(guestLang, {
+            guestName: guest.guest_name,
+            driver,
+            ref: String(ref),
+            origin: placeNameFor(b?.origin, guestLang),
+            destination: placeNameFor(b?.destination, guestLang),
+            when: guestWhen,
+            tripUrl: `${SITE_URL}/trip/${guest.access_token}`,
+          }),
         });
       }
       if (offer) {
@@ -79,6 +90,7 @@ export async function acceptOffer(_prev: FormState, fd: FormData): Promise<FormS
           `Hi ${(who.full_name ?? "").split(" ")[0] || "there"},`,
           `Your offer was accepted: ${ref}, ${b?.origin ?? ""} → ${b?.destination ?? ""}, pickup ${when} (Costa Rica time).`,
           offer ? `Your payout: ${usd(offer.bid_amount)}.` : "",
+          guest ? clientLanguageNote(guestLang) : "",
           "Open the trip for the exact pickup place, the traveller's requests and the chat. Please introduce yourself there today.",
         ].filter(Boolean),
         button: { label: "Open the trip", url: `${SITE_URL}/driver/trips/${bookingId}` },

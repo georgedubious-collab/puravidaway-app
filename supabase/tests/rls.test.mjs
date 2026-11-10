@@ -419,6 +419,16 @@ await expectRows("booking rows no longer hold contact details", "admin",
   "select 1 from information_schema.columns where table_name = 'bookings' and column_name in ('guest_name','guest_email','guest_phone')", 0);
 await expectRows("admin reads trip contacts", "admin", "select * from public.trips", 1);
 await expectRows("visitor cannot read trip contacts", "anon", "select * from public.trips", 0);
+// Migration 0033: the language of each trip request (emails and the trip page follow it).
+await expectRows("trip language defaults to English", "admin", "select 1 from public.trips where language = 'en'", 1);
+await expectOk("server saves a Spanish trip request", "server", `
+  insert into public.trips (id, access_token, guest_name, guest_email, guest_phone, language) values
+    ('40000000-0000-0000-0000-000000000002', repeat('cd', 32), 'Luis', 'luis@example.com', '+506 5550 0100', 'es')`);
+await expectRows("Spanish trip is stored as 'es'", "admin", "select 1 from public.trips where language = 'es'", 1);
+await expectBlocked("unknown trip language is refused", "server",
+  "update public.trips set language = 'fr' where id = '40000000-0000-0000-0000-000000000002'");
+await expectBlocked("drivers cannot change a trip's language", "driver", "update public.trips set language = 'es'", { affected: 0 });
+await expectOk("remove the Spanish test trip", "server", "delete from public.trips where id = '40000000-0000-0000-0000-000000000002'");
 await expectRows("trip requests: first five from one network allowed", "server",
   "select n from (select count(*) filter (where public.allow_trip_request('1.2.3.4', 'x' || g || '@example.com')) as n from generate_series(1, 7) g) t", 5);
 await expectRows("trip requests: three per email address", "server",

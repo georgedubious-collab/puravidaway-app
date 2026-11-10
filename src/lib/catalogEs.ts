@@ -175,6 +175,17 @@ export function hubName(id: HubId, lang: PublicLang): string {
   return lang === "es" ? HUB_NAMES_ES[id] : (HUBS.find((h) => h.id === id)?.name ?? id);
 }
 
+/**
+ * A booking's stored pickup / drop-off text in `lang`. Bookings keep our towns under
+ * their English name ("Liberia Airport (LIR)"); a typed address stays as the traveller wrote it.
+ */
+export function placeNameFor(text: string | null | undefined, lang: PublicLang): string {
+  const s = text ?? "";
+  if (lang !== "es") return s;
+  const hub = HUBS.find((h) => h.name === s);
+  return hub ? HUB_NAMES_ES[hub.id] : s;
+}
+
 export function regionName(region: Region, lang: PublicLang): string {
   return (lang === "es" ? REGION_NAMES_ES : REGION_NAMES)[region];
 }

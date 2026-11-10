@@ -672,6 +672,8 @@ function Send({
       name: name.trim(),
       phone: phone.trim(),
       notes: "",
+      // The language the traveller is using: their confirmation email and later messages follow it.
+      lang,
     });
     setBusy(false);
     if (!res.ok || !res.data) return setError(res.error ?? t("We couldn't send your request.", "No pudimos enviar su solicitud."));

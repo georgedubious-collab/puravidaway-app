@@ -3,15 +3,17 @@
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { requireUser } from "@/lib/auth";
-import { formatScheduledAt } from "@/lib/dates";
+import { formatScheduledAtFor } from "@/lib/dates";
 import { ADMIN_EMAIL, SITE_URL, sendEmail } from "@/lib/email";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { InputError, runAction, type FormState } from "@/lib/forms/formState";
+import { parsePublicLang } from "@/lib/publicLang";
 import { sendPushToEmail } from "@/lib/push";
 import { requestDriverReview } from "@/lib/reviewRequest";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { driverDbMessage } from "@/lib/driverDbMessages";
 import { makeT } from "@/lib/teamLang";
+import { driverFirstName, onTheWayEmail, onTheWayPush } from "@/lib/travellerMessages";
 import { getTeamLang } from "@/lib/teamLangServer";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -43,19 +45,22 @@ export async function setTripStatus(_prev: FormState, fd: FormData): Promise<For
         if (!db) return;
         const { data: b } = await db.from("bookings").select("trip_id, scheduled_at, en_route_at").eq("id", id).maybeSingle();
         if (!b?.trip_id || !b.en_route_at || Date.now() - new Date(b.en_route_at).getTime() > 60000) return;
-        const { data: trip } = await db.from("trips").select("guest_name, guest_email, access_token").eq("id", b.trip_id).maybeSingle();
+        const { data: trip } = await db.from("trips").select("guest_name, guest_email, access_token, language").eq("id", b.trip_id).maybeSingle();
         if (!trip?.guest_email) return;
-        const first = (me.full_name ?? "Your driver").split(" ")[0];
-        await sendPushToEmail(trip.guest_email, { title: `${first} is on the way`, body: `Pickup ${formatScheduledAt(b.scheduled_at)}`, data: { screen: "trip", id } });
+        // In the language the traveller booked in.
+        const guestLang = parsePublicLang(trip.language);
+        const driver = driverFirstName(guestLang, me.full_name);
+        const when = formatScheduledAtFor(b.scheduled_at, guestLang);
+        await sendPushToEmail(trip.guest_email, { ...onTheWayPush(guestLang, { driver, when }), data: { screen: "trip", id } });
         await sendEmail({
           to: trip.guest_email,
-          subject: `${first} is on the way (${ref})`,
-          lines: [
-            `Hi ${(trip.guest_name ?? "").split(" ")[0] || "there"},`,
-            `${first}, your driver, is on the way to your pickup at ${formatScheduledAt(b.scheduled_at)} (Costa Rica time).`,
-            "Your trip page has their profile and car, and a chat with them and our team.",
-          ],
-          button: { label: "Open your trip page", url: `${SITE_URL}/trip/${trip.access_token}` },
+          ...onTheWayEmail(guestLang, {
+            guestName: trip.guest_name,
+            driver,
+            ref: String(ref),
+            when,
+            tripUrl: `${SITE_URL}/trip/${trip.access_token}`,
+          }),
         });
       });
     }

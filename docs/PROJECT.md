@@ -137,7 +137,20 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
   `/api/v1` calls from the apps get English unless they send an `x-team-lang: es|en` header.
   The **driver app** is Spanish by default with English in Profile, and the **customer app** is
   English with a Costa Rica flag toggle for Spanish (branches `feat/driver-app-spanish` and
-  `feat/client-app-spanish`). The private trip page (`/trip/<code>`) and all emails stay English.
+  `feat/client-app-spanish`).
+  **Travellers hear from us in the language they booked in (2026-11-10):** every trip request
+  stores its language in `trips.language` (`en` | `es`, migration 0033): `es` when it is sent from
+  `/es` or from the customer app while it is in Spanish, `en` otherwise (also for older app builds
+  that don't send it). Everything addressed to the traveller follows it: the emails (request
+  received, ride confirmed with driver, driver on the way, rating request and its reminder, new chat
+  message), the push notifications to the customer app, and the private trip page `/trip/<code>`
+  (status, payment line, driver and car card, live position, rating form, chat labels and errors,
+  dates as "22 de noviembre de 2026 · 9:00 a. m."; a flag button switches the page for that visit
+  with `?lang=en|es`). All of these texts live in one file, `src/lib/travellerMessages.ts`, English
+  and Spanish side by side; `node scripts/preview-traveller-messages.mjs` prints them all for
+  proofreading. Emails to the team and to drivers are unchanged, plus one line "Client language:
+  Spanish" when it applies; the admin booking page shows the traveller's language and opens
+  WhatsApp with a Spanish greeting. English wording is exactly as before.
   **Public website in Spanish (2026-11-10):** every public page exists in English and Spanish.
   Spanish lives under `/es`: the booking storefront at `/es` (same `Storefront`, same trip-request
   server action, `?tab=` and shared ride links work there too), route pages at
@@ -487,6 +500,8 @@ and `season_for_date(date)` returns the season for a travel date.
 - **bookings:** clients see their own; the assigned driver sees their assigned bookings (so
   nothing private may live on the booking row); admins see all. Traveller contact details and
   the private trip-page code live in **`trips`**, readable only by admins and the server.
+  `trips.language` (`en` | `es`, default `en`) is the language the request was sent in; the
+  traveller's emails, push notifications and trip page follow it.
 - **trip_chats:** per booking; readable and writable only by the booking's client, assigned
   driver and admins. Travellers post through the server after it checks their trip code; drivers and travellers can't send phone numbers, emails or links. `chat_reads`,
   `request_log` and the rate-limit functions are server-only. Approved drivers see **open** requests (`pending_bids`) only through the
