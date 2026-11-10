@@ -54,7 +54,7 @@ export function Profile({
           </Text>
         ))}
       </Card>
-      <Btn label="Documents and vehicles" alt onPress={onDocuments} />
+      <Btn label={driver ? "Documents and vehicles" : "Apply to drive"} alt={Boolean(driver)} onPress={onDocuments} />
       <Btn label="Sign out" onPress={onSignOut} color={C.red} />
     </ScrollView>
   );

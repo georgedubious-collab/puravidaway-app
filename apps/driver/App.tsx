@@ -1,7 +1,7 @@
 import type { Session } from "@supabase/supabase-js";
 import * as Notifications from "expo-notifications";
 import { StatusBar } from "expo-status-bar";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { registerForPush, unregisterPush } from "./src/push";
@@ -66,6 +66,7 @@ function Home({ session }: { session: Session }) {
   const [loading, setLoading] = useState(false);
   const [tracking, setTracking] = useState<TrackingState | null>(null);
   const [docsOpen, setDocsOpen] = useState(false);
+  const askedToApply = useRef(false);
   const userId = session.user.id;
 
   const loadDriver = useCallback(async () => {
@@ -76,6 +77,12 @@ function Home({ session }: { session: Session }) {
       .maybeSingle();
     const d = (data as DriverInfo | null) ?? null;
     setDriver(d);
+    // Someone new, with no application yet: take them straight to the application form.
+    if (!d && !askedToApply.current) {
+      askedToApply.current = true;
+      setTab("profile");
+      setDocsOpen(true);
+    }
     // Location sharing follows the driver's trips: on inside the trip window, off outside it.
     setTracking(await syncTracking(Boolean(d?.location_consent_at)));
   }, [userId]);

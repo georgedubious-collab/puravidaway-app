@@ -4,7 +4,7 @@ import { api } from "../api";
 import { TOWNS } from "../format";
 import { supabase } from "../supabase";
 import { C, S } from "../theme";
-import { pickAndUpload, type UploadTarget } from "../upload";
+import { pickAndUpload, type UploadSource, type UploadTarget } from "../upload";
 import { Btn, Card } from "../ui";
 
 /** Same lists as the website (src/lib/driverKyc.ts). */
@@ -12,7 +12,7 @@ const DRIVER_DOCS = [
   { key: "driver_photo", label: "Your photo", hint: "A clear photo of your face for your profile." },
   { key: "id_front", label: "Cédula or passport: front" },
   { key: "id_back", label: "Cédula: back", hint: "For a passport, upload the photo page again." },
-  { key: "license", label: "Driver's licence", hint: "Front and back in one photo." },
+  { key: "license", label: "Driver's licence", hint: "Front and back in one photo or PDF." },
   { key: "criminal_record", label: "Criminal record certificate", hint: "Issued no more than 30 days ago." },
   { key: "ict_permit", label: "ICT tourist-transport permit", hint: "Optional. Drivers who have it get an ICT badge." },
 ];
@@ -141,10 +141,22 @@ export function Documents({ userId, onBack, onChanged }: { userId: string; onBac
     return (
       <ScrollView style={S.screen} contentContainerStyle={S.pad}>
         <Btn label="← Profile" alt onPress={onBack} />
-        <Card>
-          <Text style={S.h2}>No driver application yet</Text>
-          <Text style={S.muted}>Start your application on our website first; then your documents and vehicles appear here.</Text>
-        </Card>
+        <Apply
+          me={me}
+          set={(k, t) => setMe((m) => ({ ...m, [k]: t }))}
+          busy={busy === "apply"}
+          onApply={(agree) =>
+            void run(
+              "apply",
+              async () => {
+                const res = await api("/driver/apply", { full_name: me.full_name, phone: me.phone, agree: agree ? "on" : "" });
+                return res.ok ? null : (res.error ?? "Couldn't send your application.");
+              },
+              "Application started. Now add your details, documents and a vehicle.",
+            )
+          }
+        />
+        {msg ? <Text style={msg.ok ? { color: C.emerald, fontWeight: "700" } : S.error}>{msg.text}</Text> : null}
       </ScrollView>
     );
   }
@@ -234,7 +246,7 @@ function VehicleCard({
   run: (id: string, fn: () => Promise<string | null>, done: string) => Promise<void>;
 }) {
   const reviewed = v.status !== "pending";
-  const upload = (id: string, target: UploadTarget, done: string) => (from: "camera" | "library", renewed?: string) =>
+  const upload = (id: string, target: UploadTarget, done: string) => (from: UploadSource, renewed?: string) =>
     void run(id, () => pickAndUpload(userId, target, from, renewed), done);
   return (
     <Card>
@@ -267,6 +279,7 @@ function VehicleCard({
         hint="Outside and inside, in daylight."
         uploaded={false}
         addLabel="Add photo"
+        photosOnly
         busy={busy === "vp-" + v.id}
         onPick={upload("vp-" + v.id, { type: "photo", vehicleId: v.id }, "Photo added.")}
       />
@@ -346,6 +359,7 @@ function UploadRow({
   renew,
   busy,
   addLabel,
+  photosOnly,
   onPick,
 }: {
   label: string;
@@ -354,11 +368,13 @@ function UploadRow({
   renew?: { ask: string; placeholder: string };
   busy: boolean;
   addLabel?: string;
-  onPick: (from: "camera" | "library", renewed?: string) => void;
+  /** Vehicle photos: pictures only, no PDF button. */
+  photosOnly?: boolean;
+  onPick: (from: UploadSource, renewed?: string) => void;
 }) {
   const [renewed, setRenewed] = useState("");
   const [need, setNeed] = useState(false);
-  const go = (from: "camera" | "library") => {
+  const go = (from: UploadSource) => {
     if (renew && !renewed.trim()) return setNeed(true);
     setNeed(false);
     onPick(from, renew ? renewed.trim() : undefined);
@@ -388,7 +404,60 @@ function UploadRow({
           <Btn label="Choose photo" alt onPress={() => go("library")} disabled={busy} />
         </View>
       </View>
+      {!photosOnly ? <Btn label="Choose a PDF or file" alt onPress={() => go("file")} disabled={busy} /> : null}
     </View>
+  );
+}
+
+/** First step for someone new: name, WhatsApp and the partner statement. */
+function Apply({
+  me,
+  set,
+  busy,
+  onApply,
+}: {
+  me: Fields;
+  set: (k: string, t: string) => void;
+  busy: boolean;
+  onApply: (agree: boolean) => void;
+}) {
+  const [agree, setAgree] = useState(false);
+  return (
+    <Card>
+      <Text style={S.h2}>Drive with Costa Rica Private Transfers</Text>
+      <Text style={S.muted}>
+        Partner drivers and transport companies receive private transfer and tour requests and choose which trips to take. Start with your
+        name and WhatsApp; next you&apos;ll add your documents and vehicles, and our team will contact you for a short interview.
+      </Text>
+      <Input label="Full name (as on your ID)" value={me.full_name ?? ""} onChange={(t) => set("full_name", t)} />
+      <Input label="WhatsApp number" value={me.phone ?? ""} onChange={(t) => set("phone", t)} keyboard="phone-pad" placeholder="+506 8888 8888" />
+      <Pressable
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: agree }}
+        onPress={() => setAgree((a) => !a)}
+        style={{ flexDirection: "row", gap: 10, alignItems: "flex-start", paddingVertical: 6 }}
+      >
+        <View
+          style={{
+            width: 24,
+            height: 24,
+            borderRadius: 6,
+            borderWidth: 2,
+            borderColor: agree ? C.emerald : C.muted,
+            backgroundColor: agree ? C.emerald : "#fff",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          {agree ? <Text style={{ color: "#fff", fontWeight: "800" }}>✓</Text> : null}
+        </View>
+        <Text style={[S.text, { flex: 1 }]}>
+          I work as an independent driver or transport company. I hold, and will keep current, the licences, permits and insurance the law
+          requires for the trips I accept, and the information I give is true.
+        </Text>
+      </Pressable>
+      <Btn label="Start my application" onPress={() => onApply(agree)} busy={busy} disabled={!agree || !(me.full_name ?? "").trim() || !(me.phone ?? "").trim()} />
+    </Card>
   );
 }
 

@@ -1,1 +1,2 @@
 - 2026-11-09 — Claude — Driver app: documents and vehicles inside the app (details form, document photos from the camera or gallery, add / edit vehicles, vehicle documents and photos, renewals with the new date), through new `/api/v1/driver/*` routes that reuse the website's actions.
+- 2026-11-09 — Claude — Driver app: everything from the phone. A new email can sign in and start the driver application in the app (`/api/v1/driver/apply`), and documents can be PDFs or files as well as photos.

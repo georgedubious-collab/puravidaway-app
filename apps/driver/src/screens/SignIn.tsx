@@ -4,7 +4,7 @@ import { supabase } from "../supabase";
 import { C, S } from "../theme";
 import { Btn } from "../ui";
 
-/** Sign in with the same emailed 6-digit code as the website. No passwords. */
+/** Sign in, or start as a new driver, with an emailed 6-digit code. No passwords. */
 export function SignIn() {
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
@@ -14,13 +14,13 @@ export function SignIn() {
 
   async function sendCode() {
     const e = email.trim().toLowerCase();
-    if (!/^\S+@\S+\.\S+$/.test(e)) return setError("Enter the email you use as a Costa Rica Private Transfers driver.");
+    if (!/^\S+@\S+\.\S+$/.test(e)) return setError("Enter your email address.");
     setBusy(true);
     setError("");
-    // Drivers apply on the website first; the app never creates accounts.
-    const { error: err } = await supabase.auth.signInWithOtp({ email: e, options: { shouldCreateUser: false } });
+    // New drivers can start here too: a first sign-in creates the account, then they apply in the app.
+    const { error: err } = await supabase.auth.signInWithOtp({ email: e, options: { shouldCreateUser: true } });
     setBusy(false);
-    if (err) return setError("We couldn't send a code to that email. Apply on the website first, or check the address.");
+    if (err) return setError("We couldn't send a code to that email. Check the address and try again in a minute.");
     setSent(true);
   }
 
@@ -39,7 +39,7 @@ export function SignIn() {
           Costa Rica Private Transfers <Text style={{ color: "#FBBF24" }}>Partner</Text>
         </Text>
         <Text style={{ color: "#A7F3D0", fontSize: 15 }}>
-          {sent ? "We emailed you a 6-digit code. Enter it here." : "Sign in with the email of your driver account."}
+          {sent ? "We emailed you a 6-digit code. Enter it here." : "Sign in with your email. New here? Enter your email to apply as a driver."}
         </Text>
         {!sent ? (
           <TextInput

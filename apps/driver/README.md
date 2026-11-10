@@ -7,7 +7,8 @@ both the Android and the iPhone app. It lives next to the website but is its own
 Vercel ignores this folder, and the website's checks don't run on it.
 
 ## What it does (first version)
-- Sign in with the same emailed 6-digit code as the website (drivers apply on the website first).
+- Sign in with the same emailed 6-digit code as the website. A new email creates an account and
+  goes straight to the application form (name, WhatsApp, partner statement).
 - **Jobs:** open jobs with the suggested payout; send, change or withdraw an offer.
 - **Trips:** assigned trips; Start trip / Complete trip; Waze and Google Maps buttons;
   cash to collect on cash trips; chat with the traveller and the team.
@@ -23,7 +24,8 @@ Vercel ignores this folder, and the website's checks don't run on it.
 - **Documents and vehicles:** personal details, a photo of each document straight from the
   camera (or the gallery), vehicles with their documents and photos, and renewals with the new
   date. Files go to the driver's private storage folder; `/api/v1/driver/documents` links them
-  with the website's checks. PDFs and starting a new application are still website-only.
+  with the website's checks. Documents can also be PDFs or files from the phone
+  (`expo-document-picker`); vehicle photos are pictures only.
 
 Store review notes: Google Play needs a background-location declaration with a short video, and
 Apple asks why "Always" location is needed. The reason in both cases: the team coordinates
