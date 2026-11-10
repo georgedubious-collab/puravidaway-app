@@ -66,3 +66,13 @@ credentials); `eas build` explains the step the first time.
 - `npx tsc --noEmit` and `npx expo-doctor` must pass before a pull request.
 - Add libraries with `npx expo install <name>` so versions match the Expo SDK.
 - Customer- and driver-facing text says "Costa Rica Private Transfers" only (brand separation).
+
+## Design previews (no phone needed)
+
+Every screen can be shown in a browser with made-up data, without signing in:
+
+    EXPO_PUBLIC_PREVIEW=1 npx expo start --web
+
+Then open the address it prints and add `?s=jobs` (or `trips`, `trip`, `trip2`, `calendar`,
+`earnings`, `profile`, `documents`, `apply`, `help`, `signin`). The sample data lives in
+`src/preview.tsx`. Phone builds never set `EXPO_PUBLIC_PREVIEW`, so drivers never see it.

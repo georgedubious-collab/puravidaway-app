@@ -1,9 +1,10 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useCallback, useEffect, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { supabase } from "../supabase";
 import { C, S } from "../theme";
 import type { Trip } from "../types";
-import { Btn, Card } from "../ui";
+import { Card, IconLine, ScreenTitle, type IconName } from "../ui";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -17,18 +18,19 @@ const ymd = (y: number, m: number, d: number) => y + "-" + String(m + 1).padStar
  * to open it. On a blocked day they aren't shown or sent jobs. Days with a
  * confirmed trip are marked and can't be blocked from here.
  */
-export function Calendar({ trips }: { trips: Trip[] }) {
+export function Calendar({ trips, demoBlocked }: { trips: Trip[]; /** Sample blocked days for design previews; skips loading. */ demoBlocked?: string[] }) {
   const today = crDay(Date.now());
   const [year, setYear] = useState(Number(today.slice(0, 4)));
   const [month, setMonth] = useState(Number(today.slice(5, 7)) - 1);
-  const [blocked, setBlocked] = useState<Set<string>>(new Set());
+  const [blocked, setBlocked] = useState<Set<string>>(new Set(demoBlocked));
   const [busy, setBusy] = useState("");
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   const load = useCallback(async () => {
+    if (demoBlocked) return;
     const { data } = await supabase.from("driver_unavailable").select("day").gte("day", today);
     setBlocked(new Set(((data as { day: string }[] | null) ?? []).map((r) => r.day)));
-  }, [today]);
+  }, [today, demoBlocked]);
   useEffect(() => {
     void load();
   }, [load]);
@@ -70,21 +72,22 @@ export function Calendar({ trips }: { trips: Trip[] }) {
     setMonth(d.getUTCMonth());
   };
 
+  const dot = (color: string) => <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: color }} />;
+
   return (
     <ScrollView style={S.screen} contentContainerStyle={S.pad}>
-      <Text style={S.h1}>Calendar</Text>
-      <Text style={S.muted}>Tap a day to block it when you can&apos;t work. Tap it again to open it. You won&apos;t see or be sent jobs for blocked days.</Text>
+      <ScreenTitle title="Calendar" subtitle="Tap a day to block it when you can't work. Tap it again to open it." />
       <Card>
         <View style={S.row}>
-          <View style={{ width: 64 }}>{!thisMonth ? <Btn label="‹" alt onPress={() => move(-1)} /> : null}</View>
+          <RoundBtn icon="chevron-back" label="Previous month" onPress={() => move(-1)} hidden={thisMonth} />
           <Text style={S.h2}>
             {MONTHS[month]} {year}
           </Text>
-          <View style={{ width: 64 }}>{monthsAhead < 11 ? <Btn label="›" alt onPress={() => move(1)} /> : null}</View>
+          <RoundBtn icon="chevron-forward" label="Next month" onPress={() => move(1)} hidden={monthsAhead >= 11} />
         </View>
-        <View style={{ flexDirection: "row" }}>
+        <View style={{ flexDirection: "row", marginTop: 4 }}>
           {WEEKDAYS.map((w) => (
-            <Text key={w} style={[S.label, { flex: 1, textAlign: "center" }]}>
+            <Text key={w} style={[S.label, { flex: 1, textAlign: "center", letterSpacing: 0 }]}>
               {w}
             </Text>
           ))}
@@ -104,39 +107,72 @@ export function Calendar({ trips }: { trips: Trip[] }) {
                   accessibilityLabel={day + (isBlocked ? ", blocked" : tripCount ? ", trip that day" : ", available")}
                   disabled={past || busy !== ""}
                   onPress={() => void toggle(day)}
-                  style={{
+                  style={({ pressed }) => ({
                     flex: 1,
                     aspectRatio: 1,
                     margin: 2,
-                    borderRadius: 10,
+                    borderRadius: 999,
                     alignItems: "center",
                     justifyContent: "center",
-                    backgroundColor: isBlocked ? "#FEE2E2" : tripCount ? C.emeraldSoft : "#fff",
-                    borderWidth: day === today ? 2 : 1,
-                    borderColor: day === today ? C.emeraldDark : isBlocked ? "#FCA5A5" : C.border,
-                    opacity: past ? 0.35 : busy === day ? 0.5 : 1,
-                  }}
+                    backgroundColor: isBlocked ? C.redSoft : tripCount ? C.emerald : "transparent",
+                    borderWidth: 2,
+                    borderColor: day === today ? C.emeraldDark : "transparent",
+                    opacity: past ? 0.3 : busy === day || pressed ? 0.5 : 1,
+                  })}
                 >
-                  <Text style={{ fontWeight: "800", color: isBlocked ? C.red : C.text }}>{d}</Text>
-                  {tripCount ? <Text style={{ fontSize: 10, fontWeight: "700", color: C.emeraldDark }}>{tripCount === 1 ? "trip" : tripCount + " trips"}</Text> : null}
-                  {isBlocked ? <Text style={{ fontSize: 10, fontWeight: "700", color: C.red }}>off</Text> : null}
+                  <Text
+                    style={{
+                      fontSize: 15,
+                      fontWeight: isBlocked || tripCount || day === today ? "800" : "600",
+                      color: isBlocked ? C.red : tripCount ? "#fff" : C.text,
+                      textDecorationLine: isBlocked ? "line-through" : "none",
+                    }}
+                  >
+                    {d}
+                  </Text>
+                  {tripCount > 1 ? <Text style={{ fontSize: 9, fontWeight: "800", color: "#fff", marginTop: -2 }}>×{tripCount}</Text> : null}
                 </Pressable>
               );
             })}
           </View>
         ))}
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 14, marginTop: 6 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            {dot(C.emerald)}
+            <Text style={S.muted}>Confirmed trip</Text>
+          </View>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            {dot("#FCA5A5")}
+            <Text style={S.muted}>Blocked by you</Text>
+          </View>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <View style={{ width: 10, height: 10, borderRadius: 5, borderWidth: 2, borderColor: C.emeraldDark }} />
+            <Text style={S.muted}>Today</Text>
+          </View>
+        </View>
         {msg ? <Text style={msg.ok ? { color: C.emerald, fontWeight: "700" } : S.error}>{msg.text}</Text> : null}
       </Card>
       <Card>
-        <Text style={S.text}>
-          <Text style={{ fontWeight: "800", color: C.red }}>off</Text> = you blocked the day ·{" "}
-          <Text style={{ fontWeight: "800", color: C.emeraldDark }}>trip</Text> = you have a confirmed trip
-        </Text>
-        <Text style={S.muted}>
-          A day with a confirmed trip can&apos;t be blocked here. If you can&apos;t do a trip, contact support right away (Profile → Help) so we can
-          reassign it. Blocking a day withdraws any offers you sent for it.
-        </Text>
+        <IconLine icon="eye-off-outline" text="You won't see or be sent jobs for blocked days. Blocking a day withdraws any offers you sent for it." />
+        <IconLine
+          icon="alert-circle-outline"
+          text="A day with a confirmed trip can't be blocked here. If you can't do a trip, contact support right away (Profile → Help) so we can reassign it."
+        />
       </Card>
     </ScrollView>
+  );
+}
+
+function RoundBtn({ icon, label, onPress, hidden }: { icon: IconName; label: string; onPress: () => void; hidden?: boolean }) {
+  if (hidden) return <View style={{ width: 44, height: 44 }} />;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      style={({ pressed }) => ({ width: 44, height: 44, borderRadius: 22, backgroundColor: C.emeraldTint, alignItems: "center", justifyContent: "center", opacity: pressed ? 0.6 : 1 })}
+    >
+      <Ionicons name={icon} size={20} color={C.emerald} />
+    </Pressable>
   );
 }

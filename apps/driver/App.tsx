@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import type { Session } from "@supabase/supabase-js";
 import * as Notifications from "expo-notifications";
 import { StatusBar } from "expo-status-bar";
@@ -18,19 +19,74 @@ import { TripDetail } from "./src/screens/TripDetail";
 import { Trips } from "./src/screens/Trips";
 import { supabase } from "./src/supabase";
 import { C } from "./src/theme";
+import type { IconName } from "./src/ui";
+import { Preview } from "./src/preview";
 import type { DriverInfo, Names, Trip, Vehicle } from "./src/types";
 
-type Tab = "jobs" | "trips" | "calendar" | "earnings" | "profile";
-const TABS: { id: Tab; label: string }[] = [
-  { id: "jobs", label: "Jobs" },
-  { id: "trips", label: "Trips" },
-  { id: "calendar", label: "Calendar" },
-  { id: "earnings", label: "Earnings" },
-  { id: "profile", label: "Profile" },
+export type Tab = "jobs" | "trips" | "calendar" | "earnings" | "profile";
+const TABS: { id: Tab; label: string; icon: IconName; iconOn: IconName }[] = [
+  { id: "jobs", label: "Jobs", icon: "briefcase-outline", iconOn: "briefcase" },
+  { id: "trips", label: "Trips", icon: "car-outline", iconOn: "car" },
+  { id: "calendar", label: "Calendar", icon: "calendar-outline", iconOn: "calendar" },
+  { id: "earnings", label: "Earnings", icon: "wallet-outline", iconOn: "wallet" },
+  { id: "profile", label: "Profile", icon: "person-outline", iconOn: "person" },
 ];
 
+/** Design previews with sample data (web only, never in a phone build): EXPO_PUBLIC_PREVIEW=1. */
+const PREVIEW = process.env.EXPO_PUBLIC_PREVIEW === "1";
+
+/** The slim brand line above every screen. */
+export function TopBar() {
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 16, paddingTop: 6, paddingBottom: 8, backgroundColor: C.bg }}>
+      <View style={{ width: 26, height: 26, borderRadius: 8, backgroundColor: C.emeraldDark, alignItems: "center", justifyContent: "center" }}>
+        <Ionicons name="car-sport" size={15} color="#fff" />
+      </View>
+      <Text style={{ color: C.emeraldDark, fontSize: 13, fontWeight: "800", flex: 1 }} numberOfLines={1}>
+        Costa Rica Private Transfers
+      </Text>
+      <View style={{ backgroundColor: "#FDE68A", borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 }}>
+        <Text style={{ color: "#78350F", fontSize: 10, fontWeight: "800", letterSpacing: 0.8 }}>PARTNER</Text>
+      </View>
+    </View>
+  );
+}
+
+/** Bottom tabs: icon over label, filled icon and a tinted pill for the current one. */
+export function TabBar({ tab, onChange, tripsBadge }: { tab: Tab; onChange: (t: Tab) => void; tripsBadge?: number }) {
+  return (
+    <SafeAreaView edges={["bottom"]} style={{ backgroundColor: "#fff", borderTopWidth: 1, borderTopColor: C.border }}>
+      <View style={{ flexDirection: "row", paddingTop: 6, paddingBottom: 4 }}>
+        {TABS.map((t) => {
+          const on = tab === t.id;
+          return (
+            <Pressable
+              key={t.id}
+              accessibilityRole="tab"
+              accessibilityLabel={t.label}
+              accessibilityState={{ selected: on }}
+              onPress={() => onChange(t.id)}
+              style={{ flex: 1, minHeight: 52, alignItems: "center", justifyContent: "center", gap: 2 }}
+            >
+              <View style={{ paddingHorizontal: 16, paddingVertical: 4, borderRadius: 999, backgroundColor: on ? C.emeraldSoft : "transparent" }}>
+                <Ionicons name={on ? t.iconOn : t.icon} size={22} color={on ? C.emerald : C.muted} />
+                {t.id === "trips" && tripsBadge ? (
+                  <View style={{ position: "absolute", top: -2, right: 6, minWidth: 16, height: 16, borderRadius: 8, backgroundColor: C.amber, alignItems: "center", justifyContent: "center", paddingHorizontal: 3 }}>
+                    <Text style={{ color: "#fff", fontSize: 10, fontWeight: "800" }}>{tripsBadge}</Text>
+                  </View>
+                ) : null}
+              </View>
+              <Text style={{ fontWeight: on ? "800" : "600", fontSize: 11, color: on ? C.emerald : C.muted }}>{t.label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </SafeAreaView>
+  );
+}
+
 /**
- * Costa Rica Private Transfers Partner (driver app). Four tabs and a trip screen; a small
+ * Costa Rica Private Transfers Partner (driver app). Five tabs and a trip screen; a small
  * hand-rolled navigator keeps the first version simple. Reading goes straight
  * to Supabase as the signed-in driver; actions go through the website's /api/v1.
  */
@@ -42,9 +98,10 @@ export default function App() {
     return () => data.subscription.unsubscribe();
   }, []);
 
+  if (PREVIEW) return <Preview />;
   return (
     <SafeAreaProvider>
-      <StatusBar style="light" />
+      <StatusBar style={session ? "dark" : "light"} />
       {session === undefined ? (
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: C.emeraldDark }}>
           <ActivityIndicator color="#fff" />
@@ -144,12 +201,8 @@ function Home({ session }: { session: Session }) {
   const openTrip = tripId ? trips.find((t) => t.id === tripId) : undefined;
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: C.emeraldDark }} edges={["top"]}>
-      <View style={{ paddingHorizontal: 16, paddingVertical: 12 }}>
-        <Text style={{ color: "#fff", fontSize: 16, fontWeight: "800" }}>
-          Costa Rica Private Transfers <Text style={{ color: "#FBBF24" }}>Partner</Text>
-        </Text>
-      </View>
+    <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }} edges={["top"]}>
+      <TopBar />
       <View style={{ flex: 1, backgroundColor: C.bg }}>
         {tab === "trips" && openTrip ? (
           <TripDetail trip={openTrip} names={names} onBack={() => setTripId(null)} onChanged={loadTrips} />
@@ -191,28 +244,17 @@ function Home({ session }: { session: Session }) {
           />
         )}
       </View>
-      <SafeAreaView edges={["bottom"]} style={{ backgroundColor: "#fff", borderTopWidth: 1, borderTopColor: C.border }}>
-        <View style={{ flexDirection: "row" }}>
-          {TABS.map((t) => (
-            <Pressable
-              key={t.id}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: tab === t.id }}
-              onPress={() => {
-                setTab(t.id);
-                setDocsOpen(false);
-                setHelpOpen(false);
-                if (t.id !== "trips") setTripId(null);
-                if (t.id === "calendar") void loadTrips();
-                if (t.id === "trips" || t.id === "earnings") void loadTrips();
-              }}
-              style={{ flex: 1, minHeight: 52, alignItems: "center", justifyContent: "center" }}
-            >
-              <Text style={{ fontWeight: "800", fontSize: 12, color: tab === t.id ? C.emerald : C.muted }}>{t.label}</Text>
-            </Pressable>
-          ))}
-        </View>
-      </SafeAreaView>
+      <TabBar
+        tab={tab}
+        tripsBadge={trips.filter((t) => t.status === "confirmed" || t.status === "in_progress").length}
+        onChange={(id) => {
+          setTab(id);
+          setDocsOpen(false);
+          setHelpOpen(false);
+          if (id !== "trips") setTripId(null);
+          if (id === "calendar" || id === "trips" || id === "earnings") void loadTrips();
+        }}
+      />
     </SafeAreaView>
   );
 }

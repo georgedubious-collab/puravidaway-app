@@ -45,7 +45,8 @@
           "photosPermission": "Costa Rica Private Transfers lets you choose photos of your documents and vehicles for verification.",
           "microphonePermission": false
         }
-      ]
+      ],
+      "expo-font"
     ],
     "extra": {
       "eas": {
