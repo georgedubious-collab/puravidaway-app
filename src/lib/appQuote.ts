@@ -1,11 +1,12 @@
 import "server-only";
-import { HUBS, perPersonTierCents, stopFitsRoute } from "./catalog";
+import { HUBS, REGION_NAMES, perPersonTierCents, stopFitsRoute } from "./catalog";
 import { seasonForYmd } from "./catalogModel";
 import { getCatalog } from "./catalogSource";
 import { isValidYmd, todayInCostaRica } from "./dates";
 import { MapsError, resolvePlace, rideRoute } from "./googleMaps";
 import { isAirportPickup, isHubPlace } from "./places";
-import { applyMultiplier, quoteDayTour, quoteTransfer } from "./pricing";
+import { applyMultiplier, perPersonCents, perPersonShare, quoteDayTour, quoteTransfer } from "./pricing";
+import { MIN_OFFER_USD } from "./tripRequest";
 
 /**
  * Prices for the traveller app. The app never calculates a price itself: it
@@ -29,6 +30,8 @@ export interface RideQuote {
   ferries: number;
   season: { name: string; percent: number };
   cashFeeBps: number;
+  /** Lowest offer for "Driver bids" (same rule as the website). */
+  minOfferCents: number;
   vehicles: {
     id: string;
     name: string;
@@ -39,8 +42,12 @@ export interface RideQuote {
     spanishSpeakingDriver: boolean;
     /** Exact total for this vehicle with the chosen stops (stops ignored where the vehicle doesn't allow them). */
     totalCents: number;
+    /** Daytrip-style "from $X per person": the car shared by a full car (see perPersonCents). */
+    perPersonCents: number;
+    perPersonShare: number;
   }[];
-  stops: { id: string; name: string; description: string; durationMin: number; cents: number; entrance: string }[];
+  /** `cents` is the whole stop for this group; `tourPerPersonCents` > 0 when it includes a guided visit per person. */
+  stops: { id: string; name: string; description: string; durationMin: number; cents: number; tourPerPersonCents: number; entrance: string }[];
 }
 
 export class QuoteError extends Error {}
@@ -97,6 +104,7 @@ export async function rideQuote(input: { from: string; to: string; date: string;
     ferries: route?.ferries ?? 0,
     season: { name: season.name, percent: Math.round((season.multiplierBps - 10000) / 100) },
     cashFeeBps: catalog.cashFeeBps,
+    minOfferCents: MIN_OFFER_USD * 100,
     vehicles: quotes.map(({ v, q }) => ({
       id: v.id,
       name: v.name,
@@ -106,6 +114,8 @@ export async function rideQuote(input: { from: string; to: string; date: string;
       allowsStops: v.allowsStops,
       spanishSpeakingDriver: v.spanishSpeakingDriver,
       totalCents: q.totalCents,
+      perPersonCents: perPersonCents(q.totalCents, v.maxPax),
+      perPersonShare: perPersonShare(v.maxPax),
     })),
     stops: fits.map((s) => ({
       id: s.id,
@@ -113,6 +123,7 @@ export async function rideQuote(input: { from: string; to: string; date: string;
       description: s.description,
       durationMin: s.durationMin,
       cents: applyMultiplier(s.priceCents + s.tourPerPersonCents * input.pax, season.multiplierBps),
+      tourPerPersonCents: applyMultiplier(s.tourPerPersonCents, season.multiplierBps),
       entrance: s.entrance,
     })),
   };
@@ -122,10 +133,13 @@ export interface TourQuote {
   id: string;
   name: string;
   region: string;
+  regionName: string;
   durationHours: number;
   highlights: string[];
   perPersonCents: number;
   totalCents: number;
+  /** Total with the Smart En-Route Transfer (end the day at the next hotel). */
+  totalWithUpgradeCents: number;
 }
 
 /** Day tours with the total for this group and date. */
@@ -141,10 +155,12 @@ export async function tourQuotes(date: string, pax: number): Promise<{ tours: To
       id: t.id,
       name: t.name,
       region: t.region,
+      regionName: REGION_NAMES[t.region] ?? t.region,
       durationHours: t.durationHours,
       highlights: t.highlights,
       perPersonCents: applyMultiplier(perPersonTierCents(t.perPerson, pax), season.multiplierBps),
       totalCents: quoteDayTour(t.id, false, pax, season, catalog),
+      totalWithUpgradeCents: quoteDayTour(t.id, true, pax, season, catalog),
     })),
   };
 }

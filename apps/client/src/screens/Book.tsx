@@ -8,6 +8,7 @@ import { TOWNS, plural, usd } from "../format";
 import { DatePicker, longDate } from "../DatePicker";
 import { useT, type Lang } from "../i18n";
 import { C, R, S } from "../theme";
+import { hasContactDetails } from "../contact";
 import { CodeInput, sendCode, validEmail, verifyCode } from "./SignIn";
 import { Back, Badge, Btn, Card, Chip, Divider, IconLine, LinkBtn, ScreenTitle, type IconName } from "../ui";
 
@@ -26,8 +27,21 @@ export interface RideQuote {
   ferries: number;
   season: { name: string; percent: number };
   cashFeeBps: number;
-  vehicles: { id: string; name: string; badge: string; maxPax: number; luggage: string; allowsStops: boolean; spanishSpeakingDriver: boolean; totalCents: number }[];
-  stops: { id: string; name: string; description: string; durationMin: number; cents: number; entrance: string }[];
+  /** Lowest "Driver bids" offer. Older servers don't send it. */
+  minOfferCents?: number;
+  vehicles: {
+    id: string;
+    name: string;
+    badge: string;
+    maxPax: number;
+    luggage: string;
+    allowsStops: boolean;
+    spanishSpeakingDriver: boolean;
+    totalCents: number;
+    perPersonCents?: number;
+    perPersonShare?: number;
+  }[];
+  stops: { id: string; name: string; description: string; durationMin: number; cents: number; tourPerPersonCents?: number; entrance: string }[];
 }
 export interface Tour {
   id: string;
@@ -36,7 +50,21 @@ export interface Tour {
   highlights: string[];
   perPersonCents: number;
   totalCents: number;
+  region?: string;
+  regionName?: string;
+  /** With the Smart En-Route Transfer. Older servers don't send it. */
+  totalWithUpgradeCents?: number;
 }
+
+/** The driver preferences the website sends (src/lib/preferences.ts RidePrefs). */
+interface Prefs {
+  language: "english" | "spanish_ok";
+  wifi: boolean;
+  stroller: boolean;
+  childSeats: number;
+  pets: boolean;
+}
+const DEFAULT_PREFS: Prefs = { language: "english", wifi: false, stroller: false, childSeats: 0, pets: false };
 /** What the traveller has chosen and is about to send. */
 export interface Chosen {
   title: string;
@@ -134,6 +162,10 @@ function Ride({ date, pax, onChoose, demo }: { date: string; pax: number; onChoo
   const [stopIds, setStopIds] = useState<string[]>([]);
   const [vehicleId, setVehicleId] = useState("sedan");
   const [notes, setNotes] = useState("");
+  const [mode, setMode] = useState<"fixed" | "bid">("fixed");
+  const [offer, setOffer] = useState("");
+  const [prefs, setPrefs] = useState<Prefs>(DEFAULT_PREFS);
+  const [driverNotes, setDriverNotes] = useState("");
   const [quote, setQuote] = useState<RideQuote | null>(demo?.quote ?? null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -159,15 +191,50 @@ function Ride({ date, pax, onChoose, demo }: { date: string; pax: number; onChoo
 
   const vehicle = quote?.vehicles.find((v) => v.id === vehicleId) ?? quote?.vehicles[0];
   const stopsOn = vehicle?.allowsStops ?? true;
+  // Economy comes with a Spanish-speaking driver, so "English-speaking driver" isn't offered with it.
+  const spanishDriver = vehicle?.spanishSpeakingDriver ?? false;
+  const effectivePrefs: Prefs = spanishDriver ? { ...prefs, language: "spanish_ok" } : prefs;
+  const minOffer = quote?.minOfferCents ?? 5000;
+  const offerNumber = Number(offer.replace(",", "."));
+  const offerCents = Number.isFinite(offerNumber) ? Math.round(offerNumber) * 100 : 0;
+  const offerValid = offerCents >= minOffer;
+  const offerLow = Boolean(vehicle) && offerValid && offerCents < (vehicle?.totalCents ?? 0) * 0.7;
+  const notesBlocked = hasContactDetails(driverNotes);
+  const itemCents = mode === "bid" ? offerCents : (vehicle?.totalCents ?? 0);
+  const canContinue = Boolean(vehicle) && !notesBlocked && (mode === "fixed" || offerValid);
+
+  // Start the offer at the fixed price for the chosen vehicle.
+  useEffect(() => {
+    if (mode === "bid" && !offer && vehicle) setOffer(String(Math.round(vehicle.totalCents / 100)));
+  }, [mode, offer, vehicle]);
+
+  function prefsText(): string {
+    const p = effectivePrefs;
+    const out: string[] = [];
+    if (p.language === "spanish_ok") out.push(t("Spanish OK", "Español está bien"));
+    if (p.childSeats) out.push(p.childSeats + t(" child seat" + (p.childSeats > 1 ? "s" : ""), p.childSeats > 1 ? " sillas de niño" : " silla de niño"));
+    if (p.wifi) out.push("Wi-Fi");
+    if (p.stroller) out.push(t("stroller", "coche de bebé"));
+    if (p.pets) out.push(t("pet", "mascota"));
+    return out.length ? " · " + out.join(", ") : "";
+  }
 
   function choose() {
-    if (!quote || !vehicle) return;
+    if (!quote || !vehicle || !canContinue) return;
     const stops = stopsOn ? stopIds.filter((id) => quote.stops.some((s) => s.id === id)) : [];
     onChoose({
       title: quote.originLabel + " → " + quote.destinationLabel,
-      detail: vehicle.name + ", " + plural(pax, "traveller", lang) + (stops.length ? " + " + plural(stops.length, "stop", lang) : "") + t(" · pickup ", " · recogida ") + time12(time),
+      detail:
+        (mode === "bid" ? t("Your offer to drivers · ", "Su oferta a los conductores · ") : "") +
+        vehicle.name +
+        ", " +
+        plural(pax, "traveller", lang) +
+        (stops.length ? " + " + plural(stops.length, "stop", lang) : "") +
+        t(" · pickup ", " · recogida ") +
+        time12(time) +
+        prefsText(),
       date,
-      totalCents: vehicle.totalCents,
+      totalCents: itemCents,
       cashFeeBps: quote.cashFeeBps,
       spec: {
         kind: "transfer",
@@ -176,10 +243,11 @@ function Ride({ date, pax, onChoose, demo }: { date: string; pax: number; onChoo
         stopIds: stops,
         pax,
         pickupTime: time,
-        pricing: "fixed",
+        pricing: mode,
+        ...(mode === "bid" ? { offerCents } : {}),
         ...(notes.trim() ? { notes: notes.trim() } : {}),
-        // Economy comes with a Spanish-speaking driver.
-        ...(vehicle.spanishSpeakingDriver ? { prefs: { language: "spanish_ok", wifi: false, stroller: false, childSeats: 0, pets: false } } : {}),
+        prefs: effectivePrefs,
+        ...(driverNotes.trim() ? { driverNotes: driverNotes.trim() } : {}),
       },
     });
   }
@@ -210,7 +278,38 @@ function Ride({ date, pax, onChoose, demo }: { date: string; pax: number; onChoo
             {quote.season.percent ? <Badge text={quote.season.name + " " + (quote.season.percent > 0 ? "+" : "") + quote.season.percent + "%"} tone="amber" icon="sunny-outline" /> : null}
           </View>
           {quote.vehicles.length === 0 ? <Text style={S.error}>{t("No vehicle for " + pax + " travellers on this route. Message us on WhatsApp.", "No hay vehículo para " + pax + " viajeros en esta ruta. Escríbanos por WhatsApp.")}</Text> : null}
-          {quote.vehicles.length ? <Text style={[S.label, { marginTop: 4 }]}>{t("Choose your vehicle", "Elija su vehículo")}</Text> : null}
+          {quote.vehicles.length ? (
+            <View style={{ flexDirection: "row", backgroundColor: "#E6ECE8", borderRadius: R.control, padding: 4, marginTop: 4 }} accessibilityRole="tablist">
+              <Segment label={t("Fixed price", "Precio fijo")} icon="pricetag-outline" on={mode === "fixed"} onPress={() => setMode("fixed")} />
+              <Segment label={t("Driver bids", "Ofertas de conductores")} icon="hammer-outline" on={mode === "bid"} onPress={() => setMode("bid")} />
+            </View>
+          ) : null}
+          {mode === "bid" && vehicle ? (
+            <Card tone="amber">
+              <Text style={S.h2}>{t("Name your price", "Proponga su precio")}</Text>
+              <Text style={S.text}>
+                {t(
+                  "Hand-picked local drivers see your offer and bid on it. Our team confirms the best match and emails you the driver's profile and car. Nothing is charged until then.",
+                  "Conductores locales seleccionados ven su oferta y ofertan. Nuestro equipo confirma la mejor opción y le envía por correo el perfil del conductor y el vehículo. No se cobra nada hasta entonces.",
+                )}
+              </Text>
+              <Text style={S.muted}>{t("Fixed price for the " + vehicle.name + ": ", "Precio fijo del " + vehicle.name + ": ") + cents(vehicle.totalCents)}</Text>
+              <View style={[S.input, { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "#fff" }]}>
+                <Text style={{ fontSize: 22, fontWeight: "800", color: C.text }}>$</Text>
+                <TextInput
+                  accessibilityLabel={t("Your offer in US dollars", "Su oferta en dólares")}
+                  value={offer}
+                  onChangeText={(v) => setOffer(v.replace(/[^0-9]/g, "").slice(0, 5))}
+                  keyboardType="number-pad"
+                  style={{ flex: 1, fontSize: 22, fontWeight: "800", color: C.text, padding: 0 }}
+                />
+                <Text style={S.muted}>USD</Text>
+              </View>
+              {!offerValid ? <Text style={S.error}>{t("Enter an offer of at least ", "Ingrese una oferta de al menos ") + cents(minOffer) + "."}</Text> : null}
+              {offerLow ? <Text style={{ color: C.amber, fontWeight: "700" }}>{t("That's well below the fixed price, so drivers may not accept it.", "Está muy por debajo del precio fijo, así que es posible que los conductores no la acepten.")}</Text> : null}
+            </Card>
+          ) : null}
+          {quote.vehicles.length ? <Text style={[S.label, { marginTop: 4 }]}>{mode === "bid" ? t("Vehicle you'd like", "Vehículo que desea") : t("Choose your vehicle", "Elija su vehículo")}</Text> : null}
           {quote.vehicles.map((v) => {
             const on = v.id === vehicle?.id;
             return (
@@ -230,7 +329,15 @@ function Ride({ date, pax, onChoose, demo }: { date: string; pax: number; onChoo
                   </Text>
                   <Badge text={v.badge} tone="amber" />
                 </View>
-                <Text style={S.money}>{cents(v.totalCents)}</Text>
+                <View style={{ alignItems: "flex-end" }}>
+                  <Text style={[S.money, mode === "bid" ? { color: C.muted, fontSize: 18 } : null]}>{cents(v.totalCents)}</Text>
+                  <Text style={{ fontSize: 11, fontWeight: "700", color: C.muted }}>{t("per car", "por vehículo")}</Text>
+                  {v.perPersonCents ? (
+                    <Text style={{ fontSize: 11, color: C.muted, textAlign: "right" }}>
+                      {t("from " + cents(v.perPersonCents) + "/person", "desde " + cents(v.perPersonCents) + "/persona")}
+                    </Text>
+                  ) : null}
+                </View>
               </Pressable>
             );
           })}
@@ -259,6 +366,11 @@ function Ride({ date, pax, onChoose, demo }: { date: string; pax: number; onChoo
                               <Text style={{ fontWeight: "800", color: C.emerald }}>+{cents(s.cents)}</Text>
                             </View>
                             <Text style={S.muted}>{s.description}</Text>
+                            {s.tourPerPersonCents ? (
+                              <Text style={S.muted}>
+                                {t("Guided visit " + cents(s.tourPerPersonCents) + " per person, included for " + plural(pax, "traveller", "en"), "Visita guiada " + cents(s.tourPerPersonCents) + " por persona, incluida para " + plural(pax, "traveller", "es"))}
+                              </Text>
+                            ) : null}
                             <Text style={S.muted}>
                               {t("Adds ", "Agrega ") + s.durationMin} min{ENTRANCE[lang][s.entrance] ? " · " + ENTRANCE[lang][s.entrance] : ""}
                             </Text>
@@ -270,19 +382,84 @@ function Ride({ date, pax, onChoose, demo }: { date: string; pax: number; onChoo
                 : null}
             </Card>
           ) : null}
+          {vehicle ? (
+            <Card>
+              <Text style={S.h2}>{t("Your driver & extras", "Su conductor y extras")}</Text>
+              <Text style={FIELD_LABEL}>{t("Driver's language", "Idioma del conductor")}</Text>
+              <Option2
+                icon="chatbubbles-outline"
+                title={t("English-speaking driver", "Conductor que habla inglés")}
+                on={effectivePrefs.language === "english"}
+                disabled={spanishDriver}
+                onPress={() => setPrefs({ ...prefs, language: "english" })}
+              />
+              <Option2
+                icon="chatbubble-ellipses-outline"
+                title={t("Spanish or basic English is fine", "Español o inglés básico está bien")}
+                on={effectivePrefs.language === "spanish_ok"}
+                onPress={() => setPrefs({ ...prefs, language: "spanish_ok" })}
+              />
+              {spanishDriver ? (
+                <Text style={S.muted}>
+                  {t(vehicle.name + " has a Spanish-speaking driver. For an English-speaking driver, choose another vehicle.", vehicle.name + " tiene un conductor que habla español. Para un conductor que hable inglés, elija otro vehículo.")}
+                </Text>
+              ) : null}
+              <Text style={[FIELD_LABEL, { marginTop: 8 }]}>{t("Extras (free, subject to availability)", "Extras (gratis, según disponibilidad)")}</Text>
+              <View style={[S.row, { paddingVertical: 4 }]}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flex: 1 }}>
+                  <Ionicons name="happy-outline" size={20} color={C.muted} />
+                  <Text style={{ fontSize: 15, fontWeight: "700", color: C.text }}>{t("Baby / child seats", "Sillas para bebé / niño")}</Text>
+                </View>
+                <Step icon="remove" label={t("One fewer child seat", "Una silla menos")} onPress={() => setPrefs({ ...prefs, childSeats: Math.max(0, prefs.childSeats - 1) })} disabled={prefs.childSeats <= 0} />
+                <Text style={{ fontSize: 18, fontWeight: "800", color: C.text, minWidth: 22, textAlign: "center" }}>{prefs.childSeats}</Text>
+                <Step icon="add" label={t("One more child seat", "Una silla más")} onPress={() => setPrefs({ ...prefs, childSeats: Math.min(4, prefs.childSeats + 1) })} disabled={prefs.childSeats >= 4} />
+              </View>
+              {prefs.childSeats > 0 ? <Text style={S.muted}>{t("Add the children's ages in the message below so the right seats come along.", "Escriba la edad de los niños en el mensaje de abajo para llevar las sillas correctas.")}</Text> : null}
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                <Toggle icon="wifi-outline" label={t("Wi-Fi on board", "Wi-Fi a bordo")} on={prefs.wifi} onPress={() => setPrefs({ ...prefs, wifi: !prefs.wifi })} />
+                <Toggle icon="cart-outline" label={t("Stroller", "Coche de bebé")} on={prefs.stroller} onPress={() => setPrefs({ ...prefs, stroller: !prefs.stroller })} />
+                <Toggle icon="paw-outline" label={t("Travelling with a pet", "Viajo con mascota")} on={prefs.pets} onPress={() => setPrefs({ ...prefs, pets: !prefs.pets })} />
+              </View>
+              <Text style={[FIELD_LABEL, { marginTop: 8 }]}>{t("Message for your driver (optional)", "Mensaje para su conductor (opcional)")}</Text>
+              <TextInput
+                accessibilityLabel={t("Message for your driver", "Mensaje para su conductor")}
+                value={driverNotes}
+                onChangeText={setDriverNotes}
+                multiline
+                maxLength={500}
+                placeholder={t("e.g. Kids are 2 and 5 · a stop for fresh fruit · large surfboard bag", "p. ej. Los niños tienen 2 y 5 años · una parada para fruta · bolsa de tabla de surf grande")}
+                placeholderTextColor={C.faint}
+                style={[S.input, { minHeight: 80, textAlignVertical: "top" }]}
+              />
+              {notesBlocked ? (
+                <Text style={S.error}>
+                  {t("Please leave out phone numbers, emails and links. Your driver gets your contact details once confirmed.", "Por favor no incluya teléfonos, correos ni enlaces. Su conductor recibe sus datos de contacto una vez confirmado.")}
+                </Text>
+              ) : null}
+            </Card>
+          ) : null}
+          {vehicle ? (
+            <Card>
+              <Text style={S.label}>{t("Every ride includes", "Cada traslado incluye")}</Text>
+              {quote.airportPickup ? <IconLine icon="airplane-outline" color={C.emerald} text={t("Flight tracking: we follow your flight, so a delay doesn't leave you stranded.", "Seguimiento del vuelo: seguimos su vuelo, así que un retraso no lo deja esperando.")} /> : null}
+              <IconLine icon="time-outline" color={C.emerald} text={t("60 min free waiting after your flight lands or your pickup time.", "60 min de espera gratis después de que aterrice su vuelo o de la hora de recogida.")} />
+              <IconLine icon="happy-outline" color={C.emerald} text={t("Child seats free on request.", "Sillas para niños gratis si las pide.")} />
+              <IconLine icon="shield-checkmark-outline" color={C.emerald} text={t("Free cancellation up to 24 hours before pickup.", "Cancelación gratis hasta 24 horas antes de la recogida.")} />
+            </Card>
+          ) : null}
           <Card>
             <Text style={FIELD_LABEL}>{quote.airportPickup ? t("Flight number, so we can track it", "Número de vuelo, para darle seguimiento") : t("Flight number or hotel name (optional)", "Número de vuelo o nombre del hotel (opcional)")}</Text>
             <TextInput accessibilityLabel={t("Flight number or hotel", "Número de vuelo u hotel")} value={notes} onChangeText={setNotes} maxLength={200} placeholder={t("e.g. AA 1234", "p. ej. AA 1234")} placeholderTextColor={C.faint} style={S.input} />
             {vehicle ? (
               <>
                 <View style={[S.row, { marginTop: 6 }]}>
-                  <View>
-                    <Text style={S.label}>Total</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={S.label}>{mode === "bid" ? t("Your offer", "Su oferta") : "Total"}</Text>
                     <Text style={S.muted}>{t("For the whole car, taxes included", "Por todo el vehículo, impuestos incluidos")}</Text>
                   </View>
-                  <Text style={[S.money, { fontSize: 30 }]}>{cents(vehicle.totalCents)}</Text>
+                  <Text style={[S.money, { fontSize: 30 }]}>{mode === "bid" && !offerValid ? "—" : cents(itemCents)}</Text>
                 </View>
-                <Btn label={t("Continue", "Continuar")} icon="arrow-forward" onPress={choose} busy={busy} color={C.emerald} />
+                <Btn label={t("Continue", "Continuar")} icon="arrow-forward" onPress={choose} busy={busy} disabled={!canContinue} color={C.emerald} />
               </>
             ) : null}
           </Card>
@@ -297,6 +474,8 @@ function Tours({ date, pax, onChoose, demo }: { date: string; pax: number; onCho
   const [tours, setTours] = useState<Tour[] | null>(demo ?? null);
   const [fee, setFee] = useState(0);
   const [error, setError] = useState("");
+  const [upgrades, setUpgrades] = useState<Record<string, boolean>>({});
+  const [region, setRegion] = useState("ALL");
   useEffect(() => {
     if (demo || !validDate(date)) return;
     let live = true;
@@ -311,11 +490,25 @@ function Tours({ date, pax, onChoose, demo }: { date: string; pax: number; onCho
       live = false;
     };
   }, [date, pax, demo, t]);
+  const regions = [...new Map((tours ?? []).filter((x) => x.region && x.regionName).map((x) => [x.region as string, x.regionName as string])).entries()];
   return (
     <>
       {error ? <Text style={S.error}>{error}</Text> : null}
-      {(tours ?? []).map((tour) => (
+      {regions.length > 1 ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+          <Chip label={t("All regions", "Todas las regiones")} on={region === "ALL"} onPress={() => setRegion("ALL")} />
+          {regions.map(([id, name]) => (
+            <Chip key={id} label={name} on={region === id} onPress={() => setRegion(id)} />
+          ))}
+        </ScrollView>
+      ) : null}
+      {(tours ?? []).filter((tour) => region === "ALL" || tour.region === region).map((tour) => {
+        const upgrade = Boolean(upgrades[tour.id]) && tour.totalWithUpgradeCents != null;
+        const total = upgrade ? (tour.totalWithUpgradeCents as number) : tour.totalCents;
+        const upgradeCents = tour.totalWithUpgradeCents != null ? tour.totalWithUpgradeCents - tour.totalCents : 0;
+        return (
         <Card key={tour.id}>
+          {tour.regionName ? <Badge text={tour.regionName} icon="location-outline" /> : null}
           <Text style={[S.h2, { fontSize: 19 }]}>{tour.name}</Text>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
             <Badge text={plural(tour.durationHours, "hour", lang)} tone="grey" icon="time-outline" />
@@ -328,13 +521,27 @@ function Tours({ date, pax, onChoose, demo }: { date: string; pax: number; onCho
               <Text style={[S.text, { flex: 1 }]}>{h}</Text>
             </View>
           ))}
+          {upgradeCents > 0 ? (
+            <Pressable
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: upgrade }}
+              onPress={() => setUpgrades((u) => ({ ...u, [tour.id]: !u[tour.id] }))}
+              style={({ pressed }) => ({ flexDirection: "row", gap: 10, backgroundColor: C.amberSoft, borderRadius: R.control, padding: 12, opacity: pressed ? 0.7 : 1 })}
+            >
+              <Ionicons name={upgrade ? "checkbox" : "square-outline"} size={22} color={upgrade ? C.emerald : C.amber} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontWeight: "800", color: C.text }}>{"Smart En-Route Transfer (+" + cents(upgradeCents) + ")"}</Text>
+                <Text style={S.muted}>{t("End the day at your next hotel instead of returning.", "Termine el día en su próximo hotel en lugar de regresar.")}</Text>
+              </View>
+            </Pressable>
+          ) : null}
           <Divider />
           <View style={S.row}>
             <View>
               <Text style={S.label}>{plural(pax, "traveller", lang)}</Text>
               <Text style={S.muted}>{cents(tour.perPersonCents) + t(" per person", " por persona")}</Text>
             </View>
-            <Text style={[S.money, { fontSize: 28 }]}>{cents(tour.totalCents)}</Text>
+            <Text style={[S.money, { fontSize: 28 }]}>{cents(total)}</Text>
           </View>
           <Btn
             label={t("Choose this tour", "Elegir este tour")}
@@ -342,16 +549,20 @@ function Tours({ date, pax, onChoose, demo }: { date: string; pax: number; onCho
             onPress={() =>
               onChoose({
                 title: tour.name,
-                detail: t(tour.durationHours + "h private tour, ", "Tour privado de " + tour.durationHours + " h, ") + plural(pax, "traveller", lang),
+                detail:
+                  t(tour.durationHours + "h private tour, ", "Tour privado de " + tour.durationHours + " h, ") +
+                  plural(pax, "traveller", lang) +
+                  (upgrade ? " + Smart En-Route Transfer" : ""),
                 date,
-                totalCents: tour.totalCents,
+                totalCents: total,
                 cashFeeBps: fee,
-                spec: { kind: "day_tour", tourId: tour.id, upgrade: false, pax },
+                spec: { kind: "day_tour", tourId: tour.id, upgrade, pax },
               })
             }
           />
         </Card>
-      ))}
+        );
+      })}
     </>
   );
 }
@@ -699,6 +910,59 @@ function Step({ icon, label, onPress, disabled }: { icon: "add" | "remove"; labe
       style={({ pressed }) => ({ width: 46, height: 46, borderRadius: 23, backgroundColor: C.emeraldTint, alignItems: "center", justifyContent: "center", opacity: disabled ? 0.35 : pressed ? 0.6 : 1 })}
     >
       <Ionicons name={icon} size={22} color={C.emerald} />
+    </Pressable>
+  );
+}
+
+/** A full-width radio choice with an icon (driver's language). */
+function Option2({ icon, title, on, disabled, onPress }: { icon: IconName; title: string; on: boolean; disabled?: boolean; onPress: () => void }) {
+  return (
+    <Pressable
+      accessibilityRole="radio"
+      accessibilityState={{ selected: on, disabled: Boolean(disabled) }}
+      onPress={disabled ? undefined : onPress}
+      style={({ pressed }) => ({
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 10,
+        minHeight: 48,
+        borderWidth: 2,
+        borderColor: on ? C.emerald : C.border,
+        backgroundColor: on ? C.emeraldTint : "#fff",
+        borderRadius: R.control,
+        paddingHorizontal: 12,
+        opacity: disabled ? 0.4 : pressed ? 0.7 : 1,
+      })}
+    >
+      <Ionicons name={icon} size={20} color={on ? C.emerald : C.muted} />
+      <Text style={{ flex: 1, fontSize: 15, fontWeight: "700", color: C.text }}>{title}</Text>
+      <Ionicons name={on ? "radio-button-on" : "radio-button-off"} size={22} color={on ? C.emerald : C.faint} />
+    </Pressable>
+  );
+}
+
+/** An on/off extra (Wi-Fi, stroller, pet). */
+function Toggle({ icon, label, on, onPress }: { icon: IconName; label: string; on: boolean; onPress: () => void }) {
+  return (
+    <Pressable
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked: on }}
+      onPress={onPress}
+      style={({ pressed }) => ({
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 6,
+        minHeight: 44,
+        borderWidth: 1.5,
+        borderColor: on ? C.emerald : C.border,
+        backgroundColor: on ? C.emeraldTint : "#fff",
+        borderRadius: R.pill,
+        paddingHorizontal: 14,
+        opacity: pressed ? 0.7 : 1,
+      })}
+    >
+      <Ionicons name={on ? "checkmark-circle" : icon} size={18} color={on ? C.emerald : C.muted} />
+      <Text style={{ fontWeight: "700", color: on ? C.emerald : C.body, fontSize: 14 }}>{label}</Text>
     </Pressable>
   );
 }
