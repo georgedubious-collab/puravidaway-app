@@ -123,6 +123,8 @@ export interface Prefs {
   wifi: boolean;
   stroller: boolean;
   childSeats: number;
+  /** Booster seats for older children. */
+  boosters?: number;
   pets: boolean;
 }
 

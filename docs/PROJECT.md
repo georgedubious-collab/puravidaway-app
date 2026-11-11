@@ -691,7 +691,7 @@ and `season_for_date(date)` returns the season for a travel date.
    "changed since last review" for the admin. Stricter alternative: any change sends them back to
    *pending* (off the job board) until re-approved. Decide before drivers can receive trips (Phase 3).
 10. **Ride extras pricing.** Travellers can ask for an English-speaking driver (vs Spanish / basic
-    English), Wi-Fi, stroller, child seats and pets. Built as **free requests matched by the
+    English), Wi-Fi, stroller, child seats, booster seats and pets. Built as **free requests matched by the
     team**. Decide whether any cost extra (e.g. child seats) or whether "Spanish / basic English"
     is cheaper.
     **Jorge 2026-11-08:** no blanket "English-speaking" promise; add a cheaper **Economy** class

@@ -8,7 +8,7 @@ import { photoFor } from "../../images";
 import { useNav } from "../../nav";
 import { Photo } from "../../Photo";
 import { C, S, SP, T } from "../../theme";
-import { Bar, Card, Choice, FieldLabel, Input, Page, Stepper, Text, Toggle } from "../../ui";
+import { Bar, Card, Choice, FieldLabel, Input, Page, Text } from "../../ui";
 import { PriceBar } from "./parts";
 
 const ENTRANCE: Record<Lang, Record<string, string>> = {
@@ -109,19 +109,6 @@ export function BookExtras() {
             {t(vehicle.name + " has a Spanish-speaking driver. For an English-speaking driver, choose another vehicle.", vehicle.name + " tiene un conductor que habla español. Para un conductor que hable inglés, elija otro vehículo.")}
           </Text>
         ) : null}
-        <View style={{ height: 4 }} />
-        <FieldLabel>{t("Extras (free, subject to availability)", "Extras (gratis, según disponibilidad)")}</FieldLabel>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 10, minHeight: 52 }}>
-          <Ionicons name="happy-outline" size={22} color={C.muted} />
-          <Text style={[T.bodyStrong, { flex: 1 }]}>{t("Baby / child seats", "Sillas para bebé / niño")}</Text>
-          <Stepper value={prefs.childSeats} min={0} max={4} onChange={(childSeats) => set({ prefs: { ...prefs, childSeats } })} lessLabel={t("One fewer child seat", "Una silla menos")} moreLabel={t("One more child seat", "Una silla más")} />
-        </View>
-        {prefs.childSeats > 0 ? <Text style={T.small}>{t("Add the children's ages in the message below so the right seats come along.", "Escriba la edad de los niños en el mensaje de abajo para llevar las sillas correctas.")}</Text> : null}
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-          <Toggle icon="wifi-outline" label={t("Wi-Fi on board", "Wi-Fi a bordo")} on={prefs.wifi} onPress={() => set({ prefs: { ...prefs, wifi: !prefs.wifi } })} />
-          <Toggle icon="cart-outline" label={t("Stroller", "Coche de bebé")} on={prefs.stroller} onPress={() => set({ prefs: { ...prefs, stroller: !prefs.stroller } })} />
-          <Toggle icon="paw-outline" label={t("Travelling with a pet", "Viajo con mascota")} on={prefs.pets} onPress={() => set({ prefs: { ...prefs, pets: !prefs.pets } })} />
-        </View>
       </Card>
 
       <Card>

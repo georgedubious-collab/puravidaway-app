@@ -11,7 +11,7 @@ import { RouteMap } from "../../MapView";
 import { useNav } from "../../nav";
 import { driveTime, time12 } from "../../prices";
 import { C, S, SP, T, fontFor } from "../../theme";
-import { Bar, Btn, Card, RoundBtn, Segments, Skeleton, Text } from "../../ui";
+import { Bar, Btn, Card, Choice, RoundBtn, Skeleton, Text } from "../../ui";
 import { BagNote, ChipBtn, QuoteFacts, QuoteProblem, SHEET } from "./parts";
 
 /**
@@ -74,6 +74,51 @@ export function BookRide() {
 
           <QuoteProblem />
           {quote?.vehicles.length ? (
+            <View accessibilityRole="radiogroup" style={{ gap: 8 }}>
+              <Text accessibilityRole="header" style={[T.h3, { fontSize: 18, fontWeight: "800", marginTop: 2 }]}>{t("How do you want to book?", "¿Cómo quiere reservar?")}</Text>
+              <Choice
+                icon="pricetag-outline"
+                title={t("Fixed price", "Precio fijo")}
+                detail={t("You book at the price you see. It does not change.", "Reserva al precio que ve. No cambia.")}
+                on={mode === "fixed"}
+                onPress={() => setMode("fixed")}
+              />
+              <Choice
+                icon="hammer-outline"
+                title={t("Driver offers", "Ofertas de conductores")}
+                detail={t("You propose a price and drivers answer. You may pay less, but a driver may not accept.", "Usted propone un precio y los conductores responden. Puede pagar menos, pero puede que ningún conductor acepte.")}
+                on={mode === "bid"}
+                onPress={() => setMode("bid")}
+              />
+            </View>
+          ) : null}
+          {mode === "bid" && vehicle ? (
+            <Card tone="amber">
+              <Text style={T.h3}>{t("Name your price", "Proponga su precio")}</Text>
+              <Text style={T.small}>
+                {t(
+                  "Hand-picked local drivers see your offer and bid on it. Our team confirms the best match and emails you the driver's profile and car. Nothing is charged until then.",
+                  "Conductores locales seleccionados ven su oferta y ofertan. Nuestro equipo confirma la mejor opción y le envía por correo el perfil del conductor y el vehículo. No se cobra nada hasta entonces.",
+                )}
+              </Text>
+              <Text style={T.small}>{t("Fixed price for the " + vehicle.name + ": ", "Precio fijo del " + vehicle.name + ": ") + cents(vehicle.totalCents)}</Text>
+              <View style={[S.input, { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 6 }]}>
+                <Text style={{ fontSize: 26, fontWeight: "800", color: C.text }}>$</Text>
+                <TextInput
+                  accessibilityLabel={t("Your offer in US dollars", "Su oferta en dólares")}
+                  value={state.offer}
+                  onChangeText={(v) => set({ offer: v.replace(/[^0-9]/g, "").slice(0, 5) })}
+                  keyboardType="number-pad"
+                  maxFontSizeMultiplier={1.2}
+                  style={{ flex: 1, fontSize: 26, color: C.text, padding: 0, fontFamily: fontFor("800") }}
+                />
+                <Text style={T.small}>USD</Text>
+              </View>
+              {!offerValid ? <Text style={S.error}>{t("Enter an offer of at least ", "Ingrese una oferta de al menos ") + cents(minOffer) + "."}</Text> : null}
+              {offerLow ? <Text style={{ color: C.amber, fontWeight: "700", fontSize: 15, lineHeight: 21 }}>{t("That's well below the fixed price, so drivers may not accept it.", "Está muy por debajo del precio fijo, así que es posible que los conductores no la acepten.")}</Text> : null}
+            </Card>
+          ) : null}
+          {quote?.vehicles.length ? (
             <Text accessibilityRole="header" style={[T.h3, { fontSize: 18, fontWeight: "800", marginTop: 2 }]}>
               {mode === "bid" ? t("Vehicle you'd like", "Vehículo que desea") : t("Choose your vehicle", "Elija su vehículo")}
             </Text>
@@ -97,7 +142,7 @@ export function BookRide() {
           <View accessibilityRole="radiogroup" style={{ gap: 8 }}>
             {quote?.vehicles.map((v) => {
               const on = v.id === vehicle?.id;
-              const facts = [v.badge, v.allowsStops ? "" : t("Direct ride, no stops", "Traslado directo, sin paradas"), v.perPersonCents ? t("from " + cents(v.perPersonCents) + "/person", "desde " + cents(v.perPersonCents) + "/persona") : ""].filter(Boolean);
+              const facts = [v.badge, v.allowsStops || /direct/i.test(v.badge ?? "") ? "" : t("Direct ride, no stops", "Traslado directo, sin paradas"), v.perPersonCents ? t("from " + cents(v.perPersonCents) + "/person", "desde " + cents(v.perPersonCents) + "/persona") : ""].filter(Boolean);
               return (
                 <Pressable
                   key={v.id}
@@ -129,45 +174,6 @@ export function BookRide() {
           {quote?.vehicles.length ? <Text style={[T.caption, { textAlign: "center" }]}>{t("Price is for the whole vehicle, not per person. Taxes included.", "El precio es por todo el vehículo, no por persona. Impuestos incluidos.")}</Text> : null}
           <QuoteFacts brief />
 
-          {quote?.vehicles.length ? (
-            <View style={{ gap: 8, marginTop: 4 }}>
-              <Text style={T.label}>{t("Book at the fixed price, or make an offer", "Reserve al precio fijo o haga una oferta")}</Text>
-              <Segments
-                value={mode}
-                onChange={setMode}
-                options={[
-                  { id: "fixed", label: t("Fixed price", "Precio fijo"), icon: "pricetag-outline" },
-                  { id: "bid", label: t("Driver bids", "Ofertas de conductores"), icon: "hammer-outline" },
-                ]}
-              />
-            </View>
-          ) : null}
-          {mode === "bid" && vehicle ? (
-            <Card tone="amber">
-              <Text style={T.h3}>{t("Name your price", "Proponga su precio")}</Text>
-              <Text style={T.small}>
-                {t(
-                  "Hand-picked local drivers see your offer and bid on it. Our team confirms the best match and emails you the driver's profile and car. Nothing is charged until then.",
-                  "Conductores locales seleccionados ven su oferta y ofertan. Nuestro equipo confirma la mejor opción y le envía por correo el perfil del conductor y el vehículo. No se cobra nada hasta entonces.",
-                )}
-              </Text>
-              <Text style={T.small}>{t("Fixed price for the " + vehicle.name + ": ", "Precio fijo del " + vehicle.name + ": ") + cents(vehicle.totalCents)}</Text>
-              <View style={[S.input, { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 6 }]}>
-                <Text style={{ fontSize: 26, fontWeight: "800", color: C.text }}>$</Text>
-                <TextInput
-                  accessibilityLabel={t("Your offer in US dollars", "Su oferta en dólares")}
-                  value={state.offer}
-                  onChangeText={(v) => set({ offer: v.replace(/[^0-9]/g, "").slice(0, 5) })}
-                  keyboardType="number-pad"
-                  maxFontSizeMultiplier={1.2}
-                  style={{ flex: 1, fontSize: 26, color: C.text, padding: 0, fontFamily: fontFor("800") }}
-                />
-                <Text style={T.small}>USD</Text>
-              </View>
-              {!offerValid ? <Text style={S.error}>{t("Enter an offer of at least ", "Ingrese una oferta de al menos ") + cents(minOffer) + "."}</Text> : null}
-              {offerLow ? <Text style={{ color: C.amber, fontWeight: "700", fontSize: 15, lineHeight: 21 }}>{t("That's well below the fixed price, so drivers may not accept it.", "Está muy por debajo del precio fijo, así que es posible que los conductores no la acepten.")}</Text> : null}
-            </Card>
-          ) : null}
 
         </ScrollView>
 
