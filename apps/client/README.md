@@ -137,7 +137,7 @@ Every screen can be shown in a browser with made-up data, without signing in:
 Then open the address it prints and add `?s=<screen>`; add `&lang=es` to see it in Spanish.
 Screens: `home` (rides map), `home-in`, `home-route`, `home-loading`, `menu`, `places`,
 `where-empty`, `where`, `search`, `search-found`, `map-pick`, `when`, `time`, `choose` (same as
-`ride`), `ride-new`, `ride-bid`, `ride-loading`, `stops`, `extras`, `extras-empty`, `confirm`
+`ride`), `ride-new`, `ride-bid`, `ride-loading`, `stops`, `extras`, `extras-empty`, `confirm`, `confirm-electric`
 (`review` and `guest` are the same screen with other data), `code`, `tours` (with the switch),
 `tours-loading`, `tour-when`, `tour`, `tour-review`, `sent`, `sent-paid`, `sent-cash`, `trips`,
 `empty`, `trips-loading`, `signin`, `signin-code`, `live` (same as `trip`), `trip-driver`, `trip2`,
