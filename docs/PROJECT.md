@@ -98,12 +98,31 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
 - Env: `GOOGLE_MAPS_API_KEY` (server-only, Places API (New) + Routes API; without it only our
   towns are offered). `NEXT_PUBLIC_WHATSAPP_NUMBER` (see `.env.example`) **must be set in Vercel before
   launch**; until then WhatsApp buttons open a placeholder number and the build logs a warning.
-- Route landing pages (`/transfers/[slug]`, content in `src/lib/routePages.ts`): SJO → Manuel
-  Antonio, La Fortuna/Arenal, Monteverde, Tamarindo, Puerto Viejo and Sierpe (Drake Bay boat);
-  LIR → Tamarindo; La Fortuna → Monteverde and Manuel Antonio. "Other rides" links open the
-  matching landing page when one exists, otherwise the trip builder. Each also exists in Spanish at
-  `/es/traslados/[slug]` (same slug, text in `src/lib/routePagesEs.ts`; both languages render
-  `src/components/site/pages/RouteLandingPage.tsx`).
+- Route landing pages (`/transfers/[slug]`, Spanish `/es/traslados/[slug]`, same slug; **40 pages
+  since 2026-11-11**, 20 pairs of towns in both directions): SJO ↔ Manuel Antonio, La Fortuna,
+  Monteverde, Tamarindo, Puerto Viejo, Sierpe and Drake Bay; LIR ↔ Tamarindo, La Fortuna,
+  Monteverde and Manuel Antonio; La Fortuna ↔ Monteverde, Manuel Antonio, Tamarindo and Puerto
+  Viejo; Monteverde ↔ Manuel Antonio and Tamarindo; Manuel Antonio ↔ Sierpe, Drake Bay and
+  Tamarindo. The nine slugs that existed before keep working. Index of all routes, grouped by
+  pickup town: `/transfers` and `/es/traslados`.
+  Content is data in `src/lib/routes/` (English and Spanish side by side): `hubs.ts` has one block
+  per town (names, pickup and arrival FAQ), `corridorsAirports.ts` and `corridorsTowns.ts` one
+  block per pair (the road, bus / shuttle / flight / rental car, three FAQs, and a lead and one FAQ
+  for each direction); `src/lib/routePages.ts` turns every pair into two pages. **To add a route,
+  add one pair there**: title, slug, the dated direct answer, the price table, stops, links, the
+  index, sitemap, footer and `llms.txt` follow. Numbers are never typed: drive time
+  (`ROUTE_MINUTES`), distance (`ROUTE_KM`, the same km the price formula uses) and prices come
+  from the catalog through the guide tokens (`{time:A>B}`, `{km:A>B}`, `{price:A>B}`…). A missing
+  drive time, distance or a mistyped token fails the build, and `npm run test:routes` checks every
+  page (price source, both languages, 5–8 FAQs, no intro or FAQ set shared by two pages, no stop
+  named that the trip builder doesn't offer on that ride). Each page: dated direct answer, facts,
+  a price table by vehicle class ("or similar" models, travellers, luggage; a Drake Bay page shows
+  only the class that includes the boat, like the guides), the road, the stops the builder offers
+  on that ride, other ways to get there (no timetables, fares or terminals; no boat times), 7 FAQs
+  with FAQ data, links to the way back, the guides, other rides from and to the same towns and the
+  day tours of the region. Structured data: WebPage + Service with an AggregateOffer (lowest and
+  highest class price in USD from the live catalog; no ratings, no availability), FAQPage,
+  BreadcrumbList. Both languages render `src/components/site/pages/RouteLandingPage.tsx`.
 - Search engines (2026-11-08): **the whole site is `noindex` and `robots.txt` blocks all
   crawlers until `NEXT_PUBLIC_SITE_INDEXABLE=true` is set** (Vercel, Production only). Then
   `robots.txt` blocks only `/admin`, `/driver`, `/trip`, `/login`, `/auth`, `/api`, explicitly
