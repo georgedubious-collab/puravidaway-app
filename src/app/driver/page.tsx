@@ -447,6 +447,8 @@ function VehicleCard({
         <span className="font-bold text-slate-900">
           {t("Categoría del vehículo:", "Vehicle category:")}{" "}
           {isVehicleCategory(v.vehicle_class) ? categoryLabel(v.vehicle_class, lang) : t("todavía sin asignar", "not set yet")}
+          {/* Read-only: only our team marks a vehicle as electric (migration 0042). */}
+          {v.is_electric && <span className="ml-2 rounded bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-900">{t("Eléctrico", "Electric")}</span>}
         </span>
         <span className="block">
           {categoryHint(v.vehicle_class, lang)}{" "}

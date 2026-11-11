@@ -104,7 +104,7 @@ export function TripDetail({
   // server sends only the short name.
   const sign = trip.sign_text || trip.passenger_name || null;
   const vehicle = vehicleLabel(trip.vehicle_class, lang);
-  const prefs = (trip.preferences ?? {}) as { language?: string; childSeats?: number; boosters?: number; wifi?: boolean; stroller?: boolean; pets?: boolean };
+  const prefs = (trip.preferences ?? {}) as { language?: string; childSeats?: number; boosters?: number; wifi?: boolean; stroller?: boolean; pets?: boolean; electric?: boolean };
   const active = trip.status === "confirmed" || trip.status === "in_progress";
   // I'm on my way → Client picked up → Trip ended.
   const nextIndex = trip.status === "in_progress" ? 2 : trip.en_route_at ? 1 : 0;
@@ -138,6 +138,7 @@ export function TripDetail({
   if (prefs.wifi) asked.push("Wi-Fi");
   if (prefs.stroller) asked.push(t("Coche de bebé", "Stroller"));
   if (prefs.pets) asked.push(t("Viaja con una mascota", "Travelling with a pet"));
+  if (prefs.electric) asked.push(t("Vehículo eléctrico, si hay disponible", "Electric vehicle, if available"));
 
   return (
     <ScrollView style={S.screen} contentContainerStyle={{ padding: 12, paddingBottom: 32, gap: 10 }} keyboardShouldPersistTaps="handled">

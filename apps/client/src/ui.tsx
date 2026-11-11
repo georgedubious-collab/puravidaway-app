@@ -399,11 +399,12 @@ export function Toggle({ icon, label, on, onPress }: { icon: IconName; label: st
         borderRadius: R.pill,
         paddingHorizontal: on ? 15.5 : 16,
         paddingVertical: 8,
+        maxWidth: "100%",
         opacity: pressed ? 0.7 : 1,
       })}
     >
       <Ionicons name={on ? "checkmark-circle" : icon} size={20} color={on ? C.emerald : C.muted} />
-      <Text style={{ fontWeight: "600", color: on ? C.emeraldDark : C.body, fontSize: 15 }}>{label}</Text>
+      <Text style={{ fontWeight: "600", color: on ? C.emeraldDark : C.body, fontSize: 15, flexShrink: 1 }}>{label}</Text>
     </Pressable>
   );
 }

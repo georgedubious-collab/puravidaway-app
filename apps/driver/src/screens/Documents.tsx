@@ -68,6 +68,8 @@ export interface VehicleRow {
   passenger_capacity: number | null;
   /** Category our team gave the vehicle; null or missing = not tagged yet. Read-only for the driver. */
   vehicle_class?: string | null;
+  /** Marked electric by our team. Read-only for the driver. */
+  is_electric?: boolean | null;
   ins_policy_number: string | null;
   ins_insurance_expiry: string | null;
   dekra_inspection_expiry: string | null;
@@ -341,7 +343,7 @@ function VehicleCard({
       {/* Read-only: our team sets the category, and it decides which jobs this vehicle receives. */}
       <View style={{ backgroundColor: C.bg, borderRadius: 12, padding: 12, gap: 2 }}>
         <Text style={{ color: C.text, fontWeight: "800" }}>
-          {t("Categoría del vehículo: ", "Vehicle category: ") + (tagged ? categoryLabel(v.vehicle_class, lang) : t("todavía sin asignar", "not set yet"))}
+          {t("Categoría del vehículo: ", "Vehicle category: ") + (tagged ? categoryLabel(v.vehicle_class, lang) : t("todavía sin asignar", "not set yet")) + (v.is_electric ? t(" · Eléctrico", " · Electric") : "")}
         </Text>
         <Text style={S.muted}>
           {categoryHint(v.vehicle_class, lang) + (tagged ? t(" La categoría la asigna nuestro equipo.", " Our team sets the category.") : "")}

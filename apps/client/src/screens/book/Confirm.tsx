@@ -145,6 +145,8 @@ export function BookConfirm() {
           <Toggle icon="wifi-outline" label={t("Wi-Fi on board", "Wi-Fi a bordo")} on={prefs.wifi} onPress={() => set({ prefs: { ...prefs, wifi: !prefs.wifi } })} />
           <Toggle icon="cart-outline" label={t("Stroller", "Coche de bebé")} on={prefs.stroller} onPress={() => set({ prefs: { ...prefs, stroller: !prefs.stroller } })} />
           <Toggle icon="paw-outline" label={t("Travelling with a pet", "Viajo con mascota")} on={prefs.pets} onPress={() => set({ prefs: { ...prefs, pets: !prefs.pets } })} />
+          {/* A free request, never a guarantee and never a different price. */}
+          <Toggle icon="flash-outline" label={t("Electric vehicle, if available", "Vehículo eléctrico, si hay disponible")} on={Boolean(prefs.electric)} onPress={() => set({ prefs: { ...prefs, electric: !prefs.electric } })} />
         </View>
       </View>
 

@@ -14,7 +14,8 @@ export interface AppBooking {
   paymentMode: string | null;
   cashFeeUsd: number;
   driver: { firstName: string; bio: string | null; english: string | null; ict: boolean; photo: string | null; rating: string | null } | null;
-  car: { name: string; color: string | null; plate: string | null; seats: number | null; photos: string[] } | null;
+  /** `electric`: our team marked the assigned vehicle as electric. Older servers don't send it. */
+  car: { name: string; color: string | null; plate: string | null; seats: number | null; photos: string[]; electric?: boolean } | null;
   myRating: number | null;
   /** Where the driver is, only while they share location for this booking. */
   driverLocation: { lat: number; lng: number; recordedAt: string; etaAt: string | null; lateMin: number | null } | null;
@@ -142,6 +143,8 @@ export interface Prefs {
   /** Booster seats for older children. */
   boosters?: number;
   pets: boolean;
+  /** "Electric vehicle, if available": a free request, never a guarantee. Older servers ignore it. */
+  electric?: boolean;
 }
 
 /** What the traveller has chosen and is about to send. */

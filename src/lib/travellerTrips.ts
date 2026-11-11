@@ -27,7 +27,8 @@ export interface AppBooking {
   paymentMode: string | null;
   cashFeeUsd: number;
   driver: { firstName: string; bio: string | null; english: string | null; ict: boolean; photo: string | null; rating: string | null } | null;
-  car: { name: string; color: string | null; plate: string | null; seats: number | null; photos: string[] } | null;
+  /** `electric`: our team marked the assigned vehicle as electric (a badge; older apps ignore it). */
+  car: { name: string; color: string | null; plate: string | null; seats: number | null; photos: string[]; electric: boolean } | null;
   myRating: number | null;
   /**
    * Where the driver is, while they are sharing location for THIS booking (from 3 hours
@@ -86,16 +87,27 @@ export async function tripsForEmail(email: string): Promise<{ trips: AppTrip[]; 
   const vehicleIds = [...new Set(shown.map((b) => b.assigned_vehicle_id as string).filter(Boolean))];
 
   const ids = rows.map((b) => b.id as string);
-  const [locations, drivers, vehicles, reviews, catalog, chats, reads] = await Promise.all([
+  const VEHICLE_COLUMNS = "id, make_model, year, color, plate, passenger_capacity, photos";
+  type V = {
+    id: string; make_model: string | null; year: number | null; color: string | null; plate: string | null;
+    passenger_capacity: number | null; photos: string[] | null; is_electric?: boolean | null;
+  };
+  // Safety net for the minutes between a deploy and its database update (migration 0042):
+  // the car card never disappears because the electric mark's column isn't there yet.
+  const loadVehicles = async (): Promise<V[]> => {
+    if (!vehicleIds.length) return [];
+    let res = await db.from("driver_vehicles").select(`${VEHICLE_COLUMNS}, is_electric`).in("id", vehicleIds).returns<V[]>();
+    if (res.error) res = await db.from("driver_vehicles").select(VEHICLE_COLUMNS).in("id", vehicleIds).returns<V[]>();
+    return res.data ?? [];
+  };
+  const [locations, drivers, vRows, reviews, catalog, chats, reads] = await Promise.all([
     driverIds.length
       ? db.from("driver_locations").select("driver_id, booking_id, lat, lng, recorded_at, eta_at, late_min").in("driver_id", driverIds)
       : Promise.resolve({ data: [] }),
     driverIds.length
       ? db.from("drivers").select("id, bio, english_level, ict_permit_number, documents, rating_avg, rating_count, profiles!drivers_id_fkey(full_name)").in("id", driverIds)
       : Promise.resolve({ data: [] }),
-    vehicleIds.length
-      ? db.from("driver_vehicles").select("id, make_model, year, color, plate, passenger_capacity, photos").in("id", vehicleIds)
-      : Promise.resolve({ data: [] }),
+    loadVehicles(),
     rows.length ? db.from("driver_reviews").select("booking_id, stars").in("booking_id", rows.map((b) => b.id)) : Promise.resolve({ data: [] }),
     getCatalog(),
     ids.length
@@ -118,9 +130,7 @@ export async function tripsForEmail(email: string): Promise<{ trips: AppTrip[]; 
     rating_count: number | null;
     profiles: { full_name: string | null } | null;
   };
-  type V = { id: string; make_model: string | null; year: number | null; color: string | null; plate: string | null; passenger_capacity: number | null; photos: string[] | null };
   const dRows = (drivers.data ?? []) as unknown as D[];
-  const vRows = (vehicles.data ?? []) as unknown as V[];
 
   // Only the driver's profile photo and the car photos are ever signed for travellers.
   const paths = [
@@ -178,6 +188,7 @@ export async function tripsForEmail(email: string): Promise<{ trips: AppTrip[]; 
             plate: v.plate,
             seats: v.passenger_capacity,
             photos: (v.photos ?? []).map((p) => urls[p]).filter((u): u is string => Boolean(u)),
+            electric: v.is_electric === true,
           }
         : null,
       myRating: (reviews.data as { booking_id: string; stars: number }[] | null)?.find((r) => r.booking_id === b.id)?.stars ?? null,

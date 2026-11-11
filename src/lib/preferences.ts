@@ -16,6 +16,11 @@ export interface RidePrefs {
   /** Booster seats for older children (0–4). Older apps don't send it. */
   boosters?: number;
   pets: boolean;
+  /**
+   * "Electric vehicle, if available": a free request, never a guarantee and never a
+   * different price. Older apps don't send it.
+   */
+  electric?: boolean;
 }
 
 export const DEFAULT_PREFS: RidePrefs = { language: "english", wifi: false, stroller: false, childSeats: 0, pets: false };
@@ -38,7 +43,16 @@ export function parsePrefs(raw: unknown): RidePrefs | null {
   if (!Number.isInteger(o.childSeats) || (o.childSeats as number) < 0 || (o.childSeats as number) > 4) return null;
   const boosters = o.boosters == null ? 0 : o.boosters;
   if (typeof boosters !== "number" || !Number.isInteger(boosters) || boosters < 0 || boosters > 4) return null;
-  return { language: o.language, wifi: o.wifi, stroller: o.stroller, childSeats: o.childSeats as number, ...(boosters ? { boosters } : {}), pets: o.pets };
+  if (o.electric != null && typeof o.electric !== "boolean") return null;
+  return {
+    language: o.language,
+    wifi: o.wifi,
+    stroller: o.stroller,
+    childSeats: o.childSeats as number,
+    ...(boosters ? { boosters } : {}),
+    pets: o.pets,
+    ...(o.electric === true ? { electric: true } : {}),
+  };
 }
 
 /** Short words for summaries ("Wi-Fi · 2 child seats · pet"). */
@@ -70,6 +84,7 @@ export function prefsSummary(p: Partial<RidePrefs> | null | undefined, lang: "en
   if (p.boosters)
     out.push(es ? `${p.boosters} booster${p.boosters > 1 ? "s" : ""} (asiento elevador)` : `${p.boosters} booster seat${p.boosters > 1 ? "s" : ""}`);
   if (p.pets) out.push(es ? "viaja con una mascota" : "travelling with a pet");
+  if (p.electric) out.push(es ? "vehículo eléctrico, si hay disponible" : "electric vehicle, if available");
   return out;
 }
 
@@ -77,7 +92,7 @@ export function prefsSummary(p: Partial<RidePrefs> | null | undefined, lang: "en
 export function prefMismatches(
   p: Partial<RidePrefs> | null | undefined,
   driver: { english_level: "fluent" | "basic" | null },
-  vehicle: { has_wifi: boolean; child_seats: number; stroller_space: boolean; pet_friendly: boolean },
+  vehicle: { has_wifi: boolean; child_seats: number; stroller_space: boolean; pet_friendly: boolean; is_electric?: boolean | null },
   lang: "en" | "es" = "en",
 ): string[] {
   if (!p) return [];
@@ -90,6 +105,8 @@ export function prefMismatches(
     out.push(es ? `solo ${vehicle.child_seats} asiento(s) para niños` : `only ${vehicle.child_seats} child seat(s)`);
   if (p.stroller && !vehicle.stroller_space) out.push(es ? "sin espacio indicado para coche de bebé" : "no stroller space listed");
   if (p.pets && !vehicle.pet_friendly) out.push(es ? "no acepta mascotas" : "not pet friendly");
+  // A request, not a promise: the team may still assign this vehicle, it just sees the gap.
+  if (p.electric && !vehicle.is_electric) out.push(es ? "no es eléctrico" : "not electric");
   return out;
 }
 

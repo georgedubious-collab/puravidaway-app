@@ -245,7 +245,7 @@ export function BookingProvider({
   const fromCents = quote && quote.vehicles.length ? quote.vehicles.reduce((m, v) => Math.min(m, v.totalCents), Infinity) : null;
   const pickedStops = quote && stopsOn ? state.stopIds.filter((id) => quote.stops.some((s) => s.id === id)) : [];
   const p = effectivePrefs;
-  const extrasCount = pickedStops.length + (p.childSeats ? 1 : 0) + (p.boosters ? 1 : 0) + Number(p.wifi) + Number(p.stroller) + Number(p.pets) + (state.driverNotes.trim() ? 1 : 0) + (state.notes.trim() ? 1 : 0);
+  const extrasCount = pickedStops.length + (p.childSeats ? 1 : 0) + (p.boosters ? 1 : 0) + Number(p.wifi) + Number(p.stroller) + Number(p.pets) + Number(Boolean(p.electric)) + (state.driverNotes.trim() ? 1 : 0) + (state.notes.trim() ? 1 : 0);
 
   const tour = tours?.find((x) => x.id === state.tourId);
 
@@ -271,6 +271,7 @@ export function BookingProvider({
     if (p.wifi) out.push("Wi-Fi");
     if (p.stroller) out.push(t("stroller", "coche de bebé"));
     if (p.pets) out.push(t("pet", "mascota"));
+    if (p.electric) out.push(t("electric vehicle, if available", "vehículo eléctrico, si hay disponible"));
     return {
       title: quote.originLabel + " → " + quote.destinationLabel,
       detail:

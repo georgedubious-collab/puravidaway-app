@@ -265,6 +265,9 @@ export default async function DriverDetail({ params }: { params: Promise<{ id: s
               {!isVehicleCategory(v.vehicle_class) && (
                 <span className="rounded bg-amber-100 px-2 py-0.5 text-sm text-amber-900 font-bold">{categoryLabel(null, lang)}</span>
               )}
+              {v.is_electric && (
+                <span className="rounded bg-emerald-100 px-2 py-0.5 text-sm font-bold text-emerald-900">{t("Eléctrico", "Electric")}</span>
+              )}
               {v.status === "approved" && !v.passenger_capacity && (
                 <span className="rounded bg-red-100 px-2 py-0.5 text-sm text-red-900 font-bold">
                   {t("Sin número de asientos: no recibe trabajos", "No seat number: receives no jobs")}
@@ -275,7 +278,7 @@ export default async function DriverDetail({ params }: { params: Promise<{ id: s
             <ActionForm
               action={setVehicleCategory}
               lang={lang}
-              submitLabel={t("Guardar categoría", "Save category")}
+              submitLabel={t("Guardar categoría y eléctrico", "Save category and electric")}
               className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-3"
             >
               <input type="hidden" name="vehicle_id" value={v.id} />
@@ -293,6 +296,19 @@ export default async function DriverDetail({ params }: { params: Promise<{ id: s
                     </option>
                   ))}
                 </select>
+              </label>
+              {/* Not a category and no price change (migration 0042): a badge for travellers and a match for their free request. */}
+              <label className="flex items-start gap-2 text-sm font-bold text-slate-700">
+                <input type="checkbox" name="is_electric" defaultChecked={Boolean(v.is_electric)} className="mt-0.5 h-5 w-5 rounded border-slate-300" />
+                <span>
+                  {t("Vehículo eléctrico", "Electric vehicle")}
+                  <span className="block text-xs font-normal text-slate-500">
+                    {t(
+                      "No cambia la categoría ni el precio. El viajero ve la insignia «Vehículo eléctrico» y puede pedir uno gratis, si hay disponible.",
+                      "Doesn't change the category or the price. The traveller sees an \"Electric vehicle\" badge and can ask for one for free, if available.",
+                    )}
+                  </span>
+                </span>
               </label>
               <p className="text-sm text-slate-700">
                 <strong>{t("Ahora", "Now")}:</strong> {categoryHint(v.vehicle_class, lang)}

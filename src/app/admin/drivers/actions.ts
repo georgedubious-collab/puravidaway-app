@@ -121,6 +121,8 @@ export async function reviewVehicle(_prev: FormState, fd: FormData): Promise<For
  * Set (or clear) a vehicle's category: it decides which jobs the driver receives
  * (src/lib/vehicleEligibility.ts). Only the team can; the database ignores a
  * driver's own attempt (migration 0038). Does not change the approval.
+ * The same form carries the "electric vehicle" mark (migration 0042): not a
+ * category and no price change, only a badge and a match for the free request.
  */
 export async function setVehicleCategory(_prev: FormState, fd: FormData): Promise<FormState> {
   const t = makeT(await getTeamLang());
@@ -130,11 +132,16 @@ export async function setVehicleCategory(_prev: FormState, fd: FormData): Promis
     const raw = String(fd.get("vehicle_class") ?? "");
     if (!id || (raw !== "" && !isVehicleCategory(raw))) throw new InputError(t("Elija una categoría.", "Pick a category."));
     const supabase = (await createSupabaseServerClient())!;
-    const v = await supabase
+    const vehicle_class = raw === "" ? null : raw;
+    let v = await supabase
       .from("driver_vehicles")
-      .update({ vehicle_class: raw === "" ? null : raw })
+      .update({ vehicle_class, is_electric: fd.get("is_electric") === "on" })
       .eq("id", id)
       .select("driver_id");
+    // Safety net for the minutes between a deploy and its database update (migration 0042):
+    // the category still saves while the electric mark's column isn't there yet.
+    if (v.error && /is_electric/.test(v.error.message))
+      v = await supabase.from("driver_vehicles").update({ vehicle_class }).eq("id", id).select("driver_id");
     if (v.error) throw v.error;
     if (!v.data?.length) throw new InputError(t("No se encontró el vehículo.", "Vehicle not found."));
     revalidatePath("/admin/drivers");

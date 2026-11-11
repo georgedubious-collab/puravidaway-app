@@ -142,7 +142,7 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
         ];
         return {
           value: `${d.id}:${v.id}`,
-          label: `${d.profiles?.full_name ?? t("Conductor", "Driver")} — ${v.make_model ?? t("vehículo", "vehicle")} ${v.plate ?? ""} (${v.passenger_capacity ?? "?"} ${t("asientos", "seats")}${isVehicleCategory(v.vehicle_class) ? `, ${categoryLabel(v.vehicle_class, lang)}` : ""})`,
+          label: `${d.profiles?.full_name ?? t("Conductor", "Driver")} — ${v.make_model ?? t("vehículo", "vehicle")} ${v.plate ?? ""} (${v.passenger_capacity ?? "?"} ${t("asientos", "seats")}${isVehicleCategory(v.vehicle_class) ? `, ${categoryLabel(v.vehicle_class, lang)}` : ""}${v.is_electric ? `, ⚡ ${t("eléctrico", "electric")}` : ""})`,
           problems,
         };
       }),
@@ -165,6 +165,11 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
         )
       : null;
   };
+  // Electric vehicles (migration 0042): information only. It never changes the order of the
+  // offers or who can be assigned; the traveller's request is "if available".
+  const askedElectric = Boolean(b.preferences?.electric);
+  const offerIsElectric = (vehicleId: string | null) =>
+    Boolean((drivers ?? []).flatMap((d) => d.driver_vehicles).find((x) => x.id === vehicleId)?.is_electric);
   const name =
     b.service_type === "transfer"
       ? `${b.origin} → ${b.destination}`
@@ -352,6 +357,18 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
                   </p>
                   {offerCategoryProblem(o.vehicle_id) && (
                     <p className="mt-0.5 inline-block rounded bg-amber-100 px-1.5 text-xs font-bold text-amber-900">⚠ {offerCategoryProblem(o.vehicle_id)}</p>
+                  )}
+                  {offerIsElectric(o.vehicle_id) ? (
+                    <p className="mt-0.5 inline-block rounded bg-emerald-100 px-1.5 text-xs font-bold text-emerald-900">
+                      ⚡ {t("Vehículo eléctrico", "Electric vehicle")}
+                      {askedElectric ? ` · ${t("el viajero lo pidió", "the traveller asked for one")}` : ""}
+                    </p>
+                  ) : (
+                    askedElectric && (
+                      <p className="mt-0.5 inline-block rounded bg-amber-100 px-1.5 text-xs font-bold text-amber-900">
+                        ⚠ {t("no es eléctrico (el viajero pidió uno, si hay disponible)", "not electric (the traveller asked for one, if available)")}
+                      </p>
+                    )
                   )}
                   {o.note && <p className="text-slate-700 italic">&ldquo;{o.note}&rdquo;</p>}
                 </div>
