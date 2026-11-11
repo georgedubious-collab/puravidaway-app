@@ -87,6 +87,8 @@ export interface BookingRow {
   carry_on_count?: number | null;
   /** Door-to-door drive time the ride was priced with (minutes), for the driver's arrival estimate; migration 0035. */
   drive_minutes?: number | null;
+  /** Night-pickup premium inside total_price (USD); 0 by day. Missing before migration 0041. */
+  night_premium?: number | string | null;
   /** Name sign: the traveller's own text (max 40), null = none written. See src/lib/sign.ts; migration 0040. */
   sign_text?: string | null;
   /** Name sign: "Don't show my name" (the sign shows the brand name). Migration 0040. */

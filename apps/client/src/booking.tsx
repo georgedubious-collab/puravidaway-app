@@ -176,6 +176,9 @@ export function BookingProvider({
   const fromId = from?.id ?? "";
   const toId = to?.id ?? "";
   const stopsKey = state.stopIds.join(",");
+  // The pickup time changes the price at night (night premium). Like the stops, a new time
+  // keeps the prices on screen while the new ones load.
+  const timeKey = state.time;
   const routeKey = state.kind === "ride" && fromId && toId && validDate(date) ? [fromId, toId, date, pax].join("|") : "";
   const lastRoute = useRef("");
   useEffect(() => {
@@ -193,7 +196,7 @@ export function BookingProvider({
     lastRoute.current = routeKey;
     setQuoteBusy(true);
     setQuoteError("");
-    void fetchQuote({ from: fromId, to: toId, date, pax, stopIds: stopsKey ? stopsKey.split(",") : [], lang }).then((res) => {
+    void fetchQuote({ from: fromId, to: toId, date, time: timeKey, pax, stopIds: stopsKey ? stopsKey.split(",") : [], lang }).then((res) => {
       if (!live) return;
       setQuoteBusy(false);
       if (!res.ok || !res.data) {
@@ -205,7 +208,7 @@ export function BookingProvider({
     return () => {
       live = false;
     };
-  }, [routeKey, stopsKey, fromId, toId, date, pax, isDemo, lang]);
+  }, [routeKey, stopsKey, timeKey, fromId, toId, date, pax, isDemo, lang]);
 
   // ---- Tours: loaded while a tour is being planned.
   const toursKey = state.kind === "tour" && validDate(date) ? date + "|" + pax : "";

@@ -7,7 +7,7 @@ import { Calendar, longDate } from "../../DatePicker";
 import { pick } from "../../haptics";
 import { useT } from "../../i18n";
 import { useNav } from "../../nav";
-import { TIMES, crDatePlus, time12, validDate } from "../../prices";
+import { TIMES, crDatePlus, isNightTime, time12, validDate } from "../../prices";
 import { C, S, SP, T } from "../../theme";
 import { Bar, BottomBar, Btn, Card, Divider, Page, Stepper, Text } from "../../ui";
 import { BagNote, PickRow, QuoteProblem } from "./parts";
@@ -147,12 +147,14 @@ export function TourWhen() {
 
 const ROW = 60;
 
-/** Slide-up panel: the pickup time, as one clean list from 4:00 AM to 10:00 PM. */
+/** Slide-up panel: the pickup time, as one clean list of every half hour of the day; night hours show the premium. */
 export function TimePicker() {
   const { t } = useT();
   const nav = useNav();
   const insets = useSafeAreaInsets();
-  const { state, set } = useBooking();
+  const { state, set, quote } = useBooking();
+  // The night window and its percentage, as the server reported them with the last price.
+  const night = quote?.night ?? null;
   const list = useRef<FlatList<string>>(null);
   const index = Math.max(0, TIMES.indexOf(state.time));
   useEffect(() => {
@@ -165,7 +167,10 @@ export function TimePicker() {
   return (
     <View style={S.screen}>
       <Bar style="dark" />
-      <Text style={[T.small, { paddingHorizontal: SP.page, paddingBottom: SP.sm }]}>{t("Times are in Costa Rica time.", "Las horas son en hora de Costa Rica.")}</Text>
+      <Text style={[T.small, { paddingHorizontal: SP.page, paddingBottom: SP.sm }]}>
+        {t("Times are in Costa Rica time. Pickups at any hour.", "Las horas son en hora de Costa Rica. Recogidas a cualquier hora.") +
+          (night && night.percent ? t(" Night pickups cost " + night.percent + "% more.", " Las recogidas nocturnas cuestan un " + night.percent + "% más.") : "")}
+      </Text>
       <FlatList
         ref={list}
         data={TIMES}
@@ -176,11 +181,12 @@ export function TimePicker() {
         accessibilityRole="radiogroup"
         renderItem={({ item }) => {
           const on = item === state.time;
+          const atNight = isNightTime(item, night);
           return (
             <Pressable
               accessibilityRole="radio"
               accessibilityState={{ selected: on }}
-              accessibilityLabel={time12(item)}
+              accessibilityLabel={time12(item) + (atNight && night ? t(", night pickup, " + night.percent + "% more", ", recogida nocturna, " + night.percent + "% más") : "")}
               onPress={() => {
                 pick();
                 set({ time: item });
@@ -202,7 +208,17 @@ export function TimePicker() {
               <Text maxFontSizeMultiplier={1.2} style={{ fontSize: 20, fontWeight: on ? "700" : "500", color: on ? C.emeraldDark : C.text }}>
                 {time12(item)}
               </Text>
-              {on ? <Ionicons name="checkmark-circle" size={24} color={C.emerald} /> : null}
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                {atNight && night ? (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                    <Ionicons name="moon-outline" size={14} color={C.amber} />
+                    <Text maxFontSizeMultiplier={1.2} style={{ fontSize: 14, fontWeight: "700", color: C.amber }}>
+                      {"+" + night.percent + "%"}
+                    </Text>
+                  </View>
+                ) : null}
+                {on ? <Ionicons name="checkmark-circle" size={24} color={C.emerald} /> : null}
+              </View>
             </Pressable>
           );
         }}

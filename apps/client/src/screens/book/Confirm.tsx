@@ -6,10 +6,10 @@ import { orSimilar } from "../../format";
 import { useT } from "../../i18n";
 import { useNav } from "../../nav";
 import { SIGN_MAX } from "../../contact";
-import { driveTime, time12 } from "../../prices";
+import { driveTime, nightLabel, time12 } from "../../prices";
 import { useSession } from "../../session";
 import { C, S, SP, T } from "../../theme";
-import { Bar, BottomBar, Btn, Card, Choice, FieldLabel, IconLine, Input, Page, Skeleton, Stepper, Text, Toggle } from "../../ui";
+import { Badge, Bar, BottomBar, Btn, Card, Choice, FieldLabel, IconLine, Input, Page, Skeleton, Stepper, Text, Toggle } from "../../ui";
 import { validEmail, sendCode } from "../SignIn";
 import { ActionRow, BagNote, QuoteProblem, RouteDots } from "./parts";
 import { useSendRequest } from "./Review";
@@ -107,6 +107,11 @@ export function BookConfirm() {
             {vehicle ? <Text style={T.smallStrong}>{vehicle.name}</Text> : <Skeleton height={18} width="60%" />}
             {vehicle && orSimilar(vehicle.exampleModels, lang) ? <Text style={T.caption}>{orSimilar(vehicle.exampleModels, lang)}</Text> : null}
             <Text style={T.caption}>{bid ? t("Your offer to drivers", "Su oferta a los conductores") : t("Fixed price for the whole vehicle", "Precio fijo por todo el vehículo")}</Text>
+            {!bid && quote?.night?.applies ? (
+              <View style={{ flexDirection: "row", paddingTop: 4 }}>
+                <Badge text={nightLabel(quote.night, lang) + (vehicle?.nightCents ? " · " + cents(vehicle.nightCents) : "")} tone="gold" icon="moon-outline" />
+              </View>
+            ) : null}
           </View>
           {priced ? <Text style={{ fontSize: 20, lineHeight: 26, fontWeight: "800", color: C.text }}>{cents(itemCents)}</Text> : !quote && quoteBusy ? <Skeleton height={24} width={64} /> : <Text style={T.h3}>—</Text>}
         </View>

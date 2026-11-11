@@ -279,6 +279,14 @@ export default async function TripPage({ params, searchParams }: Props) {
                           "En línea, pago completo · enlace de pago seguro una vez confirmado",
                         )}
                   </p>
+                  {Number(b.night_premium ?? 0) > 0 && (
+                    <p className="text-xs text-slate-500">
+                      {t(
+                        `Includes ${usd(b.night_premium ?? 0)} night pickup premium`,
+                        `Incluye ${usd(b.night_premium ?? 0)} de recargo por recogida nocturna`,
+                      )}
+                    </p>
+                  )}
                   <p className={`text-xs font-bold ${b.status === "confirmed" ? "text-emerald-700" : "text-slate-500"}`}>
                     {(lang === "es" ? TRAVELLER_STATUS_ES : TRAVELLER_STATUS)[b.status]}
                   </p>

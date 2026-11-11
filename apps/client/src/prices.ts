@@ -20,9 +20,13 @@ export const HUBS: Place[] = ["SJO", "LIR", "Arenal", "ManuelAntonio", "Montever
 }));
 export const hub = (id: string): Place => ({ id: "hub:" + id, label: TOWNS[id] ?? id });
 
-/** Pickup times offered: every half hour from 4:00 AM to 10:00 PM. */
-export const TIMES = Array.from({ length: 37 }, (_, i) => {
-  const m = 4 * 60 + i * 30;
+/**
+ * Pickup times offered: every half hour, around the clock (Jorge, 2026-11-11: pickups at any
+ * hour; it was 4:00 AM to 10:00 PM). Night hours cost the night premium, which the server
+ * decides and reports in the quote (`quote.night`).
+ */
+export const TIMES = Array.from({ length: 48 }, (_, i) => {
+  const m = i * 30;
   return String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0");
 });
 export const time12 = (t: string) => {
@@ -34,6 +38,8 @@ export interface QuoteInput {
   from: string;
   to: string;
   date: string;
+  /** Pickup time "HH:MM" (Costa Rica time), so a night pickup is priced with the night premium. Left out for "from" prices. */
+  time?: string;
   pax: number;
   stopIds: string[];
   /** The app's language, so names and badges come back in it. */
@@ -44,10 +50,10 @@ const quotes = new Map<string, RideQuote>();
 
 /** The price of a ride. The request body is exactly what the server expects; good answers are remembered. */
 export async function fetchQuote(q: QuoteInput): Promise<ApiResult<{ quote: RideQuote }>> {
-  const key = JSON.stringify([q.from, q.to, q.date, q.pax, q.stopIds, q.lang]);
+  const key = JSON.stringify([q.from, q.to, q.date, q.pax, q.stopIds, q.lang, q.time ?? ""]);
   const hit = quotes.get(key);
   if (hit) return { ok: true, data: { quote: hit } };
-  const res = await api<{ quote: RideQuote }>("/client/quote", { from: q.from, to: q.to, date: q.date, pax: q.pax, stopIds: q.stopIds, lang: q.lang });
+  const res = await api<{ quote: RideQuote }>("/client/quote", { from: q.from, to: q.to, date: q.date, ...(q.time ? { time: q.time } : {}), pax: q.pax, stopIds: q.stopIds, lang: q.lang });
   if (res.ok && res.data) quotes.set(key, res.data.quote);
   return res;
 }
@@ -114,3 +120,23 @@ export async function popularPrices(date: string, pax: number, onUpdate: (prices
 
 /** "2 h 45 min" */
 export const driveTime = (minutes: number) => ((minutes >= 60 ? Math.floor(minutes / 60) + " h " : "") + (minutes % 60 ? (minutes % 60) + " min" : "")).trim();
+
+/** The night-pickup rule as the server reports it with a quote. */
+export type NightRule = { percent: number; startHour: number; endHour: number; applies: boolean };
+
+/**
+ * Is this pickup time inside the night window the server reported? From the start hour up to,
+ * but not including, the end hour; the window may cross midnight. Only used to mark the hours
+ * in the time list: the price itself always comes from the server.
+ */
+export function isNightTime(time: string, night: NightRule | null | undefined): boolean {
+  if (!night || !night.percent || night.startHour === night.endHour) return false;
+  const [h, m] = time.split(":").map(Number);
+  const minutes = h * 60 + m;
+  const start = night.startHour * 60;
+  const end = night.endHour * 60;
+  return start < end ? minutes >= start && minutes < end : minutes >= start || minutes < end;
+}
+
+/** "Night pickup +20%" / "Recogida nocturna +20%". */
+export const nightLabel = (night: NightRule, lang: "en" | "es") => (lang === "es" ? "Recogida nocturna +" : "Night pickup +") + night.percent + "%";

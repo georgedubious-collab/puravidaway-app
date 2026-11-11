@@ -9,5 +9,5 @@ export async function generateMetadata(_props: unknown, parent: ResolvingMetadat
 
 export default async function Page() {
   const catalog = await getCatalog();
-  return <FaqPage lang="en" cashFeeBps={catalog.cashFeeBps} />;
+  return <FaqPage lang="en" values={{ cashFeeBps: catalog.cashFeeBps, nightPremium: catalog.nightPremium }} />;
 }

@@ -17,7 +17,8 @@ import {
   type Region,
 } from "@/lib/catalog";
 import { DRIVER_COMMISSION_BPS_DEFAULT } from "@/lib/payout";
-import { formatUSD, rideCents } from "@/lib/pricing";
+import { formatUSD, nightPremiumCents, rideCents } from "@/lib/pricing";
+import { NIGHT_PREMIUM_DEFAULT, hourLabel, nightPercent, nightPremiumOn, nightWindow, type NightPremium } from "@/lib/nightPremium";
 import { requireRole } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { makeT } from "@/lib/teamLang";
@@ -32,6 +33,7 @@ import {
   saveLodgingTier,
   saveAreaFactors,
   saveDriverCommission,
+  saveNightPremium,
   saveWaitRate,
   saveFerryFares,
   savePaymentSettings,
@@ -55,6 +57,8 @@ interface Settings {
   ferry_vehicle_fare_crc?: number; ferry_passenger_fare_crc?: number; crc_per_usd?: number;
   driver_commission_bps?: number;
   wait_per_hour?: number;
+  /* From migration 0041; undefined until it has run. */
+  night_premium_bps?: number; night_start_hour?: number; night_end_hour?: number;
 }
 
 /** Example routes shown under the formula so the effect of a change is visible. */
@@ -114,6 +118,13 @@ export default async function PricingPage() {
       : Math.round(Number(x.price ?? 0) * 100);
   const tourPP = (x: Stop) => Math.round(Number(x.tour_price_pp ?? 0) * 100);
   const commissionReady = ps.data?.driver_commission_bps !== undefined;
+  // Migration 0041: night pickups.
+  const nightReady = ps.data?.night_premium_bps !== undefined;
+  const night: NightPremium = {
+    bps: ps.data?.night_premium_bps ?? NIGHT_PREMIUM_DEFAULT.bps,
+    startHour: ps.data?.night_start_hour ?? NIGHT_PREMIUM_DEFAULT.startHour,
+    endHour: ps.data?.night_end_hour ?? NIGHT_PREMIUM_DEFAULT.endHour,
+  };
   const ferry = {
     vehicleCrc: ps.data?.ferry_vehicle_fare_crc ?? FERRY_FARES_DEFAULT.vehicleCrc,
     passengerCrc: ps.data?.ferry_passenger_fare_crc ?? FERRY_FARES_DEFAULT.passengerCrc,
@@ -142,6 +153,10 @@ export default async function PricingPage() {
   const ferryTwo = formatUSD(Math.round(crcToCents(ferry.vehicleCrc + 2 * ferry.passengerCrc, ferry.rate) / 100) * 100);
   const payRide = formatUSD(Math.round(16200 * (1 - commissionBps / 10000)));
   const payTour = formatUSD(Math.round(40000 * (1 - commissionBps / 10000)));
+  // The same $162 example ride with a pickup at the first night hour (green season).
+  const nightRideCents = 16200 + nightPremiumCents(16200, 10000, `${String(night.startHour).padStart(2, "0")}:00`, night);
+  const nightRide = formatUSD(nightRideCents);
+  const payNightRide = formatUSD(Math.round(nightRideCents * (1 - commissionBps / 10000)));
 
   return (
     <div className="space-y-10">
@@ -472,6 +487,51 @@ export default async function PricingPage() {
             {lang === "en"
               ? `Example: a ${formatUSD(16200)} ride pays the driver ${payRide}. On tours and guided stops, the entrances, lunch and activities we pay are taken off first: a ${formatUSD(59000)} tour with ${formatUSD(19000)} of costs pays the driver ${payTour}. Changing this only affects new bookings; each booking keeps the payout it was created with.`
               : `Ejemplo: un traslado de ${formatUSD(16200)} le paga al conductor ${payRide}. En tours y paradas guiadas, primero se restan las entradas, el almuerzo y las actividades que pagamos: un tour de ${formatUSD(59000)} con ${formatUSD(19000)} de costos le paga al conductor ${payTour}. Cambiar esto solo afecta las reservas nuevas; cada reserva mantiene el pago con el que se creó.`}
+          </p>
+        </Card>
+      </Section>
+
+      <Section
+        title={t("Recogidas nocturnas", "Night pickups")}
+        note={t(
+          "Los clientes pueden pedir la recogida a cualquier hora. Un traslado cuya hora de recogida (hora de Costa Rica) cae en este horario cuesta este porcentaje más. Se aplica solo al traslado, después del vehículo, la zona y la temporada; las paradas, el ferry, la lancha de Bahía Drake y las entradas no tienen recargo. El horario va desde la hora «Desde» hasta justo antes de la hora «Hasta» y puede cruzar la medianoche. El pago al conductor sube con el recargo. Los tours de un día y las expediciones no cambian. Ponga 0% (o la misma hora en ambos) para no cobrar recargo.",
+          "Travellers can ask for a pickup at any hour. A ride whose pickup time (Costa Rica time) falls in this window costs this percentage more. It applies to the ride only, after the vehicle, area and season; stops, the ferry, the Drake Bay boat and entrances are not marked up. The window runs from the \"From\" hour up to just before the \"Until\" hour and may cross midnight. The driver's payout rises with the premium. Day tours and expeditions don't change. Set 0% (or the same hour in both) to charge no premium.",
+        )}
+      >
+        <Card>
+          {!nightReady && (
+            <p className="mb-3 text-sm text-amber-800">
+              {t(
+                `Estos valores se podrán editar cuando termine la actualización de la base de datos (se aplica sola después de publicar). Mientras tanto el sitio usa +${nightPercent(NIGHT_PREMIUM_DEFAULT)} de ${hourLabel(NIGHT_PREMIUM_DEFAULT.startHour, "es")} a ${hourLabel(NIGHT_PREMIUM_DEFAULT.endHour, "es")}.`,
+                `These values can be edited once the database update has finished (it runs by itself after publishing). Until then the site uses +${nightPercent(NIGHT_PREMIUM_DEFAULT)} from ${hourLabel(NIGHT_PREMIUM_DEFAULT.startHour)} to ${hourLabel(NIGHT_PREMIUM_DEFAULT.endHour)}.`,
+              )}
+            </p>
+          )}
+          <AdminForm lang={lang} action={saveNightPremium} className="grid gap-3 sm:grid-cols-6 items-end">
+            <Field l={t("Recargo nocturno (%)", "Night premium (%)")} className="sm:col-span-2">
+              <input name="night_premium_percent" inputMode="decimal" defaultValue={night.bps / 100} className={input} disabled={!nightReady} />
+            </Field>
+            <Field l={t("Desde (hora)", "From (hour)")} className="sm:col-span-2">
+              <select name="night_start_hour" defaultValue={night.startHour} className={input} disabled={!nightReady}>
+                {Array.from({ length: 24 }, (_, h) => (
+                  <option key={h} value={h}>{hourLabel(h, lang)}</option>
+                ))}
+              </select>
+            </Field>
+            <Field l={t("Hasta (hora, sin incluirla)", "Until (hour, not included)")} className="sm:col-span-2">
+              <select name="night_end_hour" defaultValue={night.endHour} className={input} disabled={!nightReady}>
+                {Array.from({ length: 24 }, (_, h) => (
+                  <option key={h} value={h}>{hourLabel(h, lang)}</option>
+                ))}
+              </select>
+            </Field>
+          </AdminForm>
+          <p className="mt-3 text-xs text-slate-600">
+            {nightPremiumOn(night)
+              ? lang === "en"
+                ? `Today: a ride that costs ${formatUSD(16200)} by day costs ${nightRide} with a pickup ${nightWindow(night)}, and the driver's payout goes from ${payRide} to ${payNightRide}. Changing this only affects new bookings.`
+                : `Hoy: un traslado que de día cuesta ${formatUSD(16200)} cuesta ${nightRide} con recogida ${nightWindow(night, "es")}, y el pago al conductor pasa de ${payRide} a ${payNightRide}. Cambiar esto solo afecta las reservas nuevas.`
+              : t("Hoy no se cobra recargo nocturno.", "No night premium is charged today.")}
           </p>
         </Card>
       </Section>

@@ -4,6 +4,7 @@
  * docs/PROJECT.md. "{cashFee}" is replaced with the live cash booking fee.
  * Spanish: neutral Latin American, "usted", "conductor".
  */
+import { nightSentence, type NightPremium } from "./nightPremium";
 import { formatBpsPercent } from "./pricing";
 import type { PublicLang } from "./publicLang";
 
@@ -74,8 +75,16 @@ export const FAQ_GROUPS: FaqGroup[] = [
         id: "extras",
         q: { en: "Are there any extra charges?", es: "¿Hay cargos adicionales?" },
         a: {
-          en: "The price is confirmed before you pay: no surge and no fuel surcharge. Prices include the season (December to April and holiday weeks cost a little more), and ferry fares on routes that take the ferry. Entrance fees at sightseeing stops are shown on each stop: free, included, or paid at the gate.",
-          es: "El precio se confirma antes de pagar: sin tarifas dinámicas ni recargo por combustible. Los precios incluyen la temporada (de diciembre a abril y las semanas feriadas cuestan un poco más) y el ferry en las rutas que lo usan. Las entradas en las paradas turísticas se indican en cada parada: gratis, incluida o se paga en la entrada.",
+          en: "The price is confirmed before you pay: no surge and no fuel surcharge. Prices include the season (December to April and holiday weeks cost a little more), the night premium when your pickup is at night, and ferry fares on routes that take the ferry. Entrance fees at sightseeing stops are shown on each stop: free, included, or paid at the gate.",
+          es: "El precio se confirma antes de pagar: sin tarifas dinámicas ni recargo por combustible. Los precios incluyen la temporada (de diciembre a abril y las semanas feriadas cuestan un poco más), el recargo nocturno cuando la recogida es de noche y el ferry en las rutas que lo usan. Las entradas en las paradas turísticas se indican en cada parada: gratis, incluida o se paga en la entrada.",
+        },
+      },
+      {
+        id: "night-pickups",
+        q: { en: "Can I book a pickup at night or very early?", es: "¿Puedo reservar una recogida de noche o muy temprano?" },
+        a: {
+          en: "Yes. {night} The price you see when you choose your pickup time already includes it; stops, ferry fares, day tours and multi-day trips are not affected.",
+          es: "Sí. {night} El precio que ve al elegir su hora de recogida ya lo incluye; las paradas, el ferry, los tours de un día y los viajes de varios días no cambian.",
         },
       },
       {
@@ -256,7 +265,18 @@ export const FAQ_GROUPS: FaqGroup[] = [
   },
 ];
 
-/** The answer with the live cash booking fee filled in. */
-export function faqAnswer(item: FaqItem, lang: PublicLang, cashFeeBps: number): string {
-  return item.a[lang].replace(/\{cashFee\}/g, formatBpsPercent(cashFeeBps));
+/** The numbers FAQ answers quote, read from the live catalog so they never drift. */
+export interface FaqValues {
+  cashFeeBps: number;
+  nightPremium: NightPremium;
+}
+
+/**
+ * The answer with the live values filled in: {cashFee} (the cash booking fee) and {night}
+ * (pickups at any hour and the night premium, with its percentage and hours).
+ */
+export function faqAnswer(item: FaqItem, lang: PublicLang, values: FaqValues): string {
+  return item.a[lang]
+    .replace(/\{cashFee\}/g, formatBpsPercent(values.cashFeeBps))
+    .replace(/\{night\}/g, nightSentence(values.nightPremium, lang));
 }

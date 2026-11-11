@@ -92,6 +92,16 @@ const quote: RideQuote = {
     { id: "sloth", name: "La Fortuna Sloth & Wildlife Sanctuary Trail", description: "Spot two- and three-toed sloths on a guided boardwalk trail near La Fortuna.", durationMin: 75, cents: 8500, tourPerPersonCents: 3000, entrance: "gate" },
   ],
 };
+/** The same sample ride with a night pickup: the server's totals already include the premium. */
+const nightQuote: RideQuote = {
+  ...quote,
+  night: { percent: 20, startHour: 22, endHour: 4, applies: true },
+  vehicles: quote.vehicles.map((v) => {
+    const nightCents = Math.round(v.totalCents * 0.2);
+    const totalCents = v.totalCents + nightCents;
+    return { ...v, totalCents, nightCents, perPersonCents: Math.ceil(totalCents / ((v.perPersonShare ?? v.maxPax) * 100)) * 100 };
+  }),
+};
 const tours: Tour[] = [
   { id: "dt1", name: "Arenal Volcano 1968 Lava Trails, La Fortuna Waterfall & Hot Springs", region: "Arenal", regionName: "La Fortuna / Arenal", durationHours: 8, highlights: ["Lava-field trails", "La Fortuna Waterfall", "Hot springs soak"], perPersonCents: 29500, totalCents: 59000, totalWithUpgradeCents: 65500 },
   { id: "dt2", name: "Manuel Antonio National Park Wildlife Walk + Catamaran Snorkel", region: "ManuelAntonio", regionName: "Manuel Antonio / Central Pacific", durationHours: 7.5, highlights: ["Naturalist guide & scope", "Sloths, monkeys, toucans", "Afternoon catamaran"], perPersonCents: 28000, totalCents: 56000, totalWithUpgradeCents: 62500 },
@@ -162,6 +172,10 @@ const SCREENS: Record<string, Setup> = {
   time: { routes: [...steps("BookWhere", "BookRide"), { name: "BookWhen" }, { name: "TimePicker" }], email: null, state: ride },
   choose: { routes: steps("BookWhere", "BookRide"), email: null, state: ride },
   ride: { routes: steps("BookWhere", "BookRide"), email: null, state: ride },
+  "ride-night": { routes: steps("BookWhere", "BookRide"), email: null, state: { ...ride, time: "23:30" }, quote: nightQuote },
+  "time-night": { routes: [...steps("BookWhere", "BookRide"), { name: "BookWhen" }, { name: "TimePicker" }], email: null, state: { ...ride, time: "23:30" }, quote: nightQuote },
+  "confirm-night": { routes: steps("BookWhere", "BookRide", "BookConfirm"), state: { ...ride, time: "23:30", name: "Sarah Miller", phone: "+1 555 123 4567" }, quote: nightQuote },
+  "confirm-sign": { routes: steps("BookWhere", "BookRide", "BookConfirm"), state: { ...ride, name: "Sarah Miller", phone: "+1 555 123 4567", signText: "The Miller Family" } },
   "ride-new": { routes: steps("BookWhere", "BookRide"), email: null, state: { ...ride, whenSet: false } },
   "ride-bid": { routes: steps("BookWhere", "BookRide"), email: null, state: { ...ride, mode: "bid", offer: "120" } },
   "ride-loading": { routes: steps("BookWhere", "BookRide"), email: null, state: ride, quote: null, quoteBusy: true },

@@ -65,6 +65,13 @@ function esHour(hour: number): string {
   return `${hour % 12 === 1 ? "la" : "las"} ${hourLabel(hour, "es")}`;
 }
 
+/** "between 10:00 PM and 4:00 AM" / "entre las 10:00 p. m. y las 4:00 a. m.". */
+export function nightWindow(night: NightPremium, lang: "en" | "es" = "en"): string {
+  return lang === "es"
+    ? `entre ${esHour(night.startHour)} y ${esHour(night.endHour)}`
+    : `between ${hourLabel(night.startHour)} and ${hourLabel(night.endHour)}`;
+}
+
 /** The chip on vehicle cards and summaries: "Night pickup +20%" / "Recogida nocturna +20%". */
 export function nightChip(night: NightPremium, lang: "en" | "es" = "en"): string {
   return lang === "es" ? `Recogida nocturna +${nightPercent(night)}` : `Night pickup +${nightPercent(night)}`;
@@ -79,6 +86,6 @@ export function nightSentence(night: NightPremium, lang: "en" | "es" = "en"): st
   const anyHour = lang === "es" ? "Hay recogidas a cualquier hora." : "Pickups are available at any hour.";
   if (!nightPremiumOn(night)) return anyHour;
   return lang === "es"
-    ? `${anyHour} Los traslados que empiezan entre ${esHour(night.startHour)} y ${esHour(night.endHour)} cuestan un ${nightPercent(night)} más.`
-    : `${anyHour} Rides that start between ${hourLabel(night.startHour)} and ${hourLabel(night.endHour)} cost ${nightPercent(night)} more.`;
+    ? `${anyHour} Los traslados que empiezan ${nightWindow(night, "es")} cuestan un ${nightPercent(night)} más.`
+    : `${anyHour} Rides that start ${nightWindow(night)} cost ${nightPercent(night)} more.`;
 }
