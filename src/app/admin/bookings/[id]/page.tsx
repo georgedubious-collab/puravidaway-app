@@ -9,6 +9,7 @@ import { getCatalog } from "@/lib/catalogSource";
 import { formatScheduledAt, scheduledParts, todayInCostaRica } from "@/lib/dates";
 import { canTakeTrips, type DriverRecord, type VehicleRecord } from "@/lib/driverKyc";
 import { prefMismatches, prefsSummary } from "@/lib/preferences";
+import { signShown } from "@/lib/sign";
 import { categoryLabel, isVehicleCategory, jobClassLabel, vehicleCanServe } from "@/lib/vehicleEligibility";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { LiveRefresh } from "@/components/LiveRefresh";
@@ -292,6 +293,18 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
               />
             )}
             {b.driver_notes && <Item k={t("Mensaje para el conductor", "Message for driver")} v={b.driver_notes} />}
+            {b.service_type === "transfer" && (
+              <Item
+                k={t("Rótulo", "Name sign")}
+                v={`“${signShown(b, guest.guest_name)}” ${
+                  b.sign_text
+                    ? t("(texto del cliente)", "(the client's own text)")
+                    : b.sign_hide_name
+                      ? t("(el cliente pidió no mostrar su nombre)", "(the client asked not to show their name)")
+                      : t("(nombre e inicial del apellido; el cliente no escribió nada)", "(first name + last initial; the client wrote nothing)")
+                }`}
+              />
+            )}
             <Item k={t("Precio", "Price")} v={`${usd(b.total_price)}${b.pricing_mode === "bid" ? t(" (oferta del cliente)", " (client's offer)") : ""}`} />
             <Item k={t("Pago", "Payment")} v={paymentText} />
             <Item

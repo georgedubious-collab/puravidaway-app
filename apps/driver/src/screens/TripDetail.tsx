@@ -99,6 +99,10 @@ export function TripDetail({
   const stage = tripStage(trip, lang);
   const facts = tripFacts(trip);
   const bags = tripBags(trip, lang);
+  // What to write on the name sign: decided by the server (the traveller's own text, our brand
+  // name if they chose no name, else first name + last initial). Before migration 0040 the
+  // server sends only the short name.
+  const sign = trip.sign_text || trip.passenger_name || null;
   const vehicle = vehicleLabel(trip.vehicle_class, lang);
   const prefs = (trip.preferences ?? {}) as { language?: string; childSeats?: number; boosters?: number; wifi?: boolean; stroller?: boolean; pets?: boolean };
   const active = trip.status === "confirmed" || trip.status === "in_progress";
@@ -191,13 +195,28 @@ export function TripDetail({
       </Section>
 
       <Section title={t("Pasajeros", "Travellers")}>
-        {trip.passenger_name ? <Row label={t("Letrero", "Name sign")} value={trip.passenger_name} /> : null}
+        {sign ? (
+          <View
+            accessible
+            accessibilityLabel={t("Rótulo", "Sign") + ": " + sign}
+            style={{ borderWidth: 2, borderColor: C.text, borderRadius: R.control, backgroundColor: "#fff", paddingVertical: 14, paddingHorizontal: 12, alignItems: "center", gap: 4 }}
+          >
+            <Text style={{ color: C.muted, fontSize: 12, fontWeight: "800", letterSpacing: 1, textTransform: "uppercase" }}>
+              {t("Rótulo", "Sign")}
+            </Text>
+            <Text style={{ color: C.text, fontSize: 26, fontWeight: "800", textAlign: "center" }}>{sign}</Text>
+            <Text style={{ color: C.muted, fontSize: 12, textAlign: "center" }}>
+              {t("Escriba esto en el rótulo para recibir al cliente.", "Write this on the sign to meet the traveller.")}
+            </Text>
+          </View>
+        ) : null}
+        {trip.passenger_name && trip.passenger_name !== sign ? <Row label={t("Pasajero", "Traveller")} value={trip.passenger_name} /> : null}
         {trip.passenger_count ? <Row label={t("Pasajeros", "Travellers")} value={String(trip.passenger_count)} /> : null}
         {bags ? <Row label={t("Maletas", "Bags")} value={bags.words} /> : null}
         {trip.flight_or_hotel_notes ? <Row label={t("Vuelo / hotel", "Flight / hotel")} value={trip.flight_or_hotel_notes} /> : null}
         {asked.length ? <Row label={t("Pidió", "Asked for")} value={asked.join("\n")} /> : null}
         {trip.driver_notes ? <Row label={t("Nota", "Note")} value={"“" + trip.driver_notes + "”"} /> : null}
-        {!trip.passenger_name && !trip.passenger_count && !bags && !trip.flight_or_hotel_notes && !asked.length && !trip.driver_notes ? (
+        {!sign && !trip.passenger_count && !bags && !trip.flight_or_hotel_notes && !asked.length && !trip.driver_notes ? (
           <Text style={S.muted}>{t("Sin detalles adicionales.", "No extra details.")}</Text>
         ) : null}
       </Section>

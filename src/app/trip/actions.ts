@@ -183,6 +183,10 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
       // Older app builds send one number: it is kept as the large suitcases, carry-ons unknown.
       luggage_count: spec.kind === "transfer" && spec.bags !== undefined ? spec.bags : null,
       carry_on_count: spec.kind === "transfer" && spec.carryOns !== undefined ? spec.carryOns : null,
+      // Name sign (migration 0040): the traveller's own text, or "Don't show my name". Neither =
+      // first name + last initial. Older app builds send neither.
+      sign_text: spec.kind === "transfer" ? (spec.signText ?? null) : null,
+      sign_hide_name: spec.kind === "transfer" && !spec.signText && spec.signHideName === true,
       // Door-to-door drive time for the driver's arrival estimate: Google's road route for typed
       // places, else our per-corridor table between two towns. Never a straight-line guess.
       drive_minutes: spec.kind === "transfer" ? driveMinutes(ride?.route ?? null, spec) : null,
@@ -213,6 +217,13 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
       saved = await db
         .from("bookings")
         .insert(rows.map((row) => ({ ...row, carry_on_count: undefined })))
+        .select("id, booking_ref, status");
+    }
+    // Same safety net for the name-sign columns (migration 0040).
+    if (saved.error && /sign_text|sign_hide_name/.test(saved.error.message ?? "") && !/name sign/.test(saved.error.message ?? "")) {
+      saved = await db
+        .from("bookings")
+        .insert(rows.map((row) => ({ ...row, sign_text: undefined, sign_hide_name: undefined })))
         .select("id, booking_ref, status");
     }
     const { data, error } = saved;

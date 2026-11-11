@@ -36,6 +36,11 @@ const EXACT: Record<string, string> = {
   "Pickup and drop-off are the same place.": "La recogida y el destino son el mismo lugar.",
   "Please keep phone numbers, emails and links out of the message for your driver. You can message your driver in the trip chat once confirmed.":
     "Por favor, no incluya teléfonos, correos ni enlaces en el mensaje para su conductor. Podrá escribirle a su conductor en el chat del viaje una vez confirmado.",
+  "Please keep phone numbers, emails and links off the name sign.": "Por favor, no ponga teléfonos, correos ni enlaces en el rótulo.",
+  "The name on the sign can be up to 40 characters.": "El nombre en el rótulo puede tener hasta 40 caracteres.",
+  "The name sign can't be changed any more: your driver is already on the way.":
+    "El rótulo ya no se puede cambiar: su conductor ya va en camino.",
+  "We couldn't save the name sign. Please try again.": "No pudimos guardar el rótulo. Por favor, inténtelo de nuevo.",
   "That vehicle is no longer offered. Please choose another.": "Ese vehículo ya no está disponible. Por favor, elija otro.",
   "One of the stops is no longer offered on this route.": "Una de las paradas ya no se ofrece en esta ruta.",
   "That tour is no longer offered.": "Ese tour ya no está disponible.",

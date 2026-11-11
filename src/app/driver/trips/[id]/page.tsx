@@ -64,9 +64,12 @@ async function Trip({ params, searchParams }: { params: Promise<{ id: string }>;
   const b = (mine ?? []).find((x) => x.id === id);
   if (!b) notFound();
 
-  // The traveller's first name + last initial for the name sign ("Emily R.", my_trips(),
-  // migration 0035). Drivers never get the full name, phone or email (Jorge, 2026-11-10):
-  // they use the trip chat, or call our team.
+  // The traveller's first name + last initial ("Emily R.", my_trips(), migration 0035).
+  // Drivers never get the full name, phone or email (Jorge, 2026-11-10): they use the trip
+  // chat, or call our team.
+  // The name sign: one value decided by the database (pickup_sign(), migration 0040): the
+  // traveller's own text, or our brand name if they chose no name, or the short name.
+  const sign = b.sign_text || b.passenger_name || null;
   // Estimated arrival (server: pickup + drive time + stops); nothing when the drive time is unknown.
   const arrive = scheduledParts(b.arrive_at);
   // "4 grandes + 4 de mano"; older bookings have one number only.
@@ -129,6 +132,16 @@ async function Trip({ params, searchParams }: { params: Promise<{ id: string }>;
           {formatScheduledAt(b.scheduled_at, lang)} · {serviceLabel(b.service_type, lang)} · {bookingStatusLabel(b.status, lang)}
         </p>
       </div>
+
+      {sign && (
+        <section className="rounded-xl border-2 border-slate-900 bg-white p-4 text-center" aria-label={tt("Rótulo", "Sign")}>
+          <p className="text-xs font-extrabold uppercase tracking-wider text-slate-500">{tt("Rótulo", "Sign")}</p>
+          <p className="mt-1 break-words text-3xl font-extrabold text-slate-900">{sign}</p>
+          <p className="mt-1 text-xs text-slate-500">
+            {tt("Escriba esto en el rótulo para recibir al cliente.", "Write this on the sign to meet the traveller.")}
+          </p>
+        </section>
+      )}
 
       <section className="rounded-xl border border-slate-200 bg-white p-5">
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
