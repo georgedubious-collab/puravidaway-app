@@ -227,6 +227,8 @@ function JobCard({
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
         <Badge text={plural(pax, ["pasajero", "pasajeros"], ["passenger", "passengers"], lang)} tone="grey" icon="people-outline" />
         {stops.length ? <Badge text={plural(stops.length, ["parada", "paradas"], ["stop", "stops"], lang)} tone="grey" icon="camera-outline" /> : null}
+        {/* A request, not a filter: every driver still sees the job. */}
+        {job.preferences?.electric === true ? <Badge text={t("Pidió vehículo eléctrico, si hay", "Asked for an electric vehicle, if available")} tone="grey" icon="flash-outline" /> : null}
         {returnTrip ? <Badge text={t("Regreso después de ", "Return trip after ") + returnTrip.booking_ref} icon="repeat-outline" /> : null}
         {!returnTrip && homeHub && homeHub === job.origin_town ? <Badge text={t("Sale de su zona", "Starts in your area")} tone="sky" icon="location-outline" /> : null}
       </View>
