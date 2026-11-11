@@ -98,8 +98,9 @@ export function RidesTable({
                   <td className="px-3 sm:px-4 py-3 whitespace-nowrap text-slate-800">≈ {formatDuration(routeMinutes(r.origin, r.destination), lang)}</td>
                   <td className="px-3 sm:px-4 py-3">
                     <span className="font-extrabold text-emerald-700">{formatUSD(price.fromCents)}</span>
+                    <span className="block text-xs text-slate-600">{price.cheapest.name}</span>
                     <span className="block text-xs text-slate-600">
-                      {price.cheapest.name} · {t(lang, "up to", "hasta")} {price.cheapest.maxPax}
+                      {t(lang, "up to", "hasta")} {price.cheapest.maxPax} {t(lang, "travellers", "viajeros")}
                     </span>
                   </td>
                 </tr>
