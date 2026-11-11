@@ -46,6 +46,8 @@ interface Vehicle {
   id: string; name: string; max_pax: number; luggage: string; badge: string; active: boolean;
   /* From migration 0013; undefined until it is run. */
   price_factor?: number; extra_fee?: number; allows_stops?: boolean; spanish_speaking_driver?: boolean;
+  /* From migration 0039; undefined until it is run. */
+  example_models?: string | null;
 }
 interface Settings {
   cash_fee_bps: number;
@@ -251,6 +253,17 @@ export default async function PricingPage() {
             <AdminForm lang={lang} action={saveVehicle} className="grid gap-3 sm:grid-cols-6 items-end">
               <input type="hidden" name="id" value={x.id} />
               <Field l={t("Nombre", "Name")} className="sm:col-span-2"><input name="name" defaultValue={x.name} className={input} /></Field>
+              {x.example_models !== undefined && (
+                <Field l={t("Modelos de ejemplo", "Example models")} className="sm:col-span-4">
+                  <input name="example_models" maxLength={80} defaultValue={x.example_models ?? ""} placeholder="Toyota Prado" className={input} />
+                  <span className="mt-1 block text-xs font-normal text-slate-500">
+                    {t(
+                      "Solo el modelo, por ejemplo «Toyota Prado». El sitio y la app agregan « o similar» automáticamente. Vacío = no se muestra ningún ejemplo.",
+                      "Only the model, e.g. \"Toyota Prado\". The site and the app add \" or similar\" automatically. Empty = no example is shown.",
+                    )}
+                  </span>
+                </Field>
+              )}
               <Field l={t("Factor de precio", "Price factor")}><input name="price_factor" inputMode="decimal" defaultValue={x.price_factor ?? 1} className={input} disabled={!formulaReady} /></Field>
               <Field l={t("Cargo extra (USD)", "Extra fee (USD)")}><input name="extra_fee" inputMode="decimal" defaultValue={x.extra_fee ?? 0} className={input} disabled={!formulaReady} /></Field>
               <Field l={t("Máximo de pasajeros", "Max passengers")}><input name="max_pax" type="number" min={1} defaultValue={x.max_pax} className={input} /></Field>

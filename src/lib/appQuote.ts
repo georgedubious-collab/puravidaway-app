@@ -35,6 +35,8 @@ export interface RideQuote {
   vehicles: {
     id: string;
     name: string;
+    /** Example models ("Toyota Prado") or "". The app shows it as "... or similar", never alone. */
+    exampleModels: string;
     badge: string;
     maxPax: number;
     luggage: string;
@@ -108,6 +110,7 @@ export async function rideQuote(input: { from: string; to: string; date: string;
     vehicles: quotes.map(({ v, q }) => ({
       id: v.id,
       name: v.name,
+      exampleModels: v.exampleModels,
       badge: v.badge,
       maxPax: v.maxPax,
       luggage: v.luggage,

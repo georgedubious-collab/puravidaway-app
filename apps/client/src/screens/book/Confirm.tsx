@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Pressable, View } from "react-native";
 import { bagsFor, cents, useBooking } from "../../booking";
 import { shortDate } from "../../DatePicker";
+import { orSimilar } from "../../format";
 import { useT } from "../../i18n";
 import { useNav } from "../../nav";
 import { driveTime, time12 } from "../../prices";
@@ -103,6 +104,7 @@ export function BookConfirm() {
         <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
           <View style={{ flex: 1, gap: 1 }}>
             {vehicle ? <Text style={T.smallStrong}>{vehicle.name}</Text> : <Skeleton height={18} width="60%" />}
+            {vehicle && orSimilar(vehicle.exampleModels, lang) ? <Text style={T.caption}>{orSimilar(vehicle.exampleModels, lang)}</Text> : null}
             <Text style={T.caption}>{bid ? t("Your offer to drivers", "Su oferta a los conductores") : t("Fixed price for the whole vehicle", "Precio fijo por todo el vehículo")}</Text>
           </View>
           {priced ? <Text style={{ fontSize: 20, lineHeight: 26, fontWeight: "800", color: C.text }}>{cents(itemCents)}</Text> : !quote && quoteBusy ? <Skeleton height={24} width={64} /> : <Text style={T.h3}>—</Text>}

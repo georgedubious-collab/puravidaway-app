@@ -373,14 +373,25 @@ Notes:
 ### 5.3 Vehicle classes
 Priced by the ride formula (§6.1) × the class factor; flat base rates retired 2026-11-09.
 
-| ID | Class | Factor | Pax | Luggage | Use case |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| `economy` | Economy Sedan | 0.90 | 1–3 | 3 suitcases | Spanish-speaking driver, direct ride (no stops) |
-| `sedan` | Standard Sedan | 1.00 | 1–3 | 3 suitcases | Best value; default choice |
-| `suv` | Minivan (MPV) | 1.20 | 1–4 | 4 suitcases | Roomy for 4 + bags (Xpander, Avanza, Carnival…) |
-| `4x4` | Executive 4x4 (Prado / Fortuner) | 1.30 | 1–4 | 4 suitcases | Osa / Monteverde roads |
-| `van` | Private Toyota HiAce / Hyundai Staria | 1.35 | 1–10 | 10 suitcases | Families & groups |
-| `sierpe_combo` | 4x4 transfer + Sierpe river boat | 1.30 + $75 boat | 1–4 | Wet/dry assist | Drake Bay / Corcovado |
+| ID | Class | Example models (shown as "… or similar") | Factor | Pax | Luggage | Use case |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| `economy` | Economy Sedan | Toyota Yaris | 0.90 | 1–3 | 3 suitcases | Spanish-speaking driver, direct ride (no stops) |
+| `sedan` | Standard Sedan | Toyota Corolla | 1.00 | 1–3 | 3 suitcases | Best value; default choice |
+| `suv` | Minivan (MPV) | Mitsubishi Xpander | 1.20 | 1–4 | 4 suitcases | Roomy for 4 + bags |
+| `4x4` | Executive 4x4 | Toyota Prado | 1.30 | 1–4 | 4 suitcases | Osa / Monteverde roads |
+| `van` | Private Van | Toyota HiAce | 1.35 | 1–10 | 10 suitcases | Families & groups |
+| `sierpe_combo` | 4x4 transfer + Sierpe river boat | Toyota Prado | 1.30 + $75 boat | 1–4 | Wet/dry assist | Drake Bay / Corcovado |
+
+**Example models, always "or similar" (Jorge, 2026-11-11, migration 0039).** Every category has
+example models in `vehicle_classes.example_models`, edited in `/admin/pricing` ("Modelos de
+ejemplo"). Travellers see them under the category name as **"Toyota Prado or similar"** /
+**"Toyota Prado o similar"**: on the website's vehicle cards, in the client app's vehicle list and
+on its "Your ride" screen. The words "or similar" are added by the code (`orSimilar()` in
+`src/lib/catalog.ts` and `apps/client/src/format.ts`), never typed into the database, so a model
+is never shown as a promise. The category **names stay short** and no longer carry model names
+("Executive 4x4 (Prado / Fortuner)" → "Executive 4x4", "Private Toyota HiAce / Hyundai Staria" →
+"Private Van"; Spanish "4x4 Ejecutivo", "Van privada"). The seeded examples above are a first
+proposal; leaving the field empty hides the line for that category.
 
 **The 4-traveller class is a minivan, not an SUV (Jorge, 2026-11-11).** A compact SUV (Aion V,
 RAV4) has a sedan-size boot, so it cannot honestly carry 4 travellers + 4 suitcases; on Daytrip
@@ -390,7 +401,7 @@ such a car only qualifies for Sedan / Sedan Lite and the 4-person class is MPVs 
 only the wording travellers see changed. Price factor, 4 travellers and 4 suitcases are unchanged.
 Sedans stay at 3 travellers / 3 suitcases; the Executive 4x4 and the Van are unchanged.
 
-#### Vehicle categories: which jobs each driver vehicle receives (built 2026-11-11, migration 0038)
+#### Vehicle categories: which jobs each driver vehicle receives (built 2026-11-11, migrations 0038 and 0039)
 Our team tags every driver vehicle with **one** category (`driver_vehicles.vehicle_class`) on the
 driver's page in `/admin/drivers` ("Categoría del vehículo"). Bigger or more capable vehicles may
 also take the jobs of the categories below them:
@@ -402,16 +413,28 @@ also take the jobs of the categories below them:
 | `suv` (minivan / MPV) | `economy`, `sedan`, `suv` |
 | `4x4` (executive 4x4) | `economy`, `sedan`, `suv`, `4x4`, `sierpe_combo` |
 | `van` | `economy`, `sedan`, `suv`, `van` — **not** `4x4` / `sierpe_combo` (those are about rough roads, not size) |
+| `van_4x4` ("Van 4x4": a van that is also a 4x4; Jorge, 2026-11-11, migration 0039) | `economy`, `sedan`, `suv`, `van`, `4x4`, `sierpe_combo` — everything a van gets plus everything a 4x4 gets |
 
-- **Not tagged yet = receives every job**, exactly as before categories existed, so no driver was
-  locked out when this shipped. The admin page shows "Sin categoría: recibe todos los trabajos".
+`van_4x4` is only a tag for driver vehicles; travellers cannot book it and it has no price.
+
+- **Not tagged yet = not filtered by category**, exactly as before categories existed, so no
+  driver was locked out when this shipped. The admin page shows "Sin categoría: recibe todos los
+  trabajos" (still subject to the seat rule below).
 - **Day tours and expeditions are not filtered by category**: a tour booking has no vehicle class
-  (`bookings.vehicle_class` is null), so every approved driver still sees them.
-- The seat check is unchanged and separate: an offer needs a vehicle with at least as many
-  passenger seats as travellers (`offer_job`). The job board itself is not filtered by seats.
-- Where the rule is enforced: the job board (`driver_jobs()` shows a ride only if one of the
-  driver's approved vehicles can serve it), offers (`offer_job()` refuses a vehicle whose
-  category can't serve the job), and job alerts by push and email (`src/lib/jobAlerts.ts`).
+  (`bookings.vehicle_class` is null). They do follow the seat rule.
+- **Seat rule: jobs too big for the driver's vehicles are hidden (Jorge, 2026-11-11, migration
+  0039).** A job is on a driver's board only if **one** of their approved vehicles has both the
+  right category **and** at least as many passenger seats as travellers
+  (`passenger_capacity >= passenger_count`). Both must be true on the same vehicle: a 4-seat 4x4
+  plus an 8-seat van does not show a 6-traveller 4x4 job. A vehicle **without a seat number counts
+  as 0 seats**, exactly as `offer_job()` has always treated it, so it shows no job that has
+  travellers (the admin's driver page flags an approved vehicle without seats in red). A job
+  without a traveller count is not filtered by seats. So the board never lists a job that
+  `offer_job()` would refuse for seats or category with every one of the driver's vehicles.
+- Where the rule is enforced: the job board (`driver_jobs()`), offers (`offer_job()` refuses a
+  vehicle whose category can't serve the job or that has too few seats), and job alerts by push
+  and email (`src/lib/jobAlerts.ts`, same category + seats rule, so nobody is alerted about a job
+  they cannot see).
   **The team can still assign anyone**; the booking page shows a warning when the assigned
   vehicle's category doesn't cover the booked class, and on any offer in that situation.
 - A driver sees their vehicle's category (read-only, with the list of jobs it receives) in the
@@ -602,7 +625,7 @@ Implemented in `supabase/migrations/`. Catalog ids are short text slugs (`suv`, 
 matching `src/lib/catalog.ts`; seasons use `season_ranges` (start/end dates) plus a `priority`,
 and `season_for_date(date)` returns the season for a travel date.
 - `sightseeing_stops` — id, name, description, duration_min, detour_km, detour_min, tour_price_pp (migration 0021; `price` is retired, the stop price is computed from these), entrance (free | included | gate; replaces park_fee_included, which is kept in step), corridors, active
-- `vehicle_classes` — id, name, price_factor, extra_fee, allows_stops, spanish_speaking_driver,
+- `vehicle_classes` — id, name, example_models (shown as "… or similar", migration 0039), price_factor, extra_fee, allows_stops, spanish_speaking_driver,
   max_pax, luggage, badge, only_for_hubs, active (`base_rate` retired 2026-11-09, kept for old data)
 - `day_tours` — id, region, name, description, duration_hours, price_pp_solo / price_pp_small / price_pp_group (per person by group size, migration 0022; `price` retired), cost_pp (company-paid costs per person, 0023), en_route_upgrade_price, active
 - `expeditions` — id, name, days, nights, base_price, itinerary jsonb, active

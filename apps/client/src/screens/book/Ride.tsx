@@ -3,7 +3,7 @@ import { KeyboardAvoidingView, Platform, Pressable, ScrollView, TextInput, View,
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { cents, useBooking } from "../../booking";
 import { shortDate } from "../../DatePicker";
-import { plural } from "../../format";
+import { orSimilar, plural } from "../../format";
 import { pointOfPlace, shortPlace, type MapPoint } from "../../geo";
 import { pick } from "../../haptics";
 import { LangToggle, useT } from "../../i18n";
@@ -142,13 +142,14 @@ export function BookRide() {
           <View accessibilityRole="radiogroup" style={{ gap: 8 }}>
             {quote?.vehicles.map((v) => {
               const on = v.id === vehicle?.id;
+              const similar = orSimilar(v.exampleModels, lang);
               const facts = [v.badge, v.allowsStops || /direct/i.test(v.badge ?? "") ? "" : t("Direct ride, no stops", "Traslado directo, sin paradas"), v.perPersonCents ? t("from " + cents(v.perPersonCents) + "/person", "desde " + cents(v.perPersonCents) + "/persona") : ""].filter(Boolean);
               return (
                 <Pressable
                   key={v.id}
                   accessibilityRole="radio"
                   accessibilityState={{ selected: on }}
-                  accessibilityLabel={v.name + ", " + cents(v.totalCents) + t(" per car", " por vehículo")}
+                  accessibilityLabel={v.name + (similar ? ", " + similar : "") + ", " + cents(v.totalCents) + t(" per car", " por vehículo")}
                   onPress={() => {
                     if (!on) pick();
                     set({ vehicleId: v.id });
@@ -160,6 +161,7 @@ export function BookRide() {
                   </View>
                   <View style={{ flex: 1, gap: 2 }}>
                     <Text style={{ fontSize: 16, lineHeight: 21, fontWeight: "700", color: C.text }}>{v.name}</Text>
+                    {similar ? <Text style={[T.caption, { fontWeight: "600", color: C.text }]}>{similar}</Text> : null}
                     <Text style={T.caption}>
                       {t("Up to " + plural(v.maxPax, "traveller", "en"), "Hasta " + plural(v.maxPax, "traveller", "es"))} · {v.luggage}
                     </Text>

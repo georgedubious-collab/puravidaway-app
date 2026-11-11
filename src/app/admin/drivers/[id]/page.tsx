@@ -265,8 +265,13 @@ export default async function DriverDetail({ params }: { params: Promise<{ id: s
               {!isVehicleCategory(v.vehicle_class) && (
                 <span className="rounded bg-amber-100 px-2 py-0.5 text-sm text-amber-900 font-bold">{categoryLabel(null, lang)}</span>
               )}
+              {v.status === "approved" && !v.passenger_capacity && (
+                <span className="rounded bg-red-100 px-2 py-0.5 text-sm text-red-900 font-bold">
+                  {t("Sin número de asientos: no recibe trabajos", "No seat number: receives no jobs")}
+                </span>
+              )}
             </div>
-            {/* Which jobs this vehicle receives (migration 0038). Saved on its own, without a new approval decision. */}
+            {/* Which jobs this vehicle receives (migrations 0038 and 0039). Saved on its own, without a new approval decision. */}
             <ActionForm
               action={setVehicleCategory}
               lang={lang}
@@ -301,8 +306,8 @@ export default async function DriverDetail({ params }: { params: Promise<{ id: s
               </ul>
               <p className="text-xs text-slate-500">
                 {t(
-                  "Un SUV compacto (RAV4, Aion V) va como Sedán: su cajuela es de sedán. Minivan (MPV) es para 4 viajeros con 4 maletas (Xpander, Avanza, Carnival). Una van no recibe trabajos de 4x4.",
-                  "A compact SUV (RAV4, Aion V) goes as Sedan: its boot is sedan-size. Minivan (MPV) is for 4 travellers with 4 suitcases (Xpander, Avanza, Carnival). A van doesn't receive 4x4 jobs.",
+                  "Un SUV compacto (RAV4, Aion V) va como Sedán: su cajuela es de sedán. Minivan (MPV) es para 4 viajeros con 4 maletas (Xpander, Avanza, Carnival). Una van no recibe trabajos de 4x4; si la van también es 4x4, use Van 4x4: recibe los trabajos de van y los de 4x4 (incluida la lancha de Sierpe). Además de la categoría, el vehículo solo recibe trabajos para los que tiene asientos suficientes.",
+                  "A compact SUV (RAV4, Aion V) goes as Sedan: its boot is sedan-size. Minivan (MPV) is for 4 travellers with 4 suitcases (Xpander, Avanza, Carnival). A van doesn't receive 4x4 jobs; if the van is also a 4x4, use Van 4x4: it receives van jobs and 4x4 jobs (Sierpe boat included). Besides the category, a vehicle only receives jobs it has enough seats for.",
                 )}
               </p>
             </ActionForm>

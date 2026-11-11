@@ -97,8 +97,8 @@ await db.exec(`
   insert into public.drivers (id, kyc_status, license_expiry, documents) values
     ('${U.driver}', 'approved', '2099-01-01', '{"license": "${U.driver}/license-0.pdf"}'),
     ('${U.pending}', 'pending', null, '{}');
-  insert into public.driver_vehicles (id, driver_id, status, ins_insurance_expiry, dekra_inspection_expiry, marchamo_year, documents, photos) values
-    ('30000000-0000-0000-0000-000000000001', '${U.driver}', 'approved', '2099-01-01', '2099-01-01', 2099,
+  insert into public.driver_vehicles (id, driver_id, status, passenger_capacity, ins_insurance_expiry, dekra_inspection_expiry, marchamo_year, documents, photos) values
+    ('30000000-0000-0000-0000-000000000001', '${U.driver}', 'approved', 4, '2099-01-01', '2099-01-01', 2099,
      '{"insurance": "${U.driver}/vehicles/1/insurance-0.pdf", "dekra": "${U.driver}/vehicles/1/dekra-0.pdf",
        "marchamo": "${U.driver}/vehicles/1/marchamo-0.pdf"}',
      '["${U.driver}/vehicles/1/photo-0.jpg", "${U.driver}/vehicles/1/photo-1.jpg"]');
@@ -748,11 +748,87 @@ await expectRows("minivan gets economy, sedan and minivan jobs, and the day tour
 await expectRows("vehicle_can_serve() matches the decided table", "admin", `
   select 1 from (values
     ('economy', array['economy']), ('sedan', array['economy','sedan']), ('suv', array['economy','sedan','suv']),
-    ('4x4', array['economy','sedan','suv','4x4','sierpe_combo']), ('van', array['economy','sedan','suv','van'])) as want(vehicle, jobs)
+    ('4x4', array['economy','sedan','suv','4x4','sierpe_combo']), ('van', array['economy','sedan','suv','van']),
+    ('van_4x4', array['economy','sedan','suv','van','4x4','sierpe_combo'])) as want(vehicle, jobs)
   cross join unnest(array['economy','sedan','suv','4x4','van','sierpe_combo']) as job
   where public.vehicle_can_serve(want.vehicle, job) is distinct from (job = any (want.jobs))`, 0);
 await expectRows("no category, no job class or an unknown job class: not restricted", "admin",
   "select 1 where public.vehicle_can_serve(null, '4x4') and public.vehicle_can_serve('economy', null) and public.vehicle_can_serve('economy', 'limo')", 1);
+// Migration 0039: (A) the board hides jobs that are too big for every one of the driver's
+// vehicles, (B) van_4x4 gets van AND 4x4 jobs, (C) example models on every category.
+const BIG = { sedan6: CJ("c1"), van6: CJ("c2"), tour6: CJ("c3"), fourByFour6: CJ("c4"), noCount: CJ("c5") };
+const bigIds = Object.values(BIG).join(", ");
+const sees = (id) => `select 1 from public.driver_jobs() where id = ${id}`;
+await expectOk("server posts 6-traveller jobs and one job without a traveller count", "server", `
+  insert into public.bookings (id, client_id, service_type, vehicle_class, total_price, driver_payout, platform_fee, status, passenger_count, scheduled_at) values
+    (${BIG.sedan6}, '${U.client}', 'transfer', 'sedan', 100, 80, 20, 'pending_bids', 6, now() + interval '13 days'),
+    (${BIG.van6}, '${U.client}', 'transfer', 'van', 100, 80, 20, 'pending_bids', 6, now() + interval '13 days'),
+    (${BIG.tour6}, '${U.client}', 'day_tour', null, 100, 80, 20, 'pending_bids', 6, now() + interval '13 days'),
+    (${BIG.fourByFour6}, '${U.client}', 'transfer', '4x4', 100, 80, 20, 'pending_bids', 6, now() + interval '13 days'),
+    (${BIG.noCount}, '${U.client}', 'transfer', 'sedan', 100, 80, 20, 'pending_bids', null, now() + interval '13 days')`);
+await expectOk("admin tags the 4-seat vehicle as a sedan", "admin", `update public.driver_vehicles set vehicle_class = 'sedan' where id = ${V1}`);
+await expectRows("the test vehicle has 4 seats", "admin", `select 1 from public.driver_vehicles where id = ${V1} and passenger_capacity = 4`, 1);
+await expectRows("4-seat sedan: a 6-traveller job in its own category is hidden", "driver", sees(BIG.sedan6), 0);
+await expectRows("4-seat sedan: the 6-traveller van job is hidden", "driver", sees(BIG.van6), 0);
+await expectRows("4-seat sedan: the 6-traveller day tour is hidden (tours follow the seat rule)", "driver", sees(BIG.tour6), 0);
+await expectBlocked("and the offer on that 6-traveller job is refused, as before", "driver", `select public.offer_job(${BIG.sedan6}, ${V1}, 80)`);
+await expectRows("4-seat sedan still gets the 2-traveller economy and sedan jobs and the day tour", "driver", jobsSeen(), 3);
+await expectOk("server makes it an 8-seat vehicle", "server", `update public.driver_vehicles set passenger_capacity = 8 where id = ${V1}`);
+await expectRows("8 seats but still tagged sedan: the 6-traveller sedan job shows", "driver", sees(BIG.sedan6), 1);
+await expectRows("8 seats but tagged sedan: the van job stays hidden (category)", "driver", sees(BIG.van6), 0);
+await expectOk("admin tags it as a van", "admin", `update public.driver_vehicles set vehicle_class = 'van' where id = ${V1}`);
+await expectRows("8-seat van sees the 6-traveller van job", "driver", sees(BIG.van6), 1);
+await expectRows("8-seat van sees the 6-traveller day tour", "driver", sees(BIG.tour6), 1);
+await expectRows("8-seat van does not see the 6-traveller 4x4 job", "driver", sees(BIG.fourByFour6), 0);
+await expectRows("8-seat van offers on the 6-traveller van job", "driver", `select public.offer_job(${BIG.van6}, ${V1}, 80) as ref`, 1);
+// Category and seats must be right on the SAME vehicle.
+await expectOk("server adds an approved 4-seat 4x4 to the same driver", "server", `
+  insert into public.driver_vehicles (id, driver_id, status, make_model, passenger_capacity, vehicle_class)
+  values ('30000000-0000-0000-0000-0000000000c2', '${U.driver}', 'approved', 'Toyota Prado', 4, '4x4')`);
+await expectRows("the 4-seat 4x4 brings the 2-traveller 4x4 job", "driver", jobsSeen("4x4"), 1);
+await expectRows("4-seat 4x4 + 8-seat van: the 6-traveller 4x4 job stays hidden", "driver", sees(BIG.fourByFour6), 0);
+await expectOk("server removes the second vehicle", "server", "delete from public.driver_vehicles where id = '30000000-0000-0000-0000-0000000000c2'");
+// No seat number: offer_job() counts it as 0 seats, so the board shows no job with travellers.
+await expectOk("server clears the vehicle's seat number", "server", `update public.driver_vehicles set passenger_capacity = null where id = ${V1}`);
+await expectBlocked("offer_job refuses a vehicle without a seat number (2 travellers)", "driver", `select public.offer_job(${CLASS_JOBS.economy}, ${V1}, 80)`);
+await expectRows("so the board shows it no job that has travellers", "driver", `select 1 from public.driver_jobs() where passenger_count is not null`, 0);
+await expectRows("a job without a traveller count is still listed", "driver", sees(BIG.noCount), 1);
+await expectRows("and offer_job accepts it there too (board and offers agree)", "driver", `select public.offer_job(${BIG.noCount}, ${V1}, 80) as ref`, 1);
+await expectOk("admin removes the category", "admin", `update public.driver_vehicles set vehicle_class = null where id = ${V1}`);
+await expectRows("untagged and without seats: still no job with travellers", "driver", `select 1 from public.driver_jobs() where passenger_count is not null`, 0);
+// B. A van that is also a 4x4.
+await expectOk("driver tries to tag their own vehicle as van_4x4", "driver", `update public.driver_vehicles set vehicle_class = 'van_4x4' where id = ${V1}`);
+await expectRows("a driver cannot set their own vehicle to van_4x4", "admin", `select 1 from public.driver_vehicles where id = ${V1} and vehicle_class is null`, 1);
+await expectOk("server gives it 8 seats again", "server", `update public.driver_vehicles set passenger_capacity = 8 where id = ${V1}`);
+await expectOk("admin tags it as van_4x4", "admin", `update public.driver_vehicles set vehicle_class = 'van_4x4' where id = ${V1}`);
+await expectRows("tagging van_4x4 does not pause or un-approve the vehicle", "admin", `select 1 from public.driver_vehicles where id = ${V1} and vehicle_class = 'van_4x4' and status = 'approved' and not review_hold`, 1);
+await expectRows("van_4x4 gets the van job", "driver", jobsSeen("van"), 1);
+await expectRows("van_4x4 gets the minivan (suv) job", "driver", jobsSeen("suv"), 1);
+await expectRows("van_4x4 gets the 4x4 job", "driver", jobsSeen("4x4"), 1);
+await expectRows("van_4x4 gets the 4x4 + boat (sierpe_combo) job", "driver", jobsSeen("sierpe_combo"), 1);
+await expectRows("van_4x4 gets all six classes and the day tour", "driver", jobsSeen(), 7);
+await expectRows("8-seat van_4x4 sees the 6-traveller 4x4 job", "driver", sees(BIG.fourByFour6), 1);
+await expectRows("van_4x4 offers on the van job", "driver", `select public.offer_job(${CLASS_JOBS.van}, ${V1}, 80) as ref`, 1);
+await expectRows("van_4x4 offers on the 4x4 + boat job", "driver", `select public.offer_job(${CLASS_JOBS.sierpe_combo}, ${V1}, 80) as ref`, 1);
+await expectBlocked("a category that does not exist is still refused", "admin", `update public.driver_vehicles set vehicle_class = 'van_4x2' where id = ${V1}`);
+await expectOk("server restores the 4 seats and the minivan tag", "server", `update public.driver_vehicles set passenger_capacity = 4, vehicle_class = 'suv' where id = ${V1}`);
+await expectOk("server removes the big-group jobs", "server", `delete from public.bookings where id in (${bigIds})`);
+// C. Example models: read wherever the catalog is read, written by admins only.
+await expectRows("visitor reads example models for all six categories", "anon", "select 1 from public.vehicle_classes where example_models is not null and example_models <> ''", 6);
+await expectRows("client reads them too", "client", "select 1 from public.vehicle_classes where example_models is not null", 6);
+await expectRows("driver reads them too", "driver", "select 1 from public.vehicle_classes where example_models is not null", 6);
+await expectRows("the seeded examples", "anon", `
+  select 1 from public.vehicle_classes where (id, example_models) in (('economy', 'Toyota Yaris'), ('sedan', 'Toyota Corolla'),
+    ('suv', 'Mitsubishi Xpander'), ('4x4', 'Toyota Prado'), ('van', 'Toyota HiAce'), ('sierpe_combo', 'Toyota Prado'))`, 6);
+await expectRows("category names no longer carry model names", "anon", "select 1 from public.vehicle_classes where (id, name) in (('4x4', 'Executive 4x4'), ('van', 'Private Van'), ('suv', 'Minivan (MPV)'))", 3);
+await expectRows("no category name mentions a model", "anon", "select 1 from public.vehicle_classes where name ~* '(prado|fortuner|hiace|staria|toyota|hyundai)'", 0);
+await expectRows("prices and sizes are untouched by the rename", "anon", "select 1 from public.vehicle_classes where (id = '4x4' and price_factor = 1.30 and max_pax = 4 and luggage = '4 suitcases') or (id = 'van' and price_factor = 1.35 and max_pax = 10 and luggage = '10 suitcases')", 2);
+await expectBlocked("visitor cannot change example models", "anon", "update public.vehicle_classes set example_models = 'Ferrari'", { affected: 0 });
+await expectBlocked("driver cannot change example models", "driver", "update public.vehicle_classes set example_models = 'Ferrari'", { affected: 0 });
+await expectOk("admin edits the example models", "admin", "update public.vehicle_classes set example_models = 'Toyota Prado, Toyota Fortuner' where id = '4x4'");
+await expectRows("visitor sees the admin's edit", "anon", "select 1 from public.vehicle_classes where id = '4x4' and example_models = 'Toyota Prado, Toyota Fortuner'", 1);
+await expectBlocked("an over-long example text is refused", "admin", `update public.vehicle_classes set example_models = repeat('x', 81) where id = '4x4'`);
+await expectOk("admin puts the example back", "admin", "update public.vehicle_classes set example_models = 'Toyota Prado' where id = '4x4'");
 await expectRows("drivers still cannot read booking rows", "driver", "select * from public.bookings", 0);
 await expectRows("the job board still never exposes the client's price or contact", "admin",
   "select 1 from pg_proc where proname = 'driver_jobs' and pg_get_function_result(oid) ~ '(total_price|platform_fee|amount_paid|guest|client_id|client_notes|phone|email)'", 0);

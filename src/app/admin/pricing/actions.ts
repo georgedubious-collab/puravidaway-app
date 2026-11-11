@@ -33,6 +33,7 @@ const FIELD_ES: Record<string, string> = {
   max_pax: "Máximo de pasajeros",
   luggage: "Equipaje",
   badge: "Etiqueta",
+  example_models: "Modelos de ejemplo",
   duration_min: "Minutos en la parada",
   detour_km: "Km de desvío",
   detour_min: "Minutos de desvío",
@@ -150,6 +151,8 @@ function done() {
 async function saveVehicleImpl(fd: FormData) {
   await save("vehicle_classes", fd, {
     name: text(fd, "name"),
+    // The field only exists once migration 0039 has run (the form leaves it out before).
+    ...(fd.has("example_models") ? { example_models: text(fd, "example_models", { required: false, max: 80 }) || null } : {}),
     price_factor: decimal(fd, "price_factor", 0.5, 3),
     extra_fee: money(fd, "extra_fee"),
     allows_stops: checked(fd, "allows_stops"),

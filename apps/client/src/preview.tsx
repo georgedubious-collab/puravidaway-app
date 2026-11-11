@@ -81,11 +81,11 @@ const quote: RideQuote = {
   cashFeeBps: 1000,
   minOfferCents: 5000,
   vehicles: [
-    { id: "economy", name: "Economy Sedan", badge: "Spanish-speaking driver · direct ride", maxPax: 3, luggage: "3 suitcases", allowsStops: false, spanishSpeakingDriver: true, totalCents: 14600, perPersonCents: 4900, perPersonShare: 3 },
-    { id: "sedan", name: "Standard Sedan", badge: "Best value", maxPax: 3, luggage: "3 suitcases", allowsStops: true, spanishSpeakingDriver: false, totalCents: 16200, perPersonCents: 5400, perPersonShare: 3 },
-    { id: "suv", name: "Minivan (MPV)", badge: "Roomy for 4 + bags", maxPax: 4, luggage: "4 suitcases", allowsStops: true, spanishSpeakingDriver: false, totalCents: 19400, perPersonCents: 4900, perPersonShare: 4 },
-    { id: "4x4", name: "Executive 4x4 (Prado / Fortuner)", badge: "Osa / Monteverde roads", maxPax: 4, luggage: "4 suitcases", allowsStops: true, spanishSpeakingDriver: false, totalCents: 21000, perPersonCents: 5300, perPersonShare: 4 },
-    { id: "van", name: "Private Toyota HiAce / Hyundai Staria", badge: "Families & groups", maxPax: 10, luggage: "10 suitcases", allowsStops: true, spanishSpeakingDriver: false, totalCents: 21900, perPersonCents: 3200, perPersonShare: 7 },
+    { id: "economy", name: "Economy Sedan", exampleModels: "Toyota Yaris", badge: "Spanish-speaking driver · direct ride", maxPax: 3, luggage: "3 suitcases", allowsStops: false, spanishSpeakingDriver: true, totalCents: 14600, perPersonCents: 4900, perPersonShare: 3 },
+    { id: "sedan", name: "Standard Sedan", exampleModels: "Toyota Corolla", badge: "Best value", maxPax: 3, luggage: "3 suitcases", allowsStops: true, spanishSpeakingDriver: false, totalCents: 16200, perPersonCents: 5400, perPersonShare: 3 },
+    { id: "suv", name: "Minivan (MPV)", exampleModels: "Mitsubishi Xpander", badge: "Roomy for 4 + bags", maxPax: 4, luggage: "4 suitcases", allowsStops: true, spanishSpeakingDriver: false, totalCents: 19400, perPersonCents: 4900, perPersonShare: 4 },
+    { id: "4x4", name: "Executive 4x4", exampleModels: "Toyota Prado", badge: "Osa / Monteverde roads", maxPax: 4, luggage: "4 suitcases", allowsStops: true, spanishSpeakingDriver: false, totalCents: 21000, perPersonCents: 5300, perPersonShare: 4 },
+    { id: "van", name: "Private Van", exampleModels: "Toyota HiAce", badge: "Families & groups", maxPax: 10, luggage: "10 suitcases", allowsStops: true, spanishSpeakingDriver: false, totalCents: 21900, perPersonCents: 3200, perPersonShare: 7 },
   ],
   stops: [
     { id: "poas", name: "Poás Volcano Crater & Doka Coffee Estate", description: "Peer into an active turquoise crater lake, then sample highland Arabica coffee. Timed-entry tickets required.", durationMin: 120, cents: 17800, tourPerPersonCents: 5500, entrance: "gate" },

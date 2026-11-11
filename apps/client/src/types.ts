@@ -93,6 +93,8 @@ export interface RideQuote {
   vehicles: {
     id: string;
     name: string;
+    /** Example models ("Toyota Prado"), shown as "... or similar". Older servers don't send it. */
+    exampleModels?: string;
     badge: string;
     maxPax: number;
     luggage: string;

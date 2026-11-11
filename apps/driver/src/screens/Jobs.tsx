@@ -6,7 +6,7 @@ import { useT } from "../i18n";
 import { supabase } from "../supabase";
 import { C, S } from "../theme";
 import type { DriverInfo, Job, Names, Trip, Vehicle } from "../types";
-import { vehicleCanServe } from "../vehicleCategory";
+import { seatsFit, vehicleCanServe } from "../vehicleCategory";
 import { Badge, Btn, Card, Chip, Empty, IconLine, LinkBtn, RouteLine } from "../ui";
 
 const DAY_MS = 86400000;
@@ -132,7 +132,7 @@ export function Jobs({
           names={names}
           vehicles={usable.filter(
             // Enough seats, and a category that can take this job (the server checks both again).
-            (v) => (v.passenger_capacity ?? 0) >= (item.passenger_count ?? 1) && vehicleCanServe(v.vehicle_class, item.vehicle_class),
+            (v) => seatsFit(v.passenger_capacity, item.passenger_count) && vehicleCanServe(v.vehicle_class, item.vehicle_class),
           )}
           canOffer={approved && !onHold}
           homeHub={driver?.home_hub ?? null}
