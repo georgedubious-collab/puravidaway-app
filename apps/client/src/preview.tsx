@@ -151,7 +151,7 @@ interface Setup {
 }
 
 const SCREENS: Record<string, Setup> = {
-  // Explore, rides side (the map)
+  // Explore, rides side
   home: { routes: [tabs("Explore")], email: null, quote: null },
   "home-in": { routes: [tabs("Explore")], quote: null },
   "home-route": { routes: [tabs("Explore")], email: null, state: ride },
@@ -169,7 +169,8 @@ const SCREENS: Record<string, Setup> = {
     quote: null,
     demo: { found: [{ placeId: "p1", main: "Tabacón Thermal Resort & Spa", secondary: "La Fortuna, Alajuela Province" }, { placeId: "p2", main: "Tabacón Hot Springs", secondary: "Route 142, La Fortuna" }] },
   },
-  "map-pick": { routes: [...steps("BookWhere"), { name: "PlaceOnMap", params: { field: "to" } }], email: null, state: { from: hub("SJO"), to: hub("Arenal") } },
+  // The "Set on map" picker is gone; the old name opens the place search instead.
+  "map-pick": { routes: [...steps("BookWhere"), { name: "PlaceSearch", params: { field: "to" } }], email: null, state: { from: hub("SJO") }, quote: null },
   when: { routes: [...steps("BookWhere", "BookRide"), { name: "BookWhen" }], email: null, state: ride },
   time: { routes: [...steps("BookWhere", "BookRide"), { name: "BookWhen" }, { name: "TimePicker" }], email: null, state: ride },
   choose: { routes: steps("BookWhere", "BookRide"), email: null, state: ride },

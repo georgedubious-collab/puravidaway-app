@@ -1,5 +1,4 @@
 import { TOWNS } from "./format";
-import type { Place } from "./types";
 
 /**
  * Map points the app already knows, for drawing pins and a route line. Nothing
@@ -26,16 +25,6 @@ export const HUB_POINTS: Record<string, LatLng> = {
 /** The whole country, for a map with nothing (or one pin) on it. */
 export const COSTA_RICA = { minLat: 8.0, maxLat: 11.25, minLng: -86.0, maxLng: -82.5 };
 
-const ok = (p: Partial<LatLng> | null | undefined): p is LatLng =>
-  typeof p?.lat === "number" && typeof p.lng === "number" && Number.isFinite(p.lat) && Number.isFinite(p.lng);
-
-/** The map point of a pickup or drop-off: our town's point, or the one the place search gave. Null when unknown. */
-export function pointOfPlace(place: Place | null | undefined): LatLng | null {
-  if (!place) return null;
-  if (place.id.startsWith("hub:")) return HUB_POINTS[place.id.slice(4)] ?? null;
-  return ok(place) ? { lat: place.lat, lng: place.lng } : null;
-}
-
 /** The map point for a town name as it appears in a trip's title ("La Fortuna / Arenal"). Null for hotels and addresses. */
 export function pointForLabel(label: string | null | undefined): LatLng | null {
   const want = (label ?? "").trim().toLowerCase();
@@ -54,11 +43,7 @@ export function shortPlace(label: string | null | undefined, max = 24): string {
 
 /** One thing on the map. */
 export interface MapPoint extends LatLng {
-  kind: "pickup" | "dropoff" | "driver" | "place";
+  kind: "pickup" | "dropoff" | "driver";
   /** A short name shown next to the pin. */
   label?: string;
-  /** Given back by onPressPoint. */
-  id?: string;
-  /** A "place" pin that is the chosen one. */
-  selected?: boolean;
 }

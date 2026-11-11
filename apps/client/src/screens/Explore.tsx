@@ -8,7 +8,7 @@ import { useDemo } from "../demo";
 import { pick } from "../haptics";
 import { useT } from "../i18n";
 import { useNav } from "../nav";
-import { C, R, S, SHADOW } from "../theme";
+import { C, R, S } from "../theme";
 import { Text } from "../ui";
 import { Home } from "./Home";
 import { ToursHome } from "./Tours";
@@ -17,8 +17,8 @@ export type ExploreMode = "rides" | "tours";
 const KEY = "explore-mode-v1";
 
 /**
- * The Explore tab: private rides (a map with "Where from? / Where to?") or day
- * tours (photos first), chosen with the switch at the top. The phone remembers
+ * The Explore tab: private rides ("From / To", popular rides, what every ride
+ * includes) or day tours (photos first), chosen with the switch at the top. The phone remembers
  * which side was open last.
  */
 export function Explore() {
@@ -55,11 +55,11 @@ export function Explore() {
   }, [mode, focused, state.kind, want, set]);
 
   if (!mode) return <View style={S.screen} />;
-  return mode === "rides" ? <Home top={<ExploreTop mode={mode} onMode={setMode} floating />} /> : <ToursHome top={<ExploreTop mode={mode} onMode={setMode} />} />;
+  return mode === "rides" ? <Home top={<ExploreTop mode={mode} onMode={setMode} />} /> : <ToursHome top={<ExploreTop mode={mode} onMode={setMode} />} />;
 }
 
-/** The row at the top of Explore: the round menu button and the "Rides | Day tours" switch. `floating` sits on the map. */
-function ExploreTop({ mode, onMode, floating }: { mode: ExploreMode; onMode: (m: ExploreMode) => void; floating?: boolean }) {
+/** The row at the top of Explore: the round menu button and the "Rides | Day tours" switch. */
+function ExploreTop({ mode, onMode }: { mode: ExploreMode; onMode: (m: ExploreMode) => void }) {
   const { t } = useT();
   const nav = useNav();
   const options: { id: ExploreMode; label: string }[] = [
@@ -72,11 +72,11 @@ function ExploreTop({ mode, onMode, floating }: { mode: ExploreMode; onMode: (m:
         accessibilityRole="button"
         accessibilityLabel={t("Open menu", "Abrir menú")}
         onPress={() => nav.navigate("Menu")}
-        style={({ pressed }) => [{ width: 48, height: 48, borderRadius: 24, backgroundColor: C.card, alignItems: "center", justifyContent: "center", opacity: pressed ? 0.7 : 1 }, floating ? SHADOW : { borderWidth: 1, borderColor: C.border }]}
+        style={({ pressed }) => ({ width: 48, height: 48, borderRadius: 24, backgroundColor: C.card, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: C.border, opacity: pressed ? 0.7 : 1 })}
       >
         <Ionicons name="menu" size={24} color={C.text} />
       </Pressable>
-      <View accessibilityRole="tablist" style={[{ flex: 1, flexDirection: "row", padding: 4, borderRadius: R.pill, backgroundColor: floating ? C.card : C.surface }, floating ? SHADOW : null]}>
+      <View accessibilityRole="tablist" style={{ flex: 1, flexDirection: "row", padding: 4, borderRadius: R.pill, backgroundColor: C.surface }}>
         {options.map((o) => {
           const on = o.id === mode;
           return (

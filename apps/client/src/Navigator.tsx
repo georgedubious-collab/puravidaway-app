@@ -11,7 +11,6 @@ import { Account } from "./screens/Account";
 import { BookConfirm } from "./screens/book/Confirm";
 import { BookExtras, BookStops } from "./screens/book/Extras";
 import { CloseBtn } from "./screens/book/parts";
-import { PlaceOnMap } from "./screens/book/PlaceOnMap";
 import { PlaceSearch } from "./screens/book/PlaceSearch";
 import { BookReview, CodeSheet } from "./screens/book/Review";
 import { BookRide } from "./screens/book/Ride";
@@ -138,7 +137,6 @@ export function RootNavigator() {
       <Root.Screen name="Chat" component={Chat} options={{ title: "Chat" }} />
       <Root.Screen name="PlaceSearch" component={PlaceSearch} options={({ route }) => ({ ...PANEL, title: route.params.field === "from" ? t("Pickup", "Recogida") : t("Drop-off", "Destino") })} />
       <Root.Screen name="Menu" component={Menu} options={{ ...PANEL, title: "" }} />
-      <Root.Screen name="PlaceOnMap" component={PlaceOnMap} options={({ route }) => ({ ...PANEL, title: route.params.field === "from" ? t("Pickup on the map", "Recogida en el mapa") : t("Drop-off on the map", "Destino en el mapa") })} />
       <Root.Screen name="BookWhen" component={BookWhen} options={{ ...PANEL, title: t("Date, time and travellers", "Fecha, hora y viajeros") }} />
       <Root.Screen name="BookStops" component={BookStops} options={{ ...PANEL, title: t("Stops along the way", "Paradas en el camino") }} />
       <Root.Screen name="BookExtras" component={BookExtras} options={{ ...PANEL, title: t("Driver and extras", "Conductor y extras") }} />

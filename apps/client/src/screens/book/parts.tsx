@@ -5,11 +5,8 @@ import { bagsFor, cents, luggageCapacity, useBooking } from "../../booking";
 import { useT } from "../../i18n";
 import { useNav } from "../../nav";
 import { driveTime, nightLabel } from "../../prices";
-import { C, R, S, SHADOW_UP, T } from "../../theme";
+import { C, R, S, T } from "../../theme";
 import { Badge, BottomBar, Btn, Skeleton, Text, type IconName } from "../../ui";
-
-/** The white panel that sits over the bottom of a map. */
-export const SHEET = [{ backgroundColor: C.card, borderTopLeftRadius: 26, borderTopRightRadius: 26 }, SHADOW_UP];
 
 /** Pickup to drop-off, drawn: a green dot, a line, a dark square. Stretches to the height of the rows beside it. */
 export function RouteDots({ inset = 20, small }: { inset?: number; small?: boolean }) {
@@ -154,7 +151,7 @@ export function FromBar({ onNext, canNext }: { onNext: () => void; canNext: bool
 
 /**
  * Drive time, distance, ferry, season and night pickup for the priced route; grey blocks while it loads.
- * `brief` leaves out the drive time (already on the map) and the placeholder.
+ * `brief` leaves out the drive time (already in the route card) and the placeholder.
  */
 export function QuoteFacts({ brief }: { brief?: boolean }) {
   const { lang, t } = useT();

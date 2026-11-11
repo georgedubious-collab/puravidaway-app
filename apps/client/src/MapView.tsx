@@ -1,6 +1,6 @@
 import Constants from "expo-constants";
 import { useState } from "react";
-import { Platform, Pressable, View, type StyleProp, type ViewStyle } from "react-native";
+import { Platform, View, type StyleProp, type ViewStyle } from "react-native";
 import Svg, { Circle, Ellipse, G, Path, Rect } from "react-native-svg";
 import { COSTA_RICA, HUB_POINTS, type LatLng, type MapPoint } from "./geo";
 import { NativeMap } from "./NativeMap";
@@ -8,7 +8,9 @@ import { C, MAP, SHADOW } from "./theme";
 import { Text } from "./ui";
 
 /**
- * The app's one map. Give it pins and, optionally, a line to draw through them.
+ * The app's one map, used only on a trip (TripDetail) once a driver is close or
+ * on the way: the booking screens have no map. Give it pins and, optionally, a
+ * line to draw through them.
  *
  * - iPhone: Apple Maps (react-native-maps), no key needed.
  * - Android: Google Maps, only when the build was made with a Google Maps key
@@ -26,14 +28,8 @@ export interface RouteMapProps {
   line?: LatLng[];
   /** "dotted" for the driver's way to the pickup. */
   lineStyle?: "solid" | "dotted";
-  /** A dark label on the middle of the line ("About 3 h drive"). */
-  pill?: string;
-  /** Show the whole country even with pins on it (the home screen). */
-  country?: boolean;
   /** Screen space covered by things on top of the map (buttons, the bottom sheet), so pins stay in view. */
   pad?: { top?: number; right?: number; bottom?: number; left?: number };
-  /** Makes pins with an `id` tappable. */
-  onPressPoint?: (id: string) => void;
   style?: StyleProp<ViewStyle>;
 }
 
@@ -98,20 +94,20 @@ function curve(a: XY, b: XY, bend: number): string {
 }
 const through = (pts: XY[], bend: number) => (pts.length < 2 ? "" : "M" + pts[0].x.toFixed(1) + " " + pts[0].y.toFixed(1) + pts.slice(1).map((p, i) => curve(pts[i], p, i % 2 ? -bend : bend)).join(""));
 
-function DrawnMap({ points, line, lineStyle = "solid", pill, country, pad, onPressPoint, style }: RouteMapProps) {
+function DrawnMap({ points, line, lineStyle = "solid", pad, style }: RouteMapProps) {
   const [size, setSize] = useState<{ w: number; h: number } | null>(null);
 
   let body = null;
   if (size && size.w > 0 && size.h > 0) {
     const all: LatLng[] = [...points, ...(line ?? [])];
     let b = { ...COSTA_RICA };
-    if (!country && all.length >= 2) {
+    if (all.length >= 2) {
       b = { minLat: Math.min(...all.map((p) => p.lat)), maxLat: Math.max(...all.map((p) => p.lat)), minLng: Math.min(...all.map((p) => p.lng)), maxLng: Math.max(...all.map((p) => p.lng)) };
       // Two places close together shouldn't blow the map up to street level.
       const grow = (min: number, max: number, least: number): [number, number] => (max - min >= least ? [min, max] : [(min + max) / 2 - least / 2, (min + max) / 2 + least / 2]);
       [b.minLat, b.maxLat] = grow(b.minLat, b.maxLat, 0.22);
       [b.minLng, b.maxLng] = grow(b.minLng, b.maxLng, 0.22);
-    } else if (!country && all.length === 1) {
+    } else if (all.length === 1) {
       b = { minLat: all[0].lat - 0.35, maxLat: all[0].lat + 0.35, minLng: all[0].lng - 0.35, maxLng: all[0].lng + 0.35 };
     }
     const edge = 34;
@@ -131,7 +127,6 @@ function DrawnMap({ points, line, lineStyle = "solid", pill, country, pad, onPre
     const land = "M" + coast.map((p) => p.x.toFixed(1) + " " + p.y.toFixed(1)).join("L") + "Z";
     const route = (line ?? []).map(xy);
     const pins = points.map((p) => ({ p, at: xy(p) }));
-    const mid = route.length >= 2 ? { x: (route[0].x + route[route.length - 1].x) / 2, y: (route[0].y + route[route.length - 1].y) / 2 } : null;
     const clampX = (x: number) => Math.min(Math.max(x, 96), size.w - 96);
 
     body = (
@@ -165,22 +160,9 @@ function DrawnMap({ points, line, lineStyle = "solid", pill, country, pad, onPre
                   <Path d="M-9 4h18v-5l-3-1-3-5h-6l-3 5-3 1z" fill="none" stroke="#fff" strokeWidth={2} strokeLinejoin="round" />
                 </G>
               );
-            return p.selected ? (
-              <Circle key={i} cx={at.x} cy={at.y} r={11} fill={C.emerald} stroke="#fff" strokeWidth={4} />
-            ) : (
-              <Circle key={i} cx={at.x} cy={at.y} r={8} fill="#fff" stroke={C.emerald} strokeWidth={3} />
-            );
+            return null;
           })}
         </Svg>
-        {mid && pill ? (
-          <View pointerEvents="none" style={{ position: "absolute", left: clampX(mid.x) - 96, width: 192, top: mid.y - 16, alignItems: "center" }}>
-            <View style={{ backgroundColor: C.text, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 7 }}>
-              <Text maxFontSizeMultiplier={1.15} numberOfLines={1} style={{ color: "#fff", fontSize: 13, fontWeight: "700" }}>
-                {pill}
-              </Text>
-            </View>
-          </View>
-        ) : null}
         {pins.map(({ p, at }, i) =>
           p.label ? (
             // The name sits above its pin, or below it when the pin is near the top.
@@ -193,20 +175,6 @@ function DrawnMap({ points, line, lineStyle = "solid", pill, country, pad, onPre
             </View>
           ) : null,
         )}
-        {onPressPoint
-          ? pins.map(({ p, at }) =>
-              p.id ? (
-                <Pressable
-                  key={"t" + p.id}
-                  accessibilityRole="button"
-                  accessibilityLabel={p.label ?? p.id}
-                  accessibilityState={{ selected: Boolean(p.selected) }}
-                  onPress={() => onPressPoint(p.id as string)}
-                  style={{ position: "absolute", left: at.x - 24, top: at.y - 24, width: 48, height: 48 }}
-                />
-              ) : null,
-            )
-          : null}
       </>
     );
   }
