@@ -39,6 +39,7 @@ for (const lang of ["en", "es"]) {
   ];
   const emails = {
     "Trip request received (cash + expedition online)": m.tripRequestEmail(lang, {
+      hasRide: true,
       guestName: "Ana Smith",
       refs: ["CRPT-10492", "CRPT-10493", "CRPT-10494"],
       itemLines,
@@ -52,7 +53,7 @@ for (const lang of ["en", "es"]) {
       paymentLine: m.requestPaymentLine(lang, { cashCents: 0, onlineCents: 21000, feeTotalCents: 0, feePercent: "10%" }),
       tripUrl,
     }),
-    "Ride confirmed": m.rideConfirmedEmail(lang, { guestName: "Ana Smith", driver, ref: "CRPT-10492", origin, destination, when, tripUrl }),
+    "Ride confirmed": m.rideConfirmedEmail(lang, { ride: true, guestName: "Ana Smith", driver, ref: "CRPT-10492", origin, destination, when, tripUrl }),
     "Driver on the way": m.onTheWayEmail(lang, { guestName: "Ana Smith", driver, ref: "CRPT-10492", when, tripUrl }),
     "Rating request (ride)": m.reviewRequestEmail(lang, review),
     "Rating request (tour)": m.reviewRequestEmail(lang, { ...review, ride: false }),

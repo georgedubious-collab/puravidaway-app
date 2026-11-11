@@ -10,6 +10,7 @@
     "test:db": "node supabase/tests/rls.test.mjs",
     "test:filter": "node --no-warnings scripts/test-contact-filter.mjs",
     "test:eligibility": "node --no-warnings scripts/test-vehicle-eligibility.mjs",
+    "test:sign": "node --no-warnings scripts/test-sign.mjs",
     "db:seed": "node scripts/generate-catalog-seed.mjs"
   },
   "dependencies": {

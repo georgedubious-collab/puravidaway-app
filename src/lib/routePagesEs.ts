@@ -39,7 +39,7 @@ export const ROUTE_PAGES_ES: Record<string, RoutePageEs> = {
     metaDescription:
       "Traslado privado puerta a puerta del aeropuerto de San José (SJO) a Manuel Antonio y Quepos. Precio fijo por vehículo, paradas opcionales (puente de los cocodrilos y lapas), conductores locales asociados.",
     intro:
-      "Su conductor lo recibe en la salida de llegadas y lo lleva directo a la puerta de su hotel. Convierta el recorrido en parte del viaje con una parada en el puente de los cocodrilos de Tárcoles o una caminata para ver lapas en Carara.",
+      "Su conductor lo recibe en la salida de llegadas con un rótulo con su nombre y lo lleva directo a la puerta de su hotel. Convierta el recorrido en parte del viaje con una parada en el puente de los cocodrilos de Tárcoles o una caminata para ver lapas en Carara.",
     areaLabel: "Manuel Antonio o Quepos",
     driveTitle: DRIVE_TITLE,
     drive:
@@ -72,7 +72,7 @@ export const ROUTE_PAGES_ES: Record<string, RoutePageEs> = {
     metaDescription:
       "Traslado privado puerta a puerta del aeropuerto de San José (SJO) a La Fortuna y el volcán Arenal. Precio fijo por vehículo, parada opcional en el volcán Poás y café, conductores locales asociados.",
     intro:
-      "Su conductor lo recibe en la salida de llegadas y lo lleva por las montañas del Valle Central hasta su hotel en La Fortuna. Aproveche el día con una parada en el cráter del volcán Poás y en una finca de café de altura por el camino.",
+      "Su conductor lo recibe en la salida de llegadas con un rótulo con su nombre y lo lleva por las montañas del Valle Central hasta su hotel en La Fortuna. Aproveche el día con una parada en el cráter del volcán Poás y en una finca de café de altura por el camino.",
     areaLabel: "La Fortuna o los alrededores del volcán Arenal",
     driveTitle: DRIVE_TITLE,
     drive:
@@ -102,7 +102,7 @@ export const ROUTE_PAGES_ES: Record<string, RoutePageEs> = {
     metaDescription:
       "Traslado privado puerta a puerta del aeropuerto de San José (SJO) al bosque nuboso de Monteverde y Santa Elena. Precio fijo por vehículo, conductores locales asociados que conocen la carretera de montaña.",
     intro:
-      "Su conductor lo recibe en la salida de llegadas y lo lleva desde el Valle Central hasta las tierras bajas del Pacífico y de nuevo hacia arriba, al bosque nuboso, hasta la puerta de su hotel en Monteverde o Santa Elena.",
+      "Su conductor lo recibe en la salida de llegadas con un rótulo con su nombre y lo lleva desde el Valle Central hasta las tierras bajas del Pacífico y de nuevo hacia arriba, al bosque nuboso, hasta la puerta de su hotel en Monteverde o Santa Elena.",
     areaLabel: "Monteverde o Santa Elena",
     driveTitle: DRIVE_TITLE,
     drive:
@@ -135,7 +135,7 @@ export const ROUTE_PAGES_ES: Record<string, RoutePageEs> = {
     metaDescription:
       "Traslado privado puerta a puerta del aeropuerto de Liberia (LIR) a Tamarindo y las playas cercanas de Guanacaste. Precio fijo por vehículo, conductores locales asociados.",
     intro:
-      "Liberia es el aeropuerto internacional más cercano a Tamarindo. Su conductor lo recibe en la salida de llegadas y lo lleva directo a su hotel o casa de alquiler, sin las paradas de un shuttle en otros hoteles por el camino.",
+      "Liberia es el aeropuerto internacional más cercano a Tamarindo. Su conductor lo recibe en la salida de llegadas con un rótulo con su nombre y lo lleva directo a su hotel o casa de alquiler, sin las paradas de un shuttle en otros hoteles por el camino.",
     areaLabel: "Tamarindo, Langosta o Playa Grande",
     driveTitle: DRIVE_TITLE,
     drive:
@@ -167,7 +167,7 @@ export const ROUTE_PAGES_ES: Record<string, RoutePageEs> = {
     metaDescription:
       "Traslado privado puerta a puerta del aeropuerto de San José (SJO) hasta Tamarindo, en Guanacaste. Precio fijo por vehículo, paradas de descanso cuando usted quiera, conductores locales asociados.",
     intro:
-      "¿Aterrizó en San José pero se aloja en Tamarindo? Su conductor lo recibe en la salida de llegadas y lo lleva hasta la costa de Guanacaste, con paradas cada vez que necesite un descanso.",
+      "¿Aterrizó en San José pero se aloja en Tamarindo? Su conductor lo recibe en la salida de llegadas con un rótulo con su nombre y lo lleva hasta la costa de Guanacaste, con paradas cada vez que necesite un descanso.",
     areaLabel: "Tamarindo, Langosta o Playa Grande",
     driveTitle: DRIVE_TITLE,
     drive:
@@ -199,7 +199,7 @@ export const ROUTE_PAGES_ES: Record<string, RoutePageEs> = {
     metaDescription:
       "Traslado privado puerta a puerta del aeropuerto de San José (SJO) a Puerto Viejo, en la costa del Caribe, por el bosque lluvioso del Braulio Carrillo. Precio fijo por vehículo, conductores locales asociados.",
     intro:
-      "Su conductor lo recibe en la salida de llegadas y lo lleva a través del bosque lluvioso del Parque Nacional Braulio Carrillo y hacia abajo, hasta el Caribe, a la puerta de su hotel en Puerto Viejo, Cocles o Playa Chiquita.",
+      "Su conductor lo recibe en la salida de llegadas con un rótulo con su nombre y lo lleva a través del bosque lluvioso del Parque Nacional Braulio Carrillo y hacia abajo, hasta el Caribe, a la puerta de su hotel en Puerto Viejo, Cocles o Playa Chiquita.",
     areaLabel: "Puerto Viejo, Cocles, Playa Chiquita o Manzanillo",
     driveTitle: DRIVE_TITLE,
     drive:

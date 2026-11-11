@@ -46,7 +46,7 @@ export function HowItWorksPage({ lang, cashFeeBps }: { lang: PublicLang; cashFee
       },
       {
         title: "On the day",
-        text: "Your driver meets you at arrivals or at your hotel. In the last 3 hours before pickup, while your driver shares their location, you see where they are and when they should arrive. You, your driver and our team can chat on the trip page.",
+        text: "Your driver meets you at arrivals, holding a sign with your name, or at your hotel. In the last 3 hours before pickup, while your driver shares their location, you see where they are and when they should arrive. You, your driver and our team can chat on the trip page.",
       },
       {
         title: "Rate your ride",
@@ -72,7 +72,7 @@ export function HowItWorksPage({ lang, cashFeeBps }: { lang: PublicLang; cashFee
       },
       {
         title: "El día del viaje",
-        text: "Su conductor lo recibe en la salida del aeropuerto o en su hotel. En las últimas 3 horas antes de la recogida, mientras el conductor comparte su ubicación, usted ve dónde está y a qué hora debería llegar. Usted, su conductor y nuestro equipo pueden chatear en la página del viaje.",
+        text: "Su conductor lo recibe en la salida del aeropuerto, con un rótulo con su nombre, o en su hotel. En las últimas 3 horas antes de la recogida, mientras el conductor comparte su ubicación, usted ve dónde está y a qué hora debería llegar. Usted, su conductor y nuestro equipo pueden chatear en la página del viaje.",
       },
       {
         title: "Califique su viaje",

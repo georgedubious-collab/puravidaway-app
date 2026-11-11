@@ -18,7 +18,7 @@ export function GET() {
 
 Key facts:
 - Prices are per vehicle in USD, confirmed before payment; season and ferry fares are included in the shown price.
-- Every ride: 60 minutes free waiting; flight tracking on airport pickups; child seats free on request; free cancellation up to 24 hours before pickup on rides and 1-day tours.
+- Every ride: 60 minutes free waiting; flight tracking on airport pickups, where the driver waits at arrivals holding a sign with the traveller's name (or the text they choose); child seats free on request; free cancellation up to 24 hours before pickup on rides and 1-day tours.
 - Payment: online in full (secure link sent after the team confirms), or cash to the driver on rides and 1-day tours plus a cash booking fee. Multi-day trips are paid online in full.
 - Drivers are interviewed and checked (criminal and driving records, licence, INS commercial insurance, Dekra/RTV inspection, Marchamo). An ICT tourism permit is shown as a badge on the profile of drivers who hold one.
 - Drive times are realistic for Costa Rica's mountain roads. Santa Teresa / Southern Nicoya rides use the Paquera ferry (fares included); Drake Bay is reached by river boat from Sierpe.

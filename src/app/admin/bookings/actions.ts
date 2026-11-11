@@ -44,7 +44,7 @@ export async function acceptOffer(_prev: FormState, fd: FormData): Promise<FormS
     const { data: who } = offer
       ? await supabase.from("profiles").select("full_name, email").eq("id", offer.driver_id).maybeSingle()
       : { data: null };
-    const { data: b } = await supabase.from("bookings").select("origin, destination, scheduled_at, trip_id").eq("id", bookingId).maybeSingle();
+    const { data: b } = await supabase.from("bookings").select("origin, destination, scheduled_at, trip_id, service_type").eq("id", bookingId).maybeSingle();
     // The traveller's contact lives in the server-only trips table.
     const admin = createSupabaseAdminClient();
     const { data: guest } =
@@ -65,6 +65,7 @@ export async function acceptOffer(_prev: FormState, fd: FormData): Promise<FormS
         await sendEmail({
           to: guest.guest_email,
           ...rideConfirmedEmail(guestLang, {
+            ride: b?.service_type === "transfer",
             guestName: guest.guest_name,
             driver,
             ref: String(ref),

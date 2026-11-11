@@ -253,6 +253,7 @@ export function BookConfirm() {
       <Card tone="flat">
         <Text style={T.label}>{t("Every ride includes", "Cada traslado incluye")}</Text>
         {quote?.airportPickup ? <IconLine small icon="airplane-outline" color={C.emerald} text={t("Flight tracking: we follow your flight, so a delay doesn't leave you stranded.", "Seguimiento del vuelo: seguimos su vuelo, así que un retraso no lo deja esperando.")} /> : null}
+        {quote?.airportPickup ? <IconLine small icon="id-card-outline" color={C.emerald} text={t("Your driver waits at arrivals holding a sign with your name, or the text you choose.", "Su conductor lo espera en la salida de llegadas con un rótulo con su nombre, o con el texto que usted elija.")} /> : null}
         <IconLine small icon="time-outline" color={C.emerald} text={t("60 min free waiting after your flight lands or your pickup time.", "60 min de espera gratis después de que aterrice su vuelo o de la hora de recogida.")} />
         <IconLine small icon="happy-outline" color={C.emerald} text={t("Child seats free on request.", "Sillas para niños gratis si las pide.")} />
         <IconLine small icon="shield-checkmark-outline" color={C.emerald} text={t("Free cancellation up to 24 hours before pickup.", "Cancelación gratis hasta 24 horas antes de la recogida.")} />

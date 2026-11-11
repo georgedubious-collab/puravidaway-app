@@ -273,6 +273,7 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
           itemLines: lang === "en" ? itemLines : itemLinesIn(lang),
           paymentLine: requestPaymentLine(lang, { cashCents, onlineCents, feeTotalCents, feePercent: formatBpsPercent(feeBps) }),
           tripUrl,
+          hasRide: priced.some((p) => p.spec.kind === "transfer"),
         }),
       });
       if (ADMIN_EMAIL) {

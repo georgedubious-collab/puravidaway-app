@@ -25,7 +25,6 @@ export const SIGN_ERROR_LONG = `The name on the sign can be up to ${SIGN_MAX} ch
 
 /** One line, single spaces, trimmed. Anything that isn't text becomes "". */
 export function cleanSignText(v: unknown): string {
-  // eslint-disable-next-line no-control-regex -- line breaks and tabs must not reach a one-line sign
   return typeof v === "string" ? v.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim() : "";
 }
 

@@ -97,7 +97,15 @@ export function requestPaymentLine(
 
 export function tripRequestEmail(
   lang: PublicLang,
-  a: { guestName: string; refs: string[]; itemLines: string[]; paymentLine: string; tripUrl: string },
+  a: {
+    guestName: string;
+    refs: string[];
+    itemLines: string[];
+    paymentLine: string;
+    tripUrl: string;
+    /** The request includes a ride (transfer): adds the line about the driver's name sign. */
+    hasRide?: boolean;
+  },
 ): TravellerEmail {
   const refs = a.refs.join(", ");
   return {
@@ -122,14 +130,26 @@ export function tripRequestEmail(
         "Times are Costa Rica time. Your trip page has your bookings and a chat with our team. Your driver's profile and car photos appear there once confirmed.",
         "Las horas son hora de Costa Rica. En la página de su viaje están sus reservas y un chat con nuestro equipo. El perfil de su conductor y las fotos del vehículo aparecen allí una vez confirmado.",
       ),
-    ],
+      a.hasRide ? signLine(lang) : "",
+    ].filter(Boolean),
     button: { label: t(lang, "Open your trip page", "Abrir la página de su viaje"), url: a.tripUrl },
   };
 }
 
 // --- Ride confirmed (a driver's offer was accepted) ---------------------------
 
+/** The driver's name sign (src/lib/sign.ts): true whatever the traveller chose to have written on it. */
+function signLine(lang: PublicLang): string {
+  return t(
+    lang,
+    "Your driver will wait for you holding a name sign. You can see and change what it says on your trip page until your driver is on the way.",
+    "Su conductor lo esperará con un rótulo. En la página de su viaje puede ver y cambiar lo que dice, hasta que su conductor vaya en camino.",
+  );
+}
+
 interface Confirmed {
+  /** A ride (transfer): adds the line about the driver's name sign. Tours don't have one. */
+  ride?: boolean;
   guestName: string | null | undefined;
   /** driverFirstName(lang, …). */
   driver: string;
@@ -165,7 +185,8 @@ export function rideConfirmedEmail(lang: PublicLang, a: Confirmed): TravellerEma
         "Your trip page shows your driver's profile and car photos, and has a chat with them and our team.",
         "La página de su viaje muestra el perfil de su conductor y las fotos del vehículo, y tiene un chat con su conductor y con nuestro equipo.",
       ),
-    ],
+      a.ride ? signLine(lang) : "",
+    ].filter(Boolean),
     button: { label: t(lang, "Open your trip page", "Abrir la página de su viaje"), url: a.tripUrl },
   };
 }
