@@ -128,5 +128,134 @@ pages `/es/traslados/<slug>` and their index `/es/traslados`, destination guides
   Instagram, TikTok; YouTube and X later. Put each URL in Vercel (`NEXT_PUBLIC_SOCIAL_*`).
 - Google Business Profile and Tripadvisor listing at launch; ask happy travellers for reviews
   (the app already asks for a rating after each trip).
-- At launch: set `NEXT_PUBLIC_SITE_INDEXABLE=true`, connect the domain, submit the sitemap in
-  Google Search Console and Bing Webmaster Tools.
+- At launch: follow the checklist in §7.3 below (ids → Search Console → sitemap → Bing → make
+  the site visible to Google).
+
+### 7.1 Measuring visits: what is built (2026-11-11)
+
+Two layers, on purpose:
+
+- **Vercel Web Analytics** (already on): counts page views without cookies. Always on, needs no
+  banner. Unchanged.
+- **Google Analytics 4**, behind a **cookie banner** (many travellers come from the EU and the
+  UK, where the law asks for a yes before analytics cookies). Optional extras, each off until
+  its id is set: Microsoft Clarity (recordings and heatmaps), Google Ads and the Meta pixel (for
+  later ads).
+
+How the banner behaves (the code is `src/components/site/ConsentManager.tsx` and
+`src/lib/analytics.ts`):
+
+- **Nothing loads before the visitor says yes.** Google's script is not on the page at all
+  until then. This is Google's "Consent Mode v2" in its simplest form (the tag starts with
+  everything refused, then gets the visitor's answer); we chose it over the "advanced" form,
+  where Google's script loads for everyone and sends cookieless pings, because "nothing runs
+  until you accept" is the only version the Privacy Policy can state in one true sentence.
+  Cost: visitors who refuse or ignore the banner are not counted in Google Analytics (they still
+  are in Vercel Web Analytics, so the two totals will differ).
+- "Accept" and "Reject" look the same; "Choose" opens Analytics and Advertising as separate
+  boxes, both unticked (the Advertising box only exists when an ads id is set). No wall: the
+  site works the same whatever the answer, and the banner sits above the "Add to trip" bar on
+  phones.
+- The answer is kept on the visitor's device for **six months**, then asked again. "Cookie
+  settings" at the bottom of every page reopens it; switching off stops the tools at once and
+  deletes their cookies for our site.
+- **Never on private pages**: `/admin`, `/driver`, `/trip/<secret link>`, `/login`. No banner
+  and no script there, and a trip link is never sent to Google, not even as "the page you came
+  from".
+- **No personal data in events.** Towns go as their codes (`SJO`, `ManuelAntonio`), a typed
+  hotel or address only as `custom`. Never names, emails, phones, notes, sign text, typed
+  places, booking references or trip links. Page addresses are sent without their `?…` part
+  (the ride builder keeps the ride there, including a typed hotel's name); only campaign tags
+  (`utm_…`, `gclid`…) are kept.
+
+What is recorded in Google Analytics (GA4's standard names, so its built-in reports work):
+
+| Event | When | What it carries |
+| :--- | :--- | :--- |
+| `page_view` | each public page | cleaned address, page title |
+| `view_item` | the ride builder shows prices for a route (once per route) | route as town codes, number of vehicle classes offered, "from" price, USD |
+| `select_item` | a vehicle class is tapped | route, vehicle class, its price |
+| `add_to_cart` | a ride, day tour or multi-day trip is added to "Your trip" | item code, price, fixed price or bid |
+| `begin_checkout` | the trip is opened to review (phones) or the details form is first touched (desktop), once per trip | total, payment choice, fixed / bid / mixed, number of items |
+| `generate_lead` | "Send trip request" succeeded | total in USD, payment choice (`full_100` online or `cash_driver`), fixed / bid / mixed, items |
+| `click` | a WhatsApp button, an app store link (none on the site yet) or the language switch | only the kind of link (`whatsapp`, `app_store`, `language`) |
+
+`purchase` is **not sent at all** for now: the website takes no payment (the team sends a
+payment link later), and the test checkout only exists inside the traveller app, on the
+server. Sending test payments as purchases would put fake revenue in the reports. Add it with
+the real Green Pay payment page, when a payment really succeeds in the browser. Until then
+`generate_lead` is the number to watch; mark it as a "key event" in Google Analytics.
+
+### 7.2 The ids: what to create and where to paste them
+
+All of them go in **Vercel → the project → Settings → Environment Variables**, with only
+**Production** ticked (not Preview, not Development: test sites must not send data), then
+**redeploy** (Deployments → the latest one → ⋯ → Redeploy), because these values are read when
+the site is built. A value in the wrong format is ignored, so a typo switches the tool off
+rather than breaking the page. None of these is a password: they are visible in the page of any
+site that uses them.
+
+| Variable | What to paste | Where to get it | What it switches on |
+| :--- | :--- | :--- | :--- |
+| `NEXT_PUBLIC_GA_ID` | `G-` + 10 letters/digits | analytics.google.com → Admin → Create property "Costa Rica Private Transfers" → Web data stream for the site → "Measurement ID" | the cookie banner, the "Cookie settings" footer link, the Google Analytics paragraphs of the Privacy Policy and, after a yes, Google Analytics |
+| `NEXT_PUBLIC_GSC_VERIFICATION` | the long code inside `content="…"` | Search Console → add property → "HTML tag" method. **Only needed if DNS verification (preferred, §7.3) is not used** | a hidden ownership tag on every page |
+| `NEXT_PUBLIC_BING_VERIFICATION` | 32 letters/digits inside `content="…"` | Bing Webmaster Tools → add site → "HTML meta tag". Not needed when Bing imports the site from Search Console | a hidden ownership tag on every page |
+| `NEXT_PUBLIC_CLARITY_ID` (optional) | about 10 lowercase letters/digits | clarity.microsoft.com → new project → Settings → Setup → "Project ID" | Microsoft Clarity, for visitors who accept Analytics; adds it to the banner and the Privacy Policy |
+| `NEXT_PUBLIC_GOOGLE_ADS_ID` (later) | `AW-` + digits | Google Ads → Tools → Google tag | the "Advertising" box in the banner; after a yes, the Google Ads tag (page visit only, no conversions yet) |
+| `NEXT_PUBLIC_META_PIXEL_ID` (later) | 15–16 digits | Meta Events Manager → Data sources → the pixel's ID | same box; after a yes, the Meta pixel (page view only) |
+
+Use accounts that belong to Costa Rica Private Transfers (its own Google account), not to
+another brand: property and account names can show up in shared reports (PROJECT.md §10).
+
+**Settings to change inside Google Analytics right after creating the property** (Admin → Data
+streams → the web stream). They matter for privacy, because the site already sends cleaned page
+views itself:
+
+1. **Enhanced measurement** → gear icon → Page views → "Show advanced settings" → **untick
+   "Page changes based on browser history events"**. Otherwise Google also records its own page
+   views with the full address, including the ride details after the `?`, and counts pages twice.
+2. Same panel: switch **off "Outbound clicks"** and **"Form interactions"** (the site reports
+   WhatsApp clicks itself, without the message text).
+3. **Redact data** → switch on "Email" and "URL query parameters", and add these keys:
+   `from, to, fromName, toName, fromAt, toAt` (a second lock on the same door).
+4. Admin → Data collection and modification → **Data retention**: leave it at **2 months**
+   (the default). The Privacy Policy says 2 months; if this is changed to 14, the text in
+   `src/components/legal/MeasurementText.tsx` must change too.
+5. Leave **Google signals** off unless ads start (it is what the Advertising box would cover).
+6. Admin → Events → mark `generate_lead` as a **key event**.
+
+If Clarity is switched on: Clarity → Settings → Masking → **Strict** (the site already asks it
+to hide all page text; this makes sure typed fields are hidden too).
+
+Before switching on Clarity or either ads tool, read "Known limits" below.
+
+**Known limits (2026-11-11)**
+
+- The steps 1–3 above are settings in Google's screens; the code cannot enforce them. Until
+  step 1 is done, Google Analytics may record the full page address on visitors who accepted.
+- Clarity and the Meta pixel read the page address themselves, including the ride details after
+  the `?` (a typed hotel's name). If that matters, the ride builder should stop putting typed
+  place names in the address before these two are switched on (a small change).
+- The cookie texts are part of the legal pages, still a draft pending a lawyer's review.
+- Not measured: the mobile apps (they have no analytics), and payments.
+
+### 7.3 Launch checklist, in this order
+
+1. **Create the Google Analytics property** and paste `NEXT_PUBLIC_GA_ID` in Vercel (Production
+   only); do the six settings above; redeploy. Open the site in a private window: the banner
+   shows; after "Accept", Google Analytics → Reports → Realtime shows the visit.
+2. **Connect the domain** (costaricaprivatetransfers.com) in Vercel and set
+   `NEXT_PUBLIC_SITE_URL` to it.
+3. **Google Search Console** (search.google.com/search-console) → Add property → **Domain** →
+   it shows a TXT record → add that record where the domain's DNS is managed → Verify. (DNS
+   covers every version of the address. Fallback: the "URL prefix" method with the HTML tag →
+   `NEXT_PUBLIC_GSC_VERIFICATION`.)
+4. **Flip the switch**: `NEXT_PUBLIC_SITE_INDEXABLE=true` in Vercel, Production only, and
+   redeploy. Until this is done the site tells Google to stay away, and Search Console will
+   report the pages as blocked. Do it only when real payments are ready: the same switch turns
+   off the test checkout (PROJECT.md §6.4).
+5. **Submit the sitemap** in Search Console → Sitemaps → `sitemap.xml`.
+6. **Bing Webmaster Tools** (bing.com/webmasters) → "Import from Google Search Console" (brings
+   the site and the sitemap across in one step; no code needed).
+7. In Google Analytics → Admin → Product links → link Search Console, so search terms show next
+   to visits.

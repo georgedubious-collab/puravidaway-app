@@ -73,6 +73,8 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
   `/privacy`, `/cancellation`, sharing `src/components/legal/LegalPage.tsx`. The operator's legal
   name, cédula jurídica and address are a placeholder (`LEGAL_ENTITY_PLACEHOLDER`) until filled
   in. The site footer links to all three; the trip request form says sending it accepts them.
+  The Privacy Policy has its own "last updated" date (the `updated` prop) since its cookie and
+  measurement paragraphs were added on 2026-11-11; those are part of the same pending review.
 - `legacy/index.html` — the original static prototype, kept as the **design reference**.
 - Logins: `/login` (email + 6-digit code), `src/proxy.ts` (session refresh on account pages),
   `src/lib/auth.ts` (`requireRole`). `/admin` (dashboard) and `/admin/users` (roles) are live
@@ -134,6 +136,30 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
   link-preview URLs; the preview image is `src/app/opengraph-image.tsx`. Custom 404 and error
   pages (`not-found.tsx`, `error.tsx`, `global-error.tsx`). Vercel Web Analytics
   (`@vercel/analytics`) is in the root layout and must be enabled in the Vercel dashboard.
+- **Marketing measurement behind a cookie banner (2026-11-11, `docs/SEO.md` §7).** Off unless
+  its id is set in Vercel (Production only): `NEXT_PUBLIC_GA_ID` (Google Analytics 4),
+  optional `NEXT_PUBLIC_CLARITY_ID`, and for later ads `NEXT_PUBLIC_GOOGLE_ADS_ID` and
+  `NEXT_PUBLIC_META_PIXEL_ID`; `NEXT_PUBLIC_GSC_VERIFICATION` and
+  `NEXT_PUBLIC_BING_VERIFICATION` add the Search Console / Bing ownership tags to every page.
+  Ids are format-checked in `src/lib/analyticsConfig.ts`; a malformed one is ignored. With at
+  least one tool set, the root layout mounts `src/components/site/ConsentManager.tsx`: a small
+  banner (English / Spanish by page, "Accept" and "Reject" alike, "Choose" for Analytics and
+  Advertising separately, nothing pre-ticked), the choice kept in the browser's local storage
+  (`crpt-consent-v1`) for six months, and a "Cookie settings" link in the footer to change or
+  withdraw it. Google Consent Mode v2 in its basic form: no third-party script is loaded until
+  the visitor accepts, and withdrawing switches the tools off and deletes their first-party
+  cookies. Never a banner or a script on the private paths (`PRIVATE_PATHS` in
+  `src/lib/site.ts`, plus `/account` and `/chat`); arriving on one with tools running reloads
+  the page clean, and trip links are never sent, not even as the referrer. Events go through
+  one browser-only helper, `src/lib/analytics.ts` (`page_view`, `view_item`, `select_item`,
+  `add_to_cart`, `begin_checkout`, `generate_lead`, `click`); every call does nothing without
+  consent or an id, and carries only town codes, vehicle class ids, prices and page addresses
+  without their query string. No `purchase` event yet: the website takes no payment and the
+  test checkout is app-only and server-side. Server code must not import `analytics.ts`
+  (`client-only`). The Privacy Policy's cookie paragraphs
+  (`src/components/legal/MeasurementText.tsx`, both languages) appear only for the tools that
+  are switched on, so with nothing set the page still says no tracking cookies are used. The
+  site sets no Content-Security-Policy header, so none was changed.
 - Rendered per request (`connection()` in `page.tsx`): full HTML for search engines; "today" is
   computed server-side in `America/Costa_Rica`.
 - Ride builder (2026-11-08): pickup time picker (Costa Rica time, **any hour of the day** in 15 min
@@ -978,6 +1004,18 @@ and `season_for_date(date)` returns the season for a travel date.
     rank first when the traveller asked for one (built). (d) No message when the request could
     not be met: the option says "if available", so the traveller only sees the badge when the
     assigned vehicle is electric.
+19. **Measurement and cookies: follow-ups (open, from the build of 2026-11-11, `docs/SEO.md`
+    §7).** (a) The cookie paragraphs of the Privacy Policy (English and Spanish) and the banner
+    wording need the same lawyer review as the rest of the legal pages. (b) Three privacy
+    settings live in Google Analytics' own screens and cannot be forced from the code (no
+    automatic page views on address changes, no outbound-click tracking, query redaction): Jorge
+    sets them when he creates the property (SEO.md §7.2). (c) Microsoft Clarity and the Meta
+    pixel read the full page address, which holds the name of a typed hotel while a ride is
+    being built; decide before switching either on whether typed place names should leave the
+    address (shared ride links would then carry only the place id). (d) `purchase` is not sent
+    until real payments exist; decide then whether the paid amount or the lead is the main
+    conversion for ads. (e) Built assumption: the banner is shown to every visitor, not only
+    in the EU / UK (simplest, and Costa Rica's Ley 8968 also asks for informed consent).
 
 ---
 
