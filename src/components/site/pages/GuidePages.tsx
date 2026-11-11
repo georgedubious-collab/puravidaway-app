@@ -439,8 +439,8 @@ export async function AirportGuidePage({ guide, lang }: { guide: AirportGuide; l
       <PageSection id="pickup" tone="white" title={t(lang, "Meeting your driver, flight delays and waiting", "El encuentro con su conductor, atrasos de vuelo y espera")}>
         <div className="grid gap-8 md:grid-cols-2">
           <div className="space-y-3 leading-relaxed text-slate-600">
-            {guide.pickup.map((p) => (
-              <p key={p.en}>{fill(p[lang])}</p>
+            {guide.pickup.map((p, i) => (
+              <p key={i}>{fill(p[lang])}</p>
             ))}
           </div>
           <div>
