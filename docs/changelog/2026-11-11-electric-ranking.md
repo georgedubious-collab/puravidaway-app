@@ -1,0 +1,1 @@
+- 2026-11-11 — Claude — Offers made with an electric vehicle are listed first on the booking page when the traveller asked for an electric vehicle; the team can still assign anyone.
