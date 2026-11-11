@@ -52,7 +52,7 @@ apps are in the stores).
 
 **Languages:** English at the root, Spanish under `/es` with hreflang (Jorge, 2026-11-09:
 Spanish now). Since 2026-11-10 every public page has its Spanish version (storefront `/es`, route
-pages `/es/traslados/<slug>`, info and legal pages); every new page must ship in both languages. More languages later (Daytrip and the Rezdy operators win partly through them).
+pages `/es/traslados/<slug>`, destination guides `/es/destinos/<slug>`, airport guides `/es/aeropuertos/<code>`, info and legal pages); every new page must ship in both languages. More languages later (Daytrip and the Rezdy operators win partly through them).
 
 ## 4. Build order (one PR each)
 
@@ -61,6 +61,16 @@ pages `/es/traslados/<slug>`, info and legal pages); every new page must ship in
    Organization + Breadcrumb + FAQ schema, AI crawlers allowed in robots, `llms.txt`.
 2. **Destination and airport guides** (`/destinations/la-fortuna`, `/airports/sjo`…): how to
    get there from each airport, drive-time table, best time to go, tours, where to stay by area.
+   **Built 2026-11-11:** six destinations (La Fortuna / Arenal, Manuel Antonio, Monteverde,
+   Tamarindo / Guanacaste, Puerto Viejo, Drake Bay & Sierpe), two airports (SJO, LIR) and the
+   index pages `/destinations` and `/airports`; Spanish at `/es/destinos/<slug>`,
+   `/es/aeropuertos/<code>`, `/es/destinos`, `/es/aeropuertos` (same slugs as English, like the
+   route pages). Content is data in `src/lib/guides/`: to add a destination, add one object to
+   `destinations.ts` (English and Spanish side by side; drive times and prices are written as
+   tokens such as `{time:SJO>Arenal}` and `{price:SJO>Arenal}` and filled from the catalog) and
+   the page, index, footer, sitemap and `llms.txt` pick it up. Bus timetables, fares and flight
+   routes are described in general on purpose; re-check each guide's facts and bump its
+   `updated` date about twice a year.
 3. **Blog / travel guides** with the first articles (§5), each linking to the route pages.
 4. **Route pages, more and better**: from 9 to ~40 (both directions), plus "Other ways to get
    there" (bus, shared shuttle, private, flight, car), 5–8 FAQs, breadcrumbs, Product/Offer +

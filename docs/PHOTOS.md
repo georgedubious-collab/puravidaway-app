@@ -29,9 +29,9 @@ All pictures on the public site go through one registry, `src/lib/photos.ts`, an
 | :--- | :--- | :--- |
 | `pacific-beach-aerial.jpg` | Long palm-lined beach from the air, Pacific coast | Home hero (behind the headline) |
 | `pacific-bay-aerial.jpg` | Turquoise bay and forest, Nicoya Peninsula | About |
-| `manuel-antonio-sunset.jpg` | Red sunset over the Pacific, Manuel Antonio | Route pages ending in Manuel Antonio; "Popular routes" card; the Arenal–Monteverde–Manuel Antonio trip card |
+| `manuel-antonio-sunset.jpg` | Red sunset over the Pacific, Manuel Antonio | Route pages ending in Manuel Antonio; "Popular routes" card; the Arenal–Monteverde–Manuel Antonio trip card; Manuel Antonio destination guide and its card |
 | `manuel-antonio-hills-sunset.jpg` | Sun rays over forested hills and sea, Manuel Antonio | Manuel Antonio day-tour card |
-| `guanacaste-beach-sunset.jpg` | Sunset with headland and islets, Guanacaste | Route pages ending in Tamarindo / Guanacaste; "Popular routes" card |
+| `guanacaste-beach-sunset.jpg` | Sunset with headland and islets, Guanacaste | Route pages ending in Tamarindo / Guanacaste; "Popular routes" card; Tamarindo / Guanacaste destination guide and its card |
 | `guanacaste-beach-islet.jpg` | Empty beach and islet, northern Guanacaste | Contact |
 | `gulf-sunset-ferry.jpg` | Sunset from the ferry, Gulf of Nicoya | Our drivers |
 | `gulf-ferry-crossing.jpg` | Car ferry in front of green hills | Home, "On the road" band |
@@ -39,7 +39,7 @@ All pictures on the public site go through one registry, `src/lib/photos.ts`, an
 | `central-valley-view.jpg` | Central Valley from the hills | Home, "On the road" band; "the drive" on other San José departures |
 | `central-valley-dusk.jpg` | Hydrangeas and valley lights at dusk (Naranjo–Zarcero hills) | "The drive" on San José → La Fortuna |
 | `mountain-sunset.jpg` | Sunset above the clouds, Talamanca | Home, "On the road" band |
-| `sloth-resting.jpg` | Two-toed sloth, Puerto Viejo | Route page San José → Puerto Viejo; "Popular routes" card |
+| `sloth-resting.jpg` | Two-toed sloth, Puerto Viejo | Route page San José → Puerto Viejo; "Popular routes" card; Puerto Viejo destination guide and its card |
 | `wildlife-sloth.jpg`, `wildlife-capuchin.jpg`, `wildlife-toucan.jpg`, `wildlife-blue-morpho.jpg`, `wildlife-dolphins.jpg`, `wildlife-deer.jpg` | Sloth, capuchin monkey, toucan, blue morpho, dolphins, white-tailed deer | Home, wildlife strip |
 
 ## Placeholders (no suitable photo yet)
@@ -48,6 +48,11 @@ Where we have no photo, the same component draws a soft emerald / teal panel wit
 illustration: **Arenal / La Fortuna**, **Monteverde**, **Sierpe / Drake Bay**, **Corcovado**,
 **Poás**, and **every vehicle class** (sedan, minivan / MPV, 4x4, van, 4x4 + boat). Still without a photo
 and not shown anywhere yet: Tamarindo town and Puerto Viejo scenery.
+
+Destination guides (2026-11-11) use the same picture as each town's route pages (`HUB_PHOTO` in
+`src/lib/photos.ts`): real photos for La Fortuna (`la-fortuna-hot-river.jpg`), Manuel Antonio,
+Tamarindo / Guanacaste and Puerto Viejo, placeholders for Monteverde and Drake Bay. Airport guides
+have no picture: we have no photo of either airport, and no other place may stand in for one.
 
 To replace one: clean the photo (rules above), save it in `public/photos/`, and add `file`,
 `width` and `height` to its line in `src/lib/photos.ts`. No page needs to change.
