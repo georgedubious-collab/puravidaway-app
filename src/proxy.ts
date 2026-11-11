@@ -1,13 +1,46 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { HAS_CONSENT_TOOLS } from "@/lib/analyticsConfig";
+import { REGION_COOKIE, REGION_COOKIE_MAX_AGE_SECONDS, regionForCountry } from "@/lib/consentRegion";
+
+/** Account areas: the Supabase login session is kept fresh here, and a signed-out visitor is sent to /login. */
+const AUTH_PATHS = ["/admin", "/account", "/driver"];
+const isAuthPath = (path: string) => path === "/login" || AUTH_PATHS.some((p) => path === p || path.startsWith(`${p}/`));
 
 /**
- * Keeps the Supabase login session fresh on account pages. Runs only on the
- * paths in `config.matcher`, so the public storefront is untouched.
- * This is an optimistic check only: every admin page and action re-checks the
- * role on the server (src/lib/auth.ts), and the database enforces it again (RLS).
+ * Two small jobs, before any page is served:
+ *
+ * 1. Cookie banner region (docs/SEO.md §7.1). Reads the visitor's country from Vercel's
+ *    `x-vercel-ip-country` header and stores "consent" (EEA, UK, Switzerland, or unknown) or
+ *    "open" (anywhere else) in the first-party `crpt-region` cookie, so the pages stay static
+ *    and the banner (src/components/site/ConsentManager.tsx) decides in the browser. Only when a
+ *    measurement tool is switched on, and only when the cookie is missing or different.
+ * 2. Keeps the Supabase login session fresh on account pages. This is an optimistic check only:
+ *    every admin page and action re-checks the role on the server (src/lib/auth.ts), and the
+ *    database enforces it again (RLS).
  */
 export async function proxy(request: NextRequest) {
+  const path = request.nextUrl.pathname;
+  const response = isAuthPath(path) ? await authResponse(request, path) : NextResponse.next();
+  if (HAS_CONSENT_TOOLS) setRegionCookie(request, response);
+  return response;
+}
+
+function setRegionCookie(request: NextRequest, response: NextResponse): void {
+  const region = regionForCountry(request.headers.get("x-vercel-ip-country"));
+  if (request.cookies.get(REGION_COOKIE)?.value === region) return;
+  response.cookies.set(REGION_COOKIE, region, {
+    path: "/",
+    maxAge: REGION_COOKIE_MAX_AGE_SECONDS,
+    sameSite: "lax",
+    // Secure everywhere except a plain-http local run (a browser would drop it there).
+    secure: request.nextUrl.protocol === "https:",
+    // The banner reads it in the browser; it holds only "consent" or "open".
+    httpOnly: false,
+  });
+}
+
+async function authResponse(request: NextRequest, path: string): Promise<NextResponse> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !key) return NextResponse.next();
@@ -28,8 +61,7 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const path = request.nextUrl.pathname;
-  if (!user && (path.startsWith("/admin") || path.startsWith("/account") || path.startsWith("/driver"))) {
+  if (!user && path !== "/login") {
     const login = request.nextUrl.clone();
     login.pathname = "/login";
     login.search = `?next=${encodeURIComponent(path)}`;
@@ -39,5 +71,7 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/account/:path*", "/driver/:path*", "/login"],
+  // Every page, but not Next's own files, the API, images, icons or other files with an
+  // extension (robots.txt, sitemap.xml, photos…): those need neither a session nor a region.
+  matcher: ["/((?!_next/|api/|.*\\.[A-Za-z0-9]+$|opengraph-image|apple-icon|icon).*)"],
 };
