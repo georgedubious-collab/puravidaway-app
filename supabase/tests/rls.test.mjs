@@ -422,6 +422,49 @@ await expectRows("assigned driver still cannot read the booking row (price, carr
   `select total_price, carry_on_count from public.bookings where id = ${BAGS}`, 0);
 await expectRows("job board does not show bags", "admin",
   "select 1 from pg_proc where proname = 'driver_jobs' and pg_get_function_result(oid) ~ '(luggage_count|carry_on_count)'", 0);
+// Migration 0040: the name sign at the pickup. One computed value for the driver (my_trips().sign_text).
+const TRIP9 = "'40000000-0000-0000-0000-000000000001'";
+await expectOk("server stores a full name on the test trip", "server", `update public.trips set guest_name = 'Emily Rose Smith' where id = ${TRIP9}`);
+await expectRows("sign, nothing chosen: first name + last initial", "driver",
+  `select 1 from public.my_trips() where id = ${BAGS} and sign_text = 'Emily S.' and passenger_name = 'Emily S.'`, 1);
+await expectOk("server saves the traveller's own sign text", "server", `update public.bookings set sign_text = 'The Smith Family' where id = ${BAGS}`);
+await expectRows("sign, own text: the driver gets exactly that text", "driver",
+  `select 1 from public.my_trips() where id = ${BAGS} and sign_text = 'The Smith Family'`, 1);
+await expectBlocked("own text together with 'no name' is refused", "server", `update public.bookings set sign_hide_name = true where id = ${BAGS}`);
+await expectOk("server saves 'Don't show my name'", "server", `update public.bookings set sign_text = null, sign_hide_name = true where id = ${BAGS}`);
+await expectRows("sign, no name: the driver gets the brand name", "driver",
+  `select 1 from public.my_trips() where id = ${BAGS} and sign_text = 'Costa Rica Private Transfers'`, 1);
+await expectRows("pickup_sign(): own text wins, then 'no name', then the short name, then the brand", "admin",
+  `select 1 where public.pickup_sign('  VIP Tours  ', false, 'Emily Rose Smith') = 'VIP Tours'
+     and public.pickup_sign(null, true, 'Emily Rose Smith') = 'Costa Rica Private Transfers'
+     and public.pickup_sign('', false, 'Emily Rose Smith') = 'Emily S.'
+     and public.pickup_sign(null, null, 'emily') = 'Emily'
+     and public.pickup_sign(null, false, '8888 1234') = 'Costa Rica Private Transfers'
+     and public.pickup_sign(null, false, null) = 'Costa Rica Private Transfers'`, 1);
+await expectBlocked("a phone number on the sign is refused", "server", `update public.bookings set sign_hide_name = false, sign_text = 'Call 8888 1234' where id = ${BAGS}`);
+await expectBlocked("a spaced phone number on the sign is refused", "server", `update public.bookings set sign_hide_name = false, sign_text = '+506 8888-1234' where id = ${BAGS}`);
+await expectBlocked("an email on the sign is refused", "server", `update public.bookings set sign_hide_name = false, sign_text = 'ana@example.com' where id = ${BAGS}`);
+await expectBlocked("a link on the sign is refused", "server", `update public.bookings set sign_hide_name = false, sign_text = 'www.mytours.com' where id = ${BAGS}`);
+await expectBlocked("a sign longer than 40 characters is refused", "server", `update public.bookings set sign_hide_name = false, sign_text = repeat('a', 41) where id = ${BAGS}`);
+await expectBlocked("an empty or untrimmed sign text is refused", "server", `update public.bookings set sign_hide_name = false, sign_text = ' Smith ' where id = ${BAGS}`);
+await expectBlocked("a new booking with contact details on the sign is refused", "server",
+  `insert into public.bookings (trip_id, service_type, total_price, sign_text) values (${TRIP9}, 'transfer', 100, 'wa.me/50688881234')`);
+await expectRows("the refused changes left 'no name' in place", "driver",
+  `select 1 from public.my_trips() where id = ${BAGS} and sign_text = 'Costa Rica Private Transfers'`, 1);
+await expectRows("the driver's trip never carries the full name, phone or email", "driver",
+  `select 1 from public.my_trips() m where m.id = ${BAGS} and (m::text ~* 'Rose|Smith|ana@example|555 0100')`, 0);
+await expectRows("my_trips() returns sign_text last and no contact or price columns", "admin",
+  "select 1 from pg_proc where proname = 'my_trips' and pg_get_function_result(oid) ~ 'carry_on_count smallint, sign_text text\\)$' and pg_get_function_result(oid) !~ '(guest_|email|phone|total_price|platform_fee|amount_paid|client_notes|company_costs|pricing_mode|sign_hide_name)'", 1);
+await expectRows("assigned driver still reads 0 rows from bookings (sign columns included)", "driver",
+  `select sign_text, sign_hide_name from public.bookings`, 0);
+await expectRows("assigned driver still reads 0 rows from trips (full name, phone, email)", "driver",
+  `select guest_name, guest_phone, guest_email from public.trips`, 0);
+await expectRows("job board does not show the sign", "admin",
+  "select 1 from pg_proc where proname = 'driver_jobs' and pg_get_function_result(oid) ~ 'sign'", 0);
+await expectBlocked("driver cannot change the sign", "driver", `update public.bookings set sign_text = 'x' where id = ${BAGS}`, { affected: 0 });
+await expectOk("server resets the sign and the name", "server", `
+  update public.bookings set sign_text = null, sign_hide_name = false where id = ${BAGS};`);
+await expectOk("server resets the test trip's name", "server", `update public.trips set guest_name = 'Ana' where id = ${TRIP9}`);
 await expectOk("server resets the test job", "server",
   "update public.bookings set sightseeing_stops = '[]' where id = '10000000-0000-0000-0000-000000000001'");
 await expectOk("server resets the test note", "server",
