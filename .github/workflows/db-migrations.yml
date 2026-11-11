@@ -62,7 +62,7 @@ jobs:
         if: steps.secret.outputs.ok == 'true'
         env:
           CATALOG_REVALIDATE_SECRET: ${{ secrets.CATALOG_REVALIDATE_SECRET }}
-          SITE_URL: ${{ vars.SITE_URL || 'https://puravidaway-app.vercel.app' }}
+          SITE_URL: ${{ vars.SITE_URL || 'https://www.costaricaprivatetransfers.com' }}
         run: |
           if [ -z "$CATALOG_REVALIDATE_SECRET" ]; then
             echo "::warning::CATALOG_REVALIDATE_SECRET is not set; prices refresh within the hour. See docs/SETUP-SUPABASE.md (Option C)."

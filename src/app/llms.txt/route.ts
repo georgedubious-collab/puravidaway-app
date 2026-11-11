@@ -1,3 +1,4 @@
+import { ARTICLES, BLOG_PATH, articlePath } from "@/lib/blog";
 import { AIRPORT_GUIDES, AIRPORTS_PATH, DESTINATION_GUIDES, DESTINATIONS_PATH, airportPath, destinationPath } from "@/lib/guides";
 import { getCatalog } from "@/lib/catalogSource";
 import { nightSentence } from "@/lib/nightPremium";
@@ -48,6 +49,10 @@ ${DESTINATION_GUIDES.map((g) => `- [${g.title.en}](${u(destinationPath(g))}): ${
 - [SJO or LIR: both airports compared](${u(AIRPORTS_PATH)})
 ${AIRPORT_GUIDES.map((g) => `- [${g.title.en}](${u(airportPath(g))}): ${g.metaDescription.en}`).join("\n")}
 
+## Travel guides (getting around Costa Rica: every option, real drive times and prices, dated)
+- [All travel guides](${u(BLOG_PATH)})
+${ARTICLES.map((a) => `- [${a.title.en}](${u(articlePath(a))}): ${a.metaDescription.en}`).join("\n")}
+
 ## Spanish (every page above has a Spanish version under /es)
 - [Reservar un traslado o tour de un día](${u("/es")}): planificador de viajes con precios
 - [Quiénes somos](${u("/es/nosotros")})
@@ -64,6 +69,10 @@ ${AIRPORT_GUIDES.map((g) => `- [${g.title.en}](${u(airportPath(g))}): ${g.metaDe
 ${DESTINATION_GUIDES.map((g) => `- [${g.title.es}](${u(localizedHref(destinationPath(g), "es"))})`).join("\n")}
 - [Guías de aeropuertos](${u(localizedHref(AIRPORTS_PATH, "es"))})
 ${AIRPORT_GUIDES.map((g) => `- [${g.title.es}](${u(localizedHref(airportPath(g), "es"))})`).join("\n")}
+
+## Guías de viaje (español)
+- [Todas las guías de viaje](${u(localizedHref(BLOG_PATH, "es"))})
+${ARTICLES.map((a) => `- [${a.title.es}](${u(localizedHref(articlePath(a), "es"))})`).join("\n")}
 
 ## Rutas de traslado privado (español)
 - [Todas las rutas con tiempos de viaje y precios](${u(localizedHref(TRANSFERS_PATH, "es"))})

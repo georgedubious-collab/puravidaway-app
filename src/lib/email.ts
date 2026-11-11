@@ -12,7 +12,7 @@ import "server-only";
  * Without RESEND_API_KEY nothing is sent (logged instead), so the app works the same.
  */
 
-export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://puravidaway-app.vercel.app").replace(/\/$/, "");
+export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.costaricaprivatetransfers.com").replace(/\/$/, "");
 export const ADMIN_EMAIL = process.env.ADMIN_NOTIFY_EMAIL || "";
 /**
  * The logo in every email's header: a PNG served by the site (public/brand/logo-email.png,

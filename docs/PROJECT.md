@@ -13,7 +13,7 @@
 | **Owner & founder** | Jorge Li — Costa Rica Travel Planner (Flores, Heredia, Costa Rica) |
 | **Repository** | `georgedubious-collab/puravidaway-app` (connected to Vercel; `main` deploys to production) |
 | **Vercel project** | `puravidaway-app` — team "Jorge Li's projects" |
-| **Production URL** | https://puravidaway-app.vercel.app |
+| **Production URL** | https://www.costaricaprivatetransfers.com (connected in Vercel since 2026-11-09; the bare domain and costaricatoursandtransfers.com redirect to it; `puravidaway-app.vercel.app` still works). Search engines stay blocked until `NEXT_PUBLIC_SITE_INDEXABLE=true` |
 | **Spec last reviewed** | 2026-11-08 |
 
 ---
@@ -134,9 +134,9 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
   `robots.txt` blocks only `/admin`, `/driver`, `/trip`, `/login`, `/auth`, `/api`, explicitly
   welcomes search and AI crawlers (Googlebot, Bingbot, GPTBot, OAI-SearchBot, PerplexityBot,
   ClaudeBot, Claude-SearchBot, Google-Extended) on everything else, and points to
-  `sitemap.xml` (home, route pages, destination and airport guides, info pages and legal pages, each in English and Spanish
+  `sitemap.xml` (home, route pages, destination and airport guides, travel guides, info pages and legal pages, each in English and Spanish
   with hreflang).
-  `NEXT_PUBLIC_SITE_URL` (default `https://puravidaway-app.vercel.app`) sets canonical and
+  `NEXT_PUBLIC_SITE_URL` (default `https://www.costaricaprivatetransfers.com`) sets canonical and
   link-preview URLs; the preview image is `src/app/opengraph-image.tsx`. Custom 404 and error
   pages (`not-found.tsx`, `error.tsx`, `global-error.tsx`). Vercel Web Analytics
   (`@vercel/analytics`) is in the root layout and must be enabled in the Vercel dashboard.
@@ -256,8 +256,31 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
   airport is still an open question (§9). Structured data: WebPage about a TouristDestination / Airport, FAQPage, BreadcrumbList;
   never ratings. Pre-rendered like the route pages. Guides are in the footer, sitemap and
   `llms.txt`, and route pages link to the guides of their two ends.
+- **Travel guides, the blog (2026-11-11, docs/SEO.md §4 step 3):** `/guides` (index) and
+  `/guides/<slug>`; Spanish `/es/guias` and `/es/guias/<slug>` (same slugs, paired in
+  `src/lib/publicLang.ts`). "Travel guides" / "Guías de viaje" is in the top menu (between
+  Destinations and Help; the menu now collapses into the phone menu below 1280 px wide, because
+  seven entries no longer fit next to the logo at laptop width) and in the footer's Destinations column. First six articles:
+  San José → La Fortuna, San José → Manuel Antonio, San José → Monteverde, Liberia airport →
+  Tamarindo, SJO or LIR, and a drive-times table between all our towns. Articles are data in
+  `src/lib/blog/` (`articlesRoutes.ts`, `articlesPlanning.ts`, shared texts in `shared.ts`, rules
+  in `types.ts`), English and Spanish side by side, drawn by
+  `src/components/site/pages/BlogPages.tsx` with the guides' parts (rides table, other ways,
+  FAQ, call to action, link pills) plus a price-by-vehicle table and a drive-time grid. **To add
+  an article, add one object and list it in `ARTICLES` (`src/lib/blog/index.ts`)**: page, index,
+  sitemap, `llms.txt` and the links from route pages (`about.hubPairs`) and destination / airport
+  guides (`about.hubs`) follow. Numbers are tokens filled from the catalog: the guide tokens plus
+  `{pp:A>B}` (lowest price per traveller), `{ppPax:A>B}`, `{ppClass:A>B}`, `{class:A>B}` and
+  `{asof}` (month of the last check, required in the opening answer). Links are written
+  `[label](/english/path)` and localized automatically. A build-time check fails `npm run build` on
+  an unknown token, a link to a page that doesn't exist, fewer than 5 or more than 8 FAQs, an
+  undated answer or forbidden words (24/7, the owner's or sister brands' names, multi-day trips);
+  `npm run test:blog` runs it plus word counts and both languages. Structured data: BlogPosting
+  (author and publisher = the organisation, datePublished / dateModified; no person, no ratings),
+  FAQPage, BreadcrumbList; the index is a Blog. Transfers and single-day tours only: no multi-day
+  content. Re-check facts and bump each article's `updated` about twice a year.
 - **Site shell (2026-11-09):** every public page (home, `/transfers/*`, legal and info pages; not
-  `/admin`, `/driver`, `/trip`, `/login`) shares `SiteHeader` (menu Transfers / Day tours / Destinations /
+  `/admin`, `/driver`, `/trip`, `/login`) shares `SiteHeader` (menu Transfers / Day tours / Destinations / Travel guides /
   Help from `src/lib/siteNav.ts`, WhatsApp, a flag language button always visible in the bar, phones
   included — Costa Rica flag + "ES" on English pages, US flag + "EN" on Spanish pages, like the
   customer app; it opens the same page in the other language and keeps the query string
@@ -265,7 +288,7 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
   Support, Legal, social icons, the TravelAgency structured data). The menu's Transfers / Day tours
   open the booking app on that tab (`/?tab=transfers|tours`, `/es?tab=…` in Spanish); the retired
   `?tab=multiday` redirects (308) to `?tab=tours` (`next.config.ts`). Destinations
-  (since 2026-11-11) opens the guides index; Travel guides is a commented placeholder in `siteNav.ts` for a later PR. Info pages (EN · ES):
+  (since 2026-11-11) opens the guides index; Travel guides (since 2026-11-11) opens the blog index `/guides`. Info pages (EN · ES):
   `/about` · `/es/nosotros`, `/how-it-works` · `/es/como-funciona`, `/our-drivers` ·
   `/es/nuestros-conductores`, `/faq` · `/es/preguntas-frecuentes` (FAQ content in `src/lib/faq.ts`,
   FAQPage structured data), `/contact` · `/es/contacto` (WhatsApp, hello@costaricaprivatetransfers.com
@@ -947,8 +970,8 @@ multi-day trips were retired (§1, §5.5) and are not on the roadmap.
    Date/time changes free if asked 24 h+ ahead, subject to
    availability. If we or the driver cancel: full refund. Weather / road / park closures: rebook
    or refund of the affected service. The cash-booking fee is non-refundable within 24 h.
-8. **Custom domain** for the app (removes the Vercel login wall on previews and looks
-   professional).
+8. **Custom domain:** done. `www.costaricaprivatetransfers.com` is connected (2026-11-09) and the
+   apps and defaults use it since 2026-11-11; still hidden from search engines until launch.
 9. **Driver edits after approval: decided (Jorge, 2026-11-09), built in migration 0031.**
    Replacing a licence, ID, criminal-record or vehicle document, or changing their dates or a
    plate, pauses NEW jobs for that driver / vehicle (`review_hold`) until the team checks it;

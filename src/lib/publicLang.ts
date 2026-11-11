@@ -26,7 +26,7 @@ export function t<T>(lang: PublicLang, en: T, es: T): T {
  * the booking app (home), the info pages, the legal pages and the guide index pages.
  * Route pages and guides are matched by prefix below (/transfers/<slug> ↔ /es/traslados/<slug>,
  * /destinations/<slug> ↔ /es/destinos/<slug>, /airports/<code> ↔ /es/aeropuertos/<code>, same slug).
- * Add a pair here when a page gets its Spanish version (later: travel guides, blog).
+ * Add a pair here when a page gets its Spanish version.
  */
 export const ES_PATHS: Record<string, string> = {
   "/": "/es",
@@ -42,6 +42,8 @@ export const ES_PATHS: Record<string, string> = {
   "/transfers": "/es/traslados",
   "/destinations": "/es/destinos",
   "/airports": "/es/aeropuertos",
+  // Travel guides (the blog, src/lib/blog): index; the articles are matched by prefix below.
+  "/guides": "/es/guias",
 };
 
 const EN_PATHS: Record<string, string> = Object.fromEntries(
@@ -54,12 +56,13 @@ export const ES_ROUTE_PREFIX = "/es/traslados/";
 
 /**
  * Page families that keep the same slug under each language's folder:
- * route pages, destination guides and airport guides (English prefix, Spanish prefix).
+ * route pages, destination guides, airport guides and travel guides (English prefix, Spanish prefix).
  */
 const PREFIX_PAIRS: [string, string][] = [
   [EN_ROUTE_PREFIX, ES_ROUTE_PREFIX],
   ["/destinations/", "/es/destinos/"],
   ["/airports/", "/es/aeropuertos/"],
+  ["/guides/", "/es/guias/"],
 ];
 
 /** English info pages with a Spanish version (the sitemap lists home, legal and route pages separately). */

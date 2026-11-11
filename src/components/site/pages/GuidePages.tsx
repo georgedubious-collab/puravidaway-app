@@ -3,6 +3,7 @@ import Link from "next/link";
 import { AIRPORT_HUBS, routeMinutes, stopFitsRoute, type HubId } from "@/lib/catalog";
 import { entranceLabel, localizeCatalog } from "@/lib/catalogEs";
 import { getCatalog } from "@/lib/catalogSource";
+import { BLOG_PATH, articlePath, articlesForHubs } from "@/lib/blog";
 import {
   AIRPORT_GUIDES,
   AIRPORTS_PATH,
@@ -317,6 +318,18 @@ export async function DestinationGuidePage({ guide, lang }: { guide: Destination
         button={t(lang, "See price & book", "Ver precio y reservar")}
       />
 
+      <section className="max-w-6xl mx-auto px-4 sm:px-6 pb-8">
+        <h2 className="text-xl font-extrabold text-slate-900">{t(lang, "Travel guides", "Guías de viaje")}</h2>
+        <div className="mt-4">
+          <LinkPills
+            links={[
+              ...articlesForHubs(hubs).map((a) => ({ label: a.short[lang], href: localizedHref(articlePath(a), lang) })),
+              { label: t(lang, "All travel guides", "Todas las guías de viaje"), href: localizedHref(BLOG_PATH, lang) },
+            ]}
+          />
+        </div>
+      </section>
+
       <section className="max-w-6xl mx-auto px-4 sm:px-6 pb-16">
         <h2 className="text-xl font-extrabold text-slate-900">{t(lang, "More destination guides", "Más guías de destinos")}</h2>
         <div className="mt-4">
@@ -501,6 +514,7 @@ export async function AirportGuidePage({ guide, lang }: { guide: AirportGuide; l
         <div className="mt-4">
           <LinkPills
             links={[
+              ...articlesForHubs([guide.hub]).map((a) => ({ label: a.short[lang], href: localizedHref(articlePath(a), lang) })),
               ...others.map((a) => ({ label: a.name[lang], href: localizedHref(airportPath(a), lang) })),
               ...DESTINATION_GUIDES.map((g) => ({ label: g.name[lang], href: localizedHref(destinationPath(g), lang) })),
             ]}

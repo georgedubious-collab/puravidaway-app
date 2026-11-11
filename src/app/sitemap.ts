@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { BILINGUAL_PATHS, esPathOf } from "@/lib/publicLang";
+import { ARTICLES, BLOG_PATH, articlePath } from "@/lib/blog";
 import { AIRPORT_GUIDES, AIRPORTS_PATH, DESTINATION_GUIDES, DESTINATIONS_PATH, airportPath, destinationPath } from "@/lib/guides";
 import { ROUTE_PAGES, TRANSFERS_PATH, routePath } from "@/lib/routePages";
 import { LEGAL_PATHS, SITE_URL } from "@/lib/site";
@@ -26,6 +27,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     ...[DESTINATIONS_PATH, AIRPORTS_PATH].flatMap((p) => bilingual(p, { changeFrequency: "monthly", priority: 0.7 })),
     ...DESTINATION_GUIDES.flatMap((g) => bilingual(destinationPath(g), { changeFrequency: "monthly", priority: 0.7 })),
     ...AIRPORT_GUIDES.flatMap((g) => bilingual(airportPath(g), { changeFrequency: "monthly", priority: 0.7 })),
+    ...bilingual(BLOG_PATH, { changeFrequency: "weekly", priority: 0.7 }),
+    ...ARTICLES.flatMap((a) => bilingual(articlePath(a), { changeFrequency: "monthly", priority: 0.7 }).map((e) => ({ ...e, lastModified: a.updated }))),
     ...BILINGUAL_PATHS.flatMap((p) => bilingual(p, { changeFrequency: "monthly", priority: 0.6 })),
     ...LEGAL_PATHS.flatMap((p) => bilingual(p, { changeFrequency: "yearly", priority: 0.3 })),
   ];

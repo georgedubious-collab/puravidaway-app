@@ -24,7 +24,7 @@ jobs:
       - name: Check upcoming pickups
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
-          SITE_URL: ${{ vars.SITE_URL || 'https://puravidaway-app.vercel.app' }}
+          SITE_URL: ${{ vars.SITE_URL || 'https://www.costaricaprivatetransfers.com' }}
         run: |
           if [ -z "$CRON_SECRET" ]; then
             echo "::warning::CRON_SECRET is not set in GitHub, so the ETA check did not run."
@@ -37,7 +37,7 @@ jobs:
         if: always()
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
-          SITE_URL: ${{ vars.SITE_URL || 'https://puravidaway-app.vercel.app' }}
+          SITE_URL: ${{ vars.SITE_URL || 'https://www.costaricaprivatetransfers.com' }}
         run: |
           if [ -z "$CRON_SECRET" ]; then exit 0; fi
           curl --fail-with-body -sS --max-time 60 -H "Authorization: Bearer $CRON_SECRET" "$SITE_URL/api/cron/chat-unread"
