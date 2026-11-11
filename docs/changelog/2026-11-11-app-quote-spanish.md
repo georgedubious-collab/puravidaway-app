@@ -1,0 +1,1 @@
+- 2026-11-11 — Claude — Customer app in Spanish: vehicle names, badges, luggage, stops, tours, season and town names now come back in Spanish from the price API (`lang` on `/api/v1/client/quote` and `/tours`); prices and ids are the same in both languages.

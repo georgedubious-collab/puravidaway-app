@@ -1,11 +1,13 @@
 import "server-only";
-import { HUBS, REGION_NAMES, perPersonTierCents, stopFitsRoute } from "./catalog";
+import { perPersonTierCents, stopFitsRoute } from "./catalog";
 import { seasonForYmd } from "./catalogModel";
+import { hubName, localizeCatalog, regionName } from "./catalogEs";
 import { getCatalog } from "./catalogSource";
 import { isValidYmd, todayInCostaRica } from "./dates";
 import { MapsError, resolvePlace, rideRoute } from "./googleMaps";
 import { isAirportPickup, isHubPlace } from "./places";
 import { applyMultiplier, perPersonCents, perPersonShare, quoteDayTour, quoteTransfer } from "./pricing";
+import type { PublicLang } from "./publicLang";
 import { MIN_OFFER_USD } from "./tripRequest";
 
 /**
@@ -54,7 +56,9 @@ export interface RideQuote {
 
 export class QuoteError extends Error {}
 
-export async function rideQuote(input: { from: string; to: string; date: string; pax: number; stopIds: string[] }): Promise<RideQuote> {
+/** `lang` only changes the words (names, badges, luggage, stops, season); ids and prices are the same in both languages. */
+export async function rideQuote(input: { from: string; to: string; date: string; pax: number; stopIds: string[]; lang?: PublicLang }): Promise<RideQuote> {
+  const lang: PublicLang = input.lang === "es" ? "es" : "en";
   const today = todayInCostaRica();
   if (!isValidYmd(input.date) || input.date < today) throw new QuoteError("Pick a travel date from today onwards.");
   if (!Number.isInteger(input.pax) || input.pax < 1 || input.pax > 10) throw new QuoteError("Choose 1 to 10 travellers.");
@@ -67,7 +71,7 @@ export async function rideQuote(input: { from: string; to: string; date: string;
     if (e instanceof MapsError || e instanceof QuoteError) throw new QuoteError(e.message);
     throw e;
   }
-  const catalog = await getCatalog();
+  const catalog = localizeCatalog(await getCatalog(), lang);
   const season = seasonForYmd(input.date, catalog);
   const fits = catalog.stops.filter((s) => stopFitsRoute(s, origin.hub, destination.hub));
   const stopIds = input.stopIds.filter((id) => fits.some((s) => s.id === id));
@@ -75,7 +79,7 @@ export async function rideQuote(input: { from: string; to: string; date: string;
     (v) => v.maxPax >= input.pax && (!v.onlyForHubs || v.onlyForHubs.includes(origin.hub) || v.onlyForHubs.includes(destination.hub)),
   );
   // Our town names for hubs; the looked-up label for typed places.
-  const label = (p: typeof origin) => (isHubPlace(p) ? (HUBS.find((h) => h.id === p.hub)?.name ?? p.label) : p.label);
+  const label = (p: typeof origin) => (isHubPlace(p) ? hubName(p.hub, lang) : p.label);
 
   const quotes = vehicles.map((v) => ({
     v,
@@ -146,11 +150,11 @@ export interface TourQuote {
 }
 
 /** Day tours with the total for this group and date. */
-export async function tourQuotes(date: string, pax: number): Promise<{ tours: TourQuote[]; cashFeeBps: number }> {
+export async function tourQuotes(date: string, pax: number, lang: PublicLang = "en"): Promise<{ tours: TourQuote[]; cashFeeBps: number }> {
   const today = todayInCostaRica();
   if (!isValidYmd(date) || date < today) throw new QuoteError("Pick a date from today onwards.");
   if (!Number.isInteger(pax) || pax < 1 || pax > 10) throw new QuoteError("Choose 1 to 10 travellers.");
-  const catalog = await getCatalog();
+  const catalog = localizeCatalog(await getCatalog(), lang);
   const season = seasonForYmd(date, catalog);
   return {
     cashFeeBps: catalog.cashFeeBps,
@@ -158,7 +162,7 @@ export async function tourQuotes(date: string, pax: number): Promise<{ tours: To
       id: t.id,
       name: t.name,
       region: t.region,
-      regionName: REGION_NAMES[t.region] ?? t.region,
+      regionName: regionName(t.region, lang),
       durationHours: t.durationHours,
       highlights: t.highlights,
       perPersonCents: applyMultiplier(perPersonTierCents(t.perPerson, pax), season.multiplierBps),
