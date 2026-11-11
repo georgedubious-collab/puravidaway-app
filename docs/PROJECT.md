@@ -501,6 +501,28 @@ also take the jobs of the categories below them:
   table above. A job class the rule doesn't know (one added later in /admin/pricing) is not
   restricted.
 
+**Electric vehicles (Jorge, 2026-11-11, migration 0042).** Electric cars are **not** a vehicle
+class and cost the **same price**: there are too few for a category, an electric car can be a
+sedan, a minivan or a van, and long routes may need a charging stop. Instead:
+
+- **A mark on the vehicle**, `driver_vehicles.is_electric` (default false), set by the team only on
+  the driver's page in `/admin/drivers` (checkbox "Vehículo eléctrico", saved with the category).
+  A driver's own attempt to set or clear it is ignored (database trigger `guard_vehicle_electric`,
+  same idea as the category). The driver sees "Eléctrico" next to the category, read-only, in the
+  driver portal and the driver app.
+- **A free request at booking**: "Electric vehicle, if available" in the extras of the website
+  ride builder and the app's "Your ride" step (`preferences.electric`, optional; older apps don't
+  send it). It is a request, never a guarantee, and never changes the price, the category rule
+  (`vehicle_can_serve`), the seats rule, the job board or the order of the offers.
+- **Team side**: the request appears with the other preferences on the booking; the driver and
+  vehicle list marks electric vehicles ("⚡ eléctrico") and warns "no es eléctrico" when the
+  traveller asked and the vehicle isn't; each offer shows the same. Information only.
+- **Driver side**: the request appears in "Pidió" on the job board and the trip (portal and app).
+- **Traveller side**: once a driver is confirmed, an "Electric vehicle" badge next to the car on
+  the private trip page and in the app, when the assigned vehicle is marked electric.
+- **Wording**: always "if available"; no environmental claims with numbers and no "zero
+  emissions" promises. One FAQ entry (`src/lib/faq.ts`, `electric`).
+
 ### 5.4 1-day private tours
 Since 2026-11-09 (migration 0022; Jorge: "tours are not just a drive") tours are priced **per
 person, tiered by group size** like his tours on costaricatravelplanner.com (internal reference
@@ -689,6 +711,8 @@ no phone/email/links; shown to travellers) · `english_level` (`fluent` | `basic
 `driver_id` → `drivers.id` · `plate` · `make_model` · `year` · `color` · `passenger_capacity` ·
 `vehicle_class` (`economy` | `sedan` | `suv` | `4x4` | `van`, null = not tagged yet; set by the team only,
 decides which jobs the driver receives, §5.3, migration 0038) ·
+`is_electric` boolean, default false (set by the team only; a badge and a match for the free
+"electric vehicle, if available" request, not a category and no price change, §5.3, migration 0042) ·
 `ins_policy_number` · `ins_insurance_expiry` date · `dekra_inspection_expiry` date ·
 `marchamo_year` int · `has_wifi` · `child_seats` · `stroller_space` · `pet_friendly` · `documents` jsonb (`insurance`, `dekra`, `marchamo`,
 `vehicle_registration`) · `photos` jsonb array (at least 2, one showing the plate; at most 12) · `status` · `note` ·
@@ -781,7 +805,8 @@ and `season_for_date(date)` returns the season for a travel date.
   of the renewed document.
 - **driver_vehicles:** the driver and admins only; drivers add, edit and remove their own; new
   vehicles always start `pending`; only admins change `status`, `note`, review fields and the
-  category `vehicle_class` (a driver's own attempt is ignored, migration 0038); file
+  category `vehicle_class` and the electric mark `is_electric` (a driver's own attempt is
+  ignored, migrations 0038 and 0042); file
   links must be in the driver's own folder. Clients never see Cédula,
   license or insurance numbers.
 - **bookings:** clients see their own; admins see all. **Drivers never read booking rows**
@@ -879,7 +904,8 @@ and `season_for_date(date)` returns the season for a travel date.
    "changed since last review" for the admin. Stricter alternative: any change sends them back to
    *pending* (off the job board) until re-approved. Decide before drivers can receive trips (Phase 3).
 10. **Ride extras pricing.** Travellers can ask for an English-speaking driver (vs Spanish / basic
-    English), Wi-Fi, stroller, child seats, booster seats and pets. Built as **free requests matched by the
+    English), Wi-Fi, stroller, child seats, booster seats, pets and (2026-11-11) an electric vehicle
+    "if available" (§5.3). Built as **free requests matched by the
     team**. Decide whether any cost extra (e.g. child seats) or whether "Spanish / basic English"
     is cheaper.
     **Jorge 2026-11-08:** no blanket "English-speaking" promise; add a cheaper **Economy** class
@@ -925,6 +951,14 @@ and `season_for_date(date)` returns the season for a travel date.
     makes no promise about support hours. (c) The premium is on the ride only, not on stops:
     confirm. (d) Should the Drake Bay boat be offered at night at all (the river-mouth crossing
     is done in daylight only)? Today the builder does not block it.
+
+18. **Electric vehicles: follow-ups (open, from §5.3 of 2026-11-11).** (a) Decided: not a
+    category, same price, a free "if available" request. (b) Open: should the team be alerted
+    when an electric request is on a long route (charging on the way), or is the warning on the
+    booking enough? Today nothing is blocked. (c) Open: should offers from electric vehicles
+    rank higher when the traveller asked for one? Today the order does not change. (d) Open:
+    tell the traveller by message when their request could not be met? Today they only see the
+    badge when the assigned vehicle is electric.
 
 ---
 

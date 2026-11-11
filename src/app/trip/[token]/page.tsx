@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
-import { Car, CheckCircle2, Languages, ShieldCheck } from "lucide-react";
+import { Car, CheckCircle2, Languages, ShieldCheck, Zap } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
 import { ChatBox } from "@/components/ChatBox";
 import { HtmlLang } from "@/components/site/HtmlLang";
@@ -74,6 +74,8 @@ interface CarCard {
   seats: number | null;
   offers: string[];
   photos: string[];
+  /** Our team marked this vehicle as electric: shown as a badge. */
+  electric: boolean;
 }
 
 /**
@@ -124,16 +126,19 @@ export default async function TripPage({ params, searchParams }: Props) {
   );
   const driverIds = [...new Set(assigned.map((b) => b.assigned_driver_id!))];
   const vehicleIds = [...new Set(assigned.map((b) => b.assigned_vehicle_id!))];
+  const VEHICLE_COLUMNS = "id, make_model, year, color, plate, passenger_capacity, has_wifi, child_seats, stroller_space, pet_friendly, photos";
+  // Safety net for the minutes between a deploy and its database update (migration 0042):
+  // the car card never disappears because the electric mark's column isn't there yet.
+  const loadVehicles = async (): Promise<{ data: unknown[] | null }> => {
+    if (!vehicleIds.length) return { data: [] };
+    const res = await db.from("driver_vehicles").select(`${VEHICLE_COLUMNS}, is_electric`).in("id", vehicleIds);
+    return res.error ? db.from("driver_vehicles").select(VEHICLE_COLUMNS).in("id", vehicleIds) : res;
+  };
   const [drivers, vehicles] = await Promise.all([
     driverIds.length
       ? db.from("drivers").select("id, bio, english_level, ict_permit_number, documents, profiles!drivers_id_fkey(full_name)").in("id", driverIds)
       : Promise.resolve({ data: [] as never[] }),
-    vehicleIds.length
-      ? db
-          .from("driver_vehicles")
-          .select("id, make_model, year, color, plate, passenger_capacity, has_wifi, child_seats, stroller_space, pet_friendly, photos")
-          .in("id", vehicleIds)
-      : Promise.resolve({ data: [] as never[] }),
+    loadVehicles(),
   ]);
 
   type DriverRow = {
@@ -156,6 +161,7 @@ export default async function TripPage({ params, searchParams }: Props) {
     stroller_space: boolean;
     pet_friendly: boolean;
     photos: string[];
+    is_electric?: boolean | null;
   };
   const driverRows = (drivers.data ?? []) as unknown as DriverRow[];
   const vehicleRows = (vehicles.data ?? []) as unknown as VehicleRow[];
@@ -198,6 +204,7 @@ export default async function TripPage({ params, searchParams }: Props) {
         v.pet_friendly && t("Pets welcome", "Se aceptan mascotas"),
       ].filter((x): x is string => Boolean(x)),
       photos: (v.photos ?? []).map((p) => urls[p]).filter((u): u is string => Boolean(u)),
+      electric: v.is_electric === true,
     };
   };
 
@@ -325,6 +332,13 @@ export default async function TripPage({ params, searchParams }: Props) {
                       {car.color && <span className="font-semibold">· {car.color}</span>}
                       {car.plate && <span className="rounded bg-white px-1.5 font-mono text-xs">{car.plate}</span>}
                     </p>
+                    {car.electric && (
+                      <p className="mt-1.5 text-xs font-bold">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-white px-2 py-0.5 text-emerald-900">
+                          <Zap className="h-3.5 w-3.5" /> {t("Electric vehicle", "Vehículo eléctrico")}
+                        </span>
+                      </p>
+                    )}
                     {(car.offers.length > 0 || car.seats) && (
                       <p className="mt-1 text-xs text-emerald-900">
                         {[car.seats && t(`${car.seats} passenger seats`, `${car.seats} asientos para pasajeros`), ...car.offers].filter(Boolean).join(" · ")}

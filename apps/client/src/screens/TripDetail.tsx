@@ -227,7 +227,7 @@ export function TripDetail() {
 
           {b.driver ? (
             liveView ? (
-              b.driver.bio || b.driver.english || (b.car && (b.car.seats || b.car.photos.length > 0)) ? (
+              b.driver.bio || b.driver.english || (b.car && (b.car.seats || b.car.photos.length > 0 || b.car.electric)) ? (
                 <Card>
                   <Text style={T.label}>{t("About " + b.driver.firstName, "Sobre " + b.driver.firstName)}</Text>
                   {b.driver.english ? <Badge text={b.driver.english === "fluent" ? t("Fluent English", "Inglés fluido") : t("Basic English", "Inglés básico")} tone="grey" icon="chatbubbles-outline" /> : null}
@@ -412,6 +412,8 @@ function CarLines({ car }: { car: NonNullable<AppBooking["car"]> }) {
   return (
     <>
       <IconLine icon="car-outline" text={car.name + (car.color ? " · " + car.color : "") + (car.plate ? " · " + car.plate : "") + (car.seats ? " · " + plural(car.seats, "seat", lang) : "")} />
+      {/* Set by our team on the vehicle; older servers don't send it. */}
+      {car.electric ? <Badge text={t("Electric vehicle", "Vehículo eléctrico")} icon="flash-outline" /> : null}
       {car.photos.length > 0 ? (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
           {car.photos.map((u) => (

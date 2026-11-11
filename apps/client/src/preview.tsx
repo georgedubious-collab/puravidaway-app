@@ -20,6 +20,8 @@ const at = (hoursFromNow: number) => new Date(Date.now() + hoursFromNow * H).toI
 
 const driver = { firstName: "Carlos", bio: "Born in La Fortuna, driving visitors since 2014. Ask me about the best sodas on the way!", english: "fluent", ict: true, photo: null, rating: "4.9" };
 const car = { name: "Toyota Hiace", color: "White", plate: "BRT-482", seats: 10, photos: [] };
+/** A vehicle our team marked as electric: the trip screen shows the badge (`trip-driver`). */
+const electricCar = { name: "BYD Dolphin", color: "Grey", plate: "ELC-204", seats: 4, photos: [], electric: true };
 const booking = (o: Partial<AppBooking>): AppBooking => ({
   id: "b",
   ref: "CRPT-0000",
@@ -44,7 +46,7 @@ const trips: AppTrip[] = [
     createdAt: at(-100),
     bookings: [
       booking({ id: "b1", ref: "CRPT-1042", title: "SJO Airport / San José → La Fortuna / Arenal", driverOnTheWay: true, driver, car, unreadChat: 2, driverLocation: { lat: 10.1, lng: -84.33, recordedAt: at(0), etaAt: at(0.2), lateMin: null } }),
-      booking({ id: "b2", ref: "CRPT-1047", title: "Hotel Arenal Springs → Monteverde Lodge", scheduledAt: at(74), dueUsd: 168, paymentMode: "cash_driver", cashFeeUsd: 8, driver, car, sign: { text: null, hideName: false, shown: "Emily R.", editable: true } }),
+      booking({ id: "b2", ref: "CRPT-1047", title: "Hotel Arenal Springs → Monteverde Lodge", scheduledAt: at(74), dueUsd: 168, paymentMode: "cash_driver", cashFeeUsd: 8, driver, car: electricCar, sign: { text: null, hideName: false, shown: "Emily R.", editable: true } }),
       booking({ id: "b3", ref: "CRPT-1051", kind: "day_tour", title: "Manuel Antonio National Park Wildlife Walk", scheduledAt: at(120), status: "pending_bids", dueUsd: 340 }),
       booking({ id: "b4", ref: "CRPT-0988", title: "Liberia Airport → Tamarindo", scheduledAt: at(-400), status: "completed", driver, car }),
     ],
@@ -176,6 +178,7 @@ const SCREENS: Record<string, Setup> = {
   "time-night": { routes: [...steps("BookWhere", "BookRide"), { name: "BookWhen" }, { name: "TimePicker" }], email: null, state: { ...ride, time: "23:30" }, quote: nightQuote },
   "confirm-night": { routes: steps("BookWhere", "BookRide", "BookConfirm"), state: { ...ride, time: "23:30", name: "Sarah Miller", phone: "+1 555 123 4567" }, quote: nightQuote },
   "confirm-sign": { routes: steps("BookWhere", "BookRide", "BookConfirm"), state: { ...ride, name: "Sarah Miller", phone: "+1 555 123 4567", signText: "The Miller Family" } },
+  "confirm-electric": { routes: steps("BookWhere", "BookRide", "BookConfirm"), state: { ...ride, name: "Sarah Miller", phone: "+1 555 123 4567", prefs: { language: "english", wifi: false, stroller: false, childSeats: 0, pets: false, electric: true } } },
   "ride-new": { routes: steps("BookWhere", "BookRide"), email: null, state: { ...ride, whenSet: false } },
   "ride-bid": { routes: steps("BookWhere", "BookRide"), email: null, state: { ...ride, mode: "bid", offer: "120" } },
   "ride-loading": { routes: steps("BookWhere", "BookRide"), email: null, state: ride, quote: null, quoteBusy: true },

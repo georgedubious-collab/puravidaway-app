@@ -760,12 +760,14 @@ export function TransfersView({
                       ["wifi", t("Wi-Fi on board", "Wi-Fi a bordo")],
                       ["stroller", t("Stroller", "Coche de bebé")],
                       ["pets", t("Travelling with a pet", "Viaja con una mascota")],
+                      // A free request, never a guarantee and never a different price.
+                      ["electric", t("Electric vehicle, if available", "Vehículo eléctrico, si hay disponible")],
                     ] as const
                   ).map(([k, label]) => (
-                    <label key={k} className="flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-slate-200 px-3 font-semibold">
+                    <label key={k} className="flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-slate-200 px-3 py-1 font-semibold">
                       <input
                         type="checkbox"
-                        checked={prefs[k]}
+                        checked={Boolean(prefs[k])}
                         onChange={(e) => setPrefs({ ...prefs, [k]: e.target.checked })}
                         className="h-4 w-4 accent-emerald-700"
                       />

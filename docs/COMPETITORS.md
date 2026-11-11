@@ -268,7 +268,11 @@ Status as of 2026-11-08 in brackets.
    linked from the footer, under "Send trip request" and in the trip panel's guarantees; the
    24 h free-cancellation window is in each ride's "Every ride includes" list.]**
 6. Driver profile (photo, vehicle, rating, compliance badges) visible before the trip.
-   **[Partly: photo, car photos and ICT badge on the trip page once confirmed; no ratings yet.]**
+   **[Partly: photo, car photos and ICT badge on the trip page once confirmed; no ratings yet.
+   Since 2026-11-11 an "Electric vehicle" badge shows when the assigned vehicle is electric, and
+   travellers can ask for one for free, "if available", at the same price (PROJECT.md §5.3). It is
+   a per-vehicle badge, never a site-wide promise; whether the three benchmarks offer an electric
+   option on these routes was not checked.]**
 7. After adding a transfer, suggest a tour or expedition (Welcome-style upsell). **[Done:
    inline, dismissible, by drop-off region.]**
 8. Host/hotel referral links are a planned feature (Phase 4) — keep booking URLs shareable.

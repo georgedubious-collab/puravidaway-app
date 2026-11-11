@@ -1097,6 +1097,95 @@ await expectRows("drivers' functions never return the night premium (it is part 
     "update public.bookings set total_price = 230, night_premium = 0, driver_payout = null where id = '10000000-0000-0000-0000-000000000009'");
 }
 
+// Migration 0042: electric vehicles. A mark on the vehicle set by the team only; a free
+// "if available" request in the preferences; a badge for the traveller. No category, no price.
+{
+  const EV = "'30000000-0000-0000-0000-0000000000e1'";
+  await expectRows("vehicles are not electric unless the team says so", "admin", "select 1 from public.driver_vehicles where is_electric", 0);
+  await expectOk("driver tries to mark their own vehicle as electric", "driver", `update public.driver_vehicles set is_electric = true where id = ${V1}`);
+  await expectRows("a driver cannot mark their own vehicle as electric (update ignored)", "admin", `select 1 from public.driver_vehicles where id = ${V1} and not is_electric`, 1);
+  await expectOk("driver adds a vehicle and tries to mark it as electric", "driver",
+    `insert into public.driver_vehicles (id, driver_id, make_model, is_electric) values (${EV}, '${U.driver}', 'BYD Yuan Plus', true)`);
+  await expectRows("a new vehicle starts as not electric (insert ignored)", "admin", `select 1 from public.driver_vehicles where id = ${EV} and not is_electric and status = 'pending'`, 1);
+  await expectBlocked("a client cannot mark a vehicle as electric", "client", `update public.driver_vehicles set is_electric = true where id = ${V1}`, { affected: 0 });
+  await expectBlocked("a visitor cannot mark a vehicle as electric", "anon", `update public.driver_vehicles set is_electric = true where id = ${V1}`, { affected: 0 });
+  const stateSql = `select vehicle_class, status, review_hold, needs_review, passenger_capacity from public.driver_vehicles where id = ${V1}`;
+  const before = (await as("admin", stateSql)).rows[0];
+  await expectOk("admin marks the vehicle as electric", "admin", `update public.driver_vehicles set is_electric = true where id = ${V1}`);
+  await expectRows("the admin's mark is saved", "admin", `select 1 from public.driver_vehicles where id = ${V1} and is_electric`, 1);
+  const after = (await as("admin", stateSql)).rows[0];
+  if (JSON.stringify(before) === JSON.stringify(after)) passed++;
+  else failures.push(`marking a vehicle electric changed its category, approval or seats: ${JSON.stringify(before)} -> ${JSON.stringify(after)}`);
+  await expectRows("driver reads the mark on their own vehicle", "driver", `select 1 from public.driver_vehicles where id = ${V1} and is_electric`, 1);
+  await expectOk("driver edits their vehicle and tries to remove the mark", "driver", `update public.driver_vehicles set is_electric = false where id = ${V1}`);
+  await expectRows("a driver cannot remove the mark either", "admin", `select 1 from public.driver_vehicles where id = ${V1} and is_electric`, 1);
+  await expectRows("visitors cannot read vehicles directly", "anon", "select 1 from public.driver_vehicles", 0);
+  await expectRows("a signed-in client cannot read vehicles directly", "client", "select 1 from public.driver_vehicles", 0);
+  await expectRows("the electric mark adds no vehicle class", "anon", "select * from public.vehicle_classes", 6);
+  await expectRows("the category rule does not know about the electric mark", "admin",
+    "select 1 from pg_proc where proname = 'vehicle_can_serve' and pg_get_function_arguments(oid) = 'p_vehicle_class text, p_job_class text'", 1);
+  await expectRows("drivers' functions do not return the vehicle mark", "admin",
+    "select 1 from pg_proc where proname in ('driver_jobs','my_trips') and pg_get_function_result(oid) ~ 'is_electric'", 0);
+
+  // The traveller's badge: the server looks up trips by the email they were booked with
+  // (src/lib/travellerTrips.ts) and reads the assigned vehicle of confirmed bookings only.
+  const badgeFor = (email) => `
+    select v.is_electric from public.trips t
+      join public.bookings b on b.trip_id = t.id and b.status in ('confirmed','in_progress','completed') and b.assigned_driver_id is not null
+      join public.driver_vehicles v on v.id = b.assigned_vehicle_id
+     where t.guest_email ilike '${email}'`;
+  const B9 = "'10000000-0000-0000-0000-000000000009'";
+  const keep = (await as("server", `select status, assigned_driver_id, assigned_vehicle_id, preferences from public.bookings where id = ${B9}`)).rows[0];
+  await expectOk("server saves another traveller's trip", "server", `
+    insert into public.trips (id, access_token, guest_name, guest_email, guest_phone) values
+      ('40000000-0000-0000-0000-0000000000e2', repeat('ef', 32), 'Bea', 'bea@example.com', '+1 555 0200')`);
+  await expectOk("server saves that traveller's ride, with nobody assigned", "server", `
+    insert into public.bookings (id, trip_id, service_type, total_price) values
+      ('10000000-0000-0000-0000-0000000000e2', '40000000-0000-0000-0000-0000000000e2', 'transfer', 150)`);
+  await expectOk("server stores the request and assigns the electric vehicle to Ana's ride", "server", `
+    update public.bookings set preferences = '{"language":"english","wifi":false,"stroller":false,"childSeats":0,"pets":false,"electric":true}',
+      assigned_driver_id = '${U.driver}', assigned_vehicle_id = ${V1}, status = 'confirmed' where id = ${B9}`);
+  await expectRows("Ana's own booking exposes the electric badge", "server", `select 1 from (${badgeFor("ana@example.com")}) x where x.is_electric`, 1);
+  await expectRows("another traveller gets nothing about that vehicle", "server", badgeFor("bea@example.com"), 0);
+  await expectRows("an unknown email gets nothing", "server", badgeFor("nobody@example.com"), 0);
+  await expectRows("the request is stored with the booking", "admin", `select 1 from public.bookings where id = ${B9} and (preferences->>'electric')::boolean`, 1);
+  await expectRows("drivers still read 0 bookings", "driver", "select * from public.bookings", 0);
+  await expectRows("drivers still read 0 trips (name, phone, email)", "driver", "select * from public.trips", 0);
+  await expectRows("the driver sees the request on their trip, through my_trips() only", "driver",
+    `select 1 from public.my_trips() where id = ${B9} and (preferences->>'electric')::boolean`, 1);
+  await expectRows("drivers' functions still return no client price, phone or email", "admin",
+    "select 1 from pg_proc where proname in ('driver_jobs','my_trips') and pg_get_function_result(oid) ~ '(total_price|guest_phone|guest_email|guest_name)'", 0);
+  await expectOk("admin removes the mark", "admin", `update public.driver_vehicles set is_electric = false where id = ${V1}`);
+  await expectRows("without the mark there is no badge", "server", `select 1 from (${badgeFor("ana@example.com")}) x where x.is_electric`, 0);
+  await as("server", `update public.bookings set status = '${keep.status}', assigned_driver_id = ${keep.assigned_driver_id ? `'${keep.assigned_driver_id}'` : "null"},
+    assigned_vehicle_id = ${keep.assigned_vehicle_id ? `'${keep.assigned_vehicle_id}'` : "null"}, preferences = '${JSON.stringify(keep.preferences ?? {})}' where id = ${B9}`);
+  await expectOk("server removes the other traveller's test trip", "server", "delete from public.trips where id = '40000000-0000-0000-0000-0000000000e2'");
+  await expectOk("server removes the test vehicle", "server", `delete from public.driver_vehicles where id = ${EV}`);
+
+  // The request itself: optional, so older apps (which never send it) keep working.
+  const { parsePrefs, prefsSummary, prefMismatches } = await import("../../src/lib/preferences.ts");
+  const eq = (name, got, want) => {
+    if (JSON.stringify(got) === JSON.stringify(want)) passed++;
+    else failures.push(`${name}: expected ${JSON.stringify(want)}, got ${JSON.stringify(got)}`);
+  };
+  const old = { language: "english", wifi: false, stroller: false, childSeats: 0, pets: false };
+  eq("a request without `electric` (older apps) parses as before", parsePrefs(old), old);
+  eq("a request with electric: true parses", parsePrefs({ ...old, electric: true }), { ...old, electric: true });
+  eq("electric: false is the same as not asking", parsePrefs({ ...old, electric: false }), old);
+  eq("electric: null is the same as not asking", parsePrefs({ ...old, electric: null }), old);
+  eq("a wrong value for electric is refused", parsePrefs({ ...old, electric: "yes" }), null);
+  eq("boosters and electric together parse", parsePrefs({ ...old, boosters: 2, electric: true }), { language: "english", wifi: false, stroller: false, childSeats: 0, boosters: 2, pets: false, electric: true });
+  eq("summary, English", prefsSummary({ ...old, electric: true }, "en"), ["English-speaking driver", "electric vehicle, if available"]);
+  eq("summary, Spanish", prefsSummary({ ...old, electric: true }, "es"), ["Conductor que habla inglés", "vehículo eléctrico, si hay disponible"]);
+  eq("no request, no word in the summary", prefsSummary(old, "en"), ["English-speaking driver"]);
+  const fluent = { english_level: "fluent" };
+  const plain = { has_wifi: false, child_seats: 0, stroller_space: false, pet_friendly: false };
+  eq("asked and not electric: warning, Spanish", prefMismatches({ ...old, electric: true }, fluent, { ...plain, is_electric: false }, "es"), ["no es eléctrico"]);
+  eq("asked and not electric: warning, English", prefMismatches({ ...old, electric: true }, fluent, plain, "en"), ["not electric"]);
+  eq("asked and electric: no warning", prefMismatches({ ...old, electric: true }, fluent, { ...plain, is_electric: true }, "es"), []);
+  eq("not asked: no warning either way", prefMismatches(old, fluent, plain, "es"), []);
+}
+
 // --- Report -----------------------------------------------------------------------------------
 console.log(`${passed} checks passed, ${failures.length} failed`);
 for (const f of failures) console.log("  ✗ " + f);

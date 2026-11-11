@@ -179,6 +179,14 @@ export const FAQ_GROUPS: FaqGroup[] = [
           es: "Puede pedir un conductor que hable inglés al reservar, y lo asignamos. La clase Economy es una opción más económica con un conductor que habla español.",
         },
       },
+      {
+        id: "electric",
+        q: { en: "Can I ask for an electric vehicle?", es: "¿Puedo pedir un vehículo eléctrico?" },
+        a: {
+          en: "Yes. When you book, tick \"Electric vehicle, if available\" in the extras. It is a free request and the price is the same. We have only a few electric vehicles, so we cannot promise one; if none is available for your route and date, you travel in a regular vehicle of the category you booked.",
+          es: "Sí. Al reservar, marque \"Vehículo eléctrico, si hay disponible\" en los extras. Es una solicitud gratuita y el precio es el mismo. Tenemos pocos vehículos eléctricos, así que no podemos prometer uno; si no hay ninguno disponible para su ruta y fecha, usted viaja en un vehículo regular de la categoría que reservó.",
+        },
+      },
     ],
   },
   {
