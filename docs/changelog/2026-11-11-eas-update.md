@@ -1,0 +1,1 @@
+- 2026-11-11 — Claude — Both mobile apps can now receive over-the-air updates (EAS Update, channel `main`), so screen and wording changes reach phones without a new build; `scripts/app-update.sh` publishes one. Needs one new build of each app to take effect.

@@ -42,6 +42,10 @@ plainly, avoid jargon, and never assume a dev-team workflow (no "ask your backen
   (brand separation, `docs/PROJECT.md` §10). Say "Costa Rica Private Transfers" or "our team".
 - ICT permits are a per-driver badge, not a site-wide promise; see `docs/PROJECT.md` §10.
 - No secrets in the repo. Env vars live in Vercel and `.env.local` (gitignored).
+- Mobile apps receive over-the-air updates (EAS Update, channel `main`): after a merge that only
+  changes app screens, wording or logic, run `scripts/app-update.sh client|driver|both "<what>"`
+  from an up-to-date `main`. A change that adds or upgrades a native library needs a new build and a
+  higher `version` in that app's `app.json` first (the version decides which phones get an update).
 
 ## Domain context (Costa Rica)
 - Drivers must hold ICT tourism permits; vehicles need current Marchamo, INS commercial

@@ -7,10 +7,12 @@
       "distribution": "internal",
       "android": {
         "buildType": "apk"
-      }
+      },
+      "channel": "main"
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "channel": "main"
     }
   },
   "submit": {

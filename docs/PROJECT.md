@@ -780,7 +780,7 @@ come from one codebase.
 **Expo** (React Native + TypeScript, the same language as the website):
 - Background location, push notifications and camera are standard, well-supported modules.
 - **EAS Build** compiles the iOS app in the cloud, so no Mac is needed.
-- **EAS Update** ships small fixes to installed apps without waiting for store review.
+- **EAS Update** ships small fixes to installed apps without waiting for store review. Set up 2026-11-11 in both apps (channel `main`, runtime version = the app's `version`; publish with `scripts/app-update.sh`). A native change needs a new build and a higher `version`.
 
 Not chosen:
 - **Capacitor wrapping the website.** The website is rendered on the server for each request,
