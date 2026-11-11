@@ -1,3 +1,4 @@
+import { AIRPORT_GUIDES, AIRPORTS_PATH, DESTINATION_GUIDES, DESTINATIONS_PATH, airportPath, destinationPath } from "@/lib/guides";
 import { localizedHref } from "@/lib/publicLang";
 import { ROUTE_PAGES } from "@/lib/routePages";
 import { localizeRoutePage } from "@/lib/routePagesEs";
@@ -34,6 +35,14 @@ Key facts:
 ## Popular routes
 ${ROUTE_PAGES.map((p) => `- [${p.title}](${u(`/transfers/${p.slug}`)}): ${p.metaDescription}`).join("\n")}
 
+## Destination guides
+- [All destination guides](${u(DESTINATIONS_PATH)}): drive times from both airports in one table
+${DESTINATION_GUIDES.map((g) => `- [${g.title.en}](${u(destinationPath(g))}): ${g.metaDescription.en}`).join("\n")}
+
+## Airport guides
+- [SJO or LIR: both airports compared](${u(AIRPORTS_PATH)})
+${AIRPORT_GUIDES.map((g) => `- [${g.title.en}](${u(airportPath(g))}): ${g.metaDescription.en}`).join("\n")}
+
 ## Spanish (every page above has a Spanish version under /es)
 - [Reservar un traslado, tour o viaje de varios días](${u("/es")}): planificador de viajes con precios
 - [Quiénes somos](${u("/es/nosotros")})
@@ -44,6 +53,12 @@ ${ROUTE_PAGES.map((p) => `- [${p.title}](${u(`/transfers/${p.slug}`)}): ${p.meta
 - [Política de cancelación](${u("/es/cancelacion")})
 - [Términos del servicio](${u("/es/terminos")})
 - [Política de privacidad](${u("/es/privacidad")})
+
+## Guías de destinos y aeropuertos (español)
+- [Guías de destinos](${u(localizedHref(DESTINATIONS_PATH, "es"))})
+${DESTINATION_GUIDES.map((g) => `- [${g.title.es}](${u(localizedHref(destinationPath(g), "es"))})`).join("\n")}
+- [Guías de aeropuertos](${u(localizedHref(AIRPORTS_PATH, "es"))})
+${AIRPORT_GUIDES.map((g) => `- [${g.title.es}](${u(localizedHref(airportPath(g), "es"))})`).join("\n")}
 
 ## Rutas populares (español)
 ${ROUTE_PAGES.map((p) => `- [${localizeRoutePage(p, "es").title}](${u(localizedHref(`/transfers/${p.slug}`, "es"))})`).join("\n")}

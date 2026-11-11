@@ -56,7 +56,7 @@ export function SiteFooter({ lang }: { lang: PublicLang }) {
           </div>
         </div>
 
-        <div className="grid gap-x-4 gap-y-5 sm:gap-8 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="grid gap-x-4 gap-y-5 sm:gap-8 grid-cols-2 sm:grid-cols-3">
           {columns.map((col) => (
             <nav key={col.title} aria-label={col.title}>
               <p className="text-xs font-bold uppercase tracking-widest text-amber-400">{col.title}</p>
