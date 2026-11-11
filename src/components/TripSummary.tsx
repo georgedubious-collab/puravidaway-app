@@ -4,6 +4,7 @@ import { CheckCircle2, MessageCircle, Send, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { submitTripRequest } from "@/app/trip/actions";
+import { trackBeginCheckout, trackLead } from "@/lib/analytics";
 import {
   cartTotals,
   cartWhatsAppMessage,
@@ -124,6 +125,8 @@ export function TripSummary({ trip }: { trip: TripState }) {
         lang,
       });
       if (res.ok) {
+        // Totals and codes only: never the contact details, the references or the trip link.
+        trackLead(items, totals.totalCents, mode);
         trip.onSent(res.refs, res.tripToken);
       } else {
         if ("repriced" in res) trip.onReprice(res.repriced);
@@ -184,7 +187,8 @@ export function TripSummary({ trip }: { trip: TripState }) {
         </ol>
       )}
 
-      <form onSubmit={send} noValidate className="space-y-3">
+      {/* Desktop (the trip is always in view): the first field or button used here counts as starting checkout. */}
+      <form onSubmit={send} noValidate onFocus={() => trackBeginCheckout(items, totals.totalCents, mode)} className="space-y-3">
         <fieldset className="space-y-2">
           <legend className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">
             {t("How would you like to pay?", "¿Cómo desea pagar?")}

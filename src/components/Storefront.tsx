@@ -17,6 +17,7 @@ import {
   parseStoredCart,
   type PaymentMode,
 } from "@/lib/cart";
+import { trackAddToCart, trackBeginCheckout } from "@/lib/analytics";
 import { addDays } from "@/lib/dates";
 import { formatUSD } from "@/lib/pricing";
 import { parseRideLink } from "@/lib/shareLink";
@@ -127,6 +128,7 @@ export function Storefront({
 
   function addItem(item: CartItem) {
     setItems((prev) => [...prev, item]);
+    trackAddToCart(item);
     toast.show(t("Added to your trip", "Agregado a su viaje"));
     if (item.spec?.kind === "transfer") {
       setUpsell({ destination: item.spec.destination, date: item.date ? addDays(item.date, 1) : addDays(today, 15) });
@@ -143,6 +145,11 @@ export function Storefront({
   const removeItem = (id: string) => setItems((prev) => prev.filter((i) => i.id !== id));
   const total = cartTotals(items, mode, catalog.cashFeeBps).totalCents;
   const tabs: BuilderTabs = { current: builder, onChange: setBuilder };
+  // Phones and tablets: opening the trip is the step where the traveller reviews it and adds their details.
+  function openCart() {
+    setCartOpen(true);
+    trackBeginCheckout(items, total, mode);
+  }
   const trip: TripState = {
     items,
     onRemove: removeItem,
@@ -173,7 +180,7 @@ export function Storefront({
           // The trip button only shows below xl, where the trip sidebar is hidden.
           <button
             type="button"
-            onClick={() => setCartOpen(true)}
+            onClick={openCart}
             aria-label={t(
               `Open your trip, ${items.length} item${items.length === 1 ? "" : "s"}`,
               `Abrir su viaje, ${items.length} elemento${items.length === 1 ? "" : "s"}`,
@@ -260,7 +267,7 @@ export function Storefront({
       <div className={items.length ? "pb-20 xl:pb-0" : builder === "transfers" ? "pb-20 lg:pb-0" : ""}>{footer}</div>
 
       {items.length > 0 && (
-        <div className="xl:hidden fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 backdrop-blur px-4 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))]">
+        <div data-bottom-bar="xl" className="xl:hidden fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 backdrop-blur px-4 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))]">
           <div className="max-w-3xl mx-auto flex items-center justify-between gap-3">
             <div>
               <p className="text-xs font-semibold text-slate-600">
@@ -273,7 +280,7 @@ export function Storefront({
             </div>
             <button
               type="button"
-              onClick={() => setCartOpen(true)}
+              onClick={openCart}
               className="min-h-12 px-5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold"
             >
               {t("Review & book", "Revisar y reservar")}

@@ -1,5 +1,6 @@
 import { Mail, MessageCircle } from "lucide-react";
 import Link from "next/link";
+import { HAS_CONSENT_TOOLS } from "@/lib/analyticsConfig";
 import { whatsAppLink } from "@/lib/cart";
 import { localizedHref, t, type PublicLang } from "@/lib/publicLang";
 import { CONTACT_EMAIL, SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/site";
@@ -7,6 +8,7 @@ import { footerColumns } from "@/lib/siteNav";
 import { SOCIAL_LINKS } from "@/lib/social";
 import { CARRIER_NOTE, CARRIER_NOTE_ES } from "@/lib/trust";
 import { Logo } from "../brand/Logo";
+import { CookieSettingsLink } from "./CookieSettingsLink";
 import { JsonLd } from "./JsonLd";
 import { SocialIcons } from "./SocialIcons";
 
@@ -80,6 +82,8 @@ export function SiteFooter({ lang }: { lang: PublicLang }) {
             © {year} {SITE_NAME}. {t(lang, "All prices in USD.", "Todos los precios en USD.")}
           </p>
           <p className="leading-relaxed">{lang === "es" ? CARRIER_NOTE_ES : CARRIER_NOTE}</p>
+          {/* Only when a measurement tool is switched on (docs/SEO.md §7); otherwise there is nothing to choose. */}
+          {HAS_CONSENT_TOOLS && <CookieSettingsLink lang={lang} />}
         </div>
       </div>
 
