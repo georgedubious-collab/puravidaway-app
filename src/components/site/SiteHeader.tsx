@@ -50,13 +50,13 @@ export function SiteHeader({
           >
             <Logo on="dark" />
           </Link>
-          <nav aria-label={t(lang, "Main", "Principal")} className="hidden lg:flex items-center gap-1 text-sm font-bold">
+          <nav aria-label={t(lang, "Main", "Principal")} className="hidden xl:flex items-center gap-1 text-sm font-bold">
             {PRIMARY_NAV.map((n) => (
               <Link
                 key={n.id}
                 href={localizedHref(n.href, lang)}
                 aria-current={current === n.id ? "page" : undefined}
-                className={`px-2.5 xl:px-3.5 py-2.5 rounded-lg whitespace-nowrap transition ${
+                className={`px-3 py-2.5 rounded-lg whitespace-nowrap transition ${
                   current === n.id ? "bg-amber-400 text-slate-950" : "text-emerald-100 hover:bg-emerald-800/60"
                 }`}
               >
@@ -69,7 +69,7 @@ export function SiteHeader({
         <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
           {/* Always in the bar, phones included: the flag button to the other language. */}
           <LangSwitch lang={lang} />
-          <div className="hidden lg:flex items-center gap-1.5">
+          <div className="hidden xl:flex items-center gap-1.5">
             <a
               href={wa}
               target="_blank"
@@ -85,7 +85,7 @@ export function SiteHeader({
             onClick={() => setOpen((o) => !o)}
             aria-expanded={open}
             aria-controls="site-menu"
-            className="lg:hidden w-11 h-11 rounded-xl hover:bg-emerald-800/60 flex items-center justify-center"
+            className="xl:hidden w-11 h-11 rounded-xl hover:bg-emerald-800/60 flex items-center justify-center"
           >
             {open ? <X className="w-6 h-6" aria-hidden /> : <Menu className="w-6 h-6" aria-hidden />}
             <span className="sr-only">{open ? t(lang, "Close menu", "Cerrar menú") : t(lang, "Open menu", "Abrir menú")}</span>
@@ -94,7 +94,7 @@ export function SiteHeader({
       </div>
 
       {open && (
-        <div id="site-menu" className="lg:hidden border-t border-emerald-800 bg-emerald-950">
+        <div id="site-menu" className="xl:hidden border-t border-emerald-800 bg-emerald-950">
           <nav aria-label={t(lang, "Main", "Principal")} className="max-w-[1440px] mx-auto px-4 py-3 grid gap-1">
             {[...PRIMARY_NAV, ...DRAWER_NAV].map((n, i) => (
               <Link
