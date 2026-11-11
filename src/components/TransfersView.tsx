@@ -2,7 +2,7 @@
 
 import { ArrowDown, Camera, Car, Check, ChevronDown, ExternalLink, Gavel, Languages, Link2, MapPin, MessageCircle, PlusCircle, Ticket, Users } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { stopFitsRoute, stopTotalCents } from "@/lib/catalog";
+import { orSimilar, stopFitsRoute, stopTotalCents } from "@/lib/catalog";
 import { entranceLabel, hubName } from "@/lib/catalogEs";
 import { seasonForYmd } from "@/lib/catalogModel";
 import { useCatalog } from "./CatalogContext";
@@ -479,6 +479,9 @@ export function TransfersView({
                               </span>
                             )}
                             <span className="block text-[15px] font-extrabold leading-snug text-slate-900">{v.name}</span>
+                            {orSimilar(v.exampleModels, lang) && (
+                              <span className="block text-xs font-semibold text-slate-600">{orSimilar(v.exampleModels, lang)}</span>
+                            )}
                             <span className="mt-0.5 block text-xs font-bold text-amber-800">{v.badge}</span>
                             <span className="mt-1 flex items-center gap-1 text-xs text-slate-600">
                               <Users className="w-3.5 h-3.5 shrink-0" aria-hidden /> {t("Up to", "Hasta")} {v.maxPax} · {v.luggage}

@@ -310,7 +310,14 @@ const STOPS_WITHOUT_PRICE: Omit<SightseeingStop, "priceCents">[] = [
 
 export interface VehicleClass {
   id: string;
+  /** Short category name, without model names ("Executive 4x4"). */
   name: string;
+  /**
+   * Example models for the category ("Toyota Prado"), or "" for none. Travellers always
+   * see it through orSimilar() ("Toyota Prado or similar"): an example, never a promise
+   * of a specific model. Edited in /admin/pricing (vehicle_classes.example_models).
+   */
+  exampleModels: string;
   /** Multiplies the Standard ride price, in basis points (10000 = 1.00×). */
   priceFactorBps: number;
   /** Fixed amount added per ride, e.g. the Sierpe boat in the combo. */
@@ -326,10 +333,23 @@ export interface VehicleClass {
   onlyForHubs?: HubId[];
 }
 
+/**
+ * "Toyota Prado or similar" / "Toyota Prado o similar", or "" when the category has no
+ * example. The only way example models reach a traveller, so the words "or similar" can
+ * never be missing. If the text typed in /admin/pricing already ends with them, they are
+ * not repeated.
+ */
+export function orSimilar(exampleModels: string | null | undefined, lang: "en" | "es" = "en"): string {
+  const models = (exampleModels ?? "").trim().replace(/[\s,.;]*\b(or|o) similar(es)?\.?$/i, "").trim();
+  if (!models) return "";
+  return `${models} ${lang === "es" ? "o similar" : "or similar"}`;
+}
+
 export const VEHICLE_CLASSES: VehicleClass[] = [
   {
     id: "economy",
     name: "Economy Sedan",
+    exampleModels: "Toyota Yaris",
     priceFactorBps: 9000,
     extraFeeCents: 0,
     allowsStops: false,
@@ -341,6 +361,7 @@ export const VEHICLE_CLASSES: VehicleClass[] = [
   {
     id: "sedan",
     name: "Standard Sedan",
+    exampleModels: "Toyota Corolla",
     priceFactorBps: 10000,
     extraFeeCents: 0,
     allowsStops: true,
@@ -355,6 +376,7 @@ export const VEHICLE_CLASSES: VehicleClass[] = [
     // quotes and saved prices use it (docs/PROJECT.md §5.3).
     id: "suv",
     name: "Minivan (MPV)",
+    exampleModels: "Mitsubishi Xpander",
     priceFactorBps: 12000,
     extraFeeCents: 0,
     allowsStops: true,
@@ -365,7 +387,8 @@ export const VEHICLE_CLASSES: VehicleClass[] = [
   },
   {
     id: "4x4",
-    name: "Executive 4x4 (Prado / Fortuner)",
+    name: "Executive 4x4",
+    exampleModels: "Toyota Prado",
     priceFactorBps: 13000,
     extraFeeCents: 0,
     allowsStops: true,
@@ -376,7 +399,8 @@ export const VEHICLE_CLASSES: VehicleClass[] = [
   },
   {
     id: "van",
-    name: "Private Toyota HiAce / Hyundai Staria",
+    name: "Private Van",
+    exampleModels: "Toyota HiAce",
     priceFactorBps: 13500,
     extraFeeCents: 0,
     allowsStops: true,
@@ -388,6 +412,7 @@ export const VEHICLE_CLASSES: VehicleClass[] = [
   {
     id: "sierpe_combo",
     name: "4x4 Transfer + Sierpe River Boat",
+    exampleModels: "Toyota Prado",
     priceFactorBps: 13000,
     extraFeeCents: 7500, // Sierpe river boat
     allowsStops: true,

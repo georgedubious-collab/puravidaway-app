@@ -48,7 +48,7 @@ export async function getCatalog(): Promise<CatalogData> {
 }
 
 /** Only successful database reads are cached (a thrown error is never stored). */
-const cachedDatabaseCatalog = unstable_cache(loadDatabaseCatalog, ["catalog-v6"], {
+const cachedDatabaseCatalog = unstable_cache(loadDatabaseCatalog, ["catalog-v7"], {
   tags: [CATALOG_TAG],
   revalidate: 3600,
 });
@@ -91,6 +91,12 @@ async function loadDatabaseCatalog(): Promise<CatalogData> {
       vehicles: vehicles.data.map((v) => ({
         id: v.id,
         name: legacyVehicleText(v.id, "name", v.name),
+        // Before migration 0039 there is no column: use the built-in example. After it, an
+        // empty value means "no example line" (the admin cleared it).
+        exampleModels:
+          v.example_models === undefined
+            ? (VEHICLE_CLASSES.find((b) => b.id === v.id)?.exampleModels ?? "")
+            : String(v.example_models ?? "").trim(),
         priceFactorBps:
           bpsOrNull(v.price_factor, 5000, 30000) ??
           VEHICLE_CLASSES.find((b) => b.id === v.id)?.priceFactorBps ??
@@ -183,12 +189,16 @@ async function loadDatabaseCatalog(): Promise<CatalogData> {
 
 /**
  * The 4-traveller class was seeded as "Standard Comfort SUV" / "Most popular" and is now a
- * minivan (migration 0038 rewrites the row). Until that migration has run, the old seeded
- * wording is shown as the new one, so the site never sells an SUV in that class. Text edited
- * in /admin/pricing is never touched.
+ * minivan (migration 0038 rewrites the row). The 4x4 and van names used to carry model names;
+ * those now live in example_models and are shown as "... or similar" (migration 0039 rewrites
+ * the rows). Until a migration has run, the old seeded wording is shown as the new one, so the
+ * site never sells an SUV in that class and never names a model without "or similar". Text
+ * edited in /admin/pricing is never touched.
  */
-const LEGACY_VEHICLE_TEXT: Record<string, { name: [string, string]; badge: [string, string] }> = {
+const LEGACY_VEHICLE_TEXT: Record<string, { name?: [string, string]; badge?: [string, string] }> = {
   suv: { name: ["Standard Comfort SUV", "Minivan (MPV)"], badge: ["Most popular", "Roomy for 4 + bags"] },
+  "4x4": { name: ["Executive 4x4 (Prado / Fortuner)", "Executive 4x4"] },
+  van: { name: ["Private Toyota HiAce / Hyundai Staria", "Private Van"] },
 };
 function legacyVehicleText(id: string, field: "name" | "badge", current: string): string {
   const legacy = LEGACY_VEHICLE_TEXT[id]?.[field];
