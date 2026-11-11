@@ -63,7 +63,7 @@ export const ENTRANCE_LABEL_ES: Record<StopEntrance, string> = {
 const VEHICLES_ES: Record<string, { name: string; badge: string; luggage: string }> = {
   economy: { name: "Sedán Económico", badge: "Conductor de habla hispana · traslado directo", luggage: "3 maletas" },
   sedan: { name: "Sedán Estándar", badge: "Mejor precio", luggage: "3 maletas" },
-  suv: { name: "SUV Confort Estándar", badge: "Amplio para 4 + equipaje", luggage: "4 maletas" },
+  suv: { name: "Minivan (MPV)", badge: "Amplio para 4 + equipaje", luggage: "4 maletas" },
   "4x4": { name: "4x4 Ejecutivo (Prado / Fortuner)", badge: "Caminos de Osa / Monteverde", luggage: "4 maletas" },
   van: { name: "Toyota HiAce / Hyundai Staria privada", badge: "Familias y grupos", luggage: "10 maletas" },
   sierpe_combo: {

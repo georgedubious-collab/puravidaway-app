@@ -90,7 +90,7 @@ async function loadDatabaseCatalog(): Promise<CatalogData> {
       source: "database",
       vehicles: vehicles.data.map((v) => ({
         id: v.id,
-        name: v.name,
+        name: legacyVehicleText(v.id, "name", v.name),
         priceFactorBps:
           bpsOrNull(v.price_factor, 5000, 30000) ??
           VEHICLE_CLASSES.find((b) => b.id === v.id)?.priceFactorBps ??
@@ -103,7 +103,7 @@ async function loadDatabaseCatalog(): Promise<CatalogData> {
         spanishSpeakingDriver: v.spanish_speaking_driver ?? false,
         maxPax: v.max_pax,
         luggage: v.luggage,
-        badge: v.badge,
+        badge: legacyVehicleText(v.id, "badge", v.badge),
         onlyForHubs: v.only_for_hubs?.length ? (v.only_for_hubs as HubId[]) : undefined,
       })),
       stops: (stops.data ?? []).map((s) => {
@@ -179,6 +179,20 @@ async function loadDatabaseCatalog(): Promise<CatalogData> {
       driverCommissionBps: bpsOrNull(settings.data?.driver_commission_bps == null ? null : Number(settings.data.driver_commission_bps) / 10000, 0, 5000) ?? DRIVER_COMMISSION_BPS_DEFAULT,
     };
   }
+}
+
+/**
+ * The 4-traveller class was seeded as "Standard Comfort SUV" / "Most popular" and is now a
+ * minivan (migration 0038 rewrites the row). Until that migration has run, the old seeded
+ * wording is shown as the new one, so the site never sells an SUV in that class. Text edited
+ * in /admin/pricing is never touched.
+ */
+const LEGACY_VEHICLE_TEXT: Record<string, { name: [string, string]; badge: [string, string] }> = {
+  suv: { name: ["Standard Comfort SUV", "Minivan (MPV)"], badge: ["Most popular", "Roomy for 4 + bags"] },
+};
+function legacyVehicleText(id: string, field: "name" | "badge", current: string): string {
+  const legacy = LEGACY_VEHICLE_TEXT[id]?.[field];
+  return legacy && current === legacy[0] ? legacy[1] : current;
 }
 
 /** A factor like 1.15 as basis points, or null when missing / out of range. */
