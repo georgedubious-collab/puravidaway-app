@@ -74,7 +74,7 @@ function SignedOut() {
   );
 }
 
-/** Every ride, tour and expedition booked with this email: what's coming up, then what's done. */
+/** Every ride and tour booked with this email: what's coming up, then what's done. */
 export function Trips() {
   const { lang, t } = useT();
   const nav = useNav();

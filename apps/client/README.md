@@ -9,14 +9,14 @@ Its own project: Vercel ignores this folder.
   send a request they type their email and confirm it with a 6-digit code we email them (that
   signs this phone in as that email). "Already booked?" in My trips or Account does the same, to
   see trips made on the website or on another phone.
-- **My trips:** every ride, tour and expedition requested with that email; status, amount due and
+- **My trips:** every ride and tour requested with that email; status, amount due and
   how it's paid; "your driver is on the way".
 - **Trip:** the driver's first name, photo, rating, languages and car photos once assigned; the
   same chat as the trip page; a 1–5 star rating after the trip.
 - **Plan a trip, in the app** (map-first since 2026-11-11, see below): a private ride (type any hotel, airport or address; date, time,
   travellers, vehicle, optional stops) or a day tour; contact details; pay online or cash. Every
   price comes from the server (`/api/v1/client/quote`, `/tours`) and the request goes through the
-  same server action as the website (`/api/v1/client/trip-request`). Expeditions open the website.
+  same server action as the website (`/api/v1/client/trip-request`).
 - **Test checkout:** "Pay (test)" marks the trip paid with a `provider = 'test'` payment; no card,
   no money. Works only while the site is pre-launch (`src/lib/testCheckout.ts`); replace with
   Green Pay before launch.
@@ -27,7 +27,7 @@ Its own project: Vercel ignores this folder.
 - **Account:** WhatsApp, terms, privacy, cancellation policy, sign out.
 - **Push notifications:** ride confirmed with a driver, driver on the way, rating request.
 
-Not yet: real card payments, expeditions in the app, and account deletion
+Not yet: real card payments and account deletion
 inside the app (both stores require it before publishing).
 
 ## Language
