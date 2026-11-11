@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRoute, type RouteProp } from "@react-navigation/native";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { cents, useBooking } from "../booking";
@@ -39,22 +39,24 @@ function WhenPill() {
   );
 }
 
-/** Day tours: region chips, then a big card per tour. */
-export function Tours() {
+/**
+ * Explore, day tours side: region chips, then a big card per tour. `top` is the
+ * menu button and the Rides | Day tours switch (src/screens/Explore.tsx, which
+ * also tells the booking store that a tour is being planned).
+ */
+export function ToursHome({ top }: { top: ReactNode }) {
   const { lang, t } = useT();
   const nav = useNav();
+  const insets = useSafeAreaInsets();
   const { state, set, tours, toursError } = useBooking();
   const [region, setRegion] = useState("ALL");
-  // Opened from a link while planning a ride: from here on a tour is being planned.
-  useEffect(() => {
-    if (state.kind !== "tour") set({ kind: "tour" });
-  }, [state.kind, set]);
 
   const regions = [...new Map((tours ?? []).filter((x) => x.region && x.regionName).map((x) => [x.region as string, x.regionName as string])).entries()];
   const shown = (tours ?? []).filter((tour) => region === "ALL" || tour.region === region);
   return (
-    <Page>
+    <ScrollView style={S.screen} contentContainerStyle={[S.pad, { paddingTop: insets.top + 8 }]} showsVerticalScrollIndicator={false}>
       <Bar style="dark" />
+      <View style={{ marginHorizontal: SP.lg - SP.page }}>{top}</View>
       <View style={{ gap: 6 }}>
         <Text accessibilityRole="header" style={T.display}>
           {t("Day tours", "Tours de un día")}
@@ -117,7 +119,7 @@ export function Tours() {
           </View>
         </Pressable>
       ))}
-    </Page>
+    </ScrollView>
   );
 }
 
