@@ -359,7 +359,7 @@ const DRIVE_TIMES: Article = {
     ),
   ],
   book: { origin: "SJO", destination: "Arenal" },
-  about: { hubPairs: [], hubs: [] },
+  about: { hubPairs: [], hubs: ["Arenal", "ManuelAntonio", "Monteverde", "Tamarindo", "PuertoViejo", "Sierpe", "DrakeBay"] },
   related: ["/transfers", "/destinations", "/airports", "/guides/sjo-or-liberia-which-airport"],
 };
 

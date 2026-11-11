@@ -227,7 +227,7 @@ const LA_FORTUNA: Article = {
     ),
   ],
   book: { origin: "SJO", destination: "Arenal" },
-  about: { hubPairs: [["SJO", "Arenal"]], hubs: ["Arenal"] },
+  about: { hubPairs: [["SJO", "Arenal"]], hubs: ["Arenal", "SJO"] },
   related: ["/transfers/sjo-airport-to-la-fortuna-arenal", "/transfers/la-fortuna-to-sjo-airport", "/destinations/la-fortuna", "/airports/sjo", "/transfers/la-fortuna-to-monteverde"],
 };
 
@@ -437,7 +437,7 @@ const MANUEL_ANTONIO: Article = {
     ),
   ],
   book: { origin: "SJO", destination: "ManuelAntonio" },
-  about: { hubPairs: [["SJO", "ManuelAntonio"]], hubs: ["ManuelAntonio"] },
+  about: { hubPairs: [["SJO", "ManuelAntonio"]], hubs: ["ManuelAntonio", "SJO"] },
   related: ["/transfers/sjo-airport-to-manuel-antonio", "/transfers/manuel-antonio-to-sjo-airport", "/destinations/manuel-antonio", "/airports/sjo", "/transfers/la-fortuna-to-manuel-antonio"],
 };
 
@@ -665,7 +665,7 @@ const MONTEVERDE: Article = {
     ),
   ],
   book: { origin: "SJO", destination: "Monteverde" },
-  about: { hubPairs: [["SJO", "Monteverde"]], hubs: ["Monteverde"] },
+  about: { hubPairs: [["SJO", "Monteverde"]], hubs: ["Monteverde", "SJO"] },
   related: ["/transfers/sjo-airport-to-monteverde", "/transfers/monteverde-to-sjo-airport", "/destinations/monteverde", "/airports/sjo", "/transfers/monteverde-to-la-fortuna"],
 };
 
@@ -885,7 +885,7 @@ const TAMARINDO: Article = {
     ),
   ],
   book: { origin: "LIR", destination: "Tamarindo" },
-  about: { hubPairs: [["LIR", "Tamarindo"]], hubs: ["Tamarindo"] },
+  about: { hubPairs: [["LIR", "Tamarindo"]], hubs: ["Tamarindo", "LIR"] },
   related: ["/transfers/liberia-airport-to-tamarindo", "/transfers/tamarindo-to-liberia-airport", "/destinations/tamarindo", "/airports/lir", "/transfers/sjo-airport-to-tamarindo"],
 };
 
