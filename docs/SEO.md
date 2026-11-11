@@ -52,7 +52,7 @@ apps are in the stores).
 
 **Languages:** English at the root, Spanish under `/es` with hreflang (Jorge, 2026-11-09:
 Spanish now). Since 2026-11-10 every public page has its Spanish version (storefront `/es`, route
-pages `/es/traslados/<slug>`, destination guides `/es/destinos/<slug>`, airport guides `/es/aeropuertos/<code>`, info and legal pages); every new page must ship in both languages. More languages later (Daytrip and the Rezdy operators win partly through them).
+pages `/es/traslados/<slug>` and their index `/es/traslados`, destination guides `/es/destinos/<slug>`, airport guides `/es/aeropuertos/<code>`, info and legal pages); every new page must ship in both languages. More languages later (Daytrip and the Rezdy operators win partly through them).
 
 ## 4. Build order (one PR each)
 
@@ -76,6 +76,19 @@ pages `/es/traslados/<slug>`, destination guides `/es/destinos/<slug>`, airport 
    there" (bus, shared shuttle, private, flight, car), 5–8 FAQs, breadcrumbs, Product/Offer +
    FAQ schema, a dated direct answer in the first lines; Spanish versions; the booking
    storefront in Spanish.
+   **Built 2026-11-11:** 40 route pages (20 pairs, both directions) at `/transfers/<slug>` and
+   `/es/traslados/<slug>`, plus the index `/transfers` · `/es/traslados`. Chosen by demand:
+   airport ↔ destination first (SJO ↔ Manuel Antonio, La Fortuna, Monteverde, Tamarindo, Puerto
+   Viejo, Sierpe, Drake Bay; LIR ↔ Tamarindo, La Fortuna, Monteverde, Manuel Antonio), then the
+   classic legs between destinations. Left out on purpose: SJO ↔ LIR, the 7-hour-plus rides
+   (LIR or Guanacaste ↔ Osa / Caribbean, Puerto Viejo ↔ Monteverde / Manuel Antonio / Osa) and
+   Sierpe ↔ Drake Bay (a boat, not a ride). Content is data in `src/lib/routes/`: to add a
+   route, add one pair to `corridorsAirports.ts` or `corridorsTowns.ts` (English and Spanish side
+   by side, numbers as tokens). Schema: a `Service` with an `AggregateOffer` (price range from
+   the live catalog) instead of `Product`: a transfer is a service, and without real reviews a
+   Product block earns nothing and risks looking like a fake listing. Bus, shuttle and flight
+   notes are general on purpose (no timetables, fares, terminals or boat times); re-check them
+   and bump `ROUTES_UPDATED` in `src/lib/routes/make.ts` about twice a year.
 5. **Tour and multi-day pages** (TouristTrip schema, permits where they apply: Poás timed entry,
    Corcovado SINAC).
 6. **Partners and app**: Hotels & agents (referral), app download page with QR and store badges.

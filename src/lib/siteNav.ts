@@ -6,8 +6,7 @@
  */
 import { AIRPORT_GUIDES, DESTINATION_GUIDES, airportPath, destinationPath } from "./guides";
 import { localizedHref, type PublicLang } from "./publicLang";
-import { ROUTE_PAGES } from "./routePages";
-import { localizeRoutePage } from "./routePagesEs";
+import { ROUTE_PAGES, TRANSFERS_PATH, routeLabel, routePath } from "./routePages";
 
 export interface NavLink {
   id: string;
@@ -64,14 +63,10 @@ export function footerColumns(lang: PublicLang): FooterColumn[] {
     },
     {
       title: es ? "Rutas populares" : "Popular routes",
-      links: ROUTE_PAGES.slice(0, 6).map((p) => ({
-        label: es
-          ? localizeRoutePage(p, "es")
-              .title.replace(/^Traslado privado (del|de) /, "")
-              .replace(/^./, (c) => c.toUpperCase())
-          : p.title.replace(/^Private transfer from /, ""),
-        href: localizedHref(`/transfers/${p.slug}`, lang),
-      })),
+      links: [
+        ...ROUTE_PAGES.slice(0, 6).map((p) => ({ label: routeLabel(p, lang), href: localizedHref(routePath(p), lang) })),
+        L("All routes", "Todas las rutas", TRANSFERS_PATH),
+      ],
     },
     {
       title: es ? "Destinos" : "Destinations",

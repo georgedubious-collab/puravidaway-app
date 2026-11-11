@@ -2,8 +2,7 @@ import { AIRPORT_GUIDES, AIRPORTS_PATH, DESTINATION_GUIDES, DESTINATIONS_PATH, a
 import { getCatalog } from "@/lib/catalogSource";
 import { nightSentence } from "@/lib/nightPremium";
 import { localizedHref } from "@/lib/publicLang";
-import { ROUTE_PAGES } from "@/lib/routePages";
-import { localizeRoutePage } from "@/lib/routePagesEs";
+import { ROUTE_PAGES, TRANSFERS_PATH, routePath } from "@/lib/routePages";
 import { CONTACT_EMAIL, SITE_NAME, SITE_URL } from "@/lib/site";
 
 /**
@@ -37,8 +36,9 @@ Key facts:
 - [Contact](${u("/contact")}): WhatsApp, email and contact form
 - [Cancellation policy](${u("/cancellation")}): refund rules for rides, tours and multi-day trips
 
-## Popular routes
-${ROUTE_PAGES.map((p) => `- [${p.title}](${u(`/transfers/${p.slug}`)}): ${p.metaDescription}`).join("\n")}
+## Private transfer routes (each page: drive time, distance, price per vehicle class, other ways to travel, FAQs)
+- [All routes with drive times and prices](${u(TRANSFERS_PATH)})
+${ROUTE_PAGES.map((p) => `- [${p.title.en}](${u(routePath(p))}): ${p.metaDescription.en}`).join("\n")}
 
 ## Destination guides
 - [All destination guides](${u(DESTINATIONS_PATH)}): drive times from both airports in one table
@@ -65,8 +65,9 @@ ${DESTINATION_GUIDES.map((g) => `- [${g.title.es}](${u(localizedHref(destination
 - [Guías de aeropuertos](${u(localizedHref(AIRPORTS_PATH, "es"))})
 ${AIRPORT_GUIDES.map((g) => `- [${g.title.es}](${u(localizedHref(airportPath(g), "es"))})`).join("\n")}
 
-## Rutas populares (español)
-${ROUTE_PAGES.map((p) => `- [${localizeRoutePage(p, "es").title}](${u(localizedHref(`/transfers/${p.slug}`, "es"))})`).join("\n")}
+## Rutas de traslado privado (español)
+- [Todas las rutas con tiempos de viaje y precios](${u(localizedHref(TRANSFERS_PATH, "es"))})
+${ROUTE_PAGES.map((p) => `- [${p.title.es}](${u(localizedHref(routePath(p), "es"))})`).join("\n")}
 `;
   return new Response(text, { headers: { "Content-Type": "text/plain; charset=utf-8" } });
 }
