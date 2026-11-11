@@ -8,6 +8,7 @@ import { InputError, runAction, type FormState } from "@/lib/forms/formState";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { makeT } from "@/lib/teamLang";
 import { getTeamLang } from "@/lib/teamLangServer";
+import { isVehicleCategory } from "@/lib/vehicleEligibility";
 
 const DECISIONS = ["approve", "reject", "suspend", "checked"] as const;
 type Decision = (typeof DECISIONS)[number];
@@ -114,4 +115,30 @@ export async function reviewVehicle(_prev: FormState, fd: FormData): Promise<For
     revalidatePath(`/admin/drivers/${v.data[0].driver_id}`);
     revalidatePath("/admin");
   }, t("No se pudo guardar la decisión. Intente de nuevo.", "Couldn't save the decision. Please try again."));
+}
+
+/**
+ * Set (or clear) a vehicle's category: it decides which jobs the driver receives
+ * (src/lib/vehicleEligibility.ts). Only the team can; the database ignores a
+ * driver's own attempt (migration 0038). Does not change the approval.
+ */
+export async function setVehicleCategory(_prev: FormState, fd: FormData): Promise<FormState> {
+  const t = makeT(await getTeamLang());
+  return runAction(async () => {
+    await requireRole("admin", "/admin/drivers");
+    const id = String(fd.get("vehicle_id") ?? "");
+    const raw = String(fd.get("vehicle_class") ?? "");
+    if (!id || (raw !== "" && !isVehicleCategory(raw))) throw new InputError(t("Elija una categoría.", "Pick a category."));
+    const supabase = (await createSupabaseServerClient())!;
+    const v = await supabase
+      .from("driver_vehicles")
+      .update({ vehicle_class: raw === "" ? null : raw })
+      .eq("id", id)
+      .select("driver_id");
+    if (v.error) throw v.error;
+    if (!v.data?.length) throw new InputError(t("No se encontró el vehículo.", "Vehicle not found."));
+    revalidatePath("/admin/drivers");
+    revalidatePath(`/admin/drivers/${v.data[0].driver_id}`);
+    revalidatePath("/admin");
+  }, t("No se pudo guardar la categoría. Intente de nuevo.", "Couldn't save the category. Please try again."));
 }

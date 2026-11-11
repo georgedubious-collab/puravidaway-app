@@ -28,6 +28,7 @@ import {
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { makeT, type TeamLang } from "@/lib/teamLang";
 import { getTeamLang } from "@/lib/teamLangServer";
+import { categoryHint, categoryLabel, isVehicleCategory } from "@/lib/vehicleEligibility";
 import {
   addVehicle,
   applyAsDriver,
@@ -441,6 +442,17 @@ function VehicleCard({
           {t("Todavía falta:", "Still needed:")} {todo.join(", ")}.
         </p>
       )}
+      {/* Set by our team only (migration 0038); it decides which jobs this vehicle receives. */}
+      <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700">
+        <span className="font-bold text-slate-900">
+          {t("Categoría del vehículo:", "Vehicle category:")}{" "}
+          {isVehicleCategory(v.vehicle_class) ? categoryLabel(v.vehicle_class, lang) : t("todavía sin asignar", "not set yet")}
+        </span>
+        <span className="block">
+          {categoryHint(v.vehicle_class, lang)}{" "}
+          {isVehicleCategory(v.vehicle_class) && t("La categoría la asigna nuestro equipo.", "Our team sets the category.")}
+        </span>
+      </p>
 
       <h4 className="mt-5 font-bold text-slate-900">
         {t("Fotos", "Photos")}{" "}

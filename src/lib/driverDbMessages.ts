@@ -14,6 +14,8 @@ const EXACT: Record<string, string> = {
   "Start the trip before completing it.": "Inicie el viaje antes de completarlo.",
   "That vehicle's new documents are being checked. Pick another vehicle, or wait for our team to approve them.":
     "Estamos revisando los documentos nuevos de ese vehículo. Elija otro vehículo o espere a que nuestro equipo los apruebe.",
+  "That vehicle's category can't take this job. Pick another of your vehicles.":
+    "La categoría de ese vehículo no puede tomar este trabajo. Elija otro de sus vehículos.",
   "This job is in the past.": "Este trabajo ya pasó.",
   "This job is no longer open.": "Este trabajo ya no está disponible.",
   "This trip is not assigned to you.": "Este viaje no está asignado a usted.",

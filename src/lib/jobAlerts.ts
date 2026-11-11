@@ -6,6 +6,7 @@ import { SITE_URL, sendEmail } from "./email";
 import { townName, townOf } from "./matching";
 import { sendPush } from "./push";
 import { createSupabaseAdminClient } from "./supabase/admin";
+import { driverCanServe } from "./vehicleEligibility";
 
 /** At most this many drivers are emailed per job (alphabetical beyond drivers based at the pickup). */
 const MAX_RECIPIENTS = 60;
@@ -15,7 +16,8 @@ const MAX_RECIPIENTS = 60;
  * "Open for drivers"). The email has what the job board shows: town-to-town
  * route, pickup time, travellers and the suggested payout. Never the client's
  * price, name or exact address. Drivers based in the pickup town are emailed
- * first and told it starts in their area. Never throws.
+ * first and told it starts in their area. Only drivers whose vehicle category can
+ * serve the job are told (same rule as the job board). Never throws.
  */
 export async function notifyDriversOfJobs(bookingIds: string[]): Promise<void> {
   try {
@@ -24,15 +26,15 @@ export async function notifyDriversOfJobs(bookingIds: string[]): Promise<void> {
     const [{ data: jobs }, { data: drivers }, catalog] = await Promise.all([
       db
         .from("bookings")
-        .select("id, booking_ref, service_type, catalog_item_id, origin, destination, origin_coords, destination_coords, scheduled_at, passenger_count, driver_payout, status")
+        .select("id, booking_ref, service_type, catalog_item_id, origin, destination, origin_coords, destination_coords, scheduled_at, passenger_count, driver_payout, status, vehicle_class")
         .in("id", bookingIds)
         .eq("status", "pending_bids")
         .not("driver_payout", "is", null),
-      db.from("drivers").select("id, home_hub, profiles!drivers_id_fkey(full_name, email, role, app_lang)").eq("kyc_status", "approved"),
+      db.from("drivers").select("id, home_hub, profiles!drivers_id_fkey(full_name, email, role, app_lang), driver_vehicles(status, vehicle_class)").eq("kyc_status", "approved"),
       getCatalog(),
     ]);
     if (!jobs?.length || !drivers?.length) return;
-    type D = { id: string; home_hub: string | null; profiles: { full_name: string | null; email: string | null; role: string; app_lang: string | null } | null };
+    type D = { id: string; home_hub: string | null; driver_vehicles: { status: string; vehicle_class: string | null }[] | null; profiles: { full_name: string | null; email: string | null; role: string; app_lang: string | null } | null };
     const list = (drivers as unknown as D[]).filter((d) => d.profiles?.email && d.profiles.role === "driver");
 
     const { data: blocked } = await db.from("driver_unavailable").select("driver_id, day").in("driver_id", list.map((d) => d.id));
@@ -40,7 +42,9 @@ export async function notifyDriversOfJobs(bookingIds: string[]): Promise<void> {
       // Drivers who blocked that day (Costa Rica date) aren't told about the job.
       const day = scheduledParts(j.scheduled_at)?.ymd;
       const off = new Set((blocked ?? []).filter((u) => u.day === day).map((u) => u.driver_id as string));
-      const available = list.filter((d) => !off.has(d.id));
+      // Only drivers with an approved vehicle whose category can take this job (the job board's
+      // rule, src/lib/vehicleEligibility.ts): untagged vehicles and day tours are not filtered.
+      const available = list.filter((d) => !off.has(d.id) && driverCanServe(d.driver_vehicles ?? [], j.vehicle_class));
       const from = townOf(j.origin, j.origin_coords);
       const to = townOf(j.destination, j.destination_coords);
       const what =

@@ -9,6 +9,7 @@ import { getCatalog } from "@/lib/catalogSource";
 import { formatScheduledAt, scheduledParts, todayInCostaRica } from "@/lib/dates";
 import { canTakeTrips, type DriverRecord, type VehicleRecord } from "@/lib/driverKyc";
 import { prefMismatches, prefsSummary } from "@/lib/preferences";
+import { categoryLabel, isVehicleCategory, jobClassLabel, vehicleCanServe } from "@/lib/vehicleEligibility";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { LiveRefresh } from "@/components/LiveRefresh";
 import { compareRanks, nearHome, offerRank, ratingBand, returnMatch, townName, townOf, type ReturnMatch, type TripLike } from "@/lib/matching";
@@ -132,16 +133,37 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
           ...(canTakeTrips(d, [v], today) ? [] : [t("documentos", "documents")]),
           ...(unavailable.has(d.id) ? [t("no disponible ese día", "unavailable that day")] : []),
           ...((v.passenger_capacity ?? 0) >= seats ? [] : [t("asientos", "seats")]),
+          // Category (migration 0038): the team may still assign anyone, but is warned.
+          ...(vehicleCanServe(v.vehicle_class, b.vehicle_class)
+            ? []
+            : [t(`categoría ${categoryLabel(v.vehicle_class, lang)}`, `category ${categoryLabel(v.vehicle_class, lang)}`)]),
           ...prefMismatches(b.preferences, d, v, lang),
         ];
         return {
           value: `${d.id}:${v.id}`,
-          label: `${d.profiles?.full_name ?? t("Conductor", "Driver")} — ${v.make_model ?? t("vehículo", "vehicle")} ${v.plate ?? ""} (${v.passenger_capacity ?? "?"} ${t("asientos", "seats")})`,
+          label: `${d.profiles?.full_name ?? t("Conductor", "Driver")} — ${v.make_model ?? t("vehículo", "vehicle")} ${v.plate ?? ""} (${v.passenger_capacity ?? "?"} ${t("asientos", "seats")}${isVehicleCategory(v.vehicle_class) ? `, ${categoryLabel(v.vehicle_class, lang)}` : ""})`,
           problems,
         };
       }),
   );
   const current = b.assigned_driver_id && b.assigned_vehicle_id ? `${b.assigned_driver_id}:${b.assigned_vehicle_id}` : "";
+  // The assigned vehicle's category can't serve the booked class: a clear warning for the team.
+  const assignedVehicle = (drivers ?? []).flatMap((d) => d.driver_vehicles).find((v) => v.id === b.assigned_vehicle_id);
+  const categoryMismatch =
+    assignedVehicle && b.vehicle_class && !vehicleCanServe(assignedVehicle.vehicle_class, b.vehicle_class) ? assignedVehicle : null;
+  const bookedClassName = b.vehicle_class
+    ? (catalog.vehicles.find((v) => v.id === b.vehicle_class)?.name ?? jobClassLabel(b.vehicle_class, lang))
+    : "";
+  // An offer sent before the vehicle was tagged can end up in a category that doesn't cover the job.
+  const offerCategoryProblem = (vehicleId: string | null) => {
+    const v = (drivers ?? []).flatMap((d) => d.driver_vehicles).find((x) => x.id === vehicleId);
+    return v && !vehicleCanServe(v.vehicle_class, b.vehicle_class)
+      ? t(
+          `Categoría ${categoryLabel(v.vehicle_class, lang)}: no cubre ${bookedClassName}`,
+          `${categoryLabel(v.vehicle_class, lang)} category: doesn't cover ${bookedClassName}`,
+        )
+      : null;
+  };
   const name =
     b.service_type === "transfer"
       ? `${b.origin} → ${b.destination}`
@@ -312,6 +334,9 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
                     {o.vehicle_snapshot?.make_model ?? t("Vehículo", "Vehicle")} {o.vehicle_snapshot?.plate ?? ""}
                     {o.vehicle_snapshot?.seats ? ` · ${o.vehicle_snapshot.seats} ${t("asientos", "seats")}` : ""} · {o.created_at.slice(0, 10)}
                   </p>
+                  {offerCategoryProblem(o.vehicle_id) && (
+                    <p className="mt-0.5 inline-block rounded bg-amber-100 px-1.5 text-xs font-bold text-amber-900">⚠ {offerCategoryProblem(o.vehicle_id)}</p>
+                  )}
                   {o.note && <p className="text-slate-700 italic">&ldquo;{o.note}&rdquo;</p>}
                 </div>
                 <div className="flex items-center gap-3">
@@ -367,6 +392,15 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
                   </option>
                 ))}
               </select>
+              {categoryMismatch && (
+                <span role="alert" className="mt-2 block rounded-lg border border-amber-300 bg-amber-50 p-2 text-sm font-semibold text-amber-900">
+                  ⚠{" "}
+                  {t(
+                    `El vehículo asignado (${categoryMismatch.make_model ?? "vehículo"} ${categoryMismatch.plate ?? ""}) es de categoría ${categoryLabel(categoryMismatch.vehicle_class, lang)} y el cliente reservó ${bookedClassName}. Esa categoría no cubre este viaje: confirme que el vehículo sirve o asigne otro.`,
+                    `The assigned vehicle (${categoryMismatch.make_model ?? "vehicle"} ${categoryMismatch.plate ?? ""}) is in the ${categoryLabel(categoryMismatch.vehicle_class, lang)} category and the client booked ${bookedClassName}. That category doesn't cover this trip: confirm the vehicle fits or assign another.`,
+                  )}
+                </span>
+              )}
             </label>
             <label className="block text-sm font-bold text-slate-700">
               {t("Monto recibido (USD)", "Amount received (USD)")}
