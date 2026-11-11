@@ -21,8 +21,10 @@ export interface BookingState {
   to: Place | null;
   date: string;
   pax: number;
-  /** "How many bags?"; null = not changed, so we count 2 per traveller (see bagsFor). */
+  /** Large suitcases; null = not changed, so 1 per traveller (see bagsFor). */
   bags: number | null;
+  /** Carry-ons; null = not changed, so 1 per traveller (see bagsFor). */
+  carryOns: number | null;
   time: string;
   vehicleId: string;
   mode: "fixed" | "bid";
@@ -50,6 +52,7 @@ const fresh = (): BookingState => ({
   date: crDatePlus(14),
   pax: 2,
   bags: null,
+  carryOns: null,
   time: "09:00",
   vehicleId: "sedan",
   mode: "fixed",
@@ -257,7 +260,7 @@ export function BookingProvider({
         ", " +
         plural(pax, "traveller", lang) +
         (pickedStops.length ? " + " + plural(pickedStops.length, "stop", lang) : "") +
-        " · " + (bagsFor(state) === 1 ? t("1 bag", "1 maleta") : t(bagsFor(state) + " bags", bagsFor(state) + " maletas")) +
+        " · " + bagsSummary(bagsFor(state), lang) +
         t(" · pickup ", " · recogida ") +
         time12(state.time) +
         (out.length ? " · " + out.join(", ") : ""),
@@ -276,7 +279,8 @@ export function BookingProvider({
         ...(state.notes.trim() ? { notes: state.notes.trim() } : {}),
         prefs: p,
         ...(state.driverNotes.trim() ? { driverNotes: state.driverNotes.trim() } : {}),
-        bags: bagsFor(state),
+        bags: bagsFor(state).large,
+        carryOns: bagsFor(state).carryOns,
       },
     };
     // pickedStops and p are derived from the listed values.
@@ -334,7 +338,27 @@ export function BookingProvider({
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
-/** Bags on this booking: the traveller's number, or 2 per traveller (1 large suitcase + 1 carry-on) by default. */
-export function bagsFor(state: { bags: number | null; pax: number }): number {
-  return state.bags ?? Math.min(state.pax * 2, 20);
+/**
+ * Bags on this booking: large suitcases and carry-ons. Each is the traveller's number, or 1 per
+ * traveller until they change that counter (Jorge, 2026-11-10). Each 0–20.
+ */
+export function bagsFor(state: { bags: number | null; carryOns: number | null; pax: number }): { large: number; carryOns: number } {
+  const start = Math.min(state.pax, 20);
+  return { large: state.bags ?? start, carryOns: state.carryOns ?? start };
+}
+
+/** "4 large bags + 4 carry-ons" / "4 maletas grandes + 4 de mano" (a part that is 0 is left out). */
+export function bagsSummary({ large, carryOns }: { large: number; carryOns: number }, lang: "en" | "es"): string {
+  const es = lang === "es";
+  if (!large && !carryOns) return es ? "sin maletas" : "no bags";
+  const parts: string[] = [];
+  if (large) parts.push(es ? large + (large === 1 ? " maleta grande" : " maletas grandes") : large + (large === 1 ? " large bag" : " large bags"));
+  if (carryOns) parts.push(es ? carryOns + (large ? " de mano" : carryOns === 1 ? " maleta de mano" : " maletas de mano") : carryOns + (carryOns === 1 ? " carry-on" : " carry-ons"));
+  return parts.join(" + ");
+}
+
+/** Suitcases a vehicle lists ("3 suitcases" → 3); null when the text doesn't start with a number. */
+export function luggageCapacity(luggage: string | null | undefined): number | null {
+  const m = /^\s*(\d{1,2})\s+\S/.exec(luggage ?? "");
+  return m ? Number(m[1]) : null;
 }

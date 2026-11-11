@@ -405,12 +405,29 @@ await expectRows("job board shows the stop without its price", "driver",
   "select 1 from public.driver_jobs() where id = '10000000-0000-0000-0000-000000000001' and sightseeing_stops = '[{\"id\":\"carara\"}]'::jsonb", 1);
 await expectRows("drivers' functions never return the client's price columns", "admin",
   "select 1 from pg_proc where proname in ('driver_jobs','my_trips','my_chat_unread','tracking_window') and pg_get_function_result(oid) ~ '(total_price|platform_fee|amount_paid|client_notes|company_costs|pricing_mode)'", 0);
+// Migration 0037: bags split into large suitcases (luggage_count) and carry-ons (carry_on_count).
+const BAGS = "'10000000-0000-0000-0000-000000000009'";
+await expectRows("booking without a carry-on count: driver gets the large count and null", "driver",
+  `select 1 from public.my_trips() where id = ${BAGS} and luggage_count = 4 and carry_on_count is null`, 1);
+await expectBlocked("more than 20 carry-ons refused", "server", `update public.bookings set carry_on_count = 21 where id = ${BAGS}`);
+await expectBlocked("negative carry-ons refused", "server", `update public.bookings set carry_on_count = -1 where id = ${BAGS}`);
+await expectOk("server saves the carry-ons", "server", `update public.bookings set carry_on_count = 3 where id = ${BAGS}`);
+await expectRows("driver sees large suitcases and carry-ons", "driver",
+  `select 1 from public.my_trips() where id = ${BAGS} and luggage_count = 4 and carry_on_count = 3`, 1);
+await expectRows("my_trips() still returns the stops without prices after 0037", "driver",
+  `select 1 from public.my_trips() where id = ${BAGS} and jsonb_array_length(sightseeing_stops) = 2 and sightseeing_stops::text !~ 'price'`, 1);
+await expectRows("my_trips() returns carry_on_count and still no price columns", "admin",
+  "select 1 from pg_proc where proname = 'my_trips' and pg_get_function_result(oid) ~ 'carry_on_count' and pg_get_function_result(oid) !~ '(total_price|platform_fee|amount_paid|client_notes|company_costs|pricing_mode)'", 1);
+await expectRows("assigned driver still cannot read the booking row (price, carry-ons or anything)", "driver",
+  `select total_price, carry_on_count from public.bookings where id = ${BAGS}`, 0);
+await expectRows("job board does not show bags", "admin",
+  "select 1 from pg_proc where proname = 'driver_jobs' and pg_get_function_result(oid) ~ '(luggage_count|carry_on_count)'", 0);
 await expectOk("server resets the test job", "server",
   "update public.bookings set sightseeing_stops = '[]' where id = '10000000-0000-0000-0000-000000000001'");
 await expectOk("server resets the test note", "server",
   "update public.bookings set client_notes = 'Flight AA123' where id = '10000000-0000-0000-0000-000000000009'");
 await expectOk("server resets the test trip", "server",
-  "update public.bookings set luggage_count = null, scheduled_at = null, sightseeing_stops = '[]' where id = '10000000-0000-0000-0000-000000000009'");
+  "update public.bookings set luggage_count = null, carry_on_count = null, scheduled_at = null, sightseeing_stops = '[]' where id = '10000000-0000-0000-0000-000000000009'");
 
 // --- Preferences & profiles (file 8) -----------------------------------------------
 await expectOk("driver writes a bio", "driver",

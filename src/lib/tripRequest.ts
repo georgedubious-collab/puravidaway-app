@@ -19,7 +19,7 @@ import { quoteDayTour, quoteExpedition, quoteTransfer } from "./pricing";
 export const MIN_OFFER_USD = 50;
 export const MAX_OFFER_USD = 5000;
 export const MAX_TRIP_ITEMS = 10;
-/** Most bags a traveller can enter (bookings.luggage_count check, migration 0035). */
+/** Most large suitcases, and most carry-ons, a traveller can enter (bookings.luggage_count / carry_on_count checks, migrations 0035 and 0037). */
 export const MAX_BAGS = 20;
 
 /** A typed pickup / drop-off (Google place id + what the traveller saw). */
@@ -59,6 +59,8 @@ export type ItemSpec =
       driverNotes?: string;
       /** Suitcases and large backpacks (0–20), optional; shown to the driver. */
       bags?: number;
+      /** Carry-on bags (0–20). `bags` above is the large suitcases; older app builds send only `bags`. */
+      carryOns?: number;
     }
   | {
       kind: "day_tour";
@@ -104,6 +106,7 @@ export function parseSpec(raw: unknown): ItemSpec | null {
     if (prefs === null) return null;
     if (o.driverNotes !== undefined && (typeof o.driverNotes !== "string" || o.driverNotes.length > 500)) return null;
     if (o.bags !== undefined && o.bags !== null && (!Number.isInteger(o.bags) || (o.bags as number) < 0 || (o.bags as number) > MAX_BAGS)) return null;
+    if (o.carryOns !== undefined && o.carryOns !== null && (!Number.isInteger(o.carryOns) || (o.carryOns as number) < 0 || (o.carryOns as number) > MAX_BAGS)) return null;
     const originPlace = parseSpecPlace(o.originPlace);
     const destinationPlace = parseSpecPlace(o.destinationPlace);
     if (originPlace === null || destinationPlace === null) return null;
@@ -123,6 +126,7 @@ export function parseSpec(raw: unknown): ItemSpec | null {
       prefs,
       driverNotes: (o.driverNotes as string | undefined) || undefined,
       ...(typeof o.bags === "number" ? { bags: o.bags } : {}),
+      ...(typeof o.carryOns === "number" ? { carryOns: o.carryOns } : {}),
     };
   }
   if (o.kind === "day_tour") {

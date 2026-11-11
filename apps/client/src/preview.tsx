@@ -119,7 +119,7 @@ const tabs = (tab: "Explore" | "Trips" | "Account", tripId?: string): Route => (
   },
 });
 const sarah = "sarah@example.com";
-const ride: Partial<BookingState> = { from: hub("SJO"), to: hub("Arenal"), date: "2026-12-15", vehicleId: "suv", bags: 3 };
+const ride: Partial<BookingState> = { from: hub("SJO"), to: hub("Arenal"), date: "2026-12-15", vehicleId: "suv", bags: 3, carryOns: 2 };
 const rideFull: Partial<BookingState> = { ...ride, stopIds: ["sloth"], prefs: { language: "english", wifi: true, stroller: false, childSeats: 1, pets: false }, notes: "AA 1234", name: "Sarah Miller", phone: "+1 555 123 4567" };
 const tourPick: Partial<BookingState> = { kind: "tour", date: "2026-12-15", tourId: "dt1", upgrade: true, name: "Sarah Miller", phone: "+1 555 123 4567" };
 const steps = (...names: string[]): Route[] => [tabs("Explore"), ...names.map((name) => ({ name }))];

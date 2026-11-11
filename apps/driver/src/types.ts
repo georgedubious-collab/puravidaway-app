@@ -53,6 +53,8 @@ export interface Trip {
   passenger_name?: string | null;
   /** Bags (suitcases and large backpacks) the traveller said they bring; null when not given. */
   luggage_count?: number | null;
+  /** Carry-ons; null or missing on older bookings (then luggage_count is shown alone, as before). Migration 0037. */
+  carry_on_count?: number | null;
   /** Estimated arrival at the drop-off (pickup + drive time + stops), computed by the server; null when unknown. */
   arrive_at?: string | null;
   /** Unread chat messages from the traveller or our team (my_chat_unread(), added by the app). */

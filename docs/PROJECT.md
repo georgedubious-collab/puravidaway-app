@@ -244,7 +244,11 @@ Legal pages (`/terms`, `/privacy`, `/cancellation`) are linked from every footer
    cards with the price per car and "from $X per person (N travellers)", the "Every ride includes"
    list (flight tracking on airport pickups, 60 min free waiting, child seats free on request, free
    cancellation up to 24 h), live route timeline with total duration, flight number or hotel
-   field, "How many bags?" / "¿Cuántas maletas?" (0–20; starts at 2 per traveller, 1 large suitcase + 1 carry-on, Jorge 2026-11-10, and the traveller can change it;
+   field, "How many bags?" / "¿Cuántas maletas?" as two counters, **Large suitcases** / "Maletas grandes" and
+   **Carry-ons** / "Maletas de mano" (each 0–20; each starts at 1 per traveller and follows the traveller count
+   until the traveller changes that counter, Jorge 2026-11-10; always sent with the booking; a gentle amber note,
+   never a block, when the large suitcases exceed the number the chosen vehicle lists, `luggageCapacity()` in
+   `src/lib/bags.ts`;
    website Extras step and the app's "When & who" step; shown to the driver), price breakdown. After a ride is added, an inline, dismissible suggestion of 1–2 day
    tours / expeditions in the drop-off region (Welcome Pickups-style).
 2. **1-Day Private Tours** — region filter, Smart En-Route Transfer upgrade (+$65).
@@ -520,7 +524,10 @@ expedition) · `origin` text (place name + address) · `origin_coords` jsonb (`l
 `place_id`, `town`, and `route` = the Google road km / minutes the price was made from, null
 between two of our towns) · `destination` text · `destination_coords` jsonb (same, without route) · `sightseeing_stops` jsonb (array of stop IDs + snapshot prices) · `vehicle_class` ·
 `lodging_tier` · `scheduled_at` timestamptz · `passenger_count` int · `flight_or_hotel_notes` ·
-`luggage_count` smallint (0–20, null = not given; migration 0035) · `drive_minutes` smallint
+`luggage_count` smallint (**large suitcases**, 0–20, null = not given; migration 0035) ·
+`carry_on_count` smallint (carry-ons, 0–20, null = not given: older bookings and older app builds, which
+send one number that is kept as the large suitcases; migration 0037; drivers get both through `my_trips()`
+and see "4 + 4" / "4 grandes + 4 de mano") · `drive_minutes` smallint
 (door-to-door drive time the ride was priced with: the Google route, or `ROUTE_MINUTES` between two
 of our towns; null = unknown; 0035) ·
 `pricing_mode` (`fixed` | `bid`) · `total_price` numeric · `driver_payout` / `platform_fee` numeric

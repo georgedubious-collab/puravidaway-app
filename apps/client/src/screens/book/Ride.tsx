@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, TextInput, View } from "react-native";
-import { cents, useBooking } from "../../booking";
+import { bagsFor, cents, luggageCapacity, useBooking } from "../../booking";
 import { pick } from "../../haptics";
 import { useT } from "../../i18n";
 import { photoForVehicle } from "../../images";
@@ -17,6 +17,9 @@ export function BookRide() {
   const { state, set, quote, quoteBusy, vehicle, minOffer, offerValid, offerLow, itemCents } = useBooking();
   const { mode } = state;
   const canNext = Boolean(vehicle) && (mode === "fixed" || offerValid);
+  // A gentle hint, never a block: more large suitcases than the chosen vehicle lists.
+  const fits = luggageCapacity(vehicle?.luggage);
+  const largeBags = bagsFor(state).large;
 
   function setMode(next: "fixed" | "bid") {
     // Start the offer at the fixed price for the chosen vehicle.
@@ -133,6 +136,16 @@ export function BookRide() {
           );
         })}
       </View>
+      {fits != null && largeBags > fits ? (
+        <View style={{ backgroundColor: C.amberSoft, borderRadius: R.control, padding: SP.md }}>
+          <Text style={[T.small, { color: C.amber, fontWeight: "700" }]}>
+            {t(
+              "This vehicle lists " + fits + (fits === 1 ? " suitcase" : " suitcases") + " and you have " + largeBags + " large. Consider a larger vehicle or ask our team.",
+              "Este vehículo indica " + fits + (fits === 1 ? " maleta" : " maletas") + " y usted lleva " + largeBags + " grandes. Considere un vehículo más grande o consulte a nuestro equipo.",
+            )}
+          </Text>
+        </View>
+      ) : null}
     </Page>
   );
 }

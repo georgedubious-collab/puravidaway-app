@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ActionForm } from "@/components/ActionForm";
 import { ChatBox } from "@/components/ChatBox";
 import { requireRole } from "@/lib/auth";
+import { bagsForTeam } from "@/lib/bags";
 import { BOOKING_STATUSES, bookingDue, bookingStatusLabel, serviceLabel, usd, type BookingRow, type OfferRow, type TripContact } from "@/lib/bookings";
 import { getCatalog } from "@/lib/catalogSource";
 import { formatScheduledAt, scheduledParts, todayInCostaRica } from "@/lib/dates";
@@ -240,7 +241,9 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
               <Item k={t("Tipo de vehículo", "Vehicle class")} v={catalog.vehicles.find((v) => v.id === b.vehicle_class)?.name ?? b.vehicle_class} />
             )}
             {b.passenger_count && <Item k={t("Pasajeros", "Passengers")} v={b.passenger_count} />}
-            {b.luggage_count != null && <Item k={t("Maletas", "Bags")} v={b.luggage_count} />}
+            {bagsForTeam(b.luggage_count, b.carry_on_count, lang) != null && (
+              <Item k={t("Maletas", "Bags")} v={bagsForTeam(b.luggage_count, b.carry_on_count, lang)} />
+            )}
             {b.drive_minutes != null && (
               <Item
                 k={t("Tiempo de manejo", "Drive time")}

@@ -179,8 +179,10 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
       flight_or_hotel_notes: spec.kind === "transfer" ? (spec.notes ?? null) : null,
       preferences: spec.kind === "transfer" && spec.prefs ? spec.prefs : {},
       driver_notes: spec.kind === "transfer" ? (spec.driverNotes ?? null) : null,
-      // Optional "How many bags?" (migration 0035); shown to the assigned driver.
+      // Bags, shown to the assigned driver: large suitcases (migration 0035) and carry-ons (0037).
+      // Older app builds send one number: it is kept as the large suitcases, carry-ons unknown.
       luggage_count: spec.kind === "transfer" && spec.bags !== undefined ? spec.bags : null,
+      carry_on_count: spec.kind === "transfer" && spec.carryOns !== undefined ? spec.carryOns : null,
       // Door-to-door drive time for the driver's arrival estimate: Google's road route for typed
       // places, else our per-corridor table between two towns. Never a straight-line guess.
       drive_minutes: spec.kind === "transfer" ? driveMinutes(ride?.route ?? null, spec) : null,
@@ -204,7 +206,16 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
           .join(" · ") || null,
     }));
 
-    const { data, error } = await db.from("bookings").insert(rows).select("id, booking_ref, status");
+    let saved = await db.from("bookings").insert(rows).select("id, booking_ref, status");
+    // Safety net for the minutes between a deploy and its database update (migration 0037):
+    // a request is never lost because the carry-on column isn't there yet.
+    if (saved.error && /carry_on_count/.test(saved.error.message ?? "")) {
+      saved = await db
+        .from("bookings")
+        .insert(rows.map((row) => ({ ...row, carry_on_count: undefined })))
+        .select("id, booking_ref, status");
+    }
+    const { data, error } = saved;
     if (error) {
       console.error("[trip request]", error);
       return { ok: false, error: "We couldn't save your request. Please try again or send it on WhatsApp." };
