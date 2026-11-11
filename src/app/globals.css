@@ -16,3 +16,25 @@ body {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* Cookie banner (src/components/site/ConsentManager.tsx): a floating card at the bottom.
+   On phones and tablets it sits above the booking bar that is pinned to the bottom of the
+   trip builder, so "Add to trip" / "Review & book" always stay visible and tappable. */
+.consent-banner {
+  bottom: max(0.5rem, env(safe-area-inset-bottom));
+}
+@media (min-width: 640px) {
+  .consent-banner {
+    bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+}
+@media (max-width: 1023.98px) {
+  body:has([data-bottom-bar="lg"]) .consent-banner {
+    bottom: calc(4.75rem + env(safe-area-inset-bottom));
+  }
+}
+@media (max-width: 1279.98px) {
+  body:has([data-bottom-bar="xl"]) .consent-banner {
+    bottom: calc(4.75rem + env(safe-area-inset-bottom));
+  }
+}

@@ -17,7 +17,15 @@ import { cashFeeCents, formatBpsPercent } from "@/lib/pricing";
 import { parsePublicLang, type PublicLang } from "@/lib/publicLang";
 import { clientLanguageNote, requestItemLine, requestPaymentLine, tripRequestEmail } from "@/lib/travellerMessages";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { MAX_TRIP_ITEMS, itemTime, parseSpec, priceItem, type ItemSpec } from "@/lib/tripRequest";
+import {
+  MAX_TRIP_ITEMS,
+  RETIRED_EXPEDITION_ERROR,
+  isRetiredExpeditionSpec,
+  itemTime,
+  parseSpec,
+  priceItem,
+  type ItemSpec,
+} from "@/lib/tripRequest";
 
 /** A traveller's offer at or above this share of the fixed price is posted to drivers automatically. */
 const BOARD_MIN_SHARE = 0.7;
@@ -95,6 +103,8 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
     }[] = [];
     const repriced: Record<string, number> = {};
     for (const item of items) {
+      // Multi-day trips were retired on 2026-11-11; an older page or app build may still send one.
+      if (isRetiredExpeditionSpec(item?.spec)) return { ok: false, error: RETIRED_EXPEDITION_ERROR };
       let spec = parseSpec(item.spec);
       if (!spec) return { ok: false, error: "One item was added on an older version of the site. Please remove it and add it again." };
       if (typeof item.date !== "string" || item.date < today) {
@@ -157,7 +167,7 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
     const rows = priced.map(({ spec, date, totalCents, referenceCents, passThroughCents, companyCostCents, nightCents, ride }) => ({
       trip_id: tripId,
       service_type: spec.kind,
-      catalog_item_id: spec.kind === "day_tour" ? spec.tourId : spec.kind === "expedition" ? spec.expeditionId : null,
+      catalog_item_id: spec.kind === "day_tour" ? spec.tourId : null,
       origin: ride ? placeText(ride.origin) : null,
       destination: ride ? placeText(ride.destination) : null,
       // Map point + the road route the price was made from (a later price change never alters it).
@@ -173,8 +183,8 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
             ? [{ id: "en_route_upgrade" }]
             : [],
       vehicle_class: spec.kind === "transfer" ? spec.vehicleId : null,
-      lodging_tier: spec.kind === "expedition" ? spec.tierId : null,
-      // Costa Rica time: the ride's pickup time, or the tour / expedition default until the team confirms.
+      lodging_tier: null,
+      // Costa Rica time: the ride's pickup time, or the tour default until the team confirms.
       scheduled_at: costaRicaTimestamp(date, itemTime(spec)),
       passenger_count: spec.kind === "transfer" || spec.kind === "day_tour" ? spec.pax : null,
       flight_or_hotel_notes: spec.kind === "transfer" ? (spec.notes ?? null) : null,
@@ -268,9 +278,7 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
           what:
             spec.kind === "transfer"
               ? `${placeNameFor(ride?.origin.label ?? spec.origin, l)} → ${placeNameFor(ride?.destination.label ?? spec.destination, l)}`
-              : spec.kind === "day_tour"
-                ? (names.dayTours.find((t) => t.id === spec.tourId)?.name ?? spec.tourId)
-                : (names.expeditions.find((x) => x.id === spec.expeditionId)?.name ?? spec.expeditionId),
+              : (names.dayTours.find((t) => t.id === spec.tourId)?.name ?? spec.tourId),
         }),
       );
     };

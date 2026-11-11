@@ -51,7 +51,7 @@ export interface DestinationGuide {
   hub: HubId;
   /** Other towns of ours that belong to the same guide (Sierpe for Drake Bay). */
   alsoHubs?: HubId[];
-  /** Region of our day tours and multi-day trips that start here, if any. */
+  /** Region of our day tours that start here, if any. */
   region?: Region;
   photo: PhotoId;
   /** ISO date the text was last checked; shown on the page and in the structured data. */

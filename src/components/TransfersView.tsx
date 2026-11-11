@@ -12,6 +12,7 @@ import { Photo } from "./site/Photo";
 import { usePublicLang, useT } from "./PublicLangContext";
 import { localizeServerMessage } from "@/lib/serverMessagesEs";
 import { hubPlace, isAirportPickup, isHubPlace, mapsDirectionsUrl, needsRoute, type RidePlace, type RideRoute } from "@/lib/places";
+import { trackQuoteView, trackVehicleSelect } from "@/lib/analytics";
 import { newItemId, whatsAppLink, type CartItem } from "@/lib/cart";
 import { DEFAULT_PICKUP_TIME, PICKUP_TIMES, addDays, formatShortDate, formatTime12h } from "@/lib/dates";
 import { applyMultiplier, ferryCents, formatDuration, formatUSD, nightPremiumCents, perPersonCents, perPersonShare, quoteTransfer, rideCents, rideDriveCents } from "@/lib/pricing";
@@ -49,7 +50,7 @@ export function TransfersView({
   initial?: Partial<RideLinkState>;
   /** "While you're there" suggestions after a ride is added, shown under the add button. */
   suggestion?: React.ReactNode;
-  /** Transfers / Day tours / Multi-day trips switch, shown in the hero form on phones. */
+  /** Transfers / Day tours switch, shown in the hero form on phones. */
   tabs: BuilderTabs;
   /** Items already in the trip: the pinned "Add to trip" bar shows only while it is 0. */
   cartCount: number;
@@ -240,6 +241,15 @@ export function TransfersView({
 
   // "See prices · from $X": the cheapest vehicle that fits this group.
   const fromCarCents = availableVehicles.length ? Math.min(...availableVehicles.map(carCents)) : quote.totalCents;
+
+  // Measurement (only with the visitor's consent, src/lib/analytics.ts): our towns by their
+  // code, a typed hotel or address only as "custom". Never the place itself.
+  const gaFrom = isHubPlace(originPlace) ? origin : "custom";
+  const gaTo = isHubPlace(destPlace) ? destination : "custom";
+  const vehicleCount = availableVehicles.length;
+  useEffect(() => {
+    if (priceReady && vehicleCount > 0) trackQuoteView({ from: gaFrom, to: gaTo, vehicleCount, fromCents: fromCarCents });
+  }, [priceReady, gaFrom, gaTo, vehicleCount, fromCarCents]);
 
   function toggleStop(id: string) {
     setStopIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -483,7 +493,10 @@ export function TransfersView({
                         <button
                           key={v.id}
                           type="button"
-                          onClick={() => setVehicleId(v.id)}
+                          onClick={() => {
+                            setVehicleId(v.id);
+                            trackVehicleSelect({ from: gaFrom, to: gaTo, vehicleId: v.id, priceCents: carCents(v) });
+                          }}
                           aria-pressed={on}
                           className={`relative flex gap-3 text-left rounded-xl border-2 p-2.5 transition ${
                             on ? "border-emerald-700 bg-emerald-50" : "border-slate-200 hover:border-emerald-300 bg-white"
@@ -1020,7 +1033,7 @@ export function TransfersView({
 
       {/* Phones and tablets: the ride and its price stay in view from the first tap, until something is in the trip. */}
       {cartCount === 0 && (
-        <div className="lg:hidden fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 backdrop-blur px-4 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))]">
+        <div data-bottom-bar="lg" className="lg:hidden fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 backdrop-blur px-4 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))]">
           <div className="max-w-3xl mx-auto flex items-center justify-between gap-3">
             <div className="min-w-0" aria-live="polite">
               <p className="truncate text-xs font-semibold text-slate-600">{shortRoute}</p>

@@ -7,13 +7,12 @@ import { trustStrip } from "@/lib/trust";
 import { usePublicLang } from "./PublicLangContext";
 import { Photo } from "./site/Photo";
 
-export type Builder = "transfers" | "daytours" | "multiday";
+export type Builder = "transfers" | "daytours";
 
-/** One naming set everywhere (header menu, tabs): Transfers / Day tours / Multi-day trips. */
+/** One naming set everywhere (header menu, tabs): Transfers / Day tours. */
 export const BUILDER_LABEL: Record<Builder, Record<PublicLang, string>> = {
   transfers: { en: "Transfers", es: "Traslados" },
   daytours: { en: "Day tours", es: "Tours de un día" },
-  multiday: { en: "Multi-day trips", es: "Viajes de varios días" },
 };
 
 export interface BuilderTabs {
@@ -24,12 +23,12 @@ export interface BuilderTabs {
 const TRUST_ICONS = [BadgeCheck, CalendarX2, ShieldCheck, MessageCircle];
 
 /**
- * The first screen of the booking app, shared by the three tabs: the hero photo
+ * The first screen of the booking app, shared by the two tabs: the hero photo
  * under a dark-green overlay, the page's H1, one line of what you get, and a
  * compact white form card (tabs + the tab's own fields and its one button).
  * Under it, the four-claim trust strip (src/lib/trust.ts).
  * The tabs are hidden on wide screens, where the header menu shows the same
- * three choices: no duplicate navigation.
+ * two choices: no duplicate navigation.
  */
 export function BuilderHero({
   tabs,
@@ -64,7 +63,7 @@ export function BuilderHero({
             <div
               role="group"
               aria-label={lang === "es" ? "¿Qué desea reservar?" : "What do you want to book?"}
-              className="lg:hidden mb-3 grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1"
+              className="lg:hidden mb-3 grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1"
             >
               {(Object.keys(BUILDER_LABEL) as Builder[]).map((b) => {
                 const on = tabs.current === b;

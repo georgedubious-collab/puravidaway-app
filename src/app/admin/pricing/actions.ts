@@ -248,22 +248,6 @@ async function saveDayTourImpl(fd: FormData) {
   });
 }
 
-async function saveExpeditionImpl(fd: FormData) {
-  await save("expeditions", fd, {
-    name: text(fd, "name"),
-    base_price: money(fd, "base_price"),
-    active: checked(fd, "active"),
-  });
-}
-
-async function saveLodgingTierImpl(fd: FormData) {
-  await save("lodging_tiers", fd, {
-    name: text(fd, "name"),
-    surcharge: money(fd, "surcharge"),
-    active: checked(fd, "active"),
-  });
-}
-
 async function saveSeasonImpl(fd: FormData) {
   await save("seasons", fd, {
     name: text(fd, "name"),
@@ -445,12 +429,6 @@ export async function savePaymentSettings(_prev: FormState, fd: FormData): Promi
 }
 export async function saveDayTour(_prev: FormState, fd: FormData): Promise<FormState> {
   return run(() => saveDayTourImpl(fd));
-}
-export async function saveExpedition(_prev: FormState, fd: FormData): Promise<FormState> {
-  return run(() => saveExpeditionImpl(fd));
-}
-export async function saveLodgingTier(_prev: FormState, fd: FormData): Promise<FormState> {
-  return run(() => saveLodgingTierImpl(fd));
 }
 export async function saveSeason(_prev: FormState, fd: FormData): Promise<FormState> {
   return run(() => saveSeasonImpl(fd));

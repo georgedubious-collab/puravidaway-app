@@ -22,6 +22,7 @@ export function LangSwitch({ lang }: { lang: PublicLang }) {
     <Link
       href={href}
       hrefLang={other}
+      data-analytics="language"
       lang={other}
       aria-label={other === "es" ? "Cambiar a español" : "Switch to English"}
       title={other === "es" ? "Español" : "English"}

@@ -1,8 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Linking from "expo-linking";
-import * as WebBrowser from "expo-web-browser";
 import { View } from "react-native";
-import { SITE_URL } from "../config";
 import { useT } from "../i18n";
 import { Logo } from "../Logo";
 import { goToTab, useNav } from "../nav";
@@ -38,8 +36,6 @@ export function Menu() {
               <ListRow icon="logo-whatsapp" title={t("Message us on WhatsApp", "Escríbanos por WhatsApp")} detail={t("Questions before or during your trip", "Preguntas antes o durante su viaje")} onPress={() => void Linking.openURL("https://wa.me/" + whatsapp)} />
             </>
           ) : null}
-          <Divider />
-          <ListRow icon="open-outline" title={t("Multi-day expeditions", "Expediciones de varios días")} detail={t("On our website", "En nuestro sitio web")} onPress={() => void WebBrowser.openBrowserAsync(SITE_URL)} />
         </View>
       </Card>
 

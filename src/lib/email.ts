@@ -40,7 +40,7 @@ function html(e: Email): string {
   const btn = e.button
     ? `<p style="margin:22px 0"><a href="${esc(e.button.url)}" style="background:#022c22;color:#fff;text-decoration:none;font-weight:700;padding:12px 20px;border-radius:10px;display:inline-block">${esc(e.button.label)}</a></p>`
     : "";
-  const tagline = e.lang === "es" ? "Traslados, tours y expediciones" : "Transfers, tours and expeditions";
+  const tagline = e.lang === "es" ? "Traslados y tours" : "Transfers and tours";
   return `<div${e.lang === "es" ? ' lang="es"' : ""} style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:560px;margin:0 auto;padding:24px">
 <p style="margin:0 0 20px"><a href="${SITE_URL}/" style="text-decoration:none"><img src="${EMAIL_LOGO_URL}" width="280" height="60" alt="Costa Rica Private Transfers" style="display:block;border:0;outline:none;height:60px;width:280px;max-width:100%;font-size:20px;font-weight:800;color:#022c22"></a></p>${paras}${btn}
 <p style="font-size:12px;color:#64748b;margin-top:28px">Costa Rica Private Transfers · ${tagline}</p></div>`;

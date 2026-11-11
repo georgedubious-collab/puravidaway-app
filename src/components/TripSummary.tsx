@@ -4,12 +4,11 @@ import { CheckCircle2, MessageCircle, Send, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { submitTripRequest } from "@/app/trip/actions";
+import { trackBeginCheckout, trackLead } from "@/lib/analytics";
 import {
   cartTotals,
   cartWhatsAppMessage,
   cashAllowed,
-  itemCashFeeCents,
-  itemPaymentMode,
   whatsAppLink,
   type CartItem,
   type PaymentMode,
@@ -60,9 +59,7 @@ export function TripSummary({ trip }: { trip: TripState }) {
   const t = useT();
   const feeLabel = formatBpsPercent(cashFeeBps);
   const totals = cartTotals(items, mode, cashFeeBps);
-  const hasExpedition = items.some((i) => i.kind === "expedition");
   const anyCashable = items.some((i) => cashAllowed(i.kind));
-  const showPerItemPayment = mode === "cash_driver" && hasExpedition && anyCashable;
   const legs = [...items].sort((a, b) => legKey(a).localeCompare(legKey(b)));
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -124,6 +121,8 @@ export function TripSummary({ trip }: { trip: TripState }) {
         lang,
       });
       if (res.ok) {
+        // Totals and codes only: never the contact details, the references or the trip link.
+        trackLead(items, totals.totalCents, mode);
         trip.onSent(res.refs, res.tripToken);
       } else {
         if ("repriced" in res) trip.onReprice(res.repriced);
@@ -137,8 +136,8 @@ export function TripSummary({ trip }: { trip: TripState }) {
       {legs.length === 0 ? (
         <p className="rounded-xl border-2 border-dashed border-slate-300 p-5 text-center text-sm text-slate-500">
           {t(
-            "Your trip is empty. Add a transfer, a day tour or a multi-day trip and it will show up here.",
-            "Su viaje está vacío. Agregue un traslado, un tour de un día o un viaje de varios días y aparecerá aquí.",
+            "Your trip is empty. Add a transfer or a day tour and it will show up here.",
+            "Su viaje está vacío. Agregue un traslado o un tour de un día y aparecerá aquí.",
           )}
         </p>
       ) : (
@@ -160,16 +159,6 @@ export function TripSummary({ trip }: { trip: TripState }) {
               </div>
               <div className="text-right shrink-0">
                 <p className="text-sm font-extrabold text-emerald-700">{formatUSD(item.totalCents)}</p>
-                {showPerItemPayment && (
-                  <p className="text-xs font-bold text-slate-600">
-                    {itemPaymentMode(item.kind, mode) === "cash_driver"
-                      ? t(
-                          `Cash · +${formatUSD(itemCashFeeCents(item, mode, cashFeeBps))} fee`,
-                          `Efectivo · +${formatUSD(itemCashFeeCents(item, mode, cashFeeBps))} de cargo`,
-                        )
-                      : t("Online", "En línea")}
-                  </p>
-                )}
                 <button
                   type="button"
                   onClick={() => onRemove(item.id)}
@@ -184,7 +173,8 @@ export function TripSummary({ trip }: { trip: TripState }) {
         </ol>
       )}
 
-      <form onSubmit={send} noValidate className="space-y-3">
+      {/* Desktop (the trip is always in view): the first field or button used here counts as starting checkout. */}
+      <form onSubmit={send} noValidate onFocus={() => trackBeginCheckout(items, totals.totalCents, mode)} className="space-y-3">
         <fieldset className="space-y-2">
           <legend className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">
             {t("How would you like to pay?", "¿Cómo desea pagar?")}
@@ -227,14 +217,6 @@ export function TripSummary({ trip }: { trip: TripState }) {
               </button>
             );
           })}
-          {hasExpedition && (
-            <p className="text-xs text-slate-600">
-              {t(
-                "Multi-day trips are paid online in full: park permits, boats and lodges are booked and paid in advance.",
-                "Los viajes de varios días se pagan en línea en su totalidad: los permisos de parques, las lanchas y los lodges se reservan y pagan por adelantado.",
-              )}
-            </p>
-          )}
         </fieldset>
         <div className="space-y-1 text-sm text-slate-600">
           <div className="flex items-center justify-between">
@@ -429,13 +411,11 @@ function Sent({
 const KIND_LABEL: Record<CartItem["kind"], string> = {
   transfer: "Transfer",
   day_tour: "Day tour",
-  expedition: "Multi-day trip",
 };
 
 const KIND_LABEL_ES: Record<CartItem["kind"], string> = {
   transfer: "Traslado",
   day_tour: "Tour de un día",
-  expedition: "Viaje de varios días",
 };
 
 /** Date order, then pickup time for rides on the same day. */

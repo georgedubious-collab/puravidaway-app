@@ -12,6 +12,7 @@ import {
   type TripContact,
 } from "@/lib/bookings";
 import { LiveRefresh } from "@/components/LiveRefresh";
+import { bookedItemName } from "@/lib/catalog";
 import { getCatalog } from "@/lib/catalogSource";
 import { formatScheduledAt } from "@/lib/dates";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -34,7 +35,7 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
   const itemName = (b: BookingRow) =>
     b.service_type === "transfer"
       ? `${b.origin} → ${b.destination}`
-      : ([...catalog.dayTours, ...catalog.expeditions].find((x) => x.id === b.catalog_item_id)?.name ?? b.catalog_item_id);
+      : (bookedItemName(catalog.dayTours, b.catalog_item_id, lang) ?? b.catalog_item_id);
   if (error)
     return (
       <p className="font-semibold text-red-700">

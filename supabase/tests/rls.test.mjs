@@ -1186,6 +1186,55 @@ await expectRows("drivers' functions never return the night premium (it is part 
   eq("not asked: no warning either way", prefMismatches(old, fluent, plain, "es"), []);
 }
 
+// --- Multi-day trips retired (migration 0043) ---------------------------------------------------
+// The rows stay (old bookings point at them) but are inactive and readable by admins only.
+await expectRows("every multi-day trip is inactive", "admin", "select * from public.expeditions where active", 0);
+await expectRows("every lodging tier is inactive", "admin", "select * from public.lodging_tiers where active", 0);
+await expectRows("multi-day trips are kept (not deleted)", "admin", "select * from public.expeditions", 2);
+await expectRows("lodging tiers are kept (not deleted)", "admin", "select * from public.lodging_tiers", 3);
+for (const who of ["anon", "client", "driver"]) {
+  await expectRows(`${who} cannot read multi-day trips`, who, "select * from public.expeditions", 0);
+  await expectRows(`${who} cannot read lodging tiers`, who, "select * from public.lodging_tiers", 0);
+}
+await expectOk("admin switches a multi-day trip back on (by mistake)", "admin", "update public.expeditions set active = true where id = 'md1'");
+await expectRows("…visitors still cannot read it", "anon", "select * from public.expeditions", 0);
+await expectRows("…travellers still cannot read it", "client", "select * from public.expeditions", 0);
+await expectOk("admin switches it off again", "admin", "update public.expeditions set active = false where id = 'md1'");
+await expectBlocked("visitor cannot switch a multi-day trip on", "anon", "update public.expeditions set active = true", { affected: 0 });
+// A multi-day booking made before 2026-11-11 still reads as before.
+await expectOk("server stores an earlier multi-day booking", "server", `
+  insert into public.bookings (id, client_id, service_type, catalog_item_id, lodging_tier, total_price, status) values
+    ('10000000-0000-0000-0000-0000000000e1', '${U.client2}', 'expedition', 'md1', 'base', 695, 'confirmed')`);
+await expectRows("admin still reads the earlier multi-day booking", "admin",
+  "select * from public.bookings where id = '10000000-0000-0000-0000-0000000000e1' and service_type = 'expedition' and catalog_item_id = 'md1' and lodging_tier = 'base'", 1);
+await expectRows("its traveller still reads it", "client2", "select * from public.bookings where id = '10000000-0000-0000-0000-0000000000e1'", 1);
+await expectRows("another traveller does not", "client", "select * from public.bookings where id = '10000000-0000-0000-0000-0000000000e1'", 0);
+await expectOk("server removes the test booking", "server", "delete from public.bookings where id = '10000000-0000-0000-0000-0000000000e1'");
+{
+  // New multi-day requests are refused on the server, with a clear message in both languages.
+  const { isRetiredExpeditionSpec, parseSpec, RETIRED_EXPEDITION_ERROR } = await import("../../src/lib/tripRequest.ts");
+  const { localizeServerMessage } = await import("../../src/lib/serverMessagesEs.ts");
+  const { parseStoredCart } = await import("../../src/lib/cart.ts");
+  const { bookedItemName } = await import("../../src/lib/catalog.ts");
+  const { BUILT_IN_CATALOG } = await import("../../src/lib/catalogModel.ts");
+  const eq = (name, got, want) => {
+    if (JSON.stringify(got) === JSON.stringify(want)) passed++;
+    else failures.push(`${name}: expected ${JSON.stringify(want)}, got ${JSON.stringify(got)}`);
+  };
+  const oldItem = { kind: "expedition", expeditionId: "md1", tierId: "base" };
+  eq("a multi-day item from an older page is recognised", isRetiredExpeditionSpec(oldItem), true);
+  eq("a ride is not", isRetiredExpeditionSpec({ kind: "transfer" }), false);
+  eq("a multi-day item can no longer be parsed (never priced or saved)", parseSpec(oldItem), null);
+  eq("refusal message, English", /no longer offered/.test(RETIRED_EXPEDITION_ERROR), true);
+  eq("refusal message, Spanish", localizeServerMessage(RETIRED_EXPEDITION_ERROR, "es").startsWith("Ya no ofrecemos viajes de varios días"), true);
+  eq("a multi-day item saved in a browser's trip is dropped on load",
+    parseStoredCart(JSON.stringify([{ kind: "expedition", id: "x", title: "t", detail: "d", date: "2027-01-10", totalCents: 100, spec: oldItem }])), []);
+  eq("the public catalog has no multi-day trips", "expeditions" in BUILT_IN_CATALOG || "lodgingTiers" in BUILT_IN_CATALOG, false);
+  eq("an earlier multi-day booking still shows its name (English)", bookedItemName([], "md1"), "Corcovado National Park — Overnight at Sirena Station (via Sierpe)");
+  eq("…and in Spanish", bookedItemName([], "md1", "es"), "Parque Nacional Corcovado — noche en la Estación Sirena (vía Sierpe)");
+  eq("a day tour name still wins", bookedItemName([{ id: "dt1", name: "Tour" }], "dt1"), "Tour");
+}
+
 // --- Report -----------------------------------------------------------------------------------
 console.log(`${passed} checks passed, ${failures.length} failed`);
 for (const f of failures) console.log("  ✗ " + f);

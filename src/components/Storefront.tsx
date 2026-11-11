@@ -17,12 +17,12 @@ import {
   parseStoredCart,
   type PaymentMode,
 } from "@/lib/cart";
+import { trackAddToCart, trackBeginCheckout } from "@/lib/analytics";
 import { addDays } from "@/lib/dates";
 import { formatUSD } from "@/lib/pricing";
 import { parseRideLink } from "@/lib/shareLink";
 import { CartDrawer } from "./CartDrawer";
 import { DayToursView } from "./DayToursView";
-import { ExpeditionsView } from "./ExpeditionsView";
 import { SiteHeader } from "./site/SiteHeader";
 import { Toast, useToast } from "./Toast";
 import { TransfersView } from "./TransfersView";
@@ -33,14 +33,18 @@ import { UpsellSuggestion, type Suggestion } from "./UpsellSuggestion";
 const STORAGE_KEY = "pvw-cart-v1";
 const MODE_KEY = "pvw-pay-mode";
 
-/** ?tab= values used by the site menu (src/lib/siteNav.ts). */
-const TAB_PARAM: Record<string, Builder> = { transfers: "transfers", tours: "daytours", multiday: "multiday" };
+/**
+ * ?tab= values used by the site menu (src/lib/siteNav.ts). Multi-day trips were retired on
+ * 2026-11-11; an old ?tab=multiday link is redirected to ?tab=tours (next.config.ts), and lands
+ * on the day tours here too if it ever gets through.
+ */
+const TAB_PARAM: Record<string, Builder> = { transfers: "transfers", tours: "daytours", multiday: "daytours" };
 
 /**
  * The booking app. Desktop (xl+): the trip sits in a sidebar next to the builder,
  * always visible. Smaller screens: a bottom bar opens the same trip in a drawer
  * (while the trip is empty, the ride builder pins its own "Add to trip" bar there).
- * The three builders (Transfers / Day tours / Multi-day trips) are switched from
+ * The two builders (Transfers / Day tours) are switched from
  * the header menu on wide screens and from tabs in the hero form on phones.
  * Route pages link here with ?from=SJO&to=ManuelAntonio to pre-fill a ride; the
  * ride builder keeps the full ride in the address (src/lib/shareLink.ts) so it can be shared.
@@ -71,7 +75,7 @@ export function Storefront({
   const rideInit = parseRideLink(params, catalog, today);
   // "While you're there" suggestion after a ride is added (dismissible).
   const [upsell, setUpsell] = useState<{ destination: HubId; date: string } | null>(null);
-  // The tour / expedition picked from a suggestion, highlighted in its tab.
+  // The tour picked from a suggestion, highlighted in its tab.
   const [focus, setFocus] = useState<{ suggestion: Suggestion; date: string; n: number } | null>(null);
 
   const tabParam = params.get("tab");
@@ -127,6 +131,7 @@ export function Storefront({
 
   function addItem(item: CartItem) {
     setItems((prev) => [...prev, item]);
+    trackAddToCart(item);
     toast.show(t("Added to your trip", "Agregado a su viaje"));
     if (item.spec?.kind === "transfer") {
       setUpsell({ destination: item.spec.destination, date: item.date ? addDays(item.date, 1) : addDays(today, 15) });
@@ -137,12 +142,17 @@ export function Storefront({
   function pickSuggestion(s: Suggestion) {
     if (!upsell) return;
     setFocus((prev) => ({ suggestion: s, date: upsell.date, n: (prev?.n ?? 0) + 1 }));
-    setBuilder(s.kind === "day_tour" ? "daytours" : "multiday");
+    setBuilder("daytours");
     setUpsell(null);
   }
   const removeItem = (id: string) => setItems((prev) => prev.filter((i) => i.id !== id));
   const total = cartTotals(items, mode, catalog.cashFeeBps).totalCents;
   const tabs: BuilderTabs = { current: builder, onChange: setBuilder };
+  // Phones and tablets: opening the trip is the step where the traveller reviews it and adds their details.
+  function openCart() {
+    setCartOpen(true);
+    trackBeginCheckout(items, total, mode);
+  }
   const trip: TripState = {
     items,
     onRemove: removeItem,
@@ -173,7 +183,7 @@ export function Storefront({
           // The trip button only shows below xl, where the trip sidebar is hidden.
           <button
             type="button"
-            onClick={() => setCartOpen(true)}
+            onClick={openCart}
             aria-label={t(
               `Open your trip, ${items.length} item${items.length === 1 ? "" : "s"}`,
               `Abrir su viaje, ${items.length} elemento${items.length === 1 ? "" : "s"}`,
@@ -243,15 +253,6 @@ export function Storefront({
                 : {})}
             />
           )}
-          {builder === "multiday" && (
-            <ExpeditionsView
-              key={focus?.suggestion.kind === "expedition" ? `focus-${focus.n}` : "expeditions"}
-              today={today}
-              onAdd={addItem}
-              tabs={tabs}
-              {...(focus?.suggestion.kind === "expedition" ? { initialDate: focus.date, highlightId: focus.suggestion.id } : {})}
-            />
-          )}
         </main>
       </div>
 
@@ -260,7 +261,7 @@ export function Storefront({
       <div className={items.length ? "pb-20 xl:pb-0" : builder === "transfers" ? "pb-20 lg:pb-0" : ""}>{footer}</div>
 
       {items.length > 0 && (
-        <div className="xl:hidden fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 backdrop-blur px-4 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))]">
+        <div data-bottom-bar="xl" className="xl:hidden fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 backdrop-blur px-4 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))]">
           <div className="max-w-3xl mx-auto flex items-center justify-between gap-3">
             <div>
               <p className="text-xs font-semibold text-slate-600">
@@ -273,7 +274,7 @@ export function Storefront({
             </div>
             <button
               type="button"
-              onClick={() => setCartOpen(true)}
+              onClick={openCart}
               className="min-h-12 px-5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold"
             >
               {t("Review & book", "Revisar y reservar")}

@@ -18,24 +18,24 @@ export async function GET() {
   const u = (p: string) => `${SITE_URL}${p}`;
   const text = `# ${SITE_NAME}
 
-> Private door-to-door transfers, 1-day private tours and multi-day trips across Costa Rica, with vetted independent local drivers. Fixed price per vehicle before booking, or "driver bids" where the traveller names an offer. Support by WhatsApp and email (${CONTACT_EMAIL}). English and Spanish.
+> Private door-to-door transfers and 1-day private tours across Costa Rica, with vetted independent local drivers. Fixed price per vehicle before booking, or "driver bids" where the traveller names an offer. Support by WhatsApp and email (${CONTACT_EMAIL}). English and Spanish.
 
 Key facts:
 - Prices are per vehicle in USD, confirmed before payment; season and ferry fares are included in the shown price.
 - Every ride: 60 minutes free waiting; flight tracking on airport pickups, where the driver waits at arrivals holding a sign with the traveller's name (or the text they choose); child seats free on request; free cancellation up to 24 hours before pickup on rides and 1-day tours.
 - ${night}
-- Payment: online in full (secure link sent after the team confirms), or cash to the driver on rides and 1-day tours plus a cash booking fee. Multi-day trips are paid online in full.
+- Payment: online in full (secure link sent after the team confirms), or cash to the driver on rides and 1-day tours plus a cash booking fee.
 - Drivers are interviewed and checked (criminal and driving records, licence, INS commercial insurance, Dekra/RTV inspection, Marchamo). An ICT tourism permit is shown as a badge on the profile of drivers who hold one.
 - Drive times are realistic for Costa Rica's mountain roads. Santa Teresa / Southern Nicoya rides use the Paquera ferry (fares included); Drake Bay is reached by river boat from Sierpe.
 
 ## Main pages
-- [Book a ride, tour or multi-day trip](${u("/")}): trip builder with prices
+- [Book a ride or day tour](${u("/")}): trip builder with prices
 - [About us](${u("/about")}): who we are and what we offer
 - [How it works](${u("/how-it-works")}): booking steps, payment and what happens on the day
 - [Our drivers & safety](${u("/our-drivers")}): how drivers are vetted, ratings and location sharing
 - [Help & FAQ](${u("/faq")}): answers about booking, prices, waiting time, vehicles, cancellation, ferries and boats
 - [Contact](${u("/contact")}): WhatsApp, email and contact form
-- [Cancellation policy](${u("/cancellation")}): refund rules for rides, tours and multi-day trips
+- [Cancellation policy](${u("/cancellation")}): refund rules for rides and day tours
 
 ## Private transfer routes (each page: drive time, distance, price per vehicle class, other ways to travel, FAQs)
 - [All routes with drive times and prices](${u(TRANSFERS_PATH)})
@@ -54,7 +54,7 @@ ${AIRPORT_GUIDES.map((g) => `- [${g.title.en}](${u(airportPath(g))}): ${g.metaDe
 ${ARTICLES.map((a) => `- [${a.title.en}](${u(articlePath(a))}): ${a.metaDescription.en}`).join("\n")}
 
 ## Spanish (every page above has a Spanish version under /es)
-- [Reservar un traslado, tour o viaje de varios días](${u("/es")}): planificador de viajes con precios
+- [Reservar un traslado o tour de un día](${u("/es")}): planificador de viajes con precios
 - [Quiénes somos](${u("/es/nosotros")})
 - [Cómo funciona](${u("/es/como-funciona")})
 - [Nuestros conductores](${u("/es/nuestros-conductores")})

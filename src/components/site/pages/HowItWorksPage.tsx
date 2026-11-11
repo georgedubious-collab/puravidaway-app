@@ -30,7 +30,7 @@ export function HowItWorksPage({ lang, cashFeeBps }: { lang: PublicLang; cashFee
     [
       {
         title: "Plan your trip",
-        text: "Type your pickup and drop-off (airport, hotel, address or town), the date, time and travellers. Add sightseeing stops on the way, a 1-day tour or a multi-day trip, all in one trip.",
+        text: "Type your pickup and drop-off (airport, hotel, address or town), the date, time and travellers. Add sightseeing stops on the way and 1-day tours, all in one trip.",
       },
       {
         title: "Fixed price or driver bids",
@@ -38,7 +38,7 @@ export function HowItWorksPage({ lang, cashFeeBps }: { lang: PublicLang; cashFee
       },
       {
         title: "Send your request and choose how to pay",
-        text: `Send your name, email and WhatsApp number; you get your private trip page by email. Pay online in full (we send a secure payment link once our team confirms the trip), or pay your driver in cash on rides and 1-day tours, plus a ${fee} cash booking fee shown in your total. Multi-day trips are paid online in full.`,
+        text: `Send your name, email and WhatsApp number; you get your private trip page by email. Pay online in full (we send a secure payment link once our team confirms the trip), or pay your driver in cash on rides and 1-day tours, plus a ${fee} cash booking fee shown in your total.`,
       },
       {
         title: "Meet your driver before the trip",
@@ -56,7 +56,7 @@ export function HowItWorksPage({ lang, cashFeeBps }: { lang: PublicLang; cashFee
     [
       {
         title: "Planee su viaje",
-        text: "Escriba el punto de recogida y de destino (aeropuerto, hotel, dirección o pueblo), la fecha, la hora y los viajeros. Agregue paradas turísticas en el camino, un tour de un día o un viaje de varios días, todo en un mismo viaje.",
+        text: "Escriba el punto de recogida y de destino (aeropuerto, hotel, dirección o pueblo), la fecha, la hora y los viajeros. Agregue paradas turísticas en el camino y tours de un día, todo en un mismo viaje.",
       },
       {
         title: "Precio fijo u ofertas de conductores",
@@ -64,7 +64,7 @@ export function HowItWorksPage({ lang, cashFeeBps }: { lang: PublicLang; cashFee
       },
       {
         title: "Envíe su solicitud y elija cómo pagar",
-        text: `Envíe su nombre, correo y número de WhatsApp; recibirá por correo la página privada de su viaje. Pague en línea completo (le enviamos un enlace de pago seguro cuando nuestro equipo confirma el viaje), o pague al conductor en efectivo en traslados y tours de un día, más un cargo por reserva en efectivo del ${fee} que se muestra en su total. Los viajes de varios días se pagan en línea completos.`,
+        text: `Envíe su nombre, correo y número de WhatsApp; recibirá por correo la página privada de su viaje. Pague en línea completo (le enviamos un enlace de pago seguro cuando nuestro equipo confirma el viaje), o pague al conductor en efectivo en traslados y tours de un día, más un cargo por reserva en efectivo del ${fee} que se muestra en su total.`,
       },
       {
         title: "Conozca a su conductor antes del viaje",
@@ -145,7 +145,7 @@ export function HowItWorksPage({ lang, cashFeeBps }: { lang: PublicLang; cashFee
           </table>
         </div>
         <p className="mt-4 text-sm text-slate-600">
-          {t(lang, "Full rules, including multi-day trips:", "Reglas completas, incluidos los viajes de varios días:")}{" "}
+          {t(lang, "Full rules:", "Reglas completas:")}{" "}
           <Link href={localizedHref("/cancellation", lang)} className="font-semibold text-emerald-700 underline">
             {t(lang, "Cancellation policy", "Política de cancelación")}
           </Link>

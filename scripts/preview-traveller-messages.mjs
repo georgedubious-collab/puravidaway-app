@@ -35,15 +35,14 @@ for (const lang of ["en", "es"]) {
   const itemLines = [
     m.requestItemLine(lang, { ref: "CRPT-10492", date: "2026-11-22", time: "09:00", kind: "transfer", what: `${origin} → ${destination}` }),
     m.requestItemLine(lang, { ref: "CRPT-10493", date: "2026-11-24", time: "07:00", kind: "day_tour", what: lang === "es" ? "Tour de ejemplo" : "Sample tour" }),
-    m.requestItemLine(lang, { ref: "CRPT-10494", date: "2026-11-26", time: "06:00", kind: "expedition", what: lang === "es" ? "Expedición de ejemplo" : "Sample expedition" }),
   ];
   const emails = {
-    "Trip request received (cash + expedition online)": m.tripRequestEmail(lang, {
+    "Trip request received (cash to the driver)": m.tripRequestEmail(lang, {
       hasRide: true,
       guestName: "Ana Smith",
-      refs: ["CRPT-10492", "CRPT-10493", "CRPT-10494"],
+      refs: ["CRPT-10492", "CRPT-10493"],
       itemLines,
-      paymentLine: m.requestPaymentLine(lang, { cashCents: 23100, onlineCents: 120000, feeTotalCents: 2100, feePercent: "10%" }),
+      paymentLine: m.requestPaymentLine(lang, { cashCents: 23100, onlineCents: 0, feeTotalCents: 2100, feePercent: "10%" }),
       tripUrl,
     }),
     "Trip request received (online in full)": m.tripRequestEmail(lang, {

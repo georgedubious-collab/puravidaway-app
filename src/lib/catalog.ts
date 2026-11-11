@@ -3,7 +3,8 @@
  *
  * Phase 2a: static TypeScript data so the storefront works end to end.
  * Phase 2b: these move to Supabase tables (sightseeing_stops, vehicle_classes,
- * day_tours, expeditions, lodging_tiers, seasons) and the admin pricing manager.
+ * day_tours, seasons) and the admin pricing manager. (expeditions and lodging_tiers are the
+ * retired multi-day trips: see RETIRED_EXPEDITIONS.)
  *
  * All prices are USD, stored in whole cents to avoid floating-point errors.
  */
@@ -432,7 +433,7 @@ export const AIRPORT_HUBS: readonly HubId[] = ["SJO", "LIR"];
 /**
  * Which tour region a ride's drop-off is in, for "while you're there" suggestions
  * after a ride is added. Hubs without a region (airports, Tamarindo, Puerto Viejo)
- * fall back to the first tours / expeditions in the catalog order.
+ * fall back to the first tours in the catalog order.
  */
 export const HUB_REGION: Partial<Record<HubId, Region>> = {
   Arenal: "Arenal",
@@ -440,12 +441,6 @@ export const HUB_REGION: Partial<Record<HubId, Region>> = {
   Monteverde: "Monteverde",
   Sierpe: "Osa",
   DrakeBay: "Osa",
-};
-
-/** Regions each expedition starts in or passes through (expeditions have no region column). */
-export const EXPEDITION_REGIONS: Record<string, Region[]> = {
-  md1: ["Osa"],
-  md2: ["Arenal", "Monteverde", "ManuelAntonio"],
 };
 
 export const REGION_NAMES: Record<Region, string> = {
@@ -530,73 +525,56 @@ export const DAY_TOURS: DayTour[] = [
   },
 ];
 
-export interface LodgingTier {
+/**
+ * Multi-day trips ("expeditions") were retired on 2026-11-11 (Jorge: transfers and 1-day tours
+ * only). They are no longer sold, priced or shown on the website. This list only lets bookings
+ * made before then still show their name and length (admin, driver and traveller trip pages,
+ * the trip chat). The database rows are kept, inactive (migration 0043).
+ */
+export interface RetiredExpedition {
   id: string;
   name: string;
-  surchargeCents: number;
-  /** Only offered on this expedition; undefined = all expeditions. */
-  expeditionId?: string;
-}
-
-export const LODGING_TIERS: LodgingTier[] = [
-  { id: "base", name: "Base (ranger station / standard)", surchargeCents: 0 },
-  { id: "boutique", name: "4-star boutique eco-resort", surchargeCents: 28000 },
-  { id: "luxury", name: "5-star luxury lodge", surchargeCents: 65000 },
-];
-
-export interface Expedition {
-  id: string;
-  name: string;
+  nameEs: string;
   days: number;
-  nights: number;
-  basePriceCents: number;
-  includes: string[];
-  itinerary: { day: number; title: string }[];
 }
 
-export const EXPEDITIONS: Expedition[] = [
+export const RETIRED_EXPEDITIONS: RetiredExpedition[] = [
   {
     id: "md1",
     name: "Corcovado National Park — Overnight at Sirena Station (via Sierpe)",
+    nameEs: "Parque Nacional Corcovado — noche en la Estación Sirena (vía Sierpe)",
     days: 3,
-    nights: 2,
-    basePriceCents: 69500,
-    includes: [
-      "Sierpe → Drake Bay → Sirena boat transfers",
-      "Official SINAC overnight permits",
-      "Meals at Sirena Ranger Station",
-      "Certified Osa naturalist guide",
-    ],
-    itinerary: [
-      { day: 1, title: "Sierpe mangroves → Drake Bay, sunset on the beach" },
-      { day: 2, title: "Boat to Sirena, full day of trails, overnight in the park" },
-      { day: 3, title: "Dawn wildlife walk, boat back to Sierpe" },
-    ],
   },
   {
     id: "md2",
     name: "Classic Costa Rica Trifecta: Arenal, Monteverde & Manuel Antonio",
+    nameEs: "La trilogía clásica de Costa Rica: Arenal, Monteverde y Manuel Antonio",
     days: 7,
-    nights: 6,
-    basePriceCents: 129000,
-    includes: [
-      "Door-to-door sightseeing transfers",
-      "Lake Arenal boat crossing",
-      "Monteverde hanging bridges",
-      "Manuel Antonio guided tour",
-      "24/7 WhatsApp concierge",
-    ],
-    itinerary: [
-      { day: 1, title: "SJO → La Fortuna with Poás Volcano stop" },
-      { day: 2, title: "Arenal lava trails & hot springs" },
-      { day: 3, title: "Lake Arenal boat crossing → Monteverde" },
-      { day: 4, title: "Hanging bridges, zipline & night walk" },
-      { day: 5, title: "Monteverde → Manuel Antonio with Tárcoles stop" },
-      { day: 6, title: "Manuel Antonio NP wildlife walk & catamaran" },
-      { day: 7, title: "Manuel Antonio → SJO" },
-    ],
   },
 ];
+
+/** Lodging levels of the retired multi-day trips, for old bookings (bookings.lodging_tier). */
+export const RETIRED_LODGING_TIERS: Record<string, { en: string; es: string }> = {
+  base: { en: "Base (ranger station / standard)", es: "Básico (estación de guardaparques / estándar)" },
+  boutique: { en: "4-star boutique eco-resort", es: "Eco-resort boutique de 4 estrellas" },
+  luxury: { en: "5-star luxury lodge", es: "Lodge de lujo de 5 estrellas" },
+};
+
+/**
+ * Name of a booked tour (catalog_item_id): a current day tour, else a retired multi-day trip,
+ * else null. `dayTours` may be the localized list; `lang` picks the retired trip's name.
+ */
+export function bookedItemName(
+  dayTours: { id: string; name: string }[],
+  id: string | null | undefined,
+  lang: "en" | "es" = "en",
+): string | null {
+  if (!id) return null;
+  const tour = dayTours.find((t) => t.id === id);
+  if (tour) return tour.name;
+  const old = RETIRED_EXPEDITIONS.find((e) => e.id === id);
+  return old ? (lang === "es" ? old.nameEs : old.name) : null;
+}
 
 export interface Season {
   id: string;

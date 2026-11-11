@@ -5,16 +5,10 @@
  */
 import { HUBS, stopFitsRoute, type HubId } from "./catalog";
 import { seasonForYmd, type CatalogData } from "./catalogModel";
-import {
-  DEFAULT_EXPEDITION_TIME,
-  DEFAULT_PICKUP_TIME,
-  DEFAULT_TOUR_TIME,
-  isValidPickupTime,
-  isValidYmd,
-} from "./dates";
+import { DEFAULT_PICKUP_TIME, DEFAULT_TOUR_TIME, isValidPickupTime, isValidYmd } from "./dates";
 import { cleanPlaceLabel, isGooglePlaceId, type RideRoute } from "./places";
 import { hasContactDetails, parsePrefs, type RidePrefs } from "./preferences";
-import { quoteDayTour, quoteExpedition, quoteTransfer } from "./pricing";
+import { quoteDayTour, quoteTransfer } from "./pricing";
 import { cleanSignText, signTextProblem } from "./sign";
 
 export const MIN_OFFER_USD = 50;
@@ -77,13 +71,24 @@ export type ItemSpec =
       upgrade: boolean;
       /** Travellers (per-person pricing). Items saved before 2026-11-09 load as 2. */
       pax: number;
-    }
-  | { kind: "expedition"; expeditionId: string; tierId: string };
+    };
 
-/** Start time stored with the booking: the ride's pickup time, or the default for tours / expeditions. */
+/**
+ * Multi-day trips were retired on 2026-11-11 (transfers and 1-day tours only). A page or app
+ * build opened before then can still send one; the server refuses it with this message
+ * (Spanish in src/lib/serverMessagesEs.ts).
+ */
+export const RETIRED_EXPEDITION_ERROR =
+  "Multi-day trips are no longer offered. Please remove that item from your trip; private transfers and 1-day tours are still available.";
+
+/** True for a cart item sent as a multi-day trip ("expedition") by an older page or app. */
+export function isRetiredExpeditionSpec(raw: unknown): boolean {
+  return Boolean(raw && typeof raw === "object" && (raw as Record<string, unknown>).kind === "expedition");
+}
+
+/** Start time stored with the booking: the ride's pickup time, or the default for tours. */
 export function itemTime(spec: ItemSpec): string {
-  if (spec.kind === "transfer") return spec.pickupTime;
-  return spec.kind === "day_tour" ? DEFAULT_TOUR_TIME : DEFAULT_EXPEDITION_TIME;
+  return spec.kind === "transfer" ? spec.pickupTime : DEFAULT_TOUR_TIME;
 }
 
 const HUB_IDS = new Set<string>(HUBS.map((h) => h.id));
@@ -148,10 +153,7 @@ export function parseSpec(raw: unknown): ItemSpec | null {
     if (o.pax !== undefined && (!Number.isInteger(o.pax) || (o.pax as number) < 1 || (o.pax as number) > 60)) return null;
     return { kind: "day_tour", tourId: o.tourId as string, upgrade: o.upgrade, pax: (o.pax as number | undefined) ?? 2 };
   }
-  if (o.kind === "expedition") {
-    if (!str(o.expeditionId) || !str(o.tierId)) return null;
-    return { kind: "expedition", expeditionId: o.expeditionId as string, tierId: o.tierId as string };
-  }
+  // "expedition" (retired multi-day trips) and anything else: not bookable.
   return null;
 }
 
@@ -163,7 +165,7 @@ export interface PricedItem {
   passThroughCents: number;
   /** Entrances, lunch and activities the company pays; deducted before the driver's share. */
   companyCostCents: number;
-  /** Night-pickup premium inside totalCents (0 by day, on tours, expeditions and custom offers). */
+  /** Night-pickup premium inside totalCents (0 by day, on tours and custom offers). */
   nightCents: number;
 }
 
@@ -224,18 +226,8 @@ export function priceItem(spec: ItemSpec, date: string, catalog: CatalogData, ro
     return { totalCents: quote.totalCents, referenceCents: quote.totalCents, passThroughCents: quote.ferryCents, companyCostCents: stopTourCosts, nightCents: quote.nightCents };
   }
 
-  if (spec.kind === "day_tour") {
-    if (!catalog.dayTours.some((t) => t.id === spec.tourId)) throw new Error("That tour is no longer offered.");
-    const total = quoteDayTour(spec.tourId, spec.upgrade, spec.pax, season, catalog);
-    const tour = catalog.dayTours.find((t) => t.id === spec.tourId)!;
-    return { totalCents: total, referenceCents: total, passThroughCents: 0, companyCostCents: tour.costPerPersonCents * spec.pax, nightCents: 0 };
-  }
-
-  if (!catalog.expeditions.some((e) => e.id === spec.expeditionId)) throw new Error("That expedition is no longer offered.");
-  const tier = catalog.lodgingTiers.find((t) => t.id === spec.tierId);
-  if (!tier || (tier.expeditionId && tier.expeditionId !== spec.expeditionId)) {
-    throw new Error("That lodging option is no longer offered.");
-  }
-  const total = quoteExpedition(spec.expeditionId, spec.tierId, season, catalog);
-  return { totalCents: total, referenceCents: total, passThroughCents: 0, companyCostCents: 0, nightCents: 0 };
+  if (!catalog.dayTours.some((t) => t.id === spec.tourId)) throw new Error("That tour is no longer offered.");
+  const total = quoteDayTour(spec.tourId, spec.upgrade, spec.pax, season, catalog);
+  const tour = catalog.dayTours.find((t) => t.id === spec.tourId)!;
+  return { totalCents: total, referenceCents: total, passThroughCents: 0, companyCostCents: tour.costPerPersonCents * spec.pax, nightCents: 0 };
 }

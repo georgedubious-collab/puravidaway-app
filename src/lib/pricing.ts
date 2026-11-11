@@ -12,8 +12,6 @@ import {
   crcToCents,
   DAY_TOURS,
   EN_ROUTE_UPGRADE_CENTS,
-  EXPEDITIONS,
-  LODGING_TIERS,
   RIDE_FORMULA_DEFAULT,
   SEASONS,
   SIGHTSEEING_STOPS,
@@ -36,7 +34,7 @@ export function applyMultiplier(cents: number, multiplierBps: number): number {
   return Math.round((cents * multiplierBps) / 10000);
 }
 
-/** A price rounded to whole dollars ("$590"), for tour and multi-day cards. The trip summary keeps the exact amount. */
+/** A price rounded to whole dollars ("$590"), for tour cards. The trip summary keeps the exact amount. */
 export function formatUSDWhole(cents: number): string {
   return formatUSD(Math.round(cents / 100) * 100);
 }
@@ -240,19 +238,6 @@ export function quoteDayTour(
   const upgradeCents = tour.enRouteUpgradeCents ?? EN_ROUTE_UPGRADE_CENTS;
   const subtotal = dayTourCents(tour, pax) + (enRouteUpgrade ? upgradeCents : 0);
   return applyMultiplier(subtotal, season.multiplierBps);
-}
-
-export function quoteExpedition(
-  expeditionId: string,
-  lodgingTierId: string,
-  season: Season,
-  catalog?: CatalogData,
-): number {
-  const exp = (catalog?.expeditions ?? EXPEDITIONS).find((e) => e.id === expeditionId);
-  if (!exp) throw new Error(`Unknown expedition: ${expeditionId}`);
-  const tier = (catalog?.lodgingTiers ?? LODGING_TIERS).find((t) => t.id === lodgingTierId);
-  if (!tier) throw new Error(`Unknown lodging tier: ${lodgingTierId}`);
-  return applyMultiplier(exp.basePriceCents + tier.surchargeCents, season.multiplierBps);
 }
 
 /** Easter Sunday (Gregorian) for a given year — anonymous algorithm. */

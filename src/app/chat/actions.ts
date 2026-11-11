@@ -3,8 +3,7 @@
 import { after } from "next/server";
 import { getCurrentProfile } from "@/lib/auth";
 import { TRIP_TOKEN } from "@/lib/bookings";
-import { WHATSAPP_NUMBER } from "@/lib/catalog";
-import { getCatalog } from "@/lib/catalogSource";
+import { RETIRED_EXPEDITIONS, WHATSAPP_NUMBER } from "@/lib/catalog";
 import { chatClosesAt, type ChatParty } from "@/lib/chatRules";
 import { displayHidden, hiddenNotice, hideContactDetails } from "@/lib/contactFilter";
 import { ADMIN_EMAIL, SITE_URL, sendEmail } from "@/lib/email";
@@ -126,8 +125,9 @@ async function writable(ctx: Ctx): Promise<{ open: boolean; note?: string }> {
   if (b.status === "cancelled") {
     return { open: false, note: tr(ctx.lang, "This booking was cancelled. Contact our team if you need help.", "Esta reserva fue cancelada. Contacte a nuestro equipo si necesita ayuda.") };
   }
+  // Multi-day trips were retired on 2026-11-11; a booking made before then keeps its length.
   const days =
-    b.service_type === "expedition" ? ((await getCatalog()).expeditions.find((x) => x.id === b.catalog_item_id)?.days ?? 1) : undefined;
+    b.service_type === "expedition" ? (RETIRED_EXPEDITIONS.find((x) => x.id === b.catalog_item_id)?.days ?? 1) : undefined;
   const closes = chatClosesAt({ scheduledAt: b.scheduled_at, completedAt: b.completed_at, serviceType: b.service_type, expeditionDays: days });
   if (closes && Date.now() > closes.getTime()) {
     return {

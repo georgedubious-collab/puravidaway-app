@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { requireUser } from "@/lib/auth";
 import { bookingStatusLabel, serviceLabel, usd, type DriverTrip } from "@/lib/bookings";
+import { bookedItemName } from "@/lib/catalog";
 import { getCatalog } from "@/lib/catalogSource";
 import { formatScheduledAt } from "@/lib/dates";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -52,7 +53,7 @@ async function Trips() {
   const name = (b: DriverTrip) =>
     b.service_type === "transfer"
       ? `${b.origin} → ${b.destination}`
-      : ([...catalog.dayTours, ...catalog.expeditions].find((x) => x.id === b.catalog_item_id)?.name ?? t("Viaje", "Trip"));
+      : (bookedItemName(catalog.dayTours, b.catalog_item_id, lang) ?? t("Viaje", "Trip"));
 
   return (
     <div className="space-y-4">

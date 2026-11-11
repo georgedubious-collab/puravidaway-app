@@ -20,7 +20,7 @@
 
 ## 1. What Costa Rica Private Transfers is
 
-An all-in-one Costa Rica travel platform that combines four
+An all-in-one Costa Rica travel platform that combines three
 revenue engines in one booking flow and one cart:
 
 1. **Daytrip-style sightseeing transfers.** Private point-to-point transfers where travelers add
@@ -30,8 +30,12 @@ revenue engines in one booking flow and one cart:
    Bids**: they name an offer in USD and compare bids from verified local drivers.
 3. **1-day private eco-tours** with an optional **Smart En-Route Transfer (+$65)** that turns a
    day tour into a city-to-city hotel transfer.
-4. **Signature multi-day expeditions** (Corcovado / Osa, Classic Trifecta) with selectable lodging
-   tiers, SINAC permits, Sierpe boat logistics and certified naturalist guides.
+
+**Scope (Jorge, 2026-11-11): private transfers and 1-day tours only.** Multi-day trips
+("expeditions") were retired: no longer shown, priced or bookable on the website or in the apps.
+The `expeditions` / `lodging_tiers` tables and any earlier booking stay as a record (migration
+0043 switches the rows off and makes them admin-only). Customer-facing text never points to
+another project or brand for multi-day travel (§10).
 
 Target market: travelers from the US, Canada and Europe. Sales are high-touch, with WhatsApp as
 the primary conversation channel.
@@ -68,11 +72,13 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
 - `src/lib/cart.ts` — Trip Cart model, payment options (online in full / cash to the driver +
   cash booking fee, `cartTotals()`), WhatsApp deep-link builder.
 - `src/components/` — storefront UI: `site/SiteHeader`, `site/SiteFooter`, `TransfersView`, `DayToursView`,
-  `ExpeditionsView`, `CartDrawer`, `Toast`, `Storefront` (state + localStorage cart).
+  `CartDrawer`, `Toast`, `Storefront` (state + localStorage cart).
 - Legal pages (2026-11-08, **draft pending review by a Costa Rican lawyer**): `/terms`,
   `/privacy`, `/cancellation`, sharing `src/components/legal/LegalPage.tsx`. The operator's legal
   name, cédula jurídica and address are a placeholder (`LEGAL_ENTITY_PLACEHOLDER`) until filled
   in. The site footer links to all three; the trip request form says sending it accepts them.
+  The Privacy Policy has its own "last updated" date (the `updated` prop) since its cookie and
+  measurement paragraphs were added on 2026-11-11; those are part of the same pending review.
 - `legacy/index.html` — the original static prototype, kept as the **design reference**.
 - Logins: `/login` (email + 6-digit code), `src/proxy.ts` (session refresh on account pages),
   `src/lib/auth.ts` (`requireRole`). `/admin` (dashboard) and `/admin/users` (roles) are live
@@ -134,19 +140,42 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
   link-preview URLs; the preview image is `src/app/opengraph-image.tsx`. Custom 404 and error
   pages (`not-found.tsx`, `error.tsx`, `global-error.tsx`). Vercel Web Analytics
   (`@vercel/analytics`) is in the root layout and must be enabled in the Vercel dashboard.
+- **Marketing measurement behind a cookie banner (2026-11-11, `docs/SEO.md` §7).** Off unless
+  its id is set in Vercel (Production only): `NEXT_PUBLIC_GA_ID` (Google Analytics 4),
+  optional `NEXT_PUBLIC_CLARITY_ID`, and for later ads `NEXT_PUBLIC_GOOGLE_ADS_ID` and
+  `NEXT_PUBLIC_META_PIXEL_ID`; `NEXT_PUBLIC_GSC_VERIFICATION` and
+  `NEXT_PUBLIC_BING_VERIFICATION` add the Search Console / Bing ownership tags to every page.
+  Ids are format-checked in `src/lib/analyticsConfig.ts`; a malformed one is ignored. With at
+  least one tool set, the root layout mounts `src/components/site/ConsentManager.tsx`: a small
+  banner (English / Spanish by page, "Accept" and "Reject" alike, "Choose" for Analytics and
+  Advertising separately, nothing pre-ticked), the choice kept in the browser's local storage
+  (`crpt-consent-v1`) for six months, and a "Cookie settings" link in the footer to change or
+  withdraw it. Google Consent Mode v2 in its basic form: no third-party script is loaded until
+  the visitor accepts, and withdrawing switches the tools off and deletes their first-party
+  cookies. Never a banner or a script on the private paths (`PRIVATE_PATHS` in
+  `src/lib/site.ts`, plus `/account` and `/chat`); arriving on one with tools running reloads
+  the page clean, and trip links are never sent, not even as the referrer. Events go through
+  one browser-only helper, `src/lib/analytics.ts` (`page_view`, `view_item`, `select_item`,
+  `add_to_cart`, `begin_checkout`, `generate_lead`, `click`); every call does nothing without
+  consent or an id, and carries only town codes, vehicle class ids, prices and page addresses
+  without their query string. No `purchase` event yet: the website takes no payment and the
+  test checkout is app-only and server-side. Server code must not import `analytics.ts`
+  (`client-only`). The Privacy Policy's cookie paragraphs
+  (`src/components/legal/MeasurementText.tsx`, both languages) appear only for the tools that
+  are switched on, so with nothing set the page still says no tracking cookies are used. The
+  site sets no Content-Security-Policy header, so none was changed.
 - Rendered per request (`connection()` in `page.tsx`): full HTML for search engines; "today" is
   computed server-side in `America/Costa_Rica`.
 - Ride builder (2026-11-08): pickup time picker (Costa Rica time, **any hour of the day** in 15 min
   on the website and every half hour in the app since 2026-11-11, it was 04:00–22:00; default
   9:00; night hours are marked "+20%" and cost the night premium, §6.6) saved in
-  `bookings.scheduled_at` (UTC−6); day tours default to 7:00 and expeditions to
-  6:00 until confirmed. Dates and times are shown in Costa Rica time everywhere
+  `bookings.scheduled_at` (UTC−6); day tours default to 7:00 until confirmed. Dates and times are shown in Costa Rica time everywhere
   (`formatScheduledAt()` in `src/lib/dates.ts`). Vehicle and stop cards show season-adjusted
   prices for the chosen date.
 - Competitor gaps (2026-11-08): per car + "from $X per person (N travellers)" on vehicle cards and
   route pages; "Every ride includes" list (`RIDE_PROMISES`, `src/lib/trust.ts`); stop cards show
   the entrance: free stop / included / paid at the gate (`entrance`, migration 0014); after a ride is added, an inline
-  suggestion of 1–2 tours / expeditions in the drop-off region; the ride builder's choices are
+  suggestion of 1–2 day tours in the drop-off region; the ride builder's choices are
   kept in the address so rides can be shared (`src/lib/shareLink.ts`).
 - Seasons: peak = Dec 20–Jan 5 + Semana Santa (Palm Sunday → Easter); high = Dec–Apr; else green.
   Live from the `seasons` / `season_ranges` tables (edited at `/admin/pricing`); the same rule is
@@ -181,7 +210,7 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
   prefix) is the one place read by the language switch, hreflang links and the sitemap. The
   storefront gets its language from `PublicLangProvider` / `useT()`
   (`src/components/PublicLangContext.tsx`); texts are written side by side as `t("English",
-  "Español")`. Catalog names from the database (vehicles, stops, tours, expeditions, lodging,
+  "Español")`. Catalog names from the database (vehicles, stops, tours,
   seasons) plus towns, regions and entrance labels are translated in code by item id in
   `src/lib/catalogEs.ts` (`localizeCatalog()`): only the seeded items, and only while their
   database text is still the original English, so anything added or reworded in `/admin/pricing`
@@ -219,7 +248,7 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
   priced with the vehicle option that includes the river boat; rides to Sierpe end at the dock.
   Each guide: dated direct answer, drive-time and price table linking to route pages or the
   pre-filled trip builder, stops on the way, other ways to travel (no timetables or fares), best
-  time to go, things to do with the day tours and multi-day trips of that region, where to stay
+  time to go, things to do with the day tours of that region, where to stay
   by area (no hotel names, no affiliate links), FAQs and a booking button. Airport guides show
   `RIDE_PROMISES` word for word and describe the pickup as confirmed: the driver meets the
   traveller at arrivals holding a sign with their name, and the traveller chooses what it says
@@ -251,13 +280,14 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
   FAQPage, BreadcrumbList; the index is a Blog. Transfers and single-day tours only: no multi-day
   content. Re-check facts and bump each article's `updated` about twice a year.
 - **Site shell (2026-11-09):** every public page (home, `/transfers/*`, legal and info pages; not
-  `/admin`, `/driver`, `/trip`, `/login`) shares `SiteHeader` (menu Transfers / Day tours / Multi-day trips /
+  `/admin`, `/driver`, `/trip`, `/login`) shares `SiteHeader` (menu Transfers / Day tours / Destinations / Travel guides /
   Help from `src/lib/siteNav.ts`, WhatsApp, a flag language button always visible in the bar, phones
   included — Costa Rica flag + "ES" on English pages, US flag + "EN" on Spanish pages, like the
   customer app; it opens the same page in the other language and keeps the query string
   (`src/components/site/LangSwitch.tsx`) — and a phone menu) and `SiteFooter` (Company, Partners, Popular routes,
-  Support, Legal, social icons, the TravelAgency structured data). The menu's Transfers / Day tours /
-  Multi-day trips open the booking app on that tab (`/?tab=transfers|tours|multiday`, `/es?tab=…` in Spanish). Destinations
+  Support, Legal, social icons, the TravelAgency structured data). The menu's Transfers / Day tours
+  open the booking app on that tab (`/?tab=transfers|tours`, `/es?tab=…` in Spanish); the retired
+  `?tab=multiday` redirects (308) to `?tab=tours` (`next.config.ts`). Destinations
   (since 2026-11-11) opens the guides index; Travel guides (since 2026-11-11) opens the blog index `/guides`. Info pages (EN · ES):
   `/about` · `/es/nosotros`, `/how-it-works` · `/es/como-funciona`, `/our-drivers` ·
   `/es/nuestros-conductores`, `/faq` · `/es/preguntas-frecuentes` (FAQ content in `src/lib/faq.ts`,
@@ -278,8 +308,8 @@ on the trip builder; the trip is a persistent sidebar on desktop and a bottom ba
 phones.
 First screen and builder (2026-11-10, design review): a hero photo under a dark-green overlay with
 the H1 "Private transfers across Costa Rica", one line ("Fixed price per car. Free cancellation up
-to 24 h. Add sightseeing stops on the way.") and a compact form card: tabs Transfers / Day tours /
-Multi-day trips (phones only; on wide screens the header menu does this), From, To, Date + Pickup
+to 24 h. Add sightseeing stops on the way.") and a compact form card: tabs Transfers / Day tours
+(phones only; on wide screens the header menu does this), From, To, Date + Pickup
 time, Travellers and one amber "See prices" button that scrolls to the vehicles; the pre-filled
 SJO → Manuel Antonio route is labelled "Example route — change it to yours" (`src/components/BuilderHero.tsx`).
 Under it a trust strip of four true claims (`trustStrip()` in `src/lib/trust.ts`). The ride
@@ -290,11 +320,10 @@ get a pinned bar "route · vehicle · $price · Add to trip"; once something is 
 "Your trip · N items · $ · Review & book" bar. Below the builder: Popular routes (the route pages,
 with green-season "from" prices from `src/lib/routePrices.ts`), How it works in three steps, the
 road and wildlife photos, and a four-question FAQ teaser. Customer-facing names everywhere:
-Transfers / Day tours / Multi-day trips (Traslados / Tours de un día / Viajes de varios días).
+Transfers / Day tours (Traslados / Tours de un día).
 Catalog wording that isn't a confirmed fact is replaced at display time (`CLAIM_REPLACEMENTS` in
 `src/lib/catalogEs.ts`): the old badge "Most popular" on the 4-traveller class shows as "Roomy for 4 + bags"
-(since migration 0038 that is also the stored badge) and the
-multi-day item "24/7 WhatsApp concierge" as "WhatsApp support"; the database rows should be edited
+(since migration 0038 that is also the stored badge); the database row should be edited
 in /admin/pricing. Marketing lives on separate route/tour landing pages (`/transfers/[slug]`) that rank on
 Google and pre-fill the builder via `?from=<hub>&to=<hub>`. Shareable ride links (2026-11-08) add
 `&date=YYYY-MM-DD&time=HH:MM&pax=N&vehicle=<id>&stops=<id>,<id>`, all checked against the catalog
@@ -316,15 +345,17 @@ Legal pages (`/terms`, `/privacy`, `/cancellation`) are linked from every footer
    never a block, when the large suitcases exceed the number the chosen vehicle lists, `luggageCapacity()` in
    `src/lib/bags.ts`;
    website Extras step and the app's "When & who" step; shown to the driver), price breakdown. After a ride is added, an inline, dismissible suggestion of 1–2 day
-   tours / expeditions in the drop-off region (Welcome Pickups-style).
+   tours in the drop-off region (Welcome Pickups-style).
 2. **1-Day Private Tours** — region filter, Smart En-Route Transfer upgrade (+$65).
-3. **Multi-Day Expeditions** — lodging tier selector, day-by-day itinerary.
-4. **Trip Cart & checkout** — combines transfers, stops, day tours and expeditions. Payment choice
+3. ~~Multi-Day Expeditions~~ — **retired 2026-11-11** (Jorge: transfers and 1-day tours only).
+   An expedition item sent by an older page or app is refused with a clear message (EN/ES,
+   `RETIRED_EXPEDITION_ERROR` in `src/lib/tripRequest.ts`); one left in a browser's saved trip is
+   dropped on load. Earlier bookings still show their name (`RETIRED_EXPEDITIONS`,
+   `bookedItemName()` in `src/lib/catalog.ts`).
+4. **Trip Cart & checkout** — combines transfers, stops and day tours. Payment choice
    (decided 2026-11-08, built): **pay online in full** (we send a secure Green Pay link once the
    team confirms the trip; online payment isn't live yet, so the site never says "pay now"), or
-   **pay the driver in cash + a 10% cash booking fee** (rides and 1-day tours only). Expeditions
-   are **online in full only** (SINAC permits, boats and lodges are prepaid); in a mixed cart the
-   rides/tours are cash and the expedition is online, labelled per item. The trip summary shows
+   **pay the driver in cash + a 10% cash booking fee** (rides and 1-day tours). The trip summary shows
    "Cash booking fee (10%) +$X" and the cash vs online amounts. The 20% deposit is retired.
 5. **WhatsApp support** — context-aware buttons (`route`, `cart`, `general`) that pre-fill the
    route or cart contents into a WhatsApp message to the Costa Rica Private Transfers team.
@@ -365,8 +396,8 @@ Bookings, payment status and balance due, trip chat (Phase 4).
   see) have contact details hidden on every write (trigger `bookings_guard_notes`, migration 0034), the original kept for admins.
 - **One chat per booking** between the traveller and the currently assigned driver; our team reads
   every thread and can write. Before a driver is assigned the traveller can already write (our team
-  answers). Open until **48 hours after the trip ends** (`completed_at`, or the pickup + 12 h, or +
-  the expedition's days, `src/lib/chatRules.ts`), then read-only for travellers and drivers; closed
+  answers). Open until **48 hours after the trip ends** (`completed_at`, or the pickup + 12 h, or, on a
+  multi-day booking made before they were retired, + its days, `src/lib/chatRules.ts`), then read-only for travellers and drivers; closed
   at once if the booking is cancelled. Text only.
 - Shown in three places: the customer app (trip → Chat), the private trip page `/trip/<code>` (in
   the trip's language) and the driver app / driver portal trip page. New messages are checked every
@@ -414,7 +445,7 @@ The traveller chooses what it says.
   and the "Don't show my name" tick. **After booking** they can change it on the private trip page
   and in the app's trip screen **until the driver taps "I'm on my way"**; after that it is
   read-only (`saveSign()` in `src/app/trip/[token]/actions.ts`, `POST /api/v1/client/sign`). Rides
-  only: day tours and expeditions have no sign field (their drivers see the short name).
+  only: day tours have no sign field (their drivers see the short name).
 - **What the driver sees:** one computed value, `my_trips().sign_text` (the last column, so
   older driver app builds keep working and keep showing the short name), shown large as
   **"Rótulo"** / "Sign" at the top of the travellers section in the driver app and on the driver
@@ -518,7 +549,7 @@ also take the jobs of the categories below them:
 - **Not tagged yet = not filtered by category**, exactly as before categories existed, so no
   driver was locked out when this shipped. The admin page shows "Sin categoría: recibe todos los
   trabajos" (still subject to the seat rule below).
-- **Day tours and expeditions are not filtered by category**: a tour booking has no vehicle class
+- **Day tours are not filtered by category**: a tour booking has no vehicle class
   (`bookings.vehicle_class` is null). They do follow the seat rule.
 - **Seat rule: jobs too big for the driver's vehicles are hidden (Jorge, 2026-11-11, migration
   0039).** A job is on a driver's board only if **one** of their approved vehicles has both the
@@ -585,14 +616,13 @@ company pays; migration 0023) comes off first (`splitPayout()` in `src/lib/payou
 `src/lib/catalog.ts`, `quoteDayTour()`). Upgrade: **Smart En-Route Transfer** (+$65 per group) —
 picked up in one town, dropped at the next hotel.
 
-### 5.5 Multi-day expeditions
-| ID | Package | Base price | Includes |
-| :--- | :--- | :--- | :--- |
-| `md1` | Corcovado NP 3D/2N, overnight at Sirena Station (via Sierpe) | $695 | Sierpe–Drake Bay–Sirena boats, SINAC overnight permits, Sirena meals, certified Osa naturalist guide |
-| `md2` | Classic Trifecta: Arenal, Monteverde & Manuel Antonio (7D/6N) | $1,290 | Door-to-door sightseeing transfers, Lake Arenal boat crossing, hanging bridges, Manuel Antonio guided tour, 24/7 WhatsApp concierge |
-
-Lodging tiers: Base (+$0) · 4-star boutique eco-resort (+$280) · 5-star luxury lodge (+$650).
-Decide whether tier prices are per person or per booking (see §9).
+### 5.5 Multi-day expeditions — retired 2026-11-11
+Jorge (2026-11-11): "Get rid of the multi day tours, just keep it for transfers and single day
+tours." The two packages (`md1` Corcovado 3D/2N, `md2` Classic Trifecta 7D/6N) and the three
+lodging tiers are no longer sold. Migration 0043 sets every `expeditions` and `lodging_tiers` row
+inactive and readable by admins only (nothing is deleted: earlier bookings and payments keep what
+they point to). `/admin/pricing` shows them folded under "Retirado", read-only. Their names stay
+in code only for earlier bookings (`RETIRED_EXPEDITIONS` in `src/lib/catalog.ts`).
 
 ---
 
@@ -651,11 +681,9 @@ Decided by Jorge 2026-11-08 (replaces the 100% / 20% deposit rule):
 - `full_100` — **pay online in full.** Green Pay isn't live yet: the team confirms the trip,
   then sends a secure payment link.
 - `cash_driver` — **pay the driver in cash + a cash booking fee** of 10% of the ride / day-tour
-  price (after the season multiplier, rounded to the cent). Rides and 1-day tours only.
+  price (after the season multiplier, rounded to the cent). Rides and 1-day tours.
   The fee is `pricing_settings.cash_fee_bps` (1000 = 10%, allowed 0–50%), edited at
   `/admin/pricing` → Payment; built-in fallback 10% (`CASH_FEE_BPS_DEFAULT`).
-- **Expeditions: online in full only** (SINAC permits, boats and lodges are prepaid). A mixed
-  cart pays its rides/tours in cash and its expeditions online.
 - The server re-prices every item and the fee from the live catalog before saving; each booking
   stores its own `payment_mode` and `cash_fee`. Owed = `total_price` + `cash_fee`; `amount_paid`
   records what was received.
@@ -693,7 +721,7 @@ Jorge: "24/7 arrivals. Trips that start from 10pm/4am should charge a 20% premiu
 - **What is marked up:** the ride itself (the formula × vehicle × area), after the season.
   **Not marked up:** sightseeing stops (the driver's waiting time and the guided visit /
   entrance part), ferry fares, the Drake Bay river boat fee (the vehicle's extra fee), the cash
-  booking fee's rate (it stays a % of the final price), day tours and expeditions.
+  booking fee's rate (it stays a % of the final price) and day tours.
 - **One place computes it:** `quoteTransfer()` in `src/lib/pricing.ts` (`nightCents`), used by the
   website's ride builder, the app's quote API (`POST /api/v1/client/quote` now takes `time`), the
   server re-check when a request is sent (`priceItem()`) and the saved booking
@@ -766,8 +794,9 @@ approve button). Expiry warnings cover the licence, insurance, Dekra and Marcham
 
 ### 7.3 `bookings`
 `id` uuid PK · `booking_ref` text unique (e.g. `CRPT-10492`) · `client_id` → `profiles.id` ·
-`service_type` (`transfer` | `day_tour` | `expedition`) · `catalog_item_id` (nullable; day tour or
-expedition) · `origin` text (place name + address) · `origin_coords` jsonb (`lat`, `lng`,
+`service_type` (`transfer` | `day_tour` | `expedition`) · `catalog_item_id` (nullable; day tour, or a
+retired multi-day trip on bookings made before 2026-11-11; `expedition` and `lodging_tier` are kept
+only for those) · `origin` text (place name + address) · `origin_coords` jsonb (`lat`, `lng`,
 `place_id`, `town`, and `route` = the Google road km / minutes the price was made from, null
 between two of our towns) · `destination` text · `destination_coords` jsonb (same, without route) · `sightseeing_stops` jsonb (array of stop IDs + snapshot prices) · `vehicle_class` ·
 `lodging_tier` · `scheduled_at` timestamptz · `passenger_count` int · `flight_or_hotel_notes` ·
@@ -782,7 +811,7 @@ details; null = none) and `sign_hide_name` bool ("Don't show my name": the sign 
 name; never together with a text); §4.6, migration 0040 ·
 `pricing_mode` (`fixed` | `bid`) · `total_price` numeric · `night_premium` numeric(10,2) (the part
 of `total_price` that is the night-pickup premium, 0 by day; §6.6, migration 0041) · `driver_payout` / `platform_fee` numeric
-(migration 0017; null on expeditions) · `company_costs` (entrances / lunch / activities the company pays, deducted before the driver's share; part of `platform_fee`; 0023) · `claimed_at` (set when the team accepted an offer from the job board) · `currency` (`USD` | `CRC`) ·
+(migration 0017; null on retired multi-day bookings) · `company_costs` (entrances / lunch / activities the company pays, deducted before the driver's share; part of `platform_fee`; 0023) · `claimed_at` (set when the team accepted an offer from the job board) · `currency` (`USD` | `CRC`) ·
 `amount_paid` numeric · `payment_mode` (`full_100` | `cash_driver`; `deposit_20` on old rows
 only) · `cash_fee` numeric(10,2) (cash booking fee snapshot, 0 unless `cash_driver`) · `assigned_driver_id` →
 `drivers.id` (nullable) · `status` (`pending_payment` | `pending_bids` | `confirmed` |
@@ -813,8 +842,10 @@ and `season_for_date(date)` returns the season for a travel date.
 - `vehicle_classes` — id, name, example_models (shown as "… or similar", migration 0039), price_factor, extra_fee, allows_stops, spanish_speaking_driver,
   max_pax, luggage, badge, only_for_hubs, active (`base_rate` retired 2026-11-09, kept for old data)
 - `day_tours` — id, region, name, description, duration_hours, price_pp_solo / price_pp_small / price_pp_group (per person by group size, migration 0022; `price` retired), cost_pp (company-paid costs per person, 0023), en_route_upgrade_price, active
-- `expeditions` — id, name, days, nights, base_price, itinerary jsonb, active
-- `lodging_tiers` — id, expedition_id (nullable = applies to all), name, surcharge
+- `expeditions` — id, name, days, nights, base_price, itinerary jsonb, active. **Retired
+  2026-11-11** (migration 0043): all rows inactive, readable by admins only; kept for earlier bookings.
+- `lodging_tiers` — id, expedition_id (nullable = applies to all), name, surcharge. Retired with
+  the expeditions (same migration).
 - `seasons` — id, name, multiplier, date ranges
 - `pricing_settings` — a single row (`id` = true): `cash_fee_bps` int (default 1000 = 10%, 0–5000),
   ride formula `ride_base_fare`, `ride_per_km`, `ride_per_hour`, `ride_minimum_fare` (USD),
@@ -882,6 +913,9 @@ and `season_for_date(date)` returns the season for a travel date.
 
 ## 8. Roadmap
 
+**Scope change (Jorge, 2026-11-11):** the product is private transfers and 1-day tours only;
+multi-day trips were retired (§1, §5.5) and are not on the roadmap.
+
 | Phase | Scope | Status |
 | :--- | :--- | :--- |
 | **1. Prototype** | Static `index.html` design for storefront + admin tab | Done as a design mock, but the JS is truncated and non-functional |
@@ -925,15 +959,15 @@ and `season_for_date(date)` returns the season for a travel date.
    the "both ends" rule with reviewed lists (§5.2), **pending Jorge's confirmation**. If the
    detour cases in §5.2 matter, the next step is listing exact route pairs per stop. With exact
    routing (`docs/PRICING.md` §5) the detour decides it instead of a list.
-5. **Lodging tier pricing**: per person or per booking? Still open for expeditions. **Day tours:
-   decided (Jorge, 2026-11-09): per person**, see §5.4.
+5. **Lodging tier pricing**: **closed — not applicable: multi-day trips removed 2026-11-11.**
+   Day tours: decided (Jorge, 2026-11-09): per person, see §5.4.
 6. **Passenger-based pricing**: **day tours yes, per person with 1 / 2–3 / 4+ tiers (built,
-   migration 0022)**; expeditions still open.
+   migration 0022)**. Expeditions: **closed — not applicable: multi-day trips removed 2026-11-11.**
 7. **Cancellation & refund policy:** decided (Jorge, 2026-11-08), published at `/cancellation`.
    Rides (transfers) and 1-day tours: free cancellation up to 24 h before pickup, full refund;
-   within 24 h or no-show, no refund. Multi-day expeditions: 30+ days before start, full refund
-   minus non-refundable SINAC permits and boat/lodging deposits already paid; 8–29 days, 50%;
-   7 days or less, no refund. Date/time changes free if asked 24 h+ ahead, subject to
+   within 24 h or no-show, no refund. (The multi-day section was removed from `/cancellation`
+   with the multi-day trips on 2026-11-11; no multi-day booking existed in the database.)
+   Date/time changes free if asked 24 h+ ahead, subject to
    availability. If we or the driver cancel: full refund. Weather / road / park closures: rebook
    or refund of the affected service. The cash-booking fee is non-refundable within 24 h.
 8. **Custom domain:** done. `www.costaricaprivatetransfers.com` is connected (2026-11-09) and the
@@ -1001,6 +1035,18 @@ and `season_for_date(date)` returns the season for a travel date.
     rank first when the traveller asked for one (built). (d) No message when the request could
     not be met: the option says "if available", so the traveller only sees the badge when the
     assigned vehicle is electric.
+19. **Measurement and cookies: follow-ups (open, from the build of 2026-11-11, `docs/SEO.md`
+    §7).** (a) The cookie paragraphs of the Privacy Policy (English and Spanish) and the banner
+    wording need the same lawyer review as the rest of the legal pages. (b) Three privacy
+    settings live in Google Analytics' own screens and cannot be forced from the code (no
+    automatic page views on address changes, no outbound-click tracking, query redaction): Jorge
+    sets them when he creates the property (SEO.md §7.2). (c) Microsoft Clarity and the Meta
+    pixel read the full page address, which holds the name of a typed hotel while a ride is
+    being built; decide before switching either on whether typed place names should leave the
+    address (shared ride links would then carry only the place id). (d) `purchase` is not sent
+    until real payments exist; decide then whether the paid amount or the lead is the main
+    conversion for ads. (e) Built assumption: the banner is shown to every visitor, not only
+    in the EU / UK (simplest, and Costa Rica's Ley 8968 also asks for informed consent).
 
 ---
 

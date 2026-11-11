@@ -199,7 +199,7 @@ Why not lead with open bidding (GetTransfer style):
   GetTransfer's worst reviews are exactly about bidding: drivers who bid low then cancel,
   no-shows and slow refunds (COMPETITORS §4).
 - **It confuses the trip cart.** A bid price isn't known when the traveller pays, so a combined
-  cart with tours and expeditions can't be paid in one go.
+  cart with tours can't be paid in one go.
 - **It makes prices race to the bottom**, which hurts the driver quality we sell.
 
 What to do instead:
@@ -210,7 +210,8 @@ What to do instead:
    grows. The traveller never sees that auction. The `bids` table already built can carry these
    offers.
 3. **"Request a custom quote"** replaces "name your price" for things the formula doesn't
-   cover well: groups of 11+, multi-day private charters, unusual routes or very late hours. The
+   cover well: groups of 11+, unusual routes or very late hours (multi-day trips were retired
+   on 2026-11-11 and are not quoted). The
    team or drivers send an offer, and the traveller accepts it on the trip page.
 
 This changes PROJECT.md §6.3 (bidding) and §9 #2–#3. The bidding work already done isn't wasted;

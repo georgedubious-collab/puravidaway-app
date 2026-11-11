@@ -67,8 +67,8 @@ export const FAQ_GROUPS: FaqGroup[] = [
         id: "pay",
         q: { en: "How do I pay?", es: "¿Cómo pago?" },
         a: {
-          en: "Two ways. Pay online in full: once our team confirms your trip, we send you a secure payment link. Or pay your driver in cash on the day for rides and 1-day tours, plus a {cashFee} cash booking fee shown in your trip total. Multi-day trips are paid online in full, because park permits, boats and lodges are booked in advance.",
-          es: "De dos formas. Pague en línea completo: cuando nuestro equipo confirma su viaje, le enviamos un enlace de pago seguro. O pague al conductor en efectivo el día del viaje en traslados y tours de un día, más un cargo por reserva en efectivo del {cashFee} que aparece en el total. Los viajes de varios días se pagan en línea completos, porque los permisos de los parques, los botes y los hospedajes se reservan con anticipación.",
+          en: "Two ways. Pay online in full: once our team confirms your trip, we send you a secure payment link. Or pay your driver in cash on the day for rides and 1-day tours, plus a {cashFee} cash booking fee shown in your trip total.",
+          es: "De dos formas. Pague en línea completo: cuando nuestro equipo confirma su viaje, le enviamos un enlace de pago seguro. O pague al conductor en efectivo el día del viaje en traslados y tours de un día, más un cargo por reserva en efectivo del {cashFee} que aparece en el total.",
         },
       },
       {
@@ -83,8 +83,8 @@ export const FAQ_GROUPS: FaqGroup[] = [
         id: "night-pickups",
         q: { en: "Can I book a pickup at night or very early?", es: "¿Puedo reservar una recogida de noche o muy temprano?" },
         a: {
-          en: "Yes. {night} The price you see when you choose your pickup time already includes it; stops, ferry fares, day tours and multi-day trips are not affected.",
-          es: "Sí. {night} El precio que ve al elegir su hora de recogida ya lo incluye; las paradas, el ferry, los tours de un día y los viajes de varios días no cambian.",
+          en: "Yes. {night} The price you see when you choose your pickup time already includes it; stops, ferry fares and day tours are not affected.",
+          es: "Sí. {night} El precio que ve al elegir su hora de recogida ya lo incluye; las paradas, el ferry y los tours de un día no cambian.",
         },
       },
       {
@@ -197,8 +197,8 @@ export const FAQ_GROUPS: FaqGroup[] = [
         id: "cancel",
         q: { en: "Can I cancel for free?", es: "¿Puedo cancelar gratis?" },
         a: {
-          en: "Rides and 1-day tours: free cancellation and a full refund up to 24 hours before pickup; within 24 hours or a no-show, no refund. Multi-day trips have their own rules by days before the start. The full policy is on our cancellation page.",
-          es: "Traslados y tours de un día: cancelación gratuita y reembolso completo hasta 24 horas antes de la recogida; con menos de 24 horas o si no se presenta, no hay reembolso. Los viajes de varios días tienen sus propias reglas según los días antes del inicio. La política completa está en nuestra página de cancelación.",
+          en: "Rides and 1-day tours: free cancellation and a full refund up to 24 hours before pickup; within 24 hours or a no-show, no refund. The full policy is on our cancellation page.",
+          es: "Traslados y tours de un día: cancelación gratuita y reembolso completo hasta 24 horas antes de la recogida; con menos de 24 horas o si no se presenta, no hay reembolso. La política completa está en nuestra página de cancelación.",
         },
       },
       {
@@ -221,7 +221,7 @@ export const FAQ_GROUPS: FaqGroup[] = [
   },
   {
     id: "tours",
-    title: { en: "Tours & multi-day trips", es: "Tours y viajes de varios días" },
+    title: { en: "Day tours, ferries & boats", es: "Tours de un día, ferry y botes" },
     items: [
       {
         id: "en-route",
@@ -243,8 +243,8 @@ export const FAQ_GROUPS: FaqGroup[] = [
         id: "drake",
         q: { en: "How do we get to Drake Bay and Corcovado?", es: "¿Cómo llegamos a Bahía Drake y Corcovado?" },
         a: {
-          en: "Most travellers reach Drake Bay by river boat from Sierpe. We drive you to the Sierpe dock, timed around your boat; the \"4x4 Transfer + Sierpe River Boat\" option includes the boat to Drake Bay. Corcovado needs SINAC permits booked in advance, and overnights at Sirena Station have limited space, so our Corcovado trip is booked and paid ahead.",
-          es: "La mayoría de los viajeros llega a Bahía Drake en bote desde Sierpe. Lo llevamos al muelle de Sierpe, coordinado con la hora de su bote; la opción \"4x4 Transfer + Sierpe River Boat\" incluye el bote a Bahía Drake. Corcovado requiere permisos del SINAC reservados con anticipación, y las noches en la Estación Sirena tienen cupo limitado, por eso nuestro viaje a Corcovado se reserva y se paga por adelantado.",
+          en: "Most travellers reach Drake Bay by river boat from Sierpe. We drive you to the Sierpe dock, timed around your boat; the \"4x4 Transfer + Sierpe River Boat\" option includes the boat to Drake Bay. Corcovado needs a certified guide and SINAC permits booked in advance, and overnights at Sirena Station have limited space, so book your guide early; the guide and the permit are booked separately from your ride.",
+          es: "La mayoría de los viajeros llega a Bahía Drake en bote desde Sierpe. Lo llevamos al muelle de Sierpe, coordinado con la hora de su bote; la opción \"4x4 Transfer + Sierpe River Boat\" incluye el bote a Bahía Drake. Corcovado requiere un guía certificado y permisos del SINAC reservados con anticipación, y las noches en la Estación Sirena tienen cupo limitado, así que conviene reservar el guía con tiempo; el guía y el permiso se reservan aparte de su traslado.",
         },
       },
     ],

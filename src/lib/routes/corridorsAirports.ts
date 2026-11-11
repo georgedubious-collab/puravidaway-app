@@ -608,8 +608,8 @@ export const AIRPORT_CORRIDORS: Corridor[] = [
       q(
         "Does the transfer include Corcovado National Park?",
         "¿El traslado incluye el Parque Nacional Corcovado?",
-        "No, it is transport only. Corcovado can only be visited with a certified guide and a SINAC permit booked in advance. Our multi-day trips include a Corcovado trip with the permits.",
-        "No, es solo el transporte. Corcovado solo se visita con un guía certificado y un permiso del SINAC reservado con anticipación. Entre nuestros viajes de varios días hay uno a Corcovado con los permisos incluidos.",
+        "No, it is transport only. Corcovado can only be visited with a certified guide and a SINAC permit booked in advance; book them before your trip, and we take you to the boat.",
+        "No, es solo el transporte. Corcovado solo se visita con un guía certificado y un permiso del SINAC reservado con anticipación; resérvelos antes de su viaje y nosotros lo llevamos a la lancha.",
       ),
       q(
         "How should we pack for the boat?",

@@ -7,7 +7,7 @@ import { bilingualAlternates } from "@/lib/publicLang";
 export const metadata: Metadata = {
   title: "Cancellation & Refund Policy | Costa Rica Private Transfers",
   description:
-    "Free cancellation up to 24 hours before pickup for Costa Rica transfers and day tours; clear refund rules for multi-day expeditions.",
+    "Free cancellation up to 24 hours before pickup for Costa Rica private transfers and 1-day tours, and clear rules for changes, weather and refunds.",
   alternates: bilingualAlternates("/cancellation", "en"),
 };
 
@@ -37,30 +37,11 @@ export default function CancellationPage() {
         </p>
       </LegalSection>
 
-      <LegalSection id="expeditions" title="2. Multi-day expeditions">
-        <div className="grid gap-3 sm:grid-cols-3">
-          <Rule
-            tone="good"
-            when="30 days or more before the start"
-            what="Full refund, minus non-refundable costs already paid (see below)."
-          />
-          <Rule tone="mid" when="8 to 29 days before the start" what="50% refund." />
-          <Rule tone="bad" when="7 days or less before the start, or no-show" what="No refund." />
-        </div>
-        <p className="mt-4">
-          <strong>Non-refundable costs:</strong> SINAC park permits (for example Corcovado and Sirena
-          Station) and boat or lodging deposits are paid to those operators in advance and can’t be
-          recovered once paid. If you cancel 30 days or more ahead, we deduct only those amounts we have
-          already paid, and we show you the receipts on request.
-        </p>
-      </LegalSection>
-
-      <LegalSection id="changes" title="3. Changing your date or time">
+      <LegalSection id="changes" title="2. Changing your date or time">
         <ul>
           <li>
             Changes to the date or time are <strong>free if you ask 24 hours or more</strong> before
-            pickup (or before the start of an expedition), subject to availability of drivers, permits
-            and lodging.
+            pickup, subject to availability of drivers (and of tour places on a day tour).
           </li>
           <li>
             If the new date has a different season price, or a change costs us extra with a park or
@@ -70,7 +51,7 @@ export default function CancellationPage() {
         </ul>
       </LegalSection>
 
-      <LegalSection id="cash" title="4. Pay-the-driver (cash) bookings">
+      <LegalSection id="cash" title="3. Pay-the-driver (cash) bookings">
         <p>
           If you chose to pay the driver in cash, the same time limits apply. The cash-booking fee is
           refunded if you cancel 24 hours or more before pickup, and is <strong>not refundable</strong>{" "}
@@ -78,26 +59,25 @@ export default function CancellationPage() {
         </p>
       </LegalSection>
 
-      <LegalSection id="we-cancel" title="5. If we or the driver cancel">
+      <LegalSection id="we-cancel" title="4. If we or the driver cancel">
         <p>
-          If we or your driver cancel a confirmed service for any reason other than those in section 6,
+          If we or your driver cancel a confirmed service for any reason other than those in section 5,
           you get a <strong>full refund</strong> of the amounts you’ve paid us for it. We’ll always try
           first to find you another driver or vehicle of the same or a higher class at no extra cost.
         </p>
       </LegalSection>
 
-      <LegalSection id="weather" title="6. Weather, road and park closures">
+      <LegalSection id="weather" title="5. Weather, road and park closures">
         <p>
           If heavy rain, flooding, landslides, road closures, volcanic activity, a park closure or an
           authority’s order stops a service from going ahead safely, we offer you the choice of
           <strong> rebooking</strong> on another date or a <strong>refund of the affected service</strong>.
-          If only part of a trip is affected (for example one stop or one day of an expedition), the
-          rebooking or refund applies to that part. Park permits that SINAC itself refunds or moves are
-          passed on to you.
+          If only part of a trip is affected (for example one stop), the rebooking or refund applies to
+          that part.
         </p>
       </LegalSection>
 
-      <LegalSection id="how" title="7. How to cancel and how refunds are paid">
+      <LegalSection id="how" title="6. How to cancel and how refunds are paid">
         <ul>
           <li>
             Cancel or change in your trip chat, or message our team on{" "}

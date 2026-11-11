@@ -29,8 +29,6 @@ import {
   addStop,
   deleteSeasonRange,
   saveDayTour,
-  saveExpedition,
-  saveLodgingTier,
   saveAreaFactors,
   saveDriverCommission,
   saveNightPremium,
@@ -408,28 +406,30 @@ export default async function PricingPage() {
         ))}
       </Section>
 
-      <Section title={t("Expediciones y hospedaje", "Expeditions & lodging")}>
-        {(e.data ?? []).map((x) => (
-          <Card key={x.id}>
-            <AdminForm lang={lang} action={saveExpedition} className="grid gap-3 sm:grid-cols-6 items-end">
-              <input type="hidden" name="id" value={x.id} />
-              <Field l={`${t("Nombre", "Name")} · ${x.days}D/${x.nights}N`} className="sm:col-span-4"><input name="name" defaultValue={x.name} className={input} /></Field>
-              <Field l={t("Precio base (USD)", "Base price (USD)")}><input name="base_price" inputMode="decimal" defaultValue={x.base_price} className={input} /></Field>
-              <Live on={x.active} label={liveLabel} />
-            </AdminForm>
-          </Card>
-        ))}
-        {(l.data ?? []).map((x) => (
-          <Card key={x.id}>
-            <AdminForm lang={lang} action={saveLodgingTier} className="grid gap-3 sm:grid-cols-6 items-end">
-              <input type="hidden" name="id" value={x.id} />
-              <Field l={t("Nivel de hospedaje", "Lodging tier")} className="sm:col-span-4"><input name="name" defaultValue={x.name} className={input} /></Field>
-              <Field l={t("Recargo (USD)", "Surcharge (USD)")}><input name="surcharge" inputMode="decimal" defaultValue={x.surcharge} className={input} /></Field>
-              <Live on={x.active} label={liveLabel} />
-            </AdminForm>
-          </Card>
-        ))}
-      </Section>
+      {/* Multi-day trips were retired on 2026-11-11 (Jorge): read-only record, never sold again. */}
+      <details className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <summary className="cursor-pointer text-sm font-bold text-slate-700">
+          {t("Retirado: viajes de varios días y hospedaje", "Retired: multi-day trips & lodging")}
+        </summary>
+        <p className="mt-2 text-sm text-slate-600">
+          {t(
+            "Desde el 11 de noviembre de 2026 solo vendemos traslados y tours de un día. Los viajes de varios días ya no se muestran ni se pueden reservar; estas filas se guardan, inactivas, solo para las reservas y los pagos anteriores.",
+            "Since 11 November 2026 we only sell transfers and 1-day tours. Multi-day trips are no longer shown or bookable; these rows are kept, inactive, only for earlier bookings and payments.",
+          )}
+        </p>
+        <ul className="mt-2 space-y-1 text-sm text-slate-600">
+          {(e.data ?? []).map((x) => (
+            <li key={x.id}>
+              {x.name} · {x.days}D/{x.nights}N · ${x.base_price} · {x.active ? t("activo", "active") : t("inactivo", "inactive")}
+            </li>
+          ))}
+          {(l.data ?? []).map((x) => (
+            <li key={x.id}>
+              {t("Hospedaje", "Lodging")}: {x.name} · +${x.surcharge} · {x.active ? t("activo", "active") : t("inactivo", "inactive")}
+            </li>
+          ))}
+        </ul>
+      </details>
 
       <Section
         title={t("Ferris", "Ferries")}
@@ -539,8 +539,8 @@ export default async function PricingPage() {
       <Section
         title={t("Pago", "Payment")}
         note={t(
-          "Los clientes pagan en línea el total, o le pagan al conductor en efectivo en traslados y tours de un día más este cargo por reserva en efectivo (un % del precio del traslado o tour, que se muestra en el total de su viaje). Las expediciones siempre se pagan en línea.",
-          "Travellers pay online in full, or pay the driver in cash on rides and 1-day tours plus this cash booking fee (a % of the ride or tour price, shown in their trip total). Expeditions are always paid online.",
+          "Los clientes pagan en línea el total, o le pagan al conductor en efectivo en traslados y tours de un día más este cargo por reserva en efectivo (un % del precio del traslado o tour, que se muestra en el total de su viaje).",
+          "Travellers pay online in full, or pay the driver in cash on rides and 1-day tours plus this cash booking fee (a % of the ride or tour price, shown in their trip total).",
         )}
       >
         <Card>

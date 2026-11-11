@@ -11,7 +11,7 @@ import type { PublicLang } from "@/lib/publicLang";
 export const HOME_META_ES = {
   title: "Traslados privados, paradas turísticas y tours en Costa Rica",
   description:
-    "Traslados privados puerta a puerta con paradas turísticas, ofertas de conductores, tours privados de un día y expediciones de varios días por toda Costa Rica.",
+    "Traslados privados puerta a puerta con paradas turísticas, ofertas de conductores y tours privados de un día por toda Costa Rica.",
 };
 
 /**

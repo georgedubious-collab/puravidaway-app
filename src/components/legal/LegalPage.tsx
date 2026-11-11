@@ -20,7 +20,10 @@ export function LegalPage({
   intro,
   children,
   lang = "en",
+  updated = LEGAL_LAST_UPDATED,
 }: {
+  /** This page's own "last updated" date when it changed after the others (YYYY-MM-DD). */
+  updated?: string;
   title: string;
   intro?: React.ReactNode;
   children: React.ReactNode;
@@ -45,7 +48,7 @@ export function LegalPage({
 
         <h1 className="mt-6 text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900">{title}</h1>
         <p className="mt-2 text-sm text-slate-500">
-          {t(lang, "Last updated", "Última actualización:")} {LEGAL_LAST_UPDATED}
+          {t(lang, "Last updated", "Última actualización:")} {updated}
         </p>
         {intro && <div className="mt-4 text-base text-slate-700 leading-relaxed">{intro}</div>}
 

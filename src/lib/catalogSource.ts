@@ -49,7 +49,7 @@ export async function getCatalog(): Promise<CatalogData> {
 }
 
 /** Only successful database reads are cached (a thrown error is never stored). */
-const cachedDatabaseCatalog = unstable_cache(loadDatabaseCatalog, ["catalog-v8"], {
+const cachedDatabaseCatalog = unstable_cache(loadDatabaseCatalog, ["catalog-v9"], {
   tags: [CATALOG_TAG],
   revalidate: 3600,
 });
@@ -57,18 +57,17 @@ const cachedDatabaseCatalog = unstable_cache(loadDatabaseCatalog, ["catalog-v8"]
 async function loadDatabaseCatalog(): Promise<CatalogData> {
   const db = createSupabasePublicClient()!;
   {
-    const [vehicles, stops, tours, exps, tiers, seasons, ranges, settings, hubPricing] = await Promise.all([
+    const [vehicles, stops, tours, seasons, ranges, settings, hubPricing] = await Promise.all([
       db.from("vehicle_classes").select("*").eq("active", true).order("sort_order"),
       db.from("sightseeing_stops").select("*").eq("active", true).order("sort_order"),
       db.from("day_tours").select("*").eq("active", true).order("sort_order"),
-      db.from("expeditions").select("*").eq("active", true).order("sort_order"),
-      db.from("lodging_tiers").select("*").eq("active", true).order("sort_order"),
+      // Multi-day trips (expeditions, lodging_tiers) were retired on 2026-11-11 and are not read.
       db.from("seasons").select("*"),
       db.from("season_ranges").select("*"),
       db.from("pricing_settings").select("*").maybeSingle(),
       db.from("hub_pricing").select("hub_id, area_factor"),
     ]);
-    const failed = [vehicles, stops, tours, exps, tiers, seasons, ranges].find((r) => r.error);
+    const failed = [vehicles, stops, tours, seasons, ranges].find((r) => r.error);
     if (failed?.error) throw failed.error;
     if (!vehicles.data?.length || !seasons.data?.length) throw new Error("catalog tables are empty");
     // pricing_settings arrives with migration 0012; until it is run, use the built-in fee.
@@ -147,24 +146,6 @@ async function loadDatabaseCatalog(): Promise<CatalogData> {
         highlights: t.highlights ?? [],
         enRouteUpgradeCents: cents(t.en_route_upgrade_price),
       })),
-      expeditions: (exps.data ?? []).map((e) => ({
-        id: e.id,
-        name: e.name,
-        days: e.days,
-        nights: e.nights,
-        basePriceCents: cents(e.base_price),
-        includes: e.includes ?? [],
-        itinerary: e.itinerary ?? [],
-      })),
-      lodgingTiers: tiers.data?.length
-        ? tiers.data.map((l) => ({
-            id: l.id,
-            name: l.name,
-            surchargeCents: cents(l.surcharge),
-            expeditionId: l.expedition_id ?? undefined,
-          }))
-        : // Every tier switched off: expeditions are still sold, with no lodging upgrade.
-          [{ id: "standard", name: "Standard lodging", surchargeCents: 0 }],
       seasons: seasons.data.map((s) => ({
         id: s.id,
         name: s.name,

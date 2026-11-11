@@ -7,7 +7,7 @@ import { bilingualAlternates } from "@/lib/publicLang";
 export const metadata: Metadata = {
   title: "Política de cancelación y reembolsos | Costa Rica Private Transfers",
   description:
-    "Cancelación gratis hasta 24 horas antes de la recogida en traslados y tours de un día en Costa Rica; reglas de reembolso claras para expediciones de varios días.",
+    "Cancelación gratis hasta 24 horas antes de la recogida en traslados privados y tours de un día en Costa Rica, y reglas claras para cambios, clima y reembolsos.",
   alternates: bilingualAlternates("/cancellation", "es"),
 };
 
@@ -58,35 +58,12 @@ export default function CancelacionPage() {
         </p>
       </LegalSection>
 
-      <LegalSection id="expeditions" title="2. Expediciones de varios días">
-        <div className="grid gap-3 sm:grid-cols-3">
-          <Rule
-            tone="good"
-            when="30 días o más antes del inicio"
-            what="Reembolso completo, menos los costos no reembolsables ya pagados (vea abajo)."
-          />
-          <Rule tone="mid" when="De 8 a 29 días antes del inicio" what="Reembolso del 50%." />
-          <Rule
-            tone="bad"
-            when="7 días o menos antes del inicio, o si no se presenta"
-            what="Sin reembolso."
-          />
-        </div>
-        <p className="mt-4">
-          <strong>Costos no reembolsables:</strong> los permisos de parques del SINAC (por ejemplo,
-          Corcovado y la Estación Sirena) y los depósitos de botes o de alojamiento se pagan a esos
-          operadores por adelantado y no se pueden recuperar una vez pagados. Si usted cancela con 30
-          días o más de anticipación, descontamos solo los montos que ya hayamos pagado, y le mostramos
-          los recibos si los solicita.
-        </p>
-      </LegalSection>
-
-      <LegalSection id="changes" title="3. Cambiar la fecha o la hora">
+      <LegalSection id="changes" title="2. Cambiar la fecha o la hora">
         <ul>
           <li>
             Los cambios de fecha o de hora son <strong>gratis si los pide 24 horas o más</strong> antes
-            de la recogida (o antes del inicio de una expedición), sujetos a la disponibilidad de
-            conductores, permisos y alojamiento.
+            de la recogida, sujetos a la disponibilidad de conductores (y de cupos en el caso de un
+            tour de un día).
           </li>
           <li>
             Si la nueva fecha tiene un precio de temporada distinto, o si un cambio nos genera un costo
@@ -100,7 +77,7 @@ export default function CancelacionPage() {
         </ul>
       </LegalSection>
 
-      <LegalSection id="cash" title="4. Reservas con pago en efectivo al conductor">
+      <LegalSection id="cash" title="3. Reservas con pago en efectivo al conductor">
         <p>
           Si usted eligió pagar al conductor en efectivo, se aplican los mismos plazos. El cargo por
           reserva en efectivo se reembolsa si usted cancela 24 horas o más antes de la recogida, y{" "}
@@ -109,28 +86,26 @@ export default function CancelacionPage() {
         </p>
       </LegalSection>
 
-      <LegalSection id="we-cancel" title="5. Si nosotros o el conductor cancelamos">
+      <LegalSection id="we-cancel" title="4. Si nosotros o el conductor cancelamos">
         <p>
           Si nosotros o su conductor cancelamos un servicio confirmado por cualquier motivo distinto de
-          los de la sección 6, usted recibe un <strong>reembolso completo</strong> de los montos que nos
+          los de la sección 5, usted recibe un <strong>reembolso completo</strong> de los montos que nos
           ha pagado por ese servicio. Siempre intentaremos primero conseguirle otro conductor u otro
           vehículo de la misma categoría o de una superior, sin costo adicional.
         </p>
       </LegalSection>
 
-      <LegalSection id="weather" title="6. Clima y cierres de carreteras y parques">
+      <LegalSection id="weather" title="5. Clima y cierres de carreteras y parques">
         <p>
           Si lluvias fuertes, inundaciones, deslizamientos, cierres de carreteras, actividad volcánica,
           el cierre de un parque o la orden de una autoridad impiden que un servicio se realice de forma
           segura, le ofrecemos elegir entre <strong>reprogramarlo</strong> para otra fecha o el{" "}
           <strong>reembolso del servicio afectado</strong>. Si solo se ve afectada una parte de un viaje
-          (por ejemplo, una parada o un día de una expedición), la reprogramación o el reembolso se
-          aplica a esa parte. Los permisos de parques que el propio SINAC reembolse o cambie de fecha se
-          le trasladan a usted.
+          (por ejemplo, una parada), la reprogramación o el reembolso se aplica a esa parte.
         </p>
       </LegalSection>
 
-      <LegalSection id="how" title="7. Cómo cancelar y cómo se pagan los reembolsos">
+      <LegalSection id="how" title="6. Cómo cancelar y cómo se pagan los reembolsos">
         <ul>
           <li>
             Cancele o cambie en el chat de su viaje, o escriba a nuestro equipo por{" "}

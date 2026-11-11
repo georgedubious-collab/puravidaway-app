@@ -17,8 +17,8 @@ export function aboutMeta(lang: PublicLang) {
     title: t(lang, "About us", "Quiénes somos"),
     description: t(
       lang,
-      "Costa Rica Private Transfers is a Costa Rica team that books private door-to-door transfers, 1-day tours and multi-day trips with vetted local drivers. Fixed prices, WhatsApp support.",
-      "Costa Rica Private Transfers es un equipo en Costa Rica que reserva traslados privados puerta a puerta, tours de un día y viajes de varios días con conductores locales verificados.",
+      "Costa Rica Private Transfers is a Costa Rica team that books private door-to-door transfers and 1-day tours with vetted local drivers. Fixed prices, WhatsApp support.",
+      "Costa Rica Private Transfers es un equipo en Costa Rica que reserva traslados privados puerta a puerta y tours de un día con conductores locales verificados.",
     ),
   };
 }
@@ -36,10 +36,6 @@ export function AboutPage({ lang }: { lang: PublicLang }) {
           title: "Tours privados de un día",
           text: "Volcán Arenal, Manuel Antonio, Monteverde y la península de Osa, con la opción de terminar el día en su siguiente hotel.",
         },
-        {
-          title: "Viajes de varios días",
-          text: "Rutas como Corcovado con noche en la Estación Sirena, o Arenal, Monteverde y Manuel Antonio en una semana, con permisos y botes organizados.",
-        },
       ]
     : [
         {
@@ -50,14 +46,10 @@ export function AboutPage({ lang }: { lang: PublicLang }) {
           title: "Private 1-day tours",
           text: "Arenal Volcano, Manuel Antonio, Monteverde and the Osa Peninsula, with the option to end the day at your next hotel.",
         },
-        {
-          title: "Multi-day trips",
-          text: "Routes like Corcovado with a night at Sirena Station, or Arenal, Monteverde and Manuel Antonio in a week, with permits and boats arranged.",
-        },
       ];
   const facts = es
     ? [
-        ["Qué hacemos", "Traslados privados, tours de un día y viajes de varios días en Costa Rica"],
+        ["Qué hacemos", "Traslados privados y tours de un día en Costa Rica"],
         ["Quién conduce", "Conductores locales independientes, entrevistados y verificados por nuestro equipo"],
         ["Precios", "Precio fijo por vehículo antes de reservar, o la opción de ofertas de conductores"],
         ["Pago", "En línea completo, o en efectivo al conductor en traslados y tours de un día"],
@@ -65,7 +57,7 @@ export function AboutPage({ lang }: { lang: PublicLang }) {
         ["Idiomas", "Inglés y español"],
       ]
     : [
-        ["What we do", "Private transfers, 1-day tours and multi-day trips in Costa Rica"],
+        ["What we do", "Private transfers and 1-day tours in Costa Rica"],
         ["Who drives", "Independent local drivers, interviewed and checked by our team"],
         ["Prices", "A fixed price per vehicle before you book, or the option of driver bids"],
         ["Payment", "Online in full, or cash to the driver on rides and 1-day tours"],
@@ -86,14 +78,14 @@ export function AboutPage({ lang }: { lang: PublicLang }) {
         <p>
           {t(
             lang,
-            "Costa Rica Private Transfers books private door-to-door rides, 1-day tours and multi-day trips across Costa Rica with vetted local drivers. You see a fixed price before you book, and a real person on our team answers on WhatsApp.",
-            "Costa Rica Private Transfers reserva traslados privados puerta a puerta, tours de un día y viajes de varios días por todo Costa Rica con conductores locales verificados. Usted ve un precio fijo antes de reservar, y una persona de nuestro equipo le responde por WhatsApp.",
+            "Costa Rica Private Transfers books private door-to-door rides and 1-day tours across Costa Rica with vetted local drivers. You see a fixed price before you book, and a real person on our team answers on WhatsApp.",
+            "Costa Rica Private Transfers reserva traslados privados puerta a puerta y tours de un día por todo Costa Rica con conductores locales verificados. Usted ve un precio fijo antes de reservar, y una persona de nuestro equipo le responde por WhatsApp.",
           )}
         </p>
       }
     >
       <PageSection id="what" title={t(lang, "What we offer", "Lo que ofrecemos")}>
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2">
           {offers.map((o) => (
             <div key={o.title} className="rounded-2xl border border-slate-200 bg-white p-6">
               <h3 className="text-lg font-extrabold text-slate-900">{o.title}</h3>

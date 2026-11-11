@@ -32,8 +32,8 @@ export function FaqPage({ lang, values }: { lang: PublicLang; values: FaqValues 
         <p>
           {t(
             lang,
-            "Quick answers about booking a private transfer, tour or multi-day trip with us. Can't find yours? Message our team on WhatsApp.",
-            "Respuestas rápidas sobre cómo reservar con nosotros un traslado privado, un tour o un viaje de varios días. ¿No encuentra la suya? Escriba a nuestro equipo por WhatsApp.",
+            "Quick answers about booking a private transfer or day tour with us. Can't find yours? Message our team on WhatsApp.",
+            "Respuestas rápidas sobre cómo reservar con nosotros un traslado privado o un tour de un día. ¿No encuentra la suya? Escriba a nuestro equipo por WhatsApp.",
           )}
         </p>
       }

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { LEGAL_ENTITY_PLACEHOLDER, LegalPage, LegalSection } from "@/components/legal/LegalPage";
+import { CookieSentence, MeasurementCollected, MeasurementPurpose, MeasurementRecipients, MeasurementRetention } from "@/components/legal/MeasurementText";
 import { whatsAppLink } from "@/lib/cart";
 import { bilingualAlternates } from "@/lib/publicLang";
 
@@ -15,10 +16,13 @@ export const metadata: Metadata = {
  * Keep this page in line with what the code actually stores (src/app/trip/actions.ts,
  * src/app/chat/actions.ts, src/app/driver/, src/lib/email.ts, supabase/migrations/).
  * If a new tool (analytics, CRM, payments) starts receiving personal data, update it here.
+ * The paragraphs about cookies and measurement tools (Google Analytics and the optional ones)
+ * live in src/components/legal/MeasurementText.tsx and show only when that tool is switched on.
  */
 export default function PrivacyPage() {
   return (
     <LegalPage
+      updated="2026-11-11"
       title="Privacy Policy"
       intro={
         <p>
@@ -43,8 +47,8 @@ export default function PrivacyPage() {
             number, from the trip request form.
           </li>
           <li>
-            <strong>Trip details:</strong> the rides, tours and expeditions you choose, dates, pickup
-            and drop-off places, number of passengers, vehicle, sightseeing stops, lodging level, ride
+            <strong>Trip details:</strong> the rides and tours you choose, dates, pickup
+            and drop-off places, number of passengers, vehicle, sightseeing stops, ride
             preferences (driver language, child seats, stroller, Wi-Fi, pets), prices and the payment
             option you pick.
           </li>
@@ -75,14 +79,15 @@ export default function PrivacyPage() {
             saved with your booking so your driver knows where to go.
           </li>
           <li>
-            <strong>Visit statistics:</strong> we use Vercel Web Analytics to count page views, which
+            <strong>Visit statistics without cookies:</strong> we use Vercel Web Analytics to count page views, which
             pages are popular, and the visitor’s country and device type. It doesn’t use cookies and
             doesn’t identify you or follow you to other websites.
           </li>
+          <MeasurementCollected lang="en" />
           <li>
             <strong>On your device:</strong> the site saves your trip-in-progress in your browser’s
             local storage so it isn’t lost if you reload the page. It stays on your device and you can
-            clear it at any time. We don’t use advertising or tracking cookies.
+            clear it at any time. <CookieSentence lang="en" />
           </li>
         </ul>
         <p>
@@ -143,6 +148,7 @@ export default function PrivacyPage() {
           <li>
             <strong>Accounting, tax and legal records</strong> (legal obligation).
           </li>
+          <MeasurementPurpose lang="en" />
         </ul>
         <p>
           By sending a trip request or a driver application you give your informed consent, as required
@@ -171,6 +177,7 @@ export default function PrivacyPage() {
             payment launches, our payment provider. They may use the data only to provide their service
             to us.
           </li>
+          <MeasurementRecipients lang="en" />
           <li>Authorities, when the law requires it.</li>
         </ul>
       </LegalSection>
@@ -200,6 +207,7 @@ export default function PrivacyPage() {
             <strong>Driver KYC documents</strong> are kept while you drive with us and for as long as we
             need them afterwards to handle claims, insurance or legal requests; then they are deleted.
           </li>
+          <MeasurementRetention lang="en" />
         </ul>
       </LegalSection>
 

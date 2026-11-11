@@ -1,5 +1,6 @@
 import { submitTripRequest, type TripRequestInput } from "@/app/trip/actions";
 import { parsePublicLang } from "@/lib/publicLang";
+import { localizeServerMessage } from "@/lib/serverMessagesEs";
 import { TEST_CHECKOUT_ENABLED } from "@/lib/testCheckout";
 import { json, signedIn } from "../../shared";
 
@@ -14,6 +15,7 @@ export async function POST(req: Request) {
   const me = await signedIn();
   if (me instanceof Response) return me;
   const b = ((await req.json().catch(() => ({}))) ?? {}) as Partial<TripRequestInput>;
+  const lang = parsePublicLang(b.lang);
   const res = await submitTripRequest({
     items: Array.isArray(b.items) ? b.items : [],
     mode: b.mode === "cash_driver" ? "cash_driver" : "full_100",
@@ -23,7 +25,9 @@ export async function POST(req: Request) {
     phone: String(b.phone ?? ""),
     notes: String(b.notes ?? ""),
     website: "",
-    lang: parsePublicLang(b.lang),
+    lang,
   });
-  return json({ ...res, testCheckout: TEST_CHECKOUT_ENABLED }, res.ok ? 200 : 400);
+  // The app shows the error as it comes: in the app's language when we have a translation.
+  if (!res.ok) return json({ ...res, error: localizeServerMessage(res.error, lang), testCheckout: TEST_CHECKOUT_ENABLED }, 400);
+  return json({ ...res, testCheckout: TEST_CHECKOUT_ENABLED }, 200);
 }
