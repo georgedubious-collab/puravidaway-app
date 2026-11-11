@@ -242,8 +242,8 @@ export default async function PricingPage() {
       <Section
         title={t("Vehículos", "Vehicles")}
         note={t(
-          "El factor multiplica el precio del traslado Estándar (Económico 0.90, Estándar 1.00, SUV 1.20, 4x4 1.30, Van 1.35). El cargo extra es un monto fijo por traslado, por ejemplo el bote de Sierpe en el combo.",
-          "Factor multiplies the Standard ride price (Economy 0.90, Standard 1.00, SUV 1.20, 4x4 1.30, Van 1.35). Extra fee is a fixed amount per ride, e.g. the Sierpe boat in the combo.",
+          "El factor multiplica el precio del traslado Estándar (Económico 0.90, Estándar 1.00, Minivan 1.20, 4x4 1.30, Van 1.35). El cargo extra es un monto fijo por traslado, por ejemplo el bote de Sierpe en el combo.",
+          "Factor multiplies the Standard ride price (Economy 0.90, Standard 1.00, Minivan 1.20, 4x4 1.30, Van 1.35). Extra fee is a fixed amount per ride, e.g. the Sierpe boat in the combo.",
         )}
       >
         {(v.data ?? []).map((x) => (

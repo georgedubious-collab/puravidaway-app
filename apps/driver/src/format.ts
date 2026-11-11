@@ -95,7 +95,7 @@ export function departsIn(iso: string | null | undefined, lang: Lang = "es", now
 const VEHICLE_SHORT: Record<string, [string, string]> = {
   economy: ["Sedán económico", "Economy sedan"],
   sedan: ["Sedán", "Sedan"],
-  suv: ["SUV", "SUV"],
+  suv: ["Minivan", "Minivan"], // the 4-traveller class is a minivan (MPV); the id stays "suv"
   "4x4": ["4x4", "4x4"],
   van: ["Van", "Van"],
   sierpe_combo: ["4x4 + bote", "4x4 + boat"],

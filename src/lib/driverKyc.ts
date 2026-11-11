@@ -113,6 +113,8 @@ export interface VehicleRecord {
   year: number | null;
   color: string | null;
   passenger_capacity: number | null;
+  /** Category our team gave the vehicle (migration 0038); null = not tagged yet, receives every job. */
+  vehicle_class?: string | null;
   ins_policy_number: string | null;
   ins_insurance_expiry: string | null;
   dekra_inspection_expiry: string | null;

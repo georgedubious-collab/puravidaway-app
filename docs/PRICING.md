@@ -134,7 +134,7 @@ Match Daytrip's names and capacities so travellers compare like with like (COMPE
 | :--- | :--- | ---: | :--- |
 | **Economy** *(new, Jorge 2026-11-08)* | 1–3 / 3 | **0.90** | Spanish-speaking driver (basic English at most), direct ride. Like Daytrip's Sedan Lite. Says so clearly on the card |
 | **Standard** (Sedan) | 1–3 / 3 | 1.00 | English-speaking driver requested and matched by the team |
-| **Comfort SUV** | 1–4 / 4 | 1.20 | |
+| **Minivan (MPV)** *(id `suv`; was "Comfort SUV" until 2026-11-11)* | 1–4 / 4 | 1.20 | Like Daytrip's Compact MPV. Compact SUVs drive the sedan classes (PROJECT.md §5.3) |
 | **4x4** (Prado / Fortuner) | 1–4 / 4 | 1.30 | Forced for 4x4-only destinations |
 | **Van** (HiAce / Staria) | 5–10 / 10 | 1.35 | Same as Daytrip's van factor |
 | **Sierpe combo** | 1–4 | 4x4 price + boat fare | Boat priced per person, set by the operator |

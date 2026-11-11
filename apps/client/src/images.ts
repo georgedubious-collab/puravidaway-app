@@ -59,7 +59,8 @@ export const PLACEHOLDERS: Record<string, Placeholder> = {
   // Vehicles: quiet, so the car's outline is what you see
   economy: { art: "car-economy", from: "#E4F4EC", to: "#A8D9C4", accent: "#FFF1BF" },
   sedan: { art: "car-sedan", from: "#E4F4EC", to: "#9FD5BE", accent: "#FFF1BF" },
-  suv: { art: "car-suv", from: "#DDF1EC", to: "#93CFC2", accent: "#FFF1BF" },
+  // The server's id "suv" is the 4-traveller minivan (MPV) class, so it is drawn as a van.
+  suv: { art: "car-van", from: "#DDF1EC", to: "#93CFC2", accent: "#FFF1BF" },
   "4x4": { art: "car-4x4", from: "#E9F0D9", to: "#9CCBA6", accent: "#FFF1BF" },
   van: { art: "car-van", from: "#DCF0EE", to: "#8CCAC4", accent: "#FFF1BF" },
   // Generic

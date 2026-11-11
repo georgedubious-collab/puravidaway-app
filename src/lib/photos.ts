@@ -194,6 +194,7 @@ export const PHOTOS = {
   poas: placeholder("volcano", "Illustration of the Poás Volcano crater", "Ilustración del cráter del volcán Poás"),
   "vehicle-sedan": placeholder("sedan", "Illustration of a sedan", "Ilustración de un sedán"),
   "vehicle-suv": placeholder("suv", "Illustration of an SUV", "Ilustración de un SUV"),
+  "vehicle-mpv": placeholder("van", "Illustration of a minivan", "Ilustración de una minivan"),
   "vehicle-4x4": placeholder("suv", "Illustration of a 4x4", "Ilustración de un 4x4"),
   "vehicle-van": placeholder("van", "Illustration of a passenger van", "Ilustración de una microbús de pasajeros"),
   "vehicle-boat": placeholder("riverboat", "Illustration of a 4x4 ride and river boat", "Ilustración de un traslado en 4x4 y lancha"),
@@ -254,7 +255,7 @@ export function tourPhoto(id: string): PhotoId {
 const VEHICLE_PHOTO: Record<string, PhotoId> = {
   economy: "vehicle-sedan",
   sedan: "vehicle-sedan",
-  suv: "vehicle-suv",
+  suv: "vehicle-mpv", // the 4-traveller class is a minivan (MPV), not an SUV
   "4x4": "vehicle-4x4",
   van: "vehicle-van",
   sierpe_combo: "vehicle-boat",

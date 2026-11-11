@@ -23,7 +23,8 @@ import { englishLevelLabel } from "@/lib/preferences";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { makeT, type TeamLang } from "@/lib/teamLang";
 import { getTeamLang } from "@/lib/teamLangServer";
-import { reviewDriver, reviewVehicle } from "../actions";
+import { VEHICLE_CATEGORY_IDS, categoryHint, categoryLabel, isVehicleCategory } from "@/lib/vehicleEligibility";
+import { reviewDriver, reviewVehicle, setVehicleCategory } from "../actions";
 
 type Row = DriverRecord & {
   is_on_duty: boolean;
@@ -261,7 +262,50 @@ export default async function DriverDetail({ params }: { params: Promise<{ id: s
                   )}
                 </span>
               )}
+              {!isVehicleCategory(v.vehicle_class) && (
+                <span className="rounded bg-amber-100 px-2 py-0.5 text-sm text-amber-900 font-bold">{categoryLabel(null, lang)}</span>
+              )}
             </div>
+            {/* Which jobs this vehicle receives (migration 0038). Saved on its own, without a new approval decision. */}
+            <ActionForm
+              action={setVehicleCategory}
+              lang={lang}
+              submitLabel={t("Guardar categoría", "Save category")}
+              className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-3"
+            >
+              <input type="hidden" name="vehicle_id" value={v.id} />
+              <label className="block text-sm font-bold text-slate-700">
+                {t("Categoría del vehículo", "Vehicle category")}
+                <select
+                  name="vehicle_class"
+                  defaultValue={isVehicleCategory(v.vehicle_class) ? v.vehicle_class : ""}
+                  className="mt-1 block w-full min-h-10 rounded-lg border border-slate-300 bg-white px-2 font-normal sm:max-w-md"
+                >
+                  <option value="">{categoryLabel(null, lang)}</option>
+                  {VEHICLE_CATEGORY_IDS.map((c) => (
+                    <option key={c} value={c}>
+                      {categoryLabel(c, lang)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <p className="text-sm text-slate-700">
+                <strong>{t("Ahora", "Now")}:</strong> {categoryHint(v.vehicle_class, lang)}
+              </p>
+              <ul className="text-xs text-slate-500">
+                {VEHICLE_CATEGORY_IDS.map((c) => (
+                  <li key={c}>
+                    <strong>{categoryLabel(c, lang)}</strong>: {categoryHint(c, lang)}
+                  </li>
+                ))}
+              </ul>
+              <p className="text-xs text-slate-500">
+                {t(
+                  "Un SUV compacto (RAV4, Aion V) va como Sedán: su cajuela es de sedán. Minivan (MPV) es para 4 viajeros con 4 maletas (Xpander, Avanza, Carnival). Una van no recibe trabajos de 4x4.",
+                  "A compact SUV (RAV4, Aion V) goes as Sedan: its boot is sedan-size. Minivan (MPV) is for 4 travellers with 4 suitcases (Xpander, Avanza, Carnival). A van doesn't receive 4x4 jobs.",
+                )}
+              </p>
+            </ActionForm>
             {(vIssues.length > 0 || todo.length > 0) && (
               <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-900">
                 <IssueList issues={vIssues} />

@@ -129,7 +129,8 @@ guided — keep that difference visible.
    and win Osa with what Daytrip doesn't offer: the **Sierpe dock + boat to Drake** combo
    (faster than the ~6 h road), SINAC permits and guided Corcovado.
 3. Match Daytrip's class names and capacities so travellers compare like with like; our "SUV
-   1–4 pax" is not their SUV.
+   1–4 pax" is not their SUV. **[Done 2026-11-11: the 4-traveller class is sold as "Minivan
+   (MPV)" like Daytrip's Compact MPV, and compact SUVs only drive the sedan classes; PROJECT.md §5.3.]**
 
 ## 2c. GetTransfer price grid, Costa Rica (checked 2026-10-14 via gettransfer.com)
 

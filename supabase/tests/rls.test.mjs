@@ -704,6 +704,61 @@ await expectBlocked("a vehicle on hold cannot be offered", "driver", `select pub
 await expectOk("admin checks the vehicle", "admin", "update public.driver_vehicles set needs_review = false where id = '30000000-0000-0000-0000-000000000001'");
 await expectRows("offers work again", "driver", `select public.offer_job('10000000-0000-0000-0000-000000000007', '30000000-0000-0000-0000-000000000001', 80) as ref`, 1);
 await expectOk("server removes the hold-test job", "server", "delete from public.bookings where id = '10000000-0000-0000-0000-000000000007'");
+// Migration 0038: vehicle categories. A tagged vehicle only receives the jobs it can serve.
+const CJ = (n) => `'10000000-0000-0000-0000-0000000000${n}'`;
+const CLASS_JOBS = { economy: CJ("b1"), sedan: CJ("b2"), suv: CJ("b3"), "4x4": CJ("b4"), van: CJ("b5"), sierpe_combo: CJ("b6") };
+await expectOk("server posts one ride per vehicle class and a day tour", "server", `
+  insert into public.bookings (id, client_id, service_type, vehicle_class, total_price, driver_payout, platform_fee, status, passenger_count, scheduled_at) values
+    ${Object.entries(CLASS_JOBS).map(([c, id]) => `(${id}, '${U.client}', 'transfer', '${c}', 100, 80, 20, 'pending_bids', 2, now() + interval '12 days')`).join(",\n    ")},
+    (${CJ("b7")}, '${U.client}', 'day_tour', null, 100, 80, 20, 'pending_bids', 2, now() + interval '12 days')`);
+const classJobIds = [...Object.values(CLASS_JOBS), CJ("b7")].join(", ");
+const jobsSeen = (cls) => `select 1 from public.driver_jobs() where id in (${classJobIds})${cls ? ` and vehicle_class = '${cls}'` : ""}`;
+await expectRows("the 4-traveller class is sold as a minivan, not an SUV", "anon", "select 1 from public.vehicle_classes where id = 'suv' and name = 'Minivan (MPV)' and badge = 'Roomy for 4 + bags' and max_pax = 4 and price_factor = 1.20", 1);
+await expectRows("untagged vehicle: the driver gets every job, as before", "driver", jobsSeen(), 7);
+await expectOk("driver tries to set their own vehicle's category", "driver", `update public.driver_vehicles set vehicle_class = 'van' where id = ${V1}`);
+await expectRows("a driver cannot set their own vehicle's category", "admin", `select 1 from public.driver_vehicles where id = ${V1} and vehicle_class is null`, 1);
+await expectOk("driver adds a vehicle and tries to tag it", "driver", `insert into public.driver_vehicles (id, driver_id, make_model, vehicle_class) values ('30000000-0000-0000-0000-0000000000c1', '${U.driver}', 'Toyota Hiace', 'van')`);
+await expectRows("a new vehicle starts without a category", "admin", "select 1 from public.driver_vehicles where id = '30000000-0000-0000-0000-0000000000c1' and vehicle_class is null and status = 'pending'", 1);
+await expectBlocked("an unknown category is refused", "admin", `update public.driver_vehicles set vehicle_class = 'sierpe_combo' where id = ${V1}`);
+await expectOk("admin tags the vehicle as a sedan", "admin", `update public.driver_vehicles set vehicle_class = 'sedan' where id = ${V1}`);
+await expectRows("tagging does not pause or un-approve the vehicle", "admin", `select 1 from public.driver_vehicles where id = ${V1} and vehicle_class = 'sedan' and status = 'approved' and not review_hold`, 1);
+await expectRows("driver reads their vehicle's category", "driver", `select 1 from public.driver_vehicles where id = ${V1} and vehicle_class = 'sedan'`, 1);
+await expectRows("sedan driver gets economy and sedan jobs, and the day tour", "driver", jobsSeen(), 3);
+await expectRows("sedan driver does not get the minivan (suv) job", "driver", jobsSeen("suv"), 0);
+await expectBlocked("sedan driver cannot offer on the minivan (suv) job", "driver", `select public.offer_job(${CLASS_JOBS.suv}, ${V1}, 80)`);
+await expectRows("sedan driver offers on the economy job", "driver", `select public.offer_job(${CLASS_JOBS.economy}, ${V1}, 80) as ref`, 1);
+await expectRows("sedan driver offers on the day tour (tours are not filtered by category)", "driver", `select public.offer_job(${CJ("b7")}, ${V1}, 80) as ref`, 1);
+await expectOk("admin tags the vehicle as a van", "admin", `update public.driver_vehicles set vehicle_class = 'van' where id = ${V1}`);
+await expectRows("van gets the minivan (suv) job", "driver", jobsSeen("suv"), 1);
+await expectRows("van gets the van job", "driver", jobsSeen("van"), 1);
+await expectRows("van does not get the 4x4 job", "driver", jobsSeen("4x4"), 0);
+await expectRows("van does not get the 4x4 + boat job", "driver", jobsSeen("sierpe_combo"), 0);
+await expectBlocked("van cannot offer on the 4x4 job", "driver", `select public.offer_job(${CLASS_JOBS["4x4"]}, ${V1}, 80)`);
+await expectRows("van offers on the minivan (suv) job", "driver", `select public.offer_job(${CLASS_JOBS.suv}, ${V1}, 80) as ref`, 1);
+await expectOk("admin tags the vehicle as a 4x4", "admin", `update public.driver_vehicles set vehicle_class = '4x4' where id = ${V1}`);
+await expectRows("4x4 gets the 4x4 + boat (sierpe_combo) job", "driver", jobsSeen("sierpe_combo"), 1);
+await expectRows("4x4 gets the 4x4 job", "driver", jobsSeen("4x4"), 1);
+await expectRows("4x4 does not get the van job", "driver", jobsSeen("van"), 0);
+await expectRows("4x4 offers on the 4x4 + boat job", "driver", `select public.offer_job(${CLASS_JOBS.sierpe_combo}, ${V1}, 80) as ref`, 1);
+await expectOk("admin tags the vehicle as economy", "admin", `update public.driver_vehicles set vehicle_class = 'economy' where id = ${V1}`);
+await expectRows("economy gets only the economy job and the day tour", "driver", jobsSeen(), 2);
+await expectOk("admin tags it as a minivan (suv)", "admin", `update public.driver_vehicles set vehicle_class = 'suv' where id = ${V1}`);
+await expectRows("minivan gets economy, sedan and minivan jobs, and the day tour", "driver", jobsSeen(), 4);
+// The whole table, straight from the database function (same table as scripts/test-vehicle-eligibility.mjs).
+await expectRows("vehicle_can_serve() matches the decided table", "admin", `
+  select 1 from (values
+    ('economy', array['economy']), ('sedan', array['economy','sedan']), ('suv', array['economy','sedan','suv']),
+    ('4x4', array['economy','sedan','suv','4x4','sierpe_combo']), ('van', array['economy','sedan','suv','van'])) as want(vehicle, jobs)
+  cross join unnest(array['economy','sedan','suv','4x4','van','sierpe_combo']) as job
+  where public.vehicle_can_serve(want.vehicle, job) is distinct from (job = any (want.jobs))`, 0);
+await expectRows("no category, no job class or an unknown job class: not restricted", "admin",
+  "select 1 where public.vehicle_can_serve(null, '4x4') and public.vehicle_can_serve('economy', null) and public.vehicle_can_serve('economy', 'limo')", 1);
+await expectRows("drivers still cannot read booking rows", "driver", "select * from public.bookings", 0);
+await expectRows("the job board still never exposes the client's price or contact", "admin",
+  "select 1 from pg_proc where proname = 'driver_jobs' and pg_get_function_result(oid) ~ '(total_price|platform_fee|amount_paid|guest|client_id|client_notes|phone|email)'", 0);
+await expectOk("server removes the category-test jobs", "server", `delete from public.bookings where id in (${classJobIds})`);
+await expectOk("server removes the category-test vehicle", "server", "delete from public.driver_vehicles where id = '30000000-0000-0000-0000-0000000000c1'");
+await expectOk("server clears the category again", "server", `update public.driver_vehicles set vehicle_class = null where id = ${V1}`);
 // Migration 0030: test checkout payments are marked as such.
 await expectOk("server records a test payment", "server", `
   insert into public.payments (booking_id, provider, amount, type, status) values ('10000000-0000-0000-0000-000000000002', 'test', 200, 'full', 'succeeded')`);

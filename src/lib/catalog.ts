@@ -350,15 +350,18 @@ export const VEHICLE_CLASSES: VehicleClass[] = [
     badge: "Best value",
   },
   {
+    // The 4-traveller class is a minivan / MPV (Jorge, 2026-11-11): a compact SUV has a
+    // sedan-size boot, so it drives the sedan classes. The id stays "suv" because bookings,
+    // quotes and saved prices use it (docs/PROJECT.md §5.3).
     id: "suv",
-    name: "Standard Comfort SUV",
+    name: "Minivan (MPV)",
     priceFactorBps: 12000,
     extraFeeCents: 0,
     allowsStops: true,
     spanishSpeakingDriver: false,
     maxPax: 4,
     luggage: "4 suitcases",
-    badge: "Most popular",
+    badge: "Roomy for 4 + bags",
   },
   {
     id: "4x4",

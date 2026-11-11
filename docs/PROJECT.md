@@ -227,7 +227,8 @@ with green-season "from" prices from `src/lib/routePrices.ts`), How it works in 
 road and wildlife photos, and a four-question FAQ teaser. Customer-facing names everywhere:
 Transfers / Day tours / Multi-day trips (Traslados / Tours de un día / Viajes de varios días).
 Catalog wording that isn't a confirmed fact is replaced at display time (`CLAIM_REPLACEMENTS` in
-`src/lib/catalogEs.ts`): the SUV badge "Most popular" shows as "Roomy for 4 + bags" and the
+`src/lib/catalogEs.ts`): the old badge "Most popular" on the 4-traveller class shows as "Roomy for 4 + bags"
+(since migration 0038 that is also the stored badge) and the
 multi-day item "24/7 WhatsApp concierge" as "WhatsApp support"; the database rows should be edited
 in /admin/pricing. Marketing lives on separate route/tour landing pages (`/transfers/[slug]`) that rank on
 Google and pre-fill the builder via `?from=<hub>&to=<hub>`. Shareable ride links (2026-11-08) add
@@ -376,10 +377,50 @@ Priced by the ride formula (§6.1) × the class factor; flat base rates retired 
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | `economy` | Economy Sedan | 0.90 | 1–3 | 3 suitcases | Spanish-speaking driver, direct ride (no stops) |
 | `sedan` | Standard Sedan | 1.00 | 1–3 | 3 suitcases | Best value; default choice |
-| `suv` | Standard Comfort SUV | 1.20 | 1–4 | 4 suitcases | Most popular |
+| `suv` | Minivan (MPV) | 1.20 | 1–4 | 4 suitcases | Roomy for 4 + bags (Xpander, Avanza, Carnival…) |
 | `4x4` | Executive 4x4 (Prado / Fortuner) | 1.30 | 1–4 | 4 suitcases | Osa / Monteverde roads |
 | `van` | Private Toyota HiAce / Hyundai Staria | 1.35 | 1–10 | 10 suitcases | Families & groups |
 | `sierpe_combo` | 4x4 transfer + Sierpe river boat | 1.30 + $75 boat | 1–4 | Wet/dry assist | Drake Bay / Corcovado |
+
+**The 4-traveller class is a minivan, not an SUV (Jorge, 2026-11-11).** A compact SUV (Aion V,
+RAV4) has a sedan-size boot, so it cannot honestly carry 4 travellers + 4 suitcases; on Daytrip
+such a car only qualifies for Sedan / Sedan Lite and the 4-person class is MPVs only
+(`docs/COMPETITORS.md` §2b). So the class with id `suv` is sold as **"Minivan (MPV)"** (Spanish:
+"Minivan (MPV)"). The id stays `suv` everywhere (bookings, quotes, share links, saved prices);
+only the wording travellers see changed. Price factor, 4 travellers and 4 suitcases are unchanged.
+Sedans stay at 3 travellers / 3 suitcases; the Executive 4x4 and the Van are unchanged.
+
+#### Vehicle categories: which jobs each driver vehicle receives (built 2026-11-11, migration 0038)
+Our team tags every driver vehicle with **one** category (`driver_vehicles.vehicle_class`) on the
+driver's page in `/admin/drivers` ("Categoría del vehículo"). Bigger or more capable vehicles may
+also take the jobs of the categories below them:
+
+| Vehicle tagged | Receives jobs booked as |
+| :--- | :--- |
+| `economy` (economy sedan) | `economy` |
+| `sedan` (sedans **and compact SUVs**) | `economy`, `sedan` |
+| `suv` (minivan / MPV) | `economy`, `sedan`, `suv` |
+| `4x4` (executive 4x4) | `economy`, `sedan`, `suv`, `4x4`, `sierpe_combo` |
+| `van` | `economy`, `sedan`, `suv`, `van` — **not** `4x4` / `sierpe_combo` (those are about rough roads, not size) |
+
+- **Not tagged yet = receives every job**, exactly as before categories existed, so no driver was
+  locked out when this shipped. The admin page shows "Sin categoría: recibe todos los trabajos".
+- **Day tours and expeditions are not filtered by category**: a tour booking has no vehicle class
+  (`bookings.vehicle_class` is null), so every approved driver still sees them.
+- The seat check is unchanged and separate: an offer needs a vehicle with at least as many
+  passenger seats as travellers (`offer_job`). The job board itself is not filtered by seats.
+- Where the rule is enforced: the job board (`driver_jobs()` shows a ride only if one of the
+  driver's approved vehicles can serve it), offers (`offer_job()` refuses a vehicle whose
+  category can't serve the job), and job alerts by push and email (`src/lib/jobAlerts.ts`).
+  **The team can still assign anyone**; the booking page shows a warning when the assigned
+  vehicle's category doesn't cover the booked class, and on any offer in that situation.
+- A driver sees their vehicle's category (read-only, with the list of jobs it receives) in the
+  driver portal and the driver app, and can never change it (database trigger).
+- The rule lives in one database function, `vehicle_can_serve(vehicle_class, job_class)`,
+  mirrored by `src/lib/vehicleEligibility.ts` (website) and `apps/driver/src/vehicleCategory.ts`
+  (driver app). `npm run test:eligibility` and `npm run test:db` check all three against the
+  table above. A job class the rule doesn't know (one added later in /admin/pricing) is not
+  restricted.
 
 ### 5.4 1-day private tours
 Since 2026-11-09 (migration 0022; Jorge: "tours are not just a drive") tours are priced **per
@@ -509,6 +550,8 @@ no phone/email/links; shown to travellers) · `english_level` (`fluent` | `basic
 
 **`driver_vehicles`** (a driver can register several; each approved separately): `id` uuid PK ·
 `driver_id` → `drivers.id` · `plate` · `make_model` · `year` · `color` · `passenger_capacity` ·
+`vehicle_class` (`economy` | `sedan` | `suv` | `4x4` | `van`, null = not tagged yet; set by the team only,
+decides which jobs the driver receives, §5.3, migration 0038) ·
 `ins_policy_number` · `ins_insurance_expiry` date · `dekra_inspection_expiry` date ·
 `marchamo_year` int · `has_wifi` · `child_seats` · `stroller_space` · `pet_friendly` · `documents` jsonb (`insurance`, `dekra`, `marchamo`,
 `vehicle_registration`) · `photos` jsonb array (at least 2, one showing the plate; at most 12) · `status` · `note` ·
@@ -595,14 +638,16 @@ and `season_for_date(date)` returns the season for a travel date.
   bids automatically. After the first review, these dates change only together with an upload
   of the renewed document.
 - **driver_vehicles:** the driver and admins only; drivers add, edit and remove their own; new
-  vehicles always start `pending`; only admins change `status`, `note` and review fields; file
+  vehicles always start `pending`; only admins change `status`, `note`, review fields and the
+  category `vehicle_class` (a driver's own attempt is ignored, migration 0038); file
   links must be in the driver's own folder. Clients never see Cédula,
   license or insurance numbers.
 - **bookings:** clients see their own; admins see all. **Drivers never read booking rows**
   (since migration 0017, restated in 0036): the row holds the client's price (`total_price`,
   `platform_fee`, `amount_paid`, `company_costs`) and, on custom-offer rides, `client_notes` with the
   fixed price. Drivers read only through `driver_jobs()` (open jobs, town to town) and `my_trips()`
-  (their own trips), which return their payout and never the client's price; stop snapshots come
+  (their own trips), which return their payout and never the client's price (`driver_jobs()` lists
+  only rides one of the driver's approved vehicles can serve by category, §5.3); stop snapshots come
   without their price (`stops_for_driver()`, 0036). The one exception is `my_trips().cash_to_collect`
   on cash trips. `npm run test:db` checks all of this. Traveller contact details and
   the private trip-page code live in **`trips`**, readable only by admins and the server.

@@ -37,8 +37,8 @@ const names: Names = {
 };
 const driver: DriverInfo = { kyc_status: "approved", home_hub: "SJO", rating_avg: 4.9, rating_count: 37, location_consent_at: at(-500) };
 const vehicles: Vehicle[] = [
-  { id: "v1", make_model: "Toyota Hiace", plate: "BRT-482", passenger_capacity: 10, status: "approved" },
-  { id: "v2", make_model: "Hyundai Staria", plate: "CLV-119", passenger_capacity: 6, status: "approved" },
+  { id: "v1", make_model: "Toyota Hiace", plate: "BRT-482", passenger_capacity: 10, vehicle_class: "van", status: "approved" },
+  { id: "v2", make_model: "Hyundai Staria", plate: "CLV-119", passenger_capacity: 6, vehicle_class: "van", status: "approved" },
 ];
 
 const trip = (o: Partial<Trip>): Trip => ({
@@ -253,6 +253,7 @@ export function Preview() {
         year: 2022,
         color: "White",
         passenger_capacity: 10,
+        vehicle_class: "van",
         ins_policy_number: "INS-77120",
         ins_insurance_expiry: "2027-03-01",
         dekra_inspection_expiry: "2027-06-30",
@@ -260,6 +261,24 @@ export function Preview() {
         documents: { insurance: "x", dekra: "x" },
         photos: ["a", "b"],
         status: "approved",
+        note: null,
+      },
+      {
+        // Not tagged by the team yet: shows "todavía sin asignar".
+        id: "v2",
+        plate: "CLV-119",
+        make_model: "Toyota Rush",
+        year: 2021,
+        color: "Gris",
+        passenger_capacity: 4,
+        vehicle_class: null,
+        ins_policy_number: "INS-80233",
+        ins_insurance_expiry: "2027-02-01",
+        dekra_inspection_expiry: "2027-04-30",
+        marchamo_year: 2026,
+        documents: { insurance: "x", dekra: "x" },
+        photos: ["a"],
+        status: "pending",
         note: null,
       },
     ],

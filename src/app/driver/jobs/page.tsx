@@ -13,6 +13,7 @@ import { prefsSummary } from "@/lib/preferences";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { makeT } from "@/lib/teamLang";
 import { getTeamLang } from "@/lib/teamLangServer";
+import { vehicleCanServe } from "@/lib/vehicleEligibility";
 import { DriverHeader } from "../DriverHeader";
 import { offerJob, withdrawOffer } from "./actions";
 
@@ -125,7 +126,9 @@ async function Jobs() {
               .join(", ");
             const asked = prefsSummary(j.preferences, lang);
             const pax = j.passenger_count ?? 1;
-            const fit = vehicles.filter((x) => (x.passenger_capacity ?? 0) >= (j.passenger_count ?? 1));
+            const fit = vehicles.filter(
+              (x) => (x.passenger_capacity ?? 0) >= (j.passenger_count ?? 1) && vehicleCanServe(x.vehicle_class, j.vehicle_class),
+            );
             const payout = j.driver_payout != null ? Math.round(Number(j.driver_payout)) : null;
             const open = j.my_offer_status === "submitted";
             const match = returnMatch(j, mine.data ?? []);
@@ -244,8 +247,8 @@ async function Jobs() {
                 ) : ready && payout != null ? (
                   <p className="mt-3 text-sm font-semibold text-amber-800">
                     {tt(
-                      `Ninguno de sus vehículos aprobados tiene asientos para ${pax}.`,
-                      `None of your approved vehicles seats ${pax}.`,
+                      `Ninguno de sus vehículos aprobados puede tomar este trabajo (asientos para ${pax} y categoría).`,
+                      `None of your approved vehicles can take this job (seats for ${pax} and category).`,
                     )}
                   </p>
                 ) : null}
