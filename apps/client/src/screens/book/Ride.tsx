@@ -1,72 +1,77 @@
 import { Ionicons } from "@expo/vector-icons";
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, TextInput, View, useWindowDimensions } from "react-native";
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { cents, useBooking } from "../../booking";
 import { shortDate } from "../../DatePicker";
 import { orSimilar, plural } from "../../format";
-import { pointOfPlace, shortPlace, type MapPoint } from "../../geo";
 import { pick } from "../../haptics";
 import { LangToggle, useT } from "../../i18n";
-import { RouteMap } from "../../MapView";
 import { useNav } from "../../nav";
 import { driveTime, nightLabel, time12 } from "../../prices";
 import { C, S, SP, T, fontFor } from "../../theme";
 import { Badge, Bar, Btn, Card, Choice, RoundBtn, Skeleton, Text } from "../../ui";
-import { BagNote, ChipBtn, QuoteFacts, QuoteProblem, SHEET } from "./parts";
+import { BagNote, ChipBtn, QuoteFacts, QuoteProblem, RouteDots } from "./parts";
 
 /**
- * Choose the vehicle: the route on the map with its drive time, and a panel
- * with the date and travellers, every vehicle with its price for this ride,
- * and the choice between the fixed price and an offer for drivers to bid on.
+ * Choose the vehicle: a short route card (pickup → drop-off, the drive time,
+ * the date and travellers), then the choice between the fixed price and an
+ * offer for drivers to bid on, and every vehicle with its price for this ride.
+ * No map while booking; the map appears on the trip once a driver is assigned.
  */
 export function BookRide() {
   const { lang, t } = useT();
   const nav = useNav();
   const insets = useSafeAreaInsets();
-  const { height } = useWindowDimensions();
   const { state, set, quote, quoteBusy, vehicle, minOffer, offerValid, offerLow } = useBooking();
   const { mode, from, to } = state;
   const canNext = Boolean(vehicle) && (mode === "fixed" || offerValid);
-  const mapH = Math.round(Math.min(320, Math.max(200, height * 0.32)));
 
   function setMode(next: "fixed" | "bid") {
     // Start the offer at the fixed price for the chosen vehicle.
     set(next === "bid" && !state.offer && vehicle ? { mode: next, offer: String(Math.round(vehicle.totalCents / 100)) } : { mode: next });
   }
 
-  const a = pointOfPlace(from);
-  const b = pointOfPlace(to);
-  const points: MapPoint[] = [];
-  if (a) points.push({ ...a, kind: "pickup", label: shortPlace(from?.label) });
-  if (b) points.push({ ...b, kind: "dropoff", label: shortPlace(to?.label) });
-
   return (
-    <KeyboardAvoidingView style={S.screen} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+    <KeyboardAvoidingView style={[S.screen, { backgroundColor: C.card }]} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <Bar style="dark" />
-      <RouteMap
-        style={{ height: mapH + 26 }}
-        points={points}
-        line={a && b ? [a, b] : undefined}
-        pill={quote ? t("About " + driveTime(quote.minutes) + " drive", "Aprox. " + driveTime(quote.minutes) + " de viaje") : undefined}
-        pad={{ top: insets.top + 44, bottom: 26, left: 24, right: 24 }}
-      />
-      <View style={{ position: "absolute", top: insets.top + 8, left: SP.lg, right: SP.lg, flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+      <View style={{ paddingTop: insets.top + 8, paddingHorizontal: SP.lg, paddingBottom: 4, flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
         <RoundBtn icon="chevron-back" label={t("Back", "Volver")} onPress={() => nav.goBack()} />
         <LangToggle />
       </View>
 
-      <View style={[SHEET, { flex: 1, marginTop: -26 }]}>
-        <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: SP.lg, paddingTop: SP.lg, paddingBottom: SP.lg, gap: 12 }}>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-            <ChipBtn
-              grow
-              icon="calendar-outline"
-              tone={state.whenSet ? undefined : "amber"}
-              label={state.whenSet ? shortDate(state.date, lang) + " · " + time12(state.time) : t("Choose date and time", "Elija fecha y hora")}
-              accessibilityLabel={t("Date and pickup time", "Fecha y hora de recogida") + (state.whenSet ? ": " + shortDate(state.date, lang) + ", " + time12(state.time) : "")}
-              onPress={() => nav.navigate("BookWhen")}
-            />
-            <ChipBtn icon="person-outline" label={plural(state.pax, "traveller", lang)} onPress={() => nav.navigate("BookWhen")} />
+      <View style={{ flex: 1 }}>
+        <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: SP.lg, paddingTop: SP.sm, paddingBottom: SP.lg, gap: 12 }}>
+          <View style={[S.card, { gap: 12 }]}>
+            <View style={{ flexDirection: "row", gap: 12 }}>
+              <RouteDots inset={6} small />
+              <View style={{ flex: 1, minWidth: 0, gap: 10 }}>
+                <Text accessibilityLabel={t("From: ", "Desde: ") + (from?.label ?? "")} style={T.h3} numberOfLines={2}>
+                  {from?.label ?? "—"}
+                </Text>
+                <Text accessibilityLabel={t("To: ", "Hasta: ") + (to?.label ?? "")} style={T.h3} numberOfLines={2}>
+                  {to?.label ?? "—"}
+                </Text>
+              </View>
+            </View>
+            {quote ? (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <Ionicons name="time-outline" size={18} color={C.emerald} />
+                <Text style={[T.smallStrong, { color: C.emerald, flexShrink: 1 }]}>{t("About " + driveTime(quote.minutes) + " drive", "Aprox. " + driveTime(quote.minutes) + " de viaje")}</Text>
+              </View>
+            ) : quoteBusy ? (
+              <Skeleton width={170} height={18} />
+            ) : null}
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+              <ChipBtn
+                grow
+                icon="calendar-outline"
+                tone={state.whenSet ? undefined : "amber"}
+                label={state.whenSet ? shortDate(state.date, lang) + " · " + time12(state.time) : t("Choose date and time", "Elija fecha y hora")}
+                accessibilityLabel={t("Date and pickup time", "Fecha y hora de recogida") + (state.whenSet ? ": " + shortDate(state.date, lang) + ", " + time12(state.time) : "")}
+                onPress={() => nav.navigate("BookWhen")}
+              />
+              <ChipBtn icon="person-outline" label={plural(state.pax, "traveller", lang)} onPress={() => nav.navigate("BookWhen")} />
+            </View>
           </View>
           {quote?.night?.applies ? (
             <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
@@ -181,8 +186,6 @@ export function BookRide() {
           <BagNote />
           {quote?.vehicles.length ? <Text style={[T.caption, { textAlign: "center" }]}>{t("Price is for the whole vehicle, not per person. Taxes included.", "El precio es por todo el vehículo, no por persona. Impuestos incluidos.")}</Text> : null}
           <QuoteFacts brief />
-
-
         </ScrollView>
 
         <View style={{ paddingHorizontal: SP.lg, paddingTop: 10, paddingBottom: Math.max(insets.bottom, 14), borderTopWidth: 1, borderTopColor: C.border }}>

@@ -40,7 +40,7 @@ const ABOUT: Record<Lang, Record<string, string>> = {
   },
 };
 
-/** Pickup and drop-off: two fields that open the place search, "Add a stop", "Set on map", then our towns one tap away. */
+/** Pickup and drop-off: two fields that open the place search, "Add a stop", then our towns one tap away. */
 export function BookWhere() {
   const { lang, t } = useT();
   const nav = useNav();
@@ -77,7 +77,6 @@ export function BookWhere() {
 
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
         <ChipBtn icon="add" label={stops ? plural(stops, "stop", lang) : t("Add a stop", "Agregar una parada")} onPress={addStop} />
-        <ChipBtn icon="location-outline" label={t("Set on map", "Elegir en el mapa")} onPress={() => nav.navigate("PlaceOnMap", { field: from ? "to" : "from" })} />
         {from && to ? (
           <ChipBtn
             icon="swap-vertical"
