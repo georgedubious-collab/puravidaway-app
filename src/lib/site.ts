@@ -6,7 +6,7 @@
  * - NEXT_PUBLIC_SITE_INDEXABLE: pre-launch switch. Search engines are told to
  *   stay away unless this is exactly "true". Set it only on Production in Vercel.
  */
-const DEFAULT_SITE_URL = "https://puravidaway-app.vercel.app";
+const DEFAULT_SITE_URL = "https://www.costaricaprivatetransfers.com";
 
 function resolveSiteUrl(): string {
   const raw = (process.env.NEXT_PUBLIC_SITE_URL ?? "").trim().replace(/\/+$/, "");

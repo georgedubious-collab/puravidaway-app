@@ -1,0 +1,1 @@
+- 2026-11-11 — Claude — The apps, the built-in defaults and the scheduled checks now use https://www.costaricaprivatetransfers.com (already connected in Vercel) in place of the vercel.app address; search engines stay blocked until launch.

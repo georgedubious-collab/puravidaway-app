@@ -13,7 +13,7 @@
 | **Owner & founder** | Jorge Li — Costa Rica Travel Planner (Flores, Heredia, Costa Rica) |
 | **Repository** | `georgedubious-collab/puravidaway-app` (connected to Vercel; `main` deploys to production) |
 | **Vercel project** | `puravidaway-app` — team "Jorge Li's projects" |
-| **Production URL** | https://puravidaway-app.vercel.app |
+| **Production URL** | https://www.costaricaprivatetransfers.com (connected in Vercel since 2026-11-09; the bare domain and costaricatoursandtransfers.com redirect to it; `puravidaway-app.vercel.app` still works). Search engines stay blocked until `NEXT_PUBLIC_SITE_INDEXABLE=true` |
 | **Spec last reviewed** | 2026-11-08 |
 
 ---
@@ -111,7 +111,7 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
   ClaudeBot, Claude-SearchBot, Google-Extended) on everything else, and points to
   `sitemap.xml` (home, route pages, destination and airport guides, info pages and legal pages, each in English and Spanish
   with hreflang).
-  `NEXT_PUBLIC_SITE_URL` (default `https://puravidaway-app.vercel.app`) sets canonical and
+  `NEXT_PUBLIC_SITE_URL` (default `https://www.costaricaprivatetransfers.com`) sets canonical and
   link-preview URLs; the preview image is `src/app/opengraph-image.tsx`. Custom 404 and error
   pages (`not-found.tsx`, `error.tsx`, `global-error.tsx`). Vercel Web Analytics
   (`@vercel/analytics`) is in the root layout and must be enabled in the Vercel dashboard.
@@ -894,8 +894,8 @@ and `season_for_date(date)` returns the season for a travel date.
    7 days or less, no refund. Date/time changes free if asked 24 h+ ahead, subject to
    availability. If we or the driver cancel: full refund. Weather / road / park closures: rebook
    or refund of the affected service. The cash-booking fee is non-refundable within 24 h.
-8. **Custom domain** for the app (removes the Vercel login wall on previews and looks
-   professional).
+8. **Custom domain:** done. `www.costaricaprivatetransfers.com` is connected (2026-11-09) and the
+   apps and defaults use it since 2026-11-11; still hidden from search engines until launch.
 9. **Driver edits after approval: decided (Jorge, 2026-11-09), built in migration 0031.**
    Replacing a licence, ID, criminal-record or vehicle document, or changing their dates or a
    plate, pauses NEW jobs for that driver / vehicle (`review_hold`) until the team checks it;
