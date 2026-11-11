@@ -66,6 +66,8 @@ export interface Vehicle {
   make_model: string | null;
   plate: string | null;
   passenger_capacity: number | null;
+  /** Category our team gave the vehicle (vehicleCategory.ts); null or missing = not tagged yet, receives every job. */
+  vehicle_class?: string | null;
   status: string;
   /** Its replaced documents are waiting for the team's check: can't be offered. */
   review_hold?: boolean;

@@ -7,6 +7,7 @@ import { useT } from "../i18n";
 import { supabase } from "../supabase";
 import { C, S } from "../theme";
 import { pickAndUpload, type UploadSource, type UploadTarget } from "../upload";
+import { categoryHint, categoryLabel, isVehicleCategory } from "../vehicleCategory";
 import { Badge, Btn, Card, Chip, IconLine } from "../ui";
 
 /** Each text as [Spanish, English]. */
@@ -65,6 +66,8 @@ export interface VehicleRow {
   year: number | null;
   color: string | null;
   passenger_capacity: number | null;
+  /** Category our team gave the vehicle; null or missing = not tagged yet. Read-only for the driver. */
+  vehicle_class?: string | null;
   ins_policy_number: string | null;
   ins_insurance_expiry: string | null;
   dekra_inspection_expiry: string | null;
@@ -317,8 +320,9 @@ function VehicleCard({
   busy: string;
   run: (id: string, fn: () => Promise<string | null>, done: string) => Promise<void>;
 }) {
-  const { t } = useT();
+  const { t, lang } = useT();
   const reviewed = v.status !== "pending";
+  const tagged = isVehicleCategory(v.vehicle_class);
   const upload = (id: string, target: UploadTarget, done: string) => (from: UploadSource, renewed?: string) =>
     void run(id, () => pickAndUpload(userId, target, from, renewed), done);
   const photos = v.photos?.length ?? 0;
@@ -334,6 +338,15 @@ function VehicleCard({
         <Badge text={STATUS[v.status] ? t(...STATUS[v.status]) : v.status} tone={v.status === "approved" ? undefined : v.status === "pending" ? "amber" : "red"} />
       </View>
       {v.note ? <IconLine icon="chatbox-ellipses-outline" color={C.amber} text={t("Nota de nuestro equipo: ", "Note from our team: ") + v.note} /> : null}
+      {/* Read-only: our team sets the category, and it decides which jobs this vehicle receives. */}
+      <View style={{ backgroundColor: C.bg, borderRadius: 12, padding: 12, gap: 2 }}>
+        <Text style={{ color: C.text, fontWeight: "800" }}>
+          {t("Categoría del vehículo: ", "Vehicle category: ") + (tagged ? categoryLabel(v.vehicle_class, lang) : t("todavía sin asignar", "not set yet"))}
+        </Text>
+        <Text style={S.muted}>
+          {categoryHint(v.vehicle_class, lang) + (tagged ? t(" La categoría la asigna nuestro equipo.", " Our team sets the category.") : "")}
+        </Text>
+      </View>
       {v.review_hold ? (
         <IconLine
           icon="time-outline"
