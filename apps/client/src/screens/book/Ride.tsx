@@ -9,9 +9,9 @@ import { pick } from "../../haptics";
 import { LangToggle, useT } from "../../i18n";
 import { RouteMap } from "../../MapView";
 import { useNav } from "../../nav";
-import { driveTime, time12 } from "../../prices";
+import { driveTime, nightLabel, time12 } from "../../prices";
 import { C, S, SP, T, fontFor } from "../../theme";
-import { Bar, Btn, Card, Choice, RoundBtn, Skeleton, Text } from "../../ui";
+import { Badge, Bar, Btn, Card, Choice, RoundBtn, Skeleton, Text } from "../../ui";
 import { BagNote, ChipBtn, QuoteFacts, QuoteProblem, SHEET } from "./parts";
 
 /**
@@ -68,6 +68,12 @@ export function BookRide() {
             />
             <ChipBtn icon="person-outline" label={plural(state.pax, "traveller", lang)} onPress={() => nav.navigate("BookWhen")} />
           </View>
+          {quote?.night?.applies ? (
+            <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+              <Badge text={nightLabel(quote.night, lang)} tone="gold" icon="moon-outline" />
+              <Text style={[T.caption, { flexShrink: 1 }]}>{t("Included in the prices below.", "Incluido en los precios de abajo.")}</Text>
+            </View>
+          ) : null}
           {state.whenSet ? null : (
             <Text style={T.caption}>{t("Prices shown are for " + shortDate(state.date, lang) + ". Choose your date to see yours.", "Los precios mostrados son para el " + shortDate(state.date, lang) + ". Elija su fecha para ver los suyos.")}</Text>
           )}

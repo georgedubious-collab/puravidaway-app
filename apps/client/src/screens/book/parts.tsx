@@ -168,7 +168,8 @@ export function QuoteFacts({ brief }: { brief?: boolean }) {
       </View>
     );
   }
-  const night = quote.night?.applies ? quote.night : null;
+  // The vehicle step (brief) shows the night chip at the top, next to the date.
+  const night = !brief && quote.night?.applies ? quote.night : null;
   if (brief && quote.km == null && !quote.ferries && !quote.season.percent && !night) return null;
   return (
     <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
