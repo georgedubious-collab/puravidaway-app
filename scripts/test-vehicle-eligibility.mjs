@@ -36,7 +36,7 @@ for (const [label, lib] of [["site", site], ["driver app", app]]) {
   }
   // Not tagged yet: every job, as before categories existed.
   for (const job of JOBS) check(`${label}: untagged vehicle, ${job} job`, lib.vehicleCanServe(null, job), true);
-  // Day tours and expeditions carry no vehicle class: never filtered.
+  // Day tours (and multi-day trips booked before they were retired) carry no vehicle class: never filtered.
   for (const vehicle of Object.keys(EXPECTED)) check(`${label}: ${vehicle} vehicle, job without a class`, lib.vehicleCanServe(vehicle, null), true);
   // A class added later in /admin/pricing is not hidden from everyone.
   check(`${label}: unknown job class is open`, lib.vehicleCanServe("sedan", "limo"), true);

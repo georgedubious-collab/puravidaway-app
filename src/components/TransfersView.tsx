@@ -50,7 +50,7 @@ export function TransfersView({
   initial?: Partial<RideLinkState>;
   /** "While you're there" suggestions after a ride is added, shown under the add button. */
   suggestion?: React.ReactNode;
-  /** Transfers / Day tours / Multi-day trips switch, shown in the hero form on phones. */
+  /** Transfers / Day tours switch, shown in the hero form on phones. */
   tabs: BuilderTabs;
   /** Items already in the trip: the pinned "Add to trip" bar shows only while it is 0. */
   cartCount: number;

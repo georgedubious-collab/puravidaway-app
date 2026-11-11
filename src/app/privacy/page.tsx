@@ -47,8 +47,8 @@ export default function PrivacyPage() {
             number, from the trip request form.
           </li>
           <li>
-            <strong>Trip details:</strong> the rides, tours and expeditions you choose, dates, pickup
-            and drop-off places, number of passengers, vehicle, sightseeing stops, lodging level, ride
+            <strong>Trip details:</strong> the rides and tours you choose, dates, pickup
+            and drop-off places, number of passengers, vehicle, sightseeing stops, ride
             preferences (driver language, child seats, stroller, Wi-Fi, pets), prices and the payment
             option you pick.
           </li>

@@ -8,7 +8,7 @@ import { CARRIER_NOTE_ES } from "@/lib/trust";
 export const metadata: Metadata = {
   title: "Términos del servicio | Costa Rica Private Transfers",
   description:
-    "Los términos para reservar traslados privados, paradas turísticas, tours de un día y expediciones de varios días en Costa Rica con Costa Rica Private Transfers.",
+    "Los términos para reservar traslados privados, paradas turísticas y tours de un día en Costa Rica con Costa Rica Private Transfers.",
   alternates: bilingualAlternates("/terms", "es"),
 };
 
@@ -43,7 +43,7 @@ export default function TerminosPage() {
       <LegalSection id="who" title="1. Quiénes somos">
         <p>
           Costa Rica Private Transfers es una plataforma de reservas en línea de traslados privados con paradas
-          turísticas, tours privados de un día y expediciones de varios días en Costa Rica. La plataforma es operada
+          turísticas y tours privados de un día en Costa Rica. La plataforma es operada
           por <strong>{LEGAL_ENTITY_PLACEHOLDER_ES}</strong> (“Costa Rica Private Transfers”, “nosotros”, “nuestro
           equipo”).
         </p>
@@ -177,8 +177,8 @@ export default function TerminosPage() {
           <li>
             El <strong>Parque Nacional Corcovado</strong> exige permisos del SINAC y guías certificados
             reservados con anticipación, y los espacios para pasar la noche en la Estación Sirena son
-            limitados. Los solicitamos por usted una vez que su expedición está confirmada y pagada según
-            lo requerido; la disponibilidad la decide el SINAC, no nosotros.
+            limitados. Nuestros traslados lo llevan a Sierpe o a Bahía Drake; el guía y el permiso se
+            reservan aparte, y la disponibilidad la decide el SINAC, no nosotros.
           </li>
           <li>
             El <strong>Volcán Poás</strong> usa entradas con horario asignado que se agotan. La hora de

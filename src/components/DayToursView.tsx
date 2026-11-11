@@ -24,7 +24,7 @@ export function DayToursView({
 }: {
   today: string;
   onAdd: (item: CartItem) => void;
-  /** Transfers / Day tours / Multi-day trips switch, shown in the hero form on phones. */
+  /** Transfers / Day tours switch, shown in the hero form on phones. */
   tabs: BuilderTabs;
   /** From a "while you're there" suggestion after adding a ride. */
   initialRegion?: Region;

@@ -1,5 +1,5 @@
 import "server-only";
-import { WHATSAPP_NUMBER } from "./catalog";
+import { WHATSAPP_NUMBER, bookedItemName } from "./catalog";
 import { getCatalog } from "./catalogSource";
 import { signEditable, signShown } from "./sign";
 import { createSupabaseAdminClient } from "./supabase/admin";
@@ -163,7 +163,7 @@ export async function tripsForEmail(email: string): Promise<{ trips: AppTrip[]; 
       title:
         b.service_type === "transfer"
           ? `${b.origin ?? ""} → ${b.destination ?? ""}`
-          : ([...catalog.dayTours, ...catalog.expeditions].find((x) => x.id === b.catalog_item_id)?.name ?? "Trip"),
+          : (bookedItemName(catalog.dayTours, b.catalog_item_id) ?? "Trip"),
       scheduledAt: b.scheduled_at,
       status: b.status,
       driverOnTheWay: b.status === "confirmed" && Boolean(b.en_route_at),

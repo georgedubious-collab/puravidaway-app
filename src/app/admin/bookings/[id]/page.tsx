@@ -5,6 +5,7 @@ import { ChatBox } from "@/components/ChatBox";
 import { requireRole } from "@/lib/auth";
 import { bagsForTeam } from "@/lib/bags";
 import { BOOKING_STATUSES, bookingDue, bookingStatusLabel, serviceLabel, usd, type BookingRow, type OfferRow, type TripContact } from "@/lib/bookings";
+import { RETIRED_LODGING_TIERS, bookedItemName } from "@/lib/catalog";
 import { getCatalog } from "@/lib/catalogSource";
 import { formatScheduledAt, scheduledParts, todayInCostaRica } from "@/lib/dates";
 import { canTakeTrips, type DriverRecord, type VehicleRecord } from "@/lib/driverKyc";
@@ -176,7 +177,7 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
   const name =
     b.service_type === "transfer"
       ? `${b.origin} → ${b.destination}`
-      : ([...catalog.dayTours, ...catalog.expeditions].find((x) => x.id === b.catalog_item_id)?.name ?? b.catalog_item_id);
+      : (bookedItemName(catalog.dayTours, b.catalog_item_id, lang) ?? b.catalog_item_id);
   const stops = (b.sightseeing_stops ?? [])
     .map((s) => (s.id === "en_route_upgrade" ? "Smart En-Route Transfer" : (catalog.stops.find((x) => x.id === s.id)?.name ?? s.id)))
     .join(", ");
@@ -283,7 +284,7 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
             )}
             {stops && <Item k={t("Paradas / extras", "Stops / extras")} v={stops} />}
             {b.lodging_tier && (
-              <Item k={t("Hospedaje", "Lodging")} v={catalog.lodgingTiers.find((x) => x.id === b.lodging_tier)?.name ?? b.lodging_tier} />
+              <Item k={t("Hospedaje", "Lodging")} v={RETIRED_LODGING_TIERS[b.lodging_tier]?.[lang] ?? b.lodging_tier} />
             )}
             {b.flight_or_hotel_notes && <Item k={t("Notas del viaje", "Ride notes")} v={b.flight_or_hotel_notes} />}
             {asked.length > 0 && <Item k={t("Pidió", "Asked for")} v={asked.join(", ")} />}

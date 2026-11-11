@@ -40,7 +40,6 @@ const { easterSunday } = require(join(out, "pricing.js"));
 const q = (s) => (s === null || s === undefined ? "null" : `'${String(s).replace(/'/g, "''")}'`);
 const money = (cents) => (cents / 100).toFixed(2);
 const arr = (xs) => (xs && xs.length ? `array[${xs.map(q).join(", ")}]::text[]` : "'{}'::text[]");
-const json = (v) => `${q(JSON.stringify(v))}::jsonb`;
 
 const lines = [
   "-- Initial catalog, generated from src/lib/catalog.ts by scripts/generate-catalog-seed.mjs.",
@@ -59,12 +58,8 @@ cat.DAY_TOURS.forEach((t, i) => lines.push(
   // price is retired (20261109000022_tour_pricing.sql): tours are per person, tiered by group size.
   `insert into public.day_tours (id, region, name, highlights, duration_hours, price, price_pp_solo, price_pp_small, price_pp_group, cost_pp, en_route_upgrade_price, sort_order) values (${q(t.id)}, ${q(t.region)}, ${q(t.name)}, ${arr(t.highlights)}, ${t.durationHours}, 0, ${money(t.perPerson.soloCents)}, ${money(t.perPerson.smallCents)}, ${money(t.perPerson.groupCents)}, ${money(t.costPerPersonCents)}, ${money(cat.EN_ROUTE_UPGRADE_CENTS)}, ${i}) on conflict (id) do nothing;`));
 lines.push("");
-cat.EXPEDITIONS.forEach((e, i) => lines.push(
-  `insert into public.expeditions (id, name, days, nights, base_price, includes, itinerary, sort_order) values (${q(e.id)}, ${q(e.name)}, ${e.days}, ${e.nights}, ${money(e.basePriceCents)}, ${arr(e.includes)}, ${json(e.itinerary)}, ${i}) on conflict (id) do nothing;`));
-lines.push("");
-cat.LODGING_TIERS.forEach((l, i) => lines.push(
-  `insert into public.lodging_tiers (id, name, surcharge, sort_order) values (${q(l.id)}, ${q(l.name)}, ${money(l.surchargeCents)}, ${i}) on conflict (id) do nothing;`));
-lines.push("");
+// Multi-day trips (expeditions, lodging_tiers) were retired on 2026-11-11 and are no longer
+// in catalog.ts; the committed 0003 seed still holds their rows, which migration 0043 switches off.
 
 // Seasons mirror seasonForDate() in src/lib/pricing.ts: green by default,
 // high Dec–Apr, peak Dec 20–Jan 5 and Palm Sunday → Easter Sunday.

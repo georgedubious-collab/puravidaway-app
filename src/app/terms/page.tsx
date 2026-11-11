@@ -8,7 +8,7 @@ import { CARRIER_NOTE } from "@/lib/trust";
 export const metadata: Metadata = {
   title: "Terms of Service | Costa Rica Private Transfers",
   description:
-    "The terms for booking private transfers, sightseeing stops, day tours and multi-day expeditions in Costa Rica through Costa Rica Private Transfers.",
+    "The terms for booking private transfers, sightseeing stops and day tours in Costa Rica through Costa Rica Private Transfers.",
   alternates: bilingualAlternates("/terms", "en"),
 };
 
@@ -26,8 +26,8 @@ export default function TermsPage() {
     >
       <LegalSection id="who" title="1. Who we are">
         <p>
-          Costa Rica Private Transfers is an online booking platform for private transfers with sightseeing stops,
-          1-day private tours and multi-day expeditions in Costa Rica. The platform is operated by{" "}
+          Costa Rica Private Transfers is an online booking platform for private transfers with sightseeing stops
+          and 1-day private tours in Costa Rica. The platform is operated by{" "}
           <strong>{LEGAL_ENTITY_PLACEHOLDER}</strong> (“Costa Rica Private Transfers”, “we”, “our team”).
         </p>
         <p>
@@ -145,9 +145,9 @@ export default function TermsPage() {
         <ul>
           <li>
             <strong>Corcovado National Park</strong> requires SINAC permits and certified guides booked
-            in advance, and overnight places at Sirena Station are limited. We request them for you
-            once your expedition is confirmed and paid as required; availability is decided by SINAC,
-            not by us.
+            in advance, and overnight places at Sirena Station are limited. Our rides take you to Sierpe
+            or Drake Bay; the guide and the permit are booked separately, and availability is decided
+            by SINAC, not by us.
           </li>
           <li>
             <strong>Poás Volcano</strong> uses timed-entry tickets that sell out. Your visit time

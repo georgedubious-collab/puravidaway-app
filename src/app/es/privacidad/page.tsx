@@ -56,9 +56,9 @@ export default function PrivacidadPage() {
             celular / WhatsApp, tomados del formulario de solicitud de viaje.
           </li>
           <li>
-            <strong>Datos del viaje:</strong> los traslados, tours y expediciones que usted elige, las
+            <strong>Datos del viaje:</strong> los traslados y tours que usted elige, las
             fechas, los lugares de recogida y de destino, el número de pasajeros, el vehículo, las
-            paradas turísticas, el nivel de alojamiento, las preferencias del traslado (idioma del
+            paradas turísticas, las preferencias del traslado (idioma del
             conductor, sillas para niños, coche de bebé, Wi-Fi, mascotas), los precios y la opción de
             pago que usted escoge.
           </li>

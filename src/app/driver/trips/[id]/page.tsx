@@ -9,6 +9,7 @@ import { setTripStatus } from "../actions";
 import { requireUser } from "@/lib/auth";
 import { bagsForTeam } from "@/lib/bags";
 import { bookingStatusLabel, serviceLabel, usd, type DriverTrip } from "@/lib/bookings";
+import { bookedItemName } from "@/lib/catalog";
 import { getCatalog } from "@/lib/catalogSource";
 import { formatScheduledAt, formatTime12h, scheduledParts } from "@/lib/dates";
 import { googleMapsUrl, navTarget, wazeUrl, type NavTarget } from "@/lib/navigation";
@@ -78,7 +79,7 @@ async function Trip({ params, searchParams }: { params: Promise<{ id: string }>;
   const name =
     b.service_type === "transfer"
       ? `${b.origin} → ${b.destination}`
-      : ([...catalog.dayTours, ...catalog.expeditions].find((x) => x.id === b.catalog_item_id)?.name ?? tt("Viaje", "Trip"));
+      : (bookedItemName(catalog.dayTours, b.catalog_item_id, lang) ?? tt("Viaje", "Trip"));
   const stops = (b.sightseeing_stops ?? [])
     .map((s) => (s.id === "en_route_upgrade" ? "Smart En-Route Transfer" : (catalog.stops.find((x) => x.id === s.id)?.name ?? s.id)))
     .join(", ");

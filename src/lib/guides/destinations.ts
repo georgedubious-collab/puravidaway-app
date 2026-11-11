@@ -1090,8 +1090,8 @@ export const DESTINATION_GUIDES: DestinationGuide[] = [
       {
         q: { en: "Do I need a permit for Corcovado?", es: "¿Se necesita permiso para Corcovado?" },
         a: {
-          en: "Yes. Corcovado requires a SINAC permit and a certified guide, both booked in advance, and overnight places at Sirena Station are limited. Our multi-day Corcovado trip includes the permits and is booked and paid ahead for that reason.",
-          es: "Sí. Corcovado exige un permiso del SINAC y un guía certificado, ambos reservados con anticipación, y los espacios para pasar la noche en la Estación Sirena son limitados. Nuestro viaje de varios días a Corcovado incluye los permisos y por eso se reserva y se paga por adelantado.",
+          en: "Yes. Corcovado requires a SINAC permit and a certified guide, both booked in advance, and overnight places at Sirena Station are limited, so book your guide early. We drive you to Sierpe or Drake Bay; the guide and the permit are booked separately.",
+          es: "Sí. Corcovado exige un permiso del SINAC y un guía certificado, ambos reservados con anticipación, y los espacios para pasar la noche en la Estación Sirena son limitados, así que conviene reservar el guía con tiempo. Nosotros lo llevamos a Sierpe o a Bahía Drake; el guía y el permiso se reservan aparte.",
         },
       },
       {

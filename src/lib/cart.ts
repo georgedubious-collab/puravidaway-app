@@ -9,7 +9,7 @@ import { cashFeeCents, formatBpsPercent, formatUSD } from "./pricing";
 import { parseSpec, type ItemSpec } from "./tripRequest";
 
 export interface CartItem {
-  kind: "transfer" | "day_tour" | "expedition";
+  kind: "transfer" | "day_tour";
   id: string;
   title: string;
   detail: string;
@@ -26,7 +26,7 @@ export interface CartItem {
  * How the traveller pays (Jorge, 2026-11-08; PROJECT.md §6.4):
  * - full_100: pay online in full; we send a secure payment link once the trip is confirmed.
  * - cash_driver: pay the driver in cash, plus a cash booking fee (catalog.cashFeeBps).
- *   Rides and 1-day tours only; expeditions are always paid online.
+ *   Rides and 1-day tours (multi-day trips, always paid online, were retired on 2026-11-11).
  */
 export type PaymentMode = "full_100" | "cash_driver";
 
@@ -35,7 +35,7 @@ export function parsePaymentMode(v: unknown): PaymentMode {
   return v === "cash_driver" ? "cash_driver" : "full_100";
 }
 
-/** Rides and 1-day tours can be paid to the driver in cash; expeditions can't (permits, boats, lodges are prepaid). */
+/** Rides and 1-day tours can be paid to the driver in cash. */
 export function cashAllowed(kind: CartItem["kind"]): boolean {
   return kind === "transfer" || kind === "day_tour";
 }
@@ -76,7 +76,9 @@ export function cartTotals(items: CartItem[], mode: PaymentMode, feeBps: number)
   return { itemsCents, cashFeeCents: fee, totalCents: itemsCents + fee, onlineCents, cashCents };
 }
 
-const KINDS = new Set(["transfer", "day_tour", "expedition"]);
+// Multi-day trips ("expedition") were retired on 2026-11-11: one left in a browser's saved
+// trip is dropped when the page loads.
+const KINDS = new Set(["transfer", "day_tour"]);
 
 /**
  * Validate data read back from browser storage. Anything malformed is dropped
@@ -157,7 +159,7 @@ export function cartWhatsAppMessage(
       `Total: ${formatUSD(t.totalCents)}`,
       t.cashCents > 0
         ? `Quisiera pagar al conductor en efectivo (${formatUSD(t.cashCents)})${
-            t.onlineCents > 0 ? ` y pagar la expedición en línea en su totalidad (${formatUSD(t.onlineCents)})` : ""
+            t.onlineCents > 0 ? ` y pagar el resto en línea (${formatUSD(t.onlineCents)})` : ""
           }.`
         : "Quisiera pagar en línea el total cuando el viaje esté confirmado.",
     ].join("\n");
@@ -178,7 +180,7 @@ export function cartWhatsAppMessage(
     `Total: ${formatUSD(t.totalCents)}`,
     t.cashCents > 0
       ? `I'd like to pay the driver in cash (${formatUSD(t.cashCents)})${
-          t.onlineCents > 0 ? ` and pay the expedition online in full (${formatUSD(t.onlineCents)})` : ""
+          t.onlineCents > 0 ? ` and pay the rest online (${formatUSD(t.onlineCents)})` : ""
         }.`
       : "I'd like to pay online in full once the trip is confirmed.",
   ];

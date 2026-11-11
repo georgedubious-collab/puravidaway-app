@@ -12,8 +12,6 @@ import {
   WAIT_PER_HOUR_CENTS_DEFAULT,
   DAY_TOURS,
   EN_ROUTE_UPGRADE_CENTS,
-  EXPEDITIONS,
-  LODGING_TIERS,
   SEASONS,
   SIGHTSEEING_STOPS,
   VEHICLE_CLASSES,
@@ -21,8 +19,6 @@ import {
   type DayTour,
   type FerryFares,
   type RideFormula,
-  type Expedition,
-  type LodgingTier,
   type Season,
   type SightseeingStop,
   type VehicleClass,
@@ -43,8 +39,6 @@ export interface CatalogData {
   vehicles: VehicleClass[];
   stops: SightseeingStop[];
   dayTours: DayTour[];
-  expeditions: Expedition[];
-  lodgingTiers: LodgingTier[];
   seasons: (Season & { priority: number; isDefault: boolean })[];
   seasonRanges: SeasonRange[];
   /** Cash booking fee in basis points of the ride / day-tour price (1000 = 10%). */
@@ -102,8 +96,6 @@ export const BUILT_IN_CATALOG: CatalogData = {
   vehicles: VEHICLE_CLASSES,
   stops: SIGHTSEEING_STOPS,
   dayTours: DAY_TOURS.map((t) => ({ ...t, enRouteUpgradeCents: t.enRouteUpgradeCents ?? EN_ROUTE_UPGRADE_CENTS })),
-  expeditions: EXPEDITIONS,
-  lodgingTiers: LODGING_TIERS,
   seasons: SEASONS.map((s) => ({ ...s, priority: PRIORITY[s.id] ?? 0, isDefault: s.id === "green" })),
   seasonRanges: builtInSeasonRanges(2025, 2040),
   cashFeeBps: CASH_FEE_BPS_DEFAULT,

@@ -23,7 +23,6 @@ import { formatUSD } from "@/lib/pricing";
 import { parseRideLink } from "@/lib/shareLink";
 import { CartDrawer } from "./CartDrawer";
 import { DayToursView } from "./DayToursView";
-import { ExpeditionsView } from "./ExpeditionsView";
 import { SiteHeader } from "./site/SiteHeader";
 import { Toast, useToast } from "./Toast";
 import { TransfersView } from "./TransfersView";
@@ -34,14 +33,18 @@ import { UpsellSuggestion, type Suggestion } from "./UpsellSuggestion";
 const STORAGE_KEY = "pvw-cart-v1";
 const MODE_KEY = "pvw-pay-mode";
 
-/** ?tab= values used by the site menu (src/lib/siteNav.ts). */
-const TAB_PARAM: Record<string, Builder> = { transfers: "transfers", tours: "daytours", multiday: "multiday" };
+/**
+ * ?tab= values used by the site menu (src/lib/siteNav.ts). Multi-day trips were retired on
+ * 2026-11-11; an old ?tab=multiday link is redirected to ?tab=tours (next.config.ts), and lands
+ * on the day tours here too if it ever gets through.
+ */
+const TAB_PARAM: Record<string, Builder> = { transfers: "transfers", tours: "daytours", multiday: "daytours" };
 
 /**
  * The booking app. Desktop (xl+): the trip sits in a sidebar next to the builder,
  * always visible. Smaller screens: a bottom bar opens the same trip in a drawer
  * (while the trip is empty, the ride builder pins its own "Add to trip" bar there).
- * The three builders (Transfers / Day tours / Multi-day trips) are switched from
+ * The two builders (Transfers / Day tours) are switched from
  * the header menu on wide screens and from tabs in the hero form on phones.
  * Route pages link here with ?from=SJO&to=ManuelAntonio to pre-fill a ride; the
  * ride builder keeps the full ride in the address (src/lib/shareLink.ts) so it can be shared.
@@ -72,7 +75,7 @@ export function Storefront({
   const rideInit = parseRideLink(params, catalog, today);
   // "While you're there" suggestion after a ride is added (dismissible).
   const [upsell, setUpsell] = useState<{ destination: HubId; date: string } | null>(null);
-  // The tour / expedition picked from a suggestion, highlighted in its tab.
+  // The tour picked from a suggestion, highlighted in its tab.
   const [focus, setFocus] = useState<{ suggestion: Suggestion; date: string; n: number } | null>(null);
 
   const tabParam = params.get("tab");
@@ -139,7 +142,7 @@ export function Storefront({
   function pickSuggestion(s: Suggestion) {
     if (!upsell) return;
     setFocus((prev) => ({ suggestion: s, date: upsell.date, n: (prev?.n ?? 0) + 1 }));
-    setBuilder(s.kind === "day_tour" ? "daytours" : "multiday");
+    setBuilder("daytours");
     setUpsell(null);
   }
   const removeItem = (id: string) => setItems((prev) => prev.filter((i) => i.id !== id));
@@ -248,15 +251,6 @@ export function Storefront({
                     highlightId: focus.suggestion.id,
                   }
                 : {})}
-            />
-          )}
-          {builder === "multiday" && (
-            <ExpeditionsView
-              key={focus?.suggestion.kind === "expedition" ? `focus-${focus.n}` : "expeditions"}
-              today={today}
-              onAdd={addItem}
-              tabs={tabs}
-              {...(focus?.suggestion.kind === "expedition" ? { initialDate: focus.date, highlightId: focus.suggestion.id } : {})}
             />
           )}
         </main>

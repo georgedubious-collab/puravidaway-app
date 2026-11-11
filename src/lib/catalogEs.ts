@@ -1,5 +1,5 @@
 /**
- * Spanish text for the catalog (vehicles, stops, tours, expeditions, lodging,
+ * Spanish text for the catalog (vehicles, stops, tours,
  * seasons, towns, regions), for the Spanish website under /es.
  *
  * The catalog itself lives in the database in English (edited at /admin/pricing).
@@ -19,9 +19,7 @@
  */
 import {
   DAY_TOURS,
-  EXPEDITIONS,
   HUBS,
-  LODGING_TIERS,
   SEASONS,
   SIGHTSEEING_STOPS,
   VEHICLE_CLASSES,
@@ -117,48 +115,6 @@ const DAY_TOURS_ES: Record<string, { name: string; highlights: string[] }> = {
   },
 };
 
-const EXPEDITIONS_ES: Record<string, { name: string; includes: string[]; itinerary: string[] }> = {
-  md1: {
-    name: "Parque Nacional Corcovado — noche en la Estación Sirena (vía Sierpe)",
-    includes: [
-      "Traslados en lancha Sierpe → Bahía Drake → Sirena",
-      "Permisos oficiales del SINAC para pasar la noche",
-      "Comidas en la Estación de Guardaparques Sirena",
-      "Guía naturalista certificado de Osa",
-    ],
-    itinerary: [
-      "Manglares de Sierpe → Bahía Drake, atardecer en la playa",
-      "Lancha a Sirena, día completo de senderos, noche en el parque",
-      "Caminata de vida silvestre al amanecer, lancha de regreso a Sierpe",
-    ],
-  },
-  md2: {
-    name: "La trilogía clásica de Costa Rica: Arenal, Monteverde y Manuel Antonio",
-    includes: [
-      "Traslados puerta a puerta con paradas turísticas",
-      "Cruce en lancha por el lago Arenal",
-      "Puentes colgantes de Monteverde",
-      "Tour guiado en Manuel Antonio",
-      "Asistencia por WhatsApp",
-    ],
-    itinerary: [
-      "SJO → La Fortuna con parada en el volcán Poás",
-      "Senderos de lava del Arenal y aguas termales",
-      "Cruce en lancha por el lago Arenal → Monteverde",
-      "Puentes colgantes, canopy y caminata nocturna",
-      "Monteverde → Manuel Antonio con parada en Tárcoles",
-      "Caminata de vida silvestre en el PN Manuel Antonio y catamarán",
-      "Manuel Antonio → SJO",
-    ],
-  },
-};
-
-const LODGING_TIERS_ES: Record<string, string> = {
-  base: "Básico (estación de guardaparques / estándar)",
-  boutique: "Eco-resort boutique de 4 estrellas",
-  luxury: "Lodge de lujo de 5 estrellas",
-};
-
 const SEASONS_ES: Record<string, string> = {
   green: "Temporada verde",
   high: "Temporada alta (dic.–abr.)",
@@ -198,13 +154,11 @@ export function entranceLabel(entrance: StopEntrance, lang: PublicLang): string 
  * Catalog texts we no longer show as written, replaced at display time
  * (docs/PROJECT.md §10: only claims that are true and confirmed):
  * - "Most popular" (no booking data behind it) → a factual label.
- * - "24/7 WhatsApp concierge" (round-the-clock staffing isn't confirmed) → "WhatsApp support".
  * The database rows still hold the old text: edit them in /admin/pricing and
  * these lines become no-ops. The Spanish texts above already use the new wording.
  */
 const CLAIM_REPLACEMENTS: Record<string, string> = {
   "Most popular": "Roomy for 4 + bags",
-  "24/7 WhatsApp concierge": "WhatsApp support",
 };
 
 function withFactualClaims(catalog: CatalogData): CatalogData {
@@ -212,7 +166,6 @@ function withFactualClaims(catalog: CatalogData): CatalogData {
   return {
     ...catalog,
     vehicles: catalog.vehicles.map((v) => ({ ...v, badge: fix(v.badge) })),
-    expeditions: catalog.expeditions.map((e) => ({ ...e, includes: e.includes.map(fix) })),
   };
 }
 
@@ -257,21 +210,6 @@ export function localizeCatalog(rawCatalog: CatalogData, lang: PublicLang): Cata
         highlights: t.highlights.map((h, i) => pick(h, seed.highlights[i], es.highlights[i])),
       };
     }),
-    expeditions: catalog.expeditions.map((e) => {
-      const es = EXPEDITIONS_ES[e.id];
-      const seed = EXPEDITIONS.find((x) => x.id === e.id);
-      if (!es || !seed) return e;
-      return {
-        ...e,
-        name: pick(e.name, seed.name, es.name),
-        includes: e.includes.map((x, i) => pick(x, seed.includes[i], es.includes[i])),
-        itinerary: e.itinerary.map((d, i) => ({ ...d, title: pick(d.title, seed.itinerary[i]?.title, es.itinerary[i]) })),
-      };
-    }),
-    lodgingTiers: catalog.lodgingTiers.map((t) => ({
-      ...t,
-      name: pick(t.name, LODGING_TIERS.find((x) => x.id === t.id)?.name, LODGING_TIERS_ES[t.id]),
-    })),
     seasons: catalog.seasons.map((s) => ({
       ...s,
       name: pick(s.name, SEASONS.find((x) => x.id === s.id)?.name, SEASONS_ES[s.id]),

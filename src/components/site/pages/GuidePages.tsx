@@ -1,6 +1,6 @@
 import { ArrowRight, Check, Clock, Info, Sun, CloudRain } from "lucide-react";
 import Link from "next/link";
-import { AIRPORT_HUBS, EXPEDITION_REGIONS, routeMinutes, stopFitsRoute, type HubId } from "@/lib/catalog";
+import { AIRPORT_HUBS, routeMinutes, stopFitsRoute, type HubId } from "@/lib/catalog";
 import { entranceLabel, localizeCatalog } from "@/lib/catalogEs";
 import { getCatalog } from "@/lib/catalogSource";
 import {
@@ -97,7 +97,6 @@ export async function DestinationGuidePage({ guide, lang }: { guide: Destination
   // Sightseeing stops offered on a ride from either airport to this destination.
   const stops = catalog.stops.filter((s) => AIRPORT_HUBS.some((a) => hubs.some((h) => stopFitsRoute(s, a, h))));
   const tours = guide.region ? catalog.dayTours.filter((x) => x.region === guide.region) : [];
-  const expeditions = guide.region ? catalog.expeditions.filter((e) => EXPEDITION_REGIONS[e.id]?.includes(guide.region!)) : [];
   const defaultSeason = catalog.seasons.find((s) => s.isDefault);
   const seasonBps = defaultSeason?.multiplierBps ?? 10000;
   const airportLinks = guide.rides
@@ -238,7 +237,7 @@ export async function DestinationGuidePage({ guide, lang }: { guide: Destination
 
         <div className="mt-8">
           <h3 className="text-lg font-extrabold text-slate-900">{t(lang, "Our private day tours here", "Nuestros tours privados de un día aquí")}</h3>
-          {tours.length + expeditions.length === 0 ? (
+          {tours.length === 0 ? (
             <p className="mt-2 text-slate-600">
               {t(lang, "We don't have a day tour that starts here yet. ", "Todavía no tenemos un tour de un día que empiece aquí. ")}
               <Link href={localizedHref("/?tab=tours", lang)} className="font-semibold text-emerald-700 underline underline-offset-2">
@@ -268,20 +267,6 @@ export async function DestinationGuidePage({ guide, lang }: { guide: Destination
                     className="mt-3 inline-flex min-h-11 items-center gap-1.5 text-sm font-bold text-emerald-700 underline underline-offset-2 hover:text-emerald-800"
                   >
                     {t(lang, "See day tours and prices", "Ver tours de un día y precios")} <ArrowRight className="w-4 h-4" aria-hidden />
-                  </Link>
-                </li>
-              ))}
-              {expeditions.map((x) => (
-                <li key={x.id} className={CARD}>
-                  <span className="block font-extrabold leading-snug text-slate-900">{x.name}</span>
-                  <span className="mt-1 block text-sm text-slate-600">
-                    {t(lang, `Multi-day trip · ${x.days} days / ${x.nights} nights`, `Viaje de varios días · ${x.days} días / ${x.nights} noches`)}
-                  </span>
-                  <Link
-                    href={localizedHref("/?tab=multiday", lang)}
-                    className="mt-3 inline-flex min-h-11 items-center gap-1.5 text-sm font-bold text-emerald-700 underline underline-offset-2 hover:text-emerald-800"
-                  >
-                    {t(lang, "See multi-day trips and prices", "Ver viajes de varios días y precios")} <ArrowRight className="w-4 h-4" aria-hidden />
                   </Link>
                 </li>
               ))}

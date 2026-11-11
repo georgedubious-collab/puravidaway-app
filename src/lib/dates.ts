@@ -35,9 +35,8 @@ export function isValidYmd(s: string): boolean {
  * night premium (src/lib/nightPremium.ts).
  */
 export const DEFAULT_PICKUP_TIME = "09:00";
-/** Day tours and expeditions have no time picker yet: these defaults are stored until the team confirms. */
+/** Day tours have no time picker yet: this default is stored until the team confirms. */
 export const DEFAULT_TOUR_TIME = "07:00";
-export const DEFAULT_EXPEDITION_TIME = "06:00";
 
 const HHMM = /^([01]\d|2[0-3]):(00|15|30|45)$/;
 

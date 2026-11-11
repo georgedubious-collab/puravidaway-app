@@ -45,8 +45,9 @@ const EXACT: Record<string, string> = {
   "That vehicle is no longer offered. Please choose another.": "Ese vehículo ya no está disponible. Por favor, elija otro.",
   "One of the stops is no longer offered on this route.": "Una de las paradas ya no se ofrece en esta ruta.",
   "That tour is no longer offered.": "Ese tour ya no está disponible.",
-  "That expedition is no longer offered.": "Esa expedición ya no está disponible.",
-  "That lodging option is no longer offered.": "Esa opción de alojamiento ya no está disponible.",
+  // Multi-day trips were retired on 2026-11-11 (RETIRED_EXPEDITION_ERROR in src/lib/tripRequest.ts).
+  "Multi-day trips are no longer offered. Please remove that item from your trip; private transfers and 1-day tours are still available.":
+    "Ya no ofrecemos viajes de varios días. Por favor, quite ese elemento de su viaje; los traslados privados y los tours de un día siguen disponibles.",
   // Rating on the trip page (src/app/trip/[token]/actions.ts)
   "This link isn't valid any more.": "Este enlace ya no es válido.",
   "Pick 1 to 5 stars.": "Elija de 1 a 5 estrellas.",

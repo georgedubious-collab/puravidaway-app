@@ -162,13 +162,14 @@ check("bid at night: reference = night fixed price", bid("23:30").referenceCents
 check("bid at night: the offer is what is charged", bid("23:30").totalCents, 15000);
 check("bid at night: no premium on top of the offer", bid("23:30").nightCents, 0);
 
-// Day tours and expeditions are not affected.
+// Day tours are not affected (multi-day trips were retired on 2026-11-11).
 const tour = priceItem({ kind: "day_tour", tourId: "dt1", upgrade: false, pax: 2 }, GREEN, catalog);
 const tourNoNight = priceItem({ kind: "day_tour", tourId: "dt1", upgrade: false, pax: 2 }, GREEN, { ...catalog, nightPremium: { ...RULE, bps: 0 } });
 check("day tour unchanged", tour.totalCents, tourNoNight.totalCents);
 check("day tour has no premium", tour.nightCents, 0);
-const exp = priceItem({ kind: "expedition", expeditionId: "md1", tierId: catalog.lodgingTiers[0].id }, GREEN, catalog);
-check("expedition has no premium", exp.nightCents, 0);
+let refused = false;
+try { priceItem({ kind: "expedition", expeditionId: "md1", tierId: "base" }, GREEN, catalog); } catch { refused = true; }
+check("a multi-day item can no longer be priced", refused, true);
 
 // The values come from the catalog (the database), not from the code.
 const other = { ...catalog, nightPremium: { bps: 3000, startHour: 21, endHour: 5 } };

@@ -237,7 +237,7 @@ export function drivePhoto(origin: HubId, destination: HubId): PhotoId | null {
   return "central-valley-view";
 }
 
-/** Day tours and multi-day trips, by catalog id. Unknown ids (added in /admin/pricing) get a neutral drawing. */
+/** Day tours (and the retired multi-day trips, for old bookings), by catalog id. Unknown ids (added in /admin/pricing) get a neutral drawing. */
 const TOUR_PHOTO: Record<string, PhotoId> = {
   dt1: "la-fortuna-hot-river",
   dt2: "manuel-antonio-hills-sunset",

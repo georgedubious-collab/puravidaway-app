@@ -30,8 +30,8 @@ export function SiteFooter({ lang }: { lang: PublicLang }) {
           <p className="mt-3 hidden sm:block leading-relaxed text-emerald-200">
             {t(
               lang,
-              "Private door-to-door transfers, 1-day tours and multi-day trips across Costa Rica with vetted local drivers.",
-              "Traslados privados puerta a puerta, tours de un día y viajes de varios días por Costa Rica con conductores locales verificados.",
+              "Private door-to-door transfers and 1-day tours across Costa Rica with vetted local drivers.",
+              "Traslados privados puerta a puerta y tours de un día por Costa Rica con conductores locales verificados.",
             )}
           </p>
           <ul className="mt-2 sm:mt-4 flex flex-wrap gap-x-5 sm:block sm:space-y-1">

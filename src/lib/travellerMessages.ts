@@ -50,8 +50,8 @@ export interface RequestItem {
   /** YYYY-MM-DD and HH:MM, Costa Rica time. */
   date: string;
   time: string;
-  kind: "transfer" | "day_tour" | "expedition";
-  /** Ride: "A → B"; tour or expedition: its name. */
+  kind: "transfer" | "day_tour";
+  /** Ride: "A → B"; tour: its name. */
   what: string;
 }
 
@@ -60,9 +60,7 @@ export function requestItemLine(lang: PublicLang, i: RequestItem): string {
   const ride = i.kind === "transfer";
   const what = ride
     ? t(lang, `Ride: ${i.what}`, `Traslado: ${i.what}`)
-    : i.kind === "day_tour"
-      ? t(lang, `Day tour: ${i.what}`, `Tour de un día: ${i.what}`)
-      : t(lang, `Expedition: ${i.what}`, `Expedición: ${i.what}`);
+    : t(lang, `Day tour: ${i.what}`, `Tour de un día: ${i.what}`);
   const when = t(
     lang,
     `${i.date}, ${formatTime12h(i.time)} ${ride ? "pickup" : "start (to confirm)"}`,
@@ -79,11 +77,11 @@ export function requestPaymentLine(
     return t(
       lang,
       `Payment: cash to your driver, ${money(p.cashCents)} (includes a ${p.feePercent} cash booking fee of ${money(p.feeTotalCents)})${
-        p.onlineCents > 0 ? `; ${money(p.onlineCents)} online in full for the expedition, by secure link once confirmed` : ""
+        p.onlineCents > 0 ? `; ${money(p.onlineCents)} online in full, by secure link once confirmed` : ""
       }.`,
       `Pago: efectivo al conductor, ${money(p.cashCents)} (incluye un cargo por reserva en efectivo del ${p.feePercent}, de ${money(p.feeTotalCents)})${
         p.onlineCents > 0
-          ? `; ${money(p.onlineCents)} en línea, pago completo, por la expedición, mediante un enlace de pago seguro una vez confirmada`
+          ? `; ${money(p.onlineCents)} en línea, pago completo, mediante un enlace de pago seguro una vez confirmado el viaje`
           : ""
       }.`,
     );
@@ -231,7 +229,7 @@ interface Review {
   /** driverFirstName(lang, …, false). */
   driver: string;
   ref: string;
-  /** A ride (transfer), or a tour / expedition. */
+  /** A ride (transfer), or a tour. */
   ride: boolean;
   origin: string;
   destination: string;

@@ -14,6 +14,7 @@ import { rateDriver, saveSign } from "./actions";
 import { signEditable } from "@/lib/sign";
 import { TRIP_TOKEN, bookingDue, serviceLabel, usd, type BookingRow, type BookingStatus } from "@/lib/bookings";
 import { localizeCatalog, placeNameFor } from "@/lib/catalogEs";
+import { bookedItemName } from "@/lib/catalog";
 import { getCatalog } from "@/lib/catalogSource";
 import { formatScheduledAtFor } from "@/lib/dates";
 import { englishLevelLabel, prefsSummary } from "@/lib/preferences";
@@ -211,12 +212,12 @@ export default async function TripPage({ params, searchParams }: Props) {
   const itemName = (b: BookingRow) =>
     b.service_type === "transfer"
       ? `${lang === "es" ? placeNameFor(b.origin, lang) : b.origin} → ${lang === "es" ? placeNameFor(b.destination, lang) : b.destination}`
-      : ([...catalog.dayTours, ...catalog.expeditions].find((x) => x.id === b.catalog_item_id)?.name ?? t("Trip", "Viaje"));
+      : (bookedItemName(catalog.dayTours, b.catalog_item_id, lang) ?? t("Trip", "Viaje"));
   /** "Chat about this ride" / "Chat sobre este traslado". */
   const chatTitle = (type: string) =>
     t(
       `Chat about this ${serviceLabel(type, "en").toLowerCase()}`,
-      `Chat sobre ${type === "transfer" ? "este traslado" : type === "day_tour" ? "este tour" : "esta expedición"}`,
+      `Chat sobre ${type === "transfer" ? "este traslado" : type === "day_tour" ? "este tour" : "este viaje"}`,
     );
 
   return (

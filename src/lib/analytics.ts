@@ -431,7 +431,6 @@ function gaItem(item: CartItem): GaItem {
     return { ...base, item_id: `transfer:${from}>${to}`, item_variant: s.pricing === "bid" ? "bid" : s.vehicleId };
   }
   if (s?.kind === "day_tour") return { ...base, item_id: `tour:${s.tourId}` };
-  if (s?.kind === "expedition") return { ...base, item_id: `expedition:${s.expeditionId}`, item_variant: s.tierId };
   return { ...base, item_id: item.kind };
 }
 
@@ -486,7 +485,7 @@ export function trackVehicleSelect(v: { from: RouteEnd; to: RouteEnd; vehicleId:
   });
 }
 
-/** add_to_cart: a ride, day tour or multi-day trip is added to "Your trip". */
+/** add_to_cart: a ride or day tour is added to "Your trip". */
 export function trackAddToCart(item: CartItem): void {
   send("add_to_cart", {
     currency: "USD",
