@@ -185,7 +185,7 @@ export function BookingProvider({
     lastRoute.current = routeKey;
     setQuoteBusy(true);
     setQuoteError("");
-    void fetchQuote({ from: fromId, to: toId, date, pax, stopIds: stopsKey ? stopsKey.split(",") : [] }).then((res) => {
+    void fetchQuote({ from: fromId, to: toId, date, pax, stopIds: stopsKey ? stopsKey.split(",") : [], lang }).then((res) => {
       if (!live) return;
       setQuoteBusy(false);
       if (!res.ok || !res.data) {
@@ -197,7 +197,7 @@ export function BookingProvider({
     return () => {
       live = false;
     };
-  }, [routeKey, stopsKey, fromId, toId, date, pax, isDemo]);
+  }, [routeKey, stopsKey, fromId, toId, date, pax, isDemo, lang]);
 
   // ---- Tours: loaded while a tour is being planned.
   const toursKey = state.kind === "tour" && validDate(date) ? date + "|" + pax : "";
@@ -205,7 +205,7 @@ export function BookingProvider({
     if (isDemo || !toursKey) return;
     let live = true;
     setTours(null);
-    void fetchTours(date, pax).then((res) => {
+    void fetchTours(date, pax, lang).then((res) => {
       if (!live) return;
       if (!res.ok || !res.data) return setToursError(res.error ?? tRef.current("We couldn't load the tours.", "No pudimos cargar los tours."));
       setToursError("");
@@ -215,7 +215,7 @@ export function BookingProvider({
     return () => {
       live = false;
     };
-  }, [toursKey, date, pax, isDemo]);
+  }, [toursKey, date, pax, isDemo, lang]);
 
   // ---- What follows from the choices (same rules as the first version of the app).
   const vehicle = quote?.vehicles.find((v) => v.id === state.vehicleId) ?? quote?.vehicles[0];

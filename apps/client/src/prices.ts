@@ -36,16 +36,18 @@ export interface QuoteInput {
   date: string;
   pax: number;
   stopIds: string[];
+  /** The app's language, so names and badges come back in it. */
+  lang: "en" | "es";
 }
 
 const quotes = new Map<string, RideQuote>();
 
 /** The price of a ride. The request body is exactly what the server expects; good answers are remembered. */
 export async function fetchQuote(q: QuoteInput): Promise<ApiResult<{ quote: RideQuote }>> {
-  const key = JSON.stringify([q.from, q.to, q.date, q.pax, q.stopIds]);
+  const key = JSON.stringify([q.from, q.to, q.date, q.pax, q.stopIds, q.lang]);
   const hit = quotes.get(key);
   if (hit) return { ok: true, data: { quote: hit } };
-  const res = await api<{ quote: RideQuote }>("/client/quote", { from: q.from, to: q.to, date: q.date, pax: q.pax, stopIds: q.stopIds });
+  const res = await api<{ quote: RideQuote }>("/client/quote", { from: q.from, to: q.to, date: q.date, pax: q.pax, stopIds: q.stopIds, lang: q.lang });
   if (res.ok && res.data) quotes.set(key, res.data.quote);
   return res;
 }
@@ -53,11 +55,11 @@ export async function fetchQuote(q: QuoteInput): Promise<ApiResult<{ quote: Ride
 const tourLists = new Map<string, { tours: Tour[]; cashFeeBps: number }>();
 
 /** The day tours with prices for a date and group size. */
-export async function fetchTours(date: string, pax: number): Promise<ApiResult<{ tours: Tour[]; cashFeeBps: number }>> {
-  const key = date + "|" + pax;
+export async function fetchTours(date: string, pax: number, lang: "en" | "es" = "en"): Promise<ApiResult<{ tours: Tour[]; cashFeeBps: number }>> {
+  const key = date + "|" + pax + "|" + lang;
   const hit = tourLists.get(key);
   if (hit) return { ok: true, data: hit };
-  const res = await api<{ tours: Tour[]; cashFeeBps: number }>("/client/tours?date=" + date + "&pax=" + pax);
+  const res = await api<{ tours: Tour[]; cashFeeBps: number }>("/client/tours?date=" + date + "&pax=" + pax + "&lang=" + lang);
   if (res.ok && res.data) tourLists.set(key, { tours: res.data.tours, cashFeeBps: res.data.cashFeeBps });
   return res;
 }
@@ -99,7 +101,7 @@ export async function popularPrices(date: string, pax: number, onUpdate: (prices
   for (const r of POPULAR) {
     const id = r.from + ">" + r.to;
     if (known[id]) continue;
-    const res = await fetchQuote({ from: "hub:" + r.from, to: "hub:" + r.to, date, pax, stopIds: [] });
+    const res = await fetchQuote({ from: "hub:" + r.from, to: "hub:" + r.to, date, pax, stopIds: [], lang: "en" });
     const cheapest = res.data?.quote.vehicles.reduce((min, v) => Math.min(min, v.totalCents), Infinity);
     if (res.ok && res.data && cheapest !== undefined && Number.isFinite(cheapest)) {
       known[id] = { fromCents: cheapest, minutes: res.data.quote.minutes };
