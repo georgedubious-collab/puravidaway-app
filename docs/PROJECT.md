@@ -513,7 +513,8 @@ sedan, a minivan or a van, and long routes may need a charging stop. Instead:
 - **A free request at booking**: "Electric vehicle, if available" in the extras of the website
   ride builder and the app's "Your ride" step (`preferences.electric`, optional; older apps don't
   send it). It is a request, never a guarantee, and never changes the price, the category rule
-  (`vehicle_can_serve`), the seats rule, the job board or the order of the offers.
+  (`vehicle_can_serve`), the seats rule or the job board. When the traveller asked for one, offers made with an electric
+  vehicle are listed first on the booking page (`offerRank`, Jorge 2026-11-11); the team can still assign anyone.
 - **Team side**: the request appears with the other preferences on the booking; the driver and
   vehicle list marks electric vehicles ("⚡ eléctrico") and warns "no es eléctrico" when the
   traveller asked and the vehicle isn't; each offer shows the same. Information only.
@@ -952,13 +953,12 @@ and `season_for_date(date)` returns the season for a travel date.
     confirm. (d) Should the Drake Bay boat be offered at night at all (the river-mouth crossing
     is done in daylight only)? Today the builder does not block it.
 
-18. **Electric vehicles: follow-ups (open, from §5.3 of 2026-11-11).** (a) Decided: not a
-    category, same price, a free "if available" request. (b) Open: should the team be alerted
-    when an electric request is on a long route (charging on the way), or is the warning on the
-    booking enough? Today nothing is blocked. (c) Open: should offers from electric vehicles
-    rank higher when the traveller asked for one? Today the order does not change. (d) Open:
-    tell the traveller by message when their request could not be met? Today they only see the
-    badge when the assigned vehicle is electric.
+18. **Electric vehicles: follow-ups (from §5.3 of 2026-11-11).** (a) Decided: not a
+    category, same price, a free "if available" request. **All decided (Jorge, 2026-11-11):** (b) no alert for
+    long routes; the warning on the booking is enough. (c) Yes: offers made with an electric vehicle
+    rank first when the traveller asked for one (built). (d) No message when the request could
+    not be met: the option says "if available", so the traveller only sees the badge when the
+    assigned vehicle is electric.
 
 ---
 

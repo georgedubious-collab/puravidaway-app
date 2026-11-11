@@ -107,12 +107,14 @@ export function ratingBand(avg: number | string | null | undefined, count: numbe
 }
 
 /**
- * Lower sorts first (Jorge, 2026-11-09): a same-day return trip first; then the
+ * Lower sorts first. When the traveller asked for an electric vehicle, offers made
+ * with an electric vehicle come before all others (Jorge, 2026-11-11). Then (Jorge,
+ * 2026-11-09): a same-day return trip first; then the
  * better-rated driver (our best drivers get more trips); then a driver based
  * near the pickup; then the lower offer; then fewer trips with us.
  */
-export function offerRank(o: { match: ReturnMatch | null; home: boolean; trips: number; amount: number; rating?: number }): number[] {
-  return [o.match ? 0 : 1, -(o.rating ?? PROVISIONAL_RATING), o.home ? 0 : 1, o.amount, o.trips];
+export function offerRank(o: { match: ReturnMatch | null; home: boolean; trips: number; amount: number; rating?: number; electricMiss?: boolean }): number[] {
+  return [o.electricMiss ? 1 : 0, o.match ? 0 : 1, -(o.rating ?? PROVISIONAL_RATING), o.home ? 0 : 1, o.amount, o.trips];
 }
 
 export function compareRanks(a: number[], b: number[]): number {

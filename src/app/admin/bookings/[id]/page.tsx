@@ -101,7 +101,9 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
       const home = nearHome(homeOf(o.driver_id), job);
       const bits = bitsOf(o.driver_id);
       const rating = ratingBand(bits?.rating_avg, bits?.rating_count);
-      return { o, match, home, trips: mine.length, rank: offerRank({ match, home, trips: mine.length, amount: Number(o.bid_amount), rating }) };
+      // The traveller asked for an electric vehicle: offers made with one come first.
+      const electricMiss = Boolean(b.preferences?.electric) && !(drivers ?? []).flatMap((d) => d.driver_vehicles).find((x) => x.id === o.vehicle_id)?.is_electric;
+      return { o, match, home, trips: mine.length, rank: offerRank({ match, home, trips: mine.length, amount: Number(o.bid_amount), rating, electricMiss }) };
     })
     .sort((x, y) => compareRanks(x.rank, y.rank));
   const gapText = (m: ReturnMatch) => (m.gapMinutes >= 60 ? `${Math.floor(m.gapMinutes / 60)} h` : `${m.gapMinutes} min`);
@@ -165,8 +167,9 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
         )
       : null;
   };
-  // Electric vehicles (migration 0042): information only. It never changes the order of the
-  // offers or who can be assigned; the traveller's request is "if available".
+  // Electric vehicles (migration 0042): when the traveller asked for one, offers made with an
+  // electric vehicle are listed first (see offerRank). It never limits who can be assigned;
+  // the traveller's request is "if available".
   const askedElectric = Boolean(b.preferences?.electric);
   const offerIsElectric = (vehicleId: string | null) =>
     Boolean((drivers ?? []).flatMap((d) => d.driver_vehicles).find((x) => x.id === vehicleId)?.is_electric);
