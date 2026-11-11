@@ -46,7 +46,7 @@ All pictures on the public site go through one registry, `src/lib/photos.ts`, an
 
 Where we have no photo, the same component draws a soft emerald / teal panel with a simple line
 illustration: **Arenal / La Fortuna**, **Monteverde**, **Sierpe / Drake Bay**, **Corcovado**,
-**Poás**, and **every vehicle class** (sedan, SUV, 4x4, van, 4x4 + boat). Still without a photo
+**Poás**, and **every vehicle class** (sedan, minivan / MPV, 4x4, van, 4x4 + boat). Still without a photo
 and not shown anywhere yet: Tamarindo town and Puerto Viejo scenery.
 
 To replace one: clean the photo (rules above), save it in `public/photos/`, and add `file`,
