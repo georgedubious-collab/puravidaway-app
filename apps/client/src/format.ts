@@ -13,6 +13,18 @@ export const TOWNS: Record<string, string> = {
   Tamarindo: "Tamarindo",
   SouthNicoya: "Southern Nicoya",
 };
+/**
+ * "Toyota Prado or similar" / "Toyota Prado o similar", or "" when the server sent no
+ * example for the vehicle category (older servers never do). The only way example models
+ * are shown, so "or similar" is never missing: an example, not a promise of a model.
+ * Same rule as orSimilar() in the website's src/lib/catalog.ts.
+ */
+export function orSimilar(exampleModels: string | null | undefined, lang: Lang = "en"): string {
+  const models = (exampleModels ?? "").trim().replace(/[\s,.;]*\b(or|o) similar(es)?\.?$/i, "").trim();
+  if (!models) return "";
+  return models + (lang === "es" ? " o similar" : " or similar");
+}
+
 export const townName = (id: string | null | undefined) => (id ? (TOWNS[id] ?? id) : "—");
 
 export function usd(n: number | string | null | undefined): string {
