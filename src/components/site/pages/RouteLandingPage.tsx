@@ -13,6 +13,7 @@ import { Reviews } from "@/components/trust/Reviews";
 import { AIRPORT_HUBS, DRAKE_BOAT_MINUTES, HUB_IDS, HUB_REGION, HUBS, orSimilar, routeKm, routeMinutes, stopFitsRoute } from "@/lib/catalog";
 import { entranceLabel, hubName, localizeCatalog, regionName } from "@/lib/catalogEs";
 import { getCatalog } from "@/lib/catalogSource";
+import { articlePath, articlesForPair } from "@/lib/blog";
 import { airportGuideForHub, airportPath, destinationGuideForHub, destinationPath, fillGuideText } from "@/lib/guides";
 import { nightSentence } from "@/lib/nightPremium";
 import { bilingualMetadata } from "@/lib/pageMeta";
@@ -86,6 +87,8 @@ export async function RouteLandingPage({ page, lang }: { page: RoutePage; lang: 
       ...(airport ? [{ label: t(lang, `${airport.name.en} arrival guide`, `Guía de llegada: ${airport.name.es}`), href: localizedHref(airportPath(airport), lang) }] : []),
     ];
   });
+  // Travel guides (the blog) about this ride, either direction.
+  guideLinks.unshift(...articlesForPair(origin, destination).map((a) => ({ label: a.short[lang], href: localizedHref(articlePath(a), lang) })));
   // Day tours where the ride ends (or where it starts, for rides back to an airport).
   const region = HUB_REGION[destination] ?? HUB_REGION[origin];
   const tours = region ? catalog.dayTours.filter((x) => x.region === region) : [];

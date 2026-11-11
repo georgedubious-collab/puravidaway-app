@@ -52,7 +52,7 @@ apps are in the stores).
 
 **Languages:** English at the root, Spanish under `/es` with hreflang (Jorge, 2026-11-09:
 Spanish now). Since 2026-11-10 every public page has its Spanish version (storefront `/es`, route
-pages `/es/traslados/<slug>` and their index `/es/traslados`, destination guides `/es/destinos/<slug>`, airport guides `/es/aeropuertos/<code>`, info and legal pages); every new page must ship in both languages. More languages later (Daytrip and the Rezdy operators win partly through them).
+pages `/es/traslados/<slug>` and their index `/es/traslados`, destination guides `/es/destinos/<slug>`, airport guides `/es/aeropuertos/<code>`, travel guides `/es/guias/<slug>` (since 2026-11-11), info and legal pages); every new page must ship in both languages. More languages later (Daytrip and the Rezdy operators win partly through them).
 
 ## 4. Build order (one PR each)
 
@@ -72,6 +72,22 @@ pages `/es/traslados/<slug>` and their index `/es/traslados`, destination guides
    routes are described in general on purpose; re-check each guide's facts and bump its
    `updated` date about twice a year.
 3. **Blog / travel guides** with the first articles (§5), each linking to the route pages.
+   **Built 2026-11-11:** `/guides` and `/guides/<slug>`, Spanish `/es/guias` and
+   `/es/guias/<slug>` (same slugs, like the other page families; "guides" matches the menu label
+   "Travel guides" and stays distinct from `/destinations`). First six articles, from §5 in order:
+   #1 San José → La Fortuna (`san-jose-to-la-fortuna`), #2 San José → Manuel Antonio
+   (`san-jose-to-manuel-antonio`), #4 San José → Monteverde (`san-jose-to-monteverde`), #5 Liberia
+   airport → Tamarindo (`liberia-airport-to-tamarindo`), #6 SJO or LIR
+   (`sjo-or-liberia-which-airport`) and #8 the drive-times table (`costa-rica-drive-times`).
+   **#3 Santa Teresa was skipped for now:** Santa Teresa is not one of our towns in the catalog (it
+   is priced by map search with the Paquera ferry), so there is no drive-time or price token for it,
+   and the ferry timetable is exactly the kind of fact we don't print; it needs a Santa Teresa hub
+   (or a token for typed places) first. Content is data in `src/lib/blog/` (see PROJECT.md §3);
+   adding article 7 is one object. Each article: dated direct answer, comparison table,
+   prices by vehicle class from the live catalog, 6–7 FAQs, links to route pages, destination and
+   airport guides and day tours, and a booking button. Bus, shuttle, flight and park details stay
+   general ("check current times"). Next in line: #9 Drake Bay (needs Jorge's boat facts), #10
+   shared vs private (3+ people), #11 SJO arrivals, #12 La Fortuna → Monteverde, #13 tipping.
 4. **Route pages, more and better**: from 9 to ~40 (both directions), plus "Other ways to get
    there" (bus, shared shuttle, private, flight, car), 5–8 FAQs, breadcrumbs, Product/Offer +
    FAQ schema, a dated direct answer in the first lines; Spanish versions; the booking
