@@ -3,11 +3,11 @@
  * Content lives in ./destinations.ts and ./airports.ts (rules in ./types.ts).
  */
 import { nightSentence } from "../nightPremium";
-import { DRAKE_BOAT_MINUTES, HUB_IDS, routeMinutes, type HubId } from "../catalog";
+import { DRAKE_BOAT_MINUTES, HUB_IDS, routeKm, routeMinutes, type HubId } from "../catalog";
 import type { CatalogData } from "../catalogModel";
 import { formatBpsPercent, formatDuration, formatUSD } from "../pricing";
 import type { PublicLang } from "../publicLang";
-import { routeFromPrices } from "../routePrices";
+import { pageFromPrices } from "../routePrices";
 import { AIRPORT_GUIDES } from "./airports";
 import { DESTINATION_GUIDES } from "./destinations";
 import type { AirportGuide, DestinationGuide } from "./types";
@@ -47,16 +47,14 @@ export function airportGuideForHub(hub: HubId): AirportGuide | undefined {
  * other classes end at the Sierpe dock.
  */
 export function guideRidePrice(origin: HubId, destination: HubId, catalog: CatalogData) {
-  const toDrake = origin === "DrakeBay" || destination === "DrakeBay";
-  const withBoat = toDrake ? catalog.vehicles.filter((v) => v.onlyForHubs?.includes("DrakeBay")) : [];
-  return routeFromPrices(origin, destination, withBoat.length ? { ...catalog, vehicles: withBoat } : catalog);
+  return pageFromPrices(origin, destination, catalog);
 }
 
 const isHub = (v: string): v is HubId => (HUB_IDS as readonly string[]).includes(v);
 
 /**
  * Fills the tokens of a guide text from the live catalog (see ./types.ts):
- * {time:A>B}, {price:A>B}, {pax:A>B}, {boat}, {cashFee}, {night}. An unknown token or town
+ * {time:A>B}, {km:A>B}, {price:A>B}, {pax:A>B}, {boat}, {cashFee}, {night}. An unknown token or town
  * throws, so a typo fails the build instead of reaching a traveller.
  */
 export function fillGuideText(text: string, catalog: CatalogData, lang: PublicLang): string {
@@ -66,6 +64,8 @@ export function fillGuideText(text: string, catalog: CatalogData, lang: PublicLa
     if (kind === "night") return nightSentence(catalog.nightPremium, lang);
     if (!a || !b || !isHub(a) || !isHub(b)) throw new Error(`Guide text: unknown token ${token}`);
     if (kind === "time") return formatDuration(routeMinutes(a, b), lang);
+    // Road kilometres, the same figure the ride price is calculated from (Drake Bay: the road to the Sierpe dock).
+    if (kind === "km") return String(routeKm(a, b));
     if (kind === "price") return formatUSD(guideRidePrice(a, b, catalog).fromCents);
     if (kind === "pax") return String(guideRidePrice(a, b, catalog).cheapest.maxPax);
     throw new Error(`Guide text: unknown token ${token}`);

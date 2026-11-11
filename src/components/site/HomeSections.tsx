@@ -7,7 +7,7 @@ import { FAQ_GROUPS, faqAnswer, type FaqValues } from "@/lib/faq";
 import { ON_THE_ROAD_PHOTOS, photoEntry, routePhoto, WILDLIFE_PHOTOS } from "@/lib/photos";
 import { formatDuration, formatUSD } from "@/lib/pricing";
 import { localizedHref, t, type PublicLang } from "@/lib/publicLang";
-import { ROUTE_PAGES } from "@/lib/routePages";
+import { ROUTE_PAGES, TRANSFERS_PATH, routePath } from "@/lib/routePages";
 import { routeFromPrices } from "@/lib/routePrices";
 import { Photo } from "./Photo";
 
@@ -65,7 +65,7 @@ function PopularRoutes({ lang, catalog }: { lang: PublicLang; catalog: CatalogDa
           return (
             <li key={p.slug}>
               <Link
-                href={localizedHref(`/transfers/${p.slug}`, lang)}
+                href={localizedHref(routePath(p), lang)}
                 className="group flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm hover:border-emerald-500 hover:shadow-md transition"
               >
                 <Photo
@@ -99,6 +99,11 @@ function PopularRoutes({ lang, catalog }: { lang: PublicLang; catalog: CatalogDa
           "Per person = the car shared by a full group. Going somewhere else? Type any hotel, town or address in the form above.",
           "Por persona = el vehículo compartido por un grupo completo. ¿Va a otro lugar? Escriba cualquier hotel, pueblo o dirección en el formulario de arriba.",
         )}
+      </p>
+      <p className="mt-2">
+        <Link href={localizedHref(TRANSFERS_PATH, lang)} className={MORE_LINK}>
+          {t(lang, `All ${ROUTE_PAGES.length} routes and prices`, `Las ${ROUTE_PAGES.length} rutas y sus precios`)} <ArrowRight className="h-4 w-4" aria-hidden />
+        </Link>
       </p>
     </section>
   );

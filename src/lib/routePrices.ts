@@ -31,3 +31,31 @@ export function routeFromPrices(origin: HubId, destination: HubId, catalog: Cata
     defaultSeason,
   };
 }
+
+/**
+ * The vehicle classes the public pages (route pages and guides) show for a ride. One rule,
+ * for honesty: a ride that starts or ends in Drake Bay shows only the classes that include
+ * the river boat (those offered only on Sierpe / Drake Bay rides), because the other classes
+ * end at the Sierpe dock.
+ */
+export function pageVehicles(origin: HubId, destination: HubId, catalog: CatalogData): CatalogData["vehicles"] {
+  const touches = (hubs?: string[]) => !hubs || hubs.includes(origin) || hubs.includes(destination);
+  const fitting = catalog.vehicles.filter((v) => touches(v.onlyForHubs));
+  const toDrake = origin === "DrakeBay" || destination === "DrakeBay";
+  const withBoat = toDrake ? fitting.filter((v) => v.onlyForHubs?.includes("DrakeBay")) : [];
+  if (withBoat.length) return withBoat;
+  return fitting.length ? fitting : catalog.vehicles;
+}
+
+/** "From" prices of a ride as the public pages show them (see pageVehicles). */
+export function pageFromPrices(origin: HubId, destination: HubId, catalog: CatalogData) {
+  return routeFromPrices(origin, destination, { ...catalog, vehicles: pageVehicles(origin, destination, catalog) });
+}
+
+/** Every class shown for the ride with its price for the whole vehicle at the default (green) season, cheapest first. */
+export function pageVehiclePrices(origin: HubId, destination: HubId, catalog: CatalogData) {
+  const bps = catalog.seasons.find((x) => x.isDefault)?.multiplierBps ?? 10000;
+  return pageVehicles(origin, destination, catalog)
+    .map((vehicle) => ({ vehicle, cents: applyMultiplier(rideCents(origin, destination, vehicle, catalog), bps) }))
+    .sort((a, b) => a.cents - b.cents);
+}

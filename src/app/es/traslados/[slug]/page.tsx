@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { RouteLandingPage, routePageMetadata } from "@/components/site/pages/RouteLandingPage";
 import { ROUTE_PAGES, routePage } from "@/lib/routePages";
 
-// Spanish route pages: the same slugs as /transfers/[slug], text from src/lib/routePagesEs.ts.
+// Spanish route pages: the same slugs as /transfers/[slug], same data (src/lib/routePages.ts).
 export function generateStaticParams() {
   return ROUTE_PAGES.map((p) => ({ slug: p.slug }));
 }

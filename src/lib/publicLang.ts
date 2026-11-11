@@ -38,7 +38,8 @@ export const ES_PATHS: Record<string, string> = {
   "/terms": "/es/terminos",
   "/privacy": "/es/privacidad",
   "/cancellation": "/es/cancelacion",
-  // Guide index pages; the guides themselves are matched by prefix below.
+  // Index pages; the route pages and guides themselves are matched by prefix below.
+  "/transfers": "/es/traslados",
   "/destinations": "/es/destinos",
   "/airports": "/es/aeropuertos",
 };
