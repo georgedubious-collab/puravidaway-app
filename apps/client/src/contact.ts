@@ -14,3 +14,17 @@ export function hasContactDetails(t: string): boolean {
     .replace(/(?<=\d)[ ().+_/,-]+(?=\d)/g, "");
   return /\d{8,}/.test(cleaned);
 }
+
+/** Longest text for the driver's name sign (same as the website, src/lib/sign.ts). */
+export const SIGN_MAX = 40;
+
+/** One line, single spaces, trimmed: how the sign text is sent and stored. */
+export function cleanSignText(v: string): string {
+  return v.replace(/\s+/g, " ").trim();
+}
+
+/** True when the sign text can't be used: too long, or it carries a phone number, email or link. The server checks again. */
+export function signBlocked(v: string): boolean {
+  const clean = cleanSignText(v);
+  return clean.length > SIGN_MAX || (clean !== "" && hasContactDetails(clean));
+}

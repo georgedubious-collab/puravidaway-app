@@ -255,8 +255,9 @@ Status as of 2026-11-08 in brackets.
 2. Every transfer card states: flight tracking, driver waits, luggage allowance, free
    cancellation window (ICT permit shown as a per-driver badge, never a blanket claim; see
    PROJECT.md §10). **[Done: `RIDE_PROMISES` in `src/lib/trust.ts` — flight tracking on airport
-   pickups, 60 min free waiting, child seats free on request, free cancellation up to 24 h;
-   luggage on each vehicle card.]** The driver's language is a per-ride request, **not** a
+   pickups, the name sign at arrivals on airport pickups (the traveller chooses the text, 2026-11-11;
+   Welcome Pickups-style meet and greet), 60 min free waiting, child seats free on request, free
+   cancellation up to 24 h; luggage on each vehicle card.]** The driver's language is a per-ride request, **not** a
    blanket promise: a cheaper Spanish-speaking Economy class is planned.
 3. Sightseeing stops show duration and whether entrance fees are included. **[Done: free /
    included / paid at the gate (`entrance`), edited in /admin/pricing.]**

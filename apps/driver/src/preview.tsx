@@ -80,6 +80,7 @@ const trips: Trip[] = [
     driver_payout: 168,
     unread_chat: 2,
     passenger_name: "Emily R.",
+    sign_text: "The Robinson Family",
     luggage_count: 4,
     carry_on_count: 4,
     // 2 h 55 min SJO → Manuel Antonio (ROUTE_MINUTES), no stops.
@@ -100,6 +101,7 @@ const trips: Trip[] = [
     driver_payout: 214,
     sightseeing_stops: [{ id: "lapaz" }, { id: "carara" }, { id: "crocs" }],
     passenger_name: "James W.",
+    sign_text: "James W.",
     luggage_count: 3,
     carry_on_count: 2,
     // 4 h 50 min Arenal → Manuel Antonio + 4 h 15 min at the stops (+ their detours, made up here).

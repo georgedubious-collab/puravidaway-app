@@ -20,6 +20,7 @@ import { MAX_BAGS, MIN_OFFER_USD } from "@/lib/tripRequest";
 import { bagsSummary, defaultBags, luggageCapacity } from "@/lib/bags";
 import { vehiclePhoto } from "@/lib/photos";
 import { ridePromises } from "@/lib/trust";
+import { SIGN_MAX, cleanSignText, signTextProblem } from "@/lib/sign";
 import { DEFAULT_PREFS, LANGUAGE_LABEL, hasContactDetails, prefsSummary, type DriverLanguage, type RidePrefs } from "@/lib/preferences";
 
 /** Spanish wording of LANGUAGE_LABEL for the /es storefront. */
@@ -78,6 +79,10 @@ export function TransfersView({
   const largeBags = largePick ?? defaultBags(pax, MAX_BAGS);
   const carryOns = carryPick ?? defaultBags(pax, MAX_BAGS);
   const driverNotesBlocked = hasContactDetails(driverNotes);
+  // Name sign at the pickup: the traveller's own text, or "Don't show my name" (src/lib/sign.ts).
+  const [signText, setSignText] = useState("");
+  const [signHideName, setSignHideName] = useState(false);
+  const signProblem = signHideName ? null : signTextProblem(cleanSignText(signText), hasContactDetails);
   const [offer, setOffer] = useState("165");
 
   // Typed places are priced from Google's road route (fetched through our server).
@@ -218,7 +223,7 @@ export function TransfersView({
   const duration = (min: number) => formatDuration(min, lang);
   const vehicle = catalog.vehicles.find((v) => v.id === effectiveVehicleId)!;
   const selectedStops = catalog.stops.filter((s) => effectiveStopIds.includes(s.id));
-  const cantAdd = !priceReady || noVehicleFits || (mode === "bid" && !offerValid) || driverNotesBlocked;
+  const cantAdd = !priceReady || noVehicleFits || (mode === "bid" && !offerValid) || driverNotesBlocked || Boolean(signProblem);
   const price = (cents: number) => (priceReady ? formatUSD(cents) : "…");
   // Car price on a vehicle card: the ride for the date + ferries for this group.
   const ferry = ferryCents(route, pax, catalog);
@@ -273,6 +278,7 @@ export function TransfersView({
         driverNotes: driverNotes.trim() || undefined,
         bags: largeBags,
         carryOns,
+        ...(signHideName ? { signHideName: true } : cleanSignText(signText) ? { signText: cleanSignText(signText) } : {}),
       },
     });
   }
@@ -856,6 +862,47 @@ export function TransfersView({
             </label>
             {airportPickup && (
               <p className="mt-1 text-xs text-slate-600">{t("So we can track your flight.", "Para darle seguimiento a su vuelo.")}</p>
+            )}
+
+            <label className="mt-3 block text-xs font-bold text-slate-600">
+              {t("Name on the sign", "Nombre en el rótulo")}{" "}
+              <span className="font-semibold text-slate-500">{t("(optional)", "(opcional)")}</span>
+              <input
+                type="text"
+                value={signHideName ? "" : signText}
+                onChange={(e) => setSignText(e.target.value)}
+                disabled={signHideName}
+                maxLength={SIGN_MAX}
+                autoComplete="off"
+                placeholder={signHideName ? "Costa Rica Private Transfers" : t("e.g. The Smith Family", "p. ej. Familia Rodríguez")}
+                aria-invalid={Boolean(signProblem)}
+                className="mt-1 w-full min-h-11 border border-slate-300 rounded-xl px-3 text-base font-semibold text-slate-900 focus:outline-none focus:border-emerald-600 disabled:bg-slate-100 disabled:text-slate-500"
+              />
+            </label>
+            <p className="mt-1 text-xs text-slate-600">
+              {signHideName
+                ? t(
+                    "Your driver waits with a sign. It will show “Costa Rica Private Transfers” instead of your name.",
+                    "Su conductor lo espera con un rótulo. Mostrará “Costa Rica Private Transfers” en lugar de su nombre.",
+                  )
+                : t(
+                    "Your driver waits with a sign. Leave it empty and it will show your first name and last initial.",
+                    "Su conductor lo espera con un rótulo. Si lo deja vacío, mostrará su nombre y la inicial de su apellido.",
+                  )}
+            </p>
+            <label className="mt-1 flex min-h-11 cursor-pointer items-center gap-2 text-sm font-semibold text-slate-700">
+              <input
+                type="checkbox"
+                checked={signHideName}
+                onChange={(e) => setSignHideName(e.target.checked)}
+                className="h-4 w-4 accent-emerald-700"
+              />
+              {t("Don't show my name", "No mostrar mi nombre")}
+            </label>
+            {signProblem && (
+              <p role="alert" className="text-sm font-semibold text-red-700">
+                {localizeServerMessage(signProblem, lang)}
+              </p>
             )}
 
             <div className="mt-4 bg-slate-50 p-3.5 rounded-xl space-y-1.5 text-sm">

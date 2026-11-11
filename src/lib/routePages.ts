@@ -31,7 +31,7 @@ export const ROUTE_PAGES: RoutePage[] = [
     metaDescription:
       "Private door-to-door ride from San José airport (SJO) to Manuel Antonio and Quepos. Fixed price per vehicle, optional crocodile bridge and macaw stops, local partner drivers.",
     intro:
-      "Your driver meets you at arrivals and takes you straight to your hotel door. Turn the drive into part of the trip with a stop at the Tárcoles crocodile bridge or a macaw walk in Carara.",
+      "Your driver meets you at arrivals with a sign with your name and takes you straight to your hotel door. Turn the drive into part of the trip with a stop at the Tárcoles crocodile bridge or a macaw walk in Carara.",
     areaLabel: "Manuel Antonio or Quepos",
     driveTitle: "What the drive is like",
     drive:
@@ -70,7 +70,7 @@ export const ROUTE_PAGES: RoutePage[] = [
     metaDescription:
       "Private door-to-door ride from San José airport (SJO) to La Fortuna and Arenal Volcano. Fixed price per vehicle, optional Poás Volcano and coffee stop, local partner drivers.",
     intro:
-      "Your driver meets you at arrivals and takes you over the Central Valley mountains to your hotel in La Fortuna. Make a day of it with a stop at Poás Volcano's crater and a highland coffee farm on the way.",
+      "Your driver meets you at arrivals with a sign with your name and takes you over the Central Valley mountains to your hotel in La Fortuna. Make a day of it with a stop at Poás Volcano's crater and a highland coffee farm on the way.",
     areaLabel: "La Fortuna or around Arenal Volcano",
     driveTitle: "What the drive is like",
     drive:
@@ -109,7 +109,7 @@ export const ROUTE_PAGES: RoutePage[] = [
     metaDescription:
       "Private door-to-door ride from San José airport (SJO) up to the Monteverde and Santa Elena cloud forest. Fixed price per vehicle, local partner drivers who know the mountain road.",
     intro:
-      "Your driver meets you at arrivals and takes you from the Central Valley down to the Pacific lowlands and back up into the cloud forest, right to your hotel in Monteverde or Santa Elena.",
+      "Your driver meets you at arrivals with a sign with your name and takes you from the Central Valley down to the Pacific lowlands and back up into the cloud forest, right to your hotel in Monteverde or Santa Elena.",
     areaLabel: "Monteverde or Santa Elena",
     driveTitle: "What the drive is like",
     drive:
@@ -148,7 +148,7 @@ export const ROUTE_PAGES: RoutePage[] = [
     metaDescription:
       "Private door-to-door ride from Liberia airport (LIR) to Tamarindo and nearby Guanacaste beaches. Fixed price per vehicle, local partner drivers.",
     intro:
-      "Liberia is the closest international airport to Tamarindo. Your driver meets you at arrivals and takes you straight to your hotel or rental, with no shuttle stops at other hotels along the way.",
+      "Liberia is the closest international airport to Tamarindo. Your driver meets you at arrivals with a sign with your name and takes you straight to your hotel or rental, with no shuttle stops at other hotels along the way.",
     areaLabel: "Tamarindo, Langosta or Playa Grande",
     driveTitle: "What the drive is like",
     drive:
@@ -186,7 +186,7 @@ export const ROUTE_PAGES: RoutePage[] = [
     metaDescription:
       "Private door-to-door ride from San José airport (SJO) across to Tamarindo in Guanacaste. Fixed price per vehicle, comfort stops when you want them, local partner drivers.",
     intro:
-      "Landed in San José but staying in Tamarindo? Your driver meets you at arrivals and takes you all the way across to the Guanacaste coast, stopping whenever you need a break.",
+      "Landed in San José but staying in Tamarindo? Your driver meets you at arrivals with a sign with your name and takes you all the way across to the Guanacaste coast, stopping whenever you need a break.",
     areaLabel: "Tamarindo, Langosta or Playa Grande",
     driveTitle: "What the drive is like",
     drive:
@@ -224,7 +224,7 @@ export const ROUTE_PAGES: RoutePage[] = [
     metaDescription:
       "Private door-to-door ride from San José airport (SJO) through Braulio Carrillo rainforest to Puerto Viejo on the Caribbean coast. Fixed price per vehicle, local partner drivers.",
     intro:
-      "Your driver meets you at arrivals and takes you through the rainforest of Braulio Carrillo National Park and down to the Caribbean, right to your hotel in Puerto Viejo, Cocles or Playa Chiquita.",
+      "Your driver meets you at arrivals with a sign with your name and takes you through the rainforest of Braulio Carrillo National Park and down to the Caribbean, right to your hotel in Puerto Viejo, Cocles or Playa Chiquita.",
     areaLabel: "Puerto Viejo, Cocles, Playa Chiquita or Manzanillo",
     driveTitle: "What the drive is like",
     drive:

@@ -1,6 +1,7 @@
 import "server-only";
 import { WHATSAPP_NUMBER } from "./catalog";
 import { getCatalog } from "./catalogSource";
+import { signEditable, signShown } from "./sign";
 import { createSupabaseAdminClient } from "./supabase/admin";
 
 /**
@@ -35,6 +36,12 @@ export interface AppBooking {
   driverLocation: { lat: number; lng: number; recordedAt: string; etaAt: string | null; lateMin: number | null } | null;
   /** Chat messages from the driver or our team the traveller hasn't read yet (badge). */
   unreadChat: number;
+  /**
+   * The driver's name sign, rides only (src/lib/sign.ts): the traveller's own text, whether they
+   * chose "Don't show my name", what the sign will say, and whether it can still be changed
+   * (until the driver is on the way). Null on tours and expeditions.
+   */
+  sign: { text: string | null; hideName: boolean; shown: string; editable: boolean } | null;
 }
 
 export interface AppTrip {
@@ -52,20 +59,28 @@ export async function tripsForEmail(email: string): Promise<{ trips: AppTrip[]; 
 
   const { data: trips } = await db
     .from("trips")
-    .select("id, access_token, created_at")
+    .select("id, access_token, created_at, guest_name")
     .ilike("guest_email", clean.replace(/[%_\\]/g, "\\$&"))
     .order("created_at", { ascending: false })
     .limit(30);
   if (!trips?.length) return out;
 
-  const { data: bookings } = await db
-    .from("bookings")
-    .select(
-      "id, trip_id, booking_ref, service_type, catalog_item_id, origin, destination, scheduled_at, status, en_route_at, passenger_count, total_price, cash_fee, amount_paid, payment_mode, assigned_driver_id, assigned_vehicle_id",
-    )
-    .in("trip_id", trips.map((t) => t.id))
-    .order("scheduled_at");
-  const rows = bookings ?? [];
+  const COLUMNS =
+    "id, trip_id, booking_ref, service_type, catalog_item_id, origin, destination, scheduled_at, status, en_route_at, passenger_count, total_price, cash_fee, amount_paid, payment_mode, assigned_driver_id, assigned_vehicle_id";
+  type Row = {
+    id: string; trip_id: string; booking_ref: string; service_type: string; catalog_item_id: string | null;
+    origin: string | null; destination: string | null; scheduled_at: string | null; status: string; en_route_at: string | null;
+    passenger_count: number | null; total_price: number | string; cash_fee: number | string | null; amount_paid: number | string | null;
+    payment_mode: string | null; assigned_driver_id: string | null; assigned_vehicle_id: string | null;
+    sign_text?: string | null; sign_hide_name?: boolean | null;
+  };
+  const tripIds = trips.map((t) => t.id);
+  let found = await db.from("bookings").select(`${COLUMNS}, sign_text, sign_hide_name`).in("trip_id", tripIds).order("scheduled_at").returns<Row[]>();
+  // Safety net for the minutes between a deploy and its database update (migration 0040):
+  // the traveller's trips never disappear because the sign columns aren't there yet.
+  if (found.error) found = await db.from("bookings").select(COLUMNS).in("trip_id", tripIds).order("scheduled_at").returns<Row[]>();
+  const rows = found.data ?? [];
+  const guestName = new Map(trips.map((t) => [t.id as string, (t.guest_name as string | null) ?? null]));
   const shown = rows.filter((b) => b.assigned_driver_id && ["confirmed", "in_progress", "completed"].includes(b.status));
   const driverIds = [...new Set(shown.map((b) => b.assigned_driver_id as string))];
   const vehicleIds = [...new Set(shown.map((b) => b.assigned_vehicle_id as string).filter(Boolean))];
@@ -168,6 +183,15 @@ export async function tripsForEmail(email: string): Promise<{ trips: AppTrip[]; 
       myRating: (reviews.data as { booking_id: string; stars: number }[] | null)?.find((r) => r.booking_id === b.id)?.stars ?? null,
       driverLocation: locationFor(b.id, visible ? (b.assigned_driver_id as string) : null),
       unreadChat: unreadFor(b.id),
+      sign:
+        b.service_type === "transfer"
+          ? {
+              text: b.sign_text ?? null,
+              hideName: Boolean(b.sign_hide_name),
+              shown: signShown(b, guestName.get(b.trip_id)),
+              editable: signEditable(b),
+            }
+          : null,
     };
   };
 

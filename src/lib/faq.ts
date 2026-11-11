@@ -112,8 +112,8 @@ export const FAQ_GROUPS: FaqGroup[] = [
         id: "where-driver",
         q: { en: "How do I find my driver?", es: "¿Cómo encuentro a mi conductor?" },
         a: {
-          en: "Your trip page shows your driver's name, photo and car once confirmed. In the last 3 hours before pickup, while your driver shares their location, you can see where they are and when they should arrive, and chat with them and our team on the trip page.",
-          es: "La página de su viaje muestra el nombre, la foto y el vehículo de su conductor cuando está confirmado. En las últimas 3 horas antes de la recogida, mientras el conductor comparte su ubicación, puede ver dónde está y a qué hora debería llegar, y chatear con él y con nuestro equipo en la página del viaje.",
+          en: "At the airport, your driver meets you at arrivals holding a sign with your name. You can choose what the sign says when you book, or change it on your trip page until your driver is on the way. Your trip page shows your driver's name, photo and car once confirmed. In the last 3 hours before pickup, while your driver shares their location, you can see where they are and when they should arrive, and chat with them and our team on the trip page.",
+          es: "En el aeropuerto, su conductor lo recibe en la salida de llegadas con un rótulo con su nombre. Usted puede elegir qué dice el rótulo al reservar, o cambiarlo en la página de su viaje hasta que su conductor vaya en camino. La página de su viaje muestra el nombre, la foto y el vehículo de su conductor cuando está confirmado. En las últimas 3 horas antes de la recogida, mientras el conductor comparte su ubicación, puede ver dónde está y a qué hora debería llegar, y chatear con él y con nuestro equipo en la página del viaje.",
         },
       },
       {

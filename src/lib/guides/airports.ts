@@ -2,8 +2,9 @@
  * Airport guides: /airports/<code> (English) and /es/aeropuertos/<code> (Spanish).
  * Rules and tokens: ./types.ts. The waiting-time and flight-tracking promises are NOT
  * written here: the page shows RIDE_PROMISES from src/lib/trust.ts, word for word.
- * The exact meeting point at each airport is not confirmed yet, so `pickup` only repeats
- * what the site already says ("your driver meets you at arrivals", trip page, chat).
+ * The exact meeting point at each airport is not confirmed yet, so `pickup` says only what
+ * is confirmed: the driver meets you at arrivals holding a sign with your name (Jorge,
+ * 2026-11-11; the traveller chooses what it says, src/lib/sign.ts), the trip page and the chat.
  */
 import type { AirportGuide, L, OtherWay } from "./types";
 
@@ -11,8 +12,12 @@ const UPDATED = "2026-11-11";
 
 const PICKUP: L[] = [
   {
-    en: "Your driver meets you at arrivals. Once your driver is confirmed, your private trip page (linked in your confirmation email) shows their name, photo and car, so you know who to look for.",
-    es: "Su conductor lo recibe en la salida de llegadas. Cuando su conductor está confirmado, la página privada de su viaje (enlazada en su correo de confirmación) muestra su nombre, su foto y su vehículo, para que sepa a quién buscar.",
+    en: "Your driver meets you at arrivals holding a sign with your name. Once your driver is confirmed, your private trip page (linked in your confirmation email) shows their name, photo and car, so you know who to look for.",
+    es: "Su conductor lo recibe en la salida de llegadas con un rótulo con su nombre. Cuando su conductor está confirmado, la página privada de su viaje (enlazada en su correo de confirmación) muestra su nombre, su foto y su vehículo, para que sepa a quién buscar.",
+  },
+  {
+    en: "You choose what the sign says. If you write nothing, it shows your first name and the initial of your last name. You can write something else when you book (a family or company name, for example), or ask us not to show your name: the sign then reads “Costa Rica Private Transfers”. You can change it on your trip page until your driver is on the way.",
+    es: "Usted elige qué dice el rótulo. Si no escribe nada, muestra su nombre y la inicial de su apellido. Al reservar puede escribir otro texto (el nombre de su familia o de su empresa, por ejemplo), o pedir que no se muestre su nombre: el rótulo dirá entonces “Costa Rica Private Transfers”. Puede cambiarlo en la página de su viaje hasta que su conductor vaya en camino.",
   },
   {
     en: "When you book, enter your flight's landing time and your flight number. We follow the flight, and the free waiting time starts when it lands, not at the scheduled time.",
@@ -75,8 +80,8 @@ const FAQ_DELAY = {
 const FAQ_FIND_DRIVER = {
   q: { en: "How do I find my driver at the airport?", es: "¿Cómo encuentro a mi conductor en el aeropuerto?" },
   a: {
-    en: "Your driver meets you at arrivals. Your trip page shows your driver's name, photo and car once confirmed, and in the last 3 hours before pickup, while your driver shares their location, you can see where they are and chat with them and our team.",
-    es: "Su conductor lo recibe en la salida de llegadas. La página de su viaje muestra el nombre, la foto y el vehículo de su conductor cuando está confirmado, y en las últimas 3 horas antes de la recogida, mientras el conductor comparte su ubicación, puede ver dónde está y chatear con él y con nuestro equipo.",
+    en: "Your driver meets you at arrivals holding a sign with your name, or with the text you chose when you booked. Your trip page shows your driver's name, photo and car once confirmed, and in the last 3 hours before pickup, while your driver shares their location, you can see where they are and chat with them and our team.",
+    es: "Su conductor lo recibe en la salida de llegadas con un rótulo con su nombre, o con el texto que usted eligió al reservar. La página de su viaje muestra el nombre, la foto y el vehículo de su conductor cuando está confirmado, y en las últimas 3 horas antes de la recogida, mientras el conductor comparte su ubicación, puede ver dónde está y chatear con él y con nuestro equipo.",
   },
 };
 

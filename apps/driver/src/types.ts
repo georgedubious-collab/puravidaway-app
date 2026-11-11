@@ -49,8 +49,14 @@ export interface Trip {
   completed_at: string | null;
   /** When the driver tapped "I'm on my way". */
   en_route_at: string | null;
-  /** For the airport name sign: first name + last initial ("Emily R."); missing before migration 0035. */
+  /** The traveller's first name + last initial ("Emily R."); missing before migration 0035. */
   passenger_name?: string | null;
+  /**
+   * What to write on the name sign, decided by the server (migration 0040): the traveller's own
+   * text, or "Costa Rica Private Transfers" if they chose no name, or the short name above.
+   * Missing before that migration: the app then shows passenger_name, as before.
+   */
+  sign_text?: string | null;
   /** Bags (suitcases and large backpacks) the traveller said they bring; null when not given. */
   luggage_count?: number | null;
   /** Carry-ons; null or missing on older bookings (then luggage_count is shown alone, as before). Migration 0037. */

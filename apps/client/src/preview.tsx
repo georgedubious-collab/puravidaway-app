@@ -44,7 +44,7 @@ const trips: AppTrip[] = [
     createdAt: at(-100),
     bookings: [
       booking({ id: "b1", ref: "CRPT-1042", title: "SJO Airport / San José → La Fortuna / Arenal", driverOnTheWay: true, driver, car, unreadChat: 2, driverLocation: { lat: 10.1, lng: -84.33, recordedAt: at(0), etaAt: at(0.2), lateMin: null } }),
-      booking({ id: "b2", ref: "CRPT-1047", title: "Hotel Arenal Springs → Monteverde Lodge", scheduledAt: at(74), dueUsd: 168, paymentMode: "cash_driver", cashFeeUsd: 8, driver, car }),
+      booking({ id: "b2", ref: "CRPT-1047", title: "Hotel Arenal Springs → Monteverde Lodge", scheduledAt: at(74), dueUsd: 168, paymentMode: "cash_driver", cashFeeUsd: 8, driver, car, sign: { text: null, hideName: false, shown: "Emily R.", editable: true } }),
       booking({ id: "b3", ref: "CRPT-1051", kind: "day_tour", title: "Manuel Antonio National Park Wildlife Walk", scheduledAt: at(120), status: "pending_bids", dueUsd: 340 }),
       booking({ id: "b4", ref: "CRPT-0988", title: "Liberia Airport → Tamarindo", scheduledAt: at(-400), status: "completed", driver, car }),
     ],

@@ -15,6 +15,7 @@ import {
 import { cleanPlaceLabel, isGooglePlaceId, type RideRoute } from "./places";
 import { hasContactDetails, parsePrefs, type RidePrefs } from "./preferences";
 import { quoteDayTour, quoteExpedition, quoteTransfer } from "./pricing";
+import { cleanSignText, signTextProblem } from "./sign";
 
 export const MIN_OFFER_USD = 50;
 export const MAX_OFFER_USD = 5000;
@@ -61,6 +62,13 @@ export type ItemSpec =
       bags?: number;
       /** Carry-on bags (0–20). `bags` above is the large suitcases; older app builds send only `bags`. */
       carryOns?: number;
+      /**
+       * Name sign at the pickup (src/lib/sign.ts): what the traveller wants written on it (up to 40
+       * characters, no contact details). Empty = their first name + last initial.
+       */
+      signText?: string;
+      /** "Don't show my name": the sign shows our brand name. Ignored when signText is given. */
+      signHideName?: boolean;
     }
   | {
       kind: "day_tour";
@@ -107,6 +115,10 @@ export function parseSpec(raw: unknown): ItemSpec | null {
     if (o.driverNotes !== undefined && (typeof o.driverNotes !== "string" || o.driverNotes.length > 500)) return null;
     if (o.bags !== undefined && o.bags !== null && (!Number.isInteger(o.bags) || (o.bags as number) < 0 || (o.bags as number) > MAX_BAGS)) return null;
     if (o.carryOns !== undefined && o.carryOns !== null && (!Number.isInteger(o.carryOns) || (o.carryOns as number) < 0 || (o.carryOns as number) > MAX_BAGS)) return null;
+    // Name sign: a readable error for a long text or contact details comes from priceItem().
+    if (o.signText !== undefined && o.signText !== null && (typeof o.signText !== "string" || o.signText.length > 200)) return null;
+    if (o.signHideName !== undefined && o.signHideName !== null && typeof o.signHideName !== "boolean") return null;
+    const signText = cleanSignText(o.signText);
     const originPlace = parseSpecPlace(o.originPlace);
     const destinationPlace = parseSpecPlace(o.destinationPlace);
     if (originPlace === null || destinationPlace === null) return null;
@@ -127,6 +139,7 @@ export function parseSpec(raw: unknown): ItemSpec | null {
       driverNotes: (o.driverNotes as string | undefined) || undefined,
       ...(typeof o.bags === "number" ? { bags: o.bags } : {}),
       ...(typeof o.carryOns === "number" ? { carryOns: o.carryOns } : {}),
+      ...(signText ? { signText } : o.signHideName === true ? { signHideName: true } : {}),
     };
   }
   if (o.kind === "day_tour") {
@@ -171,6 +184,8 @@ export function priceItem(spec: ItemSpec, date: string, catalog: CatalogData, ro
     if (spec.driverNotes && hasContactDetails(spec.driverNotes)) {
       throw new Error("Please keep phone numbers, emails and links out of the message for your driver. You can message your driver in the trip chat once confirmed.");
     }
+    const signProblem = signTextProblem(cleanSignText(spec.signText), hasContactDetails);
+    if (signProblem) throw new Error(signProblem);
     const vehicle = catalog.vehicles.find((v) => v.id === spec.vehicleId);
     if (!vehicle) throw new Error("That vehicle is no longer offered. Please choose another.");
     if (vehicle.maxPax < spec.pax) throw new Error(`The ${vehicle.name} seats up to ${vehicle.maxPax}.`);

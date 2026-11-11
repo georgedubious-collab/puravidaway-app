@@ -19,7 +19,7 @@ import { allBookings, useSession } from "../session";
 import { C, R, S, SHADOW, SHADOW_UP, SP, T, fontFor } from "../theme";
 import { TRAVELLER_STATUS, type AppBooking, type ChatAnswer, type ChatMessage } from "../types";
 import { Badge, Bar, Btn, Card, CountBadge, Divider, IconLine, Input, ListRow, Page, RoundBtn, Skeleton, Text, type IconName } from "../ui";
-import { hasContactDetails } from "../contact";
+import { SIGN_MAX, cleanSignText, hasContactDetails, signBlocked } from "../contact";
 import { RouteDots } from "./book/parts";
 import { Avatar, bookingStage } from "./Trips";
 
@@ -264,6 +264,8 @@ export function TripDetail() {
             </Card>
           ) : null}
 
+          {b.sign && ["pending_payment", "pending_bids", "confirmed"].includes(b.status) ? <SignCard booking={b} token={found?.trip.token ?? ""} /> : null}
+
           {b.status !== "cancelled" && !liveView ? (
             <Card>
               <ListRow
@@ -322,6 +324,89 @@ export function TripDetail() {
 }
 
 /** The car in one line (model, colour, plate, seats) and its photos. */
+/**
+ * "Name on the sign": what the driver's sign will say, and a way to change it until the
+ * driver is on the way (the server decides; after that it is read-only).
+ */
+function SignCard({ booking: b, token }: { booking: AppBooking; token: string }) {
+  const { t } = useT();
+  const demo = useDemo();
+  const { reload } = useSession();
+  const sign = b.sign!;
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState(sign.text ?? "");
+  const [hide, setHide] = useState(sign.hideName);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const blocked = !hide && signBlocked(text);
+
+  async function save() {
+    if (demo) return setOpen(false);
+    setBusy(true);
+    setError("");
+    const res = await api("/client/sign", { token, booking_id: b.id, sign_text: hide ? "" : cleanSignText(text), hide_name: hide });
+    if (!res.ok) {
+      setBusy(false);
+      return setError(res.error ?? t("We couldn't save the name sign. Please try again.", "No pudimos guardar el rótulo. Por favor, inténtelo de nuevo."));
+    }
+    await reload();
+    setBusy(false);
+    setOpen(false);
+    success();
+  }
+
+  return (
+    <Card>
+      <Text style={T.label}>{t("Name on the sign", "Nombre en el rótulo")}</Text>
+      <Text style={T.small}>{t("Your driver waits with a sign that reads:", "Su conductor lo espera con un rótulo que dice:")}</Text>
+      <View style={{ borderWidth: 2, borderColor: C.text, borderRadius: R.control, paddingVertical: 12, paddingHorizontal: 12, alignItems: "center", backgroundColor: "#fff" }}>
+        <Text style={{ fontSize: 20, lineHeight: 26, fontWeight: "800", color: C.text, textAlign: "center" }}>{sign.shown}</Text>
+      </View>
+      {!sign.editable ? (
+        <Text style={T.caption}>{t("The sign can't be changed now that your driver is on the way.", "El rótulo ya no se puede cambiar porque su conductor va en camino.")}</Text>
+      ) : open ? (
+        <>
+          <Input
+            accessibilityLabel={t("Name on the sign", "Nombre en el rótulo")}
+            value={hide ? "" : text}
+            onChangeText={setText}
+            editable={!hide}
+            maxLength={SIGN_MAX}
+            autoCorrect={false}
+            placeholder={hide ? "Costa Rica Private Transfers" : t("e.g. The Smith Family", "p. ej. Familia Rodríguez")}
+            style={hide ? { backgroundColor: C.bg, color: C.muted } : undefined}
+          />
+          <Text style={T.caption}>{t("Leave it empty to show your first name and last initial.", "Déjelo vacío para mostrar su nombre y la inicial de su apellido.")}</Text>
+          <Pressable
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: hide }}
+            onPress={() => {
+              tap();
+              setHide((v) => !v);
+            }}
+            style={{ flexDirection: "row", alignItems: "center", gap: 10, minHeight: 44 }}
+          >
+            <Ionicons name={hide ? "checkbox" : "square-outline"} size={24} color={hide ? C.emerald : C.muted} />
+            <Text style={T.bodyStrong}>{t("Don't show my name", "No mostrar mi nombre")}</Text>
+          </Pressable>
+          {blocked ? (
+            <Text accessibilityRole="alert" style={S.error}>
+              {t("Please keep phone numbers, emails and links off the name sign.", "Por favor, no ponga teléfonos, correos ni enlaces en el rótulo.")}
+            </Text>
+          ) : error ? (
+            <Text accessibilityRole="alert" style={S.error}>
+              {error}
+            </Text>
+          ) : null}
+          <Btn label={t("Save sign", "Guardar rótulo")} onPress={() => void save()} busy={busy} disabled={blocked} />
+        </>
+      ) : (
+        <Btn label={t("Change the sign", "Cambiar el rótulo")} icon="create-outline" color={C.emeraldDark} onPress={() => setOpen(true)} />
+      )}
+    </Card>
+  );
+}
+
 function CarLines({ car }: { car: NonNullable<AppBooking["car"]> }) {
   const { lang, t } = useT();
   return (

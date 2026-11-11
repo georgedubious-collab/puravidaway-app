@@ -88,11 +88,18 @@ export interface RidePromise {
  * allowance is per vehicle (shown on each card). Never add a blanket
  * "English-speaking driver": a Spanish-speaking Economy class is planned, and
  * the driver's language is a per-ride request (docs/PROJECT.md §9 #10).
+ * Name sign (Jorge, 2026-11-11): at airport pickups the driver waits at arrivals with a
+ * sign; the traveller chooses what it says (src/lib/sign.ts).
  */
 export const RIDE_PROMISES: RidePromise[] = [
   {
     title: "Flight tracking",
     text: "On airport pickups we follow your flight, so a delay doesn't leave you stranded.",
+    airportOnly: true,
+  },
+  {
+    title: "Name sign at arrivals",
+    text: "Your driver waits at arrivals holding a sign with your name, or with the text you choose when you book.",
     airportOnly: true,
   },
   {
@@ -115,6 +122,11 @@ export const RIDE_PROMISES_ES: RidePromise[] = [
   {
     title: "Seguimiento de vuelo",
     text: "En las recogidas en aeropuerto seguimos su vuelo, para que un retraso no lo deje sin transporte.",
+    airportOnly: true,
+  },
+  {
+    title: "Rótulo con su nombre en llegadas",
+    text: "Su conductor lo espera en la salida de llegadas con un rótulo con su nombre, o con el texto que usted elija al reservar.",
     airportOnly: true,
   },
   {

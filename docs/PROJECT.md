@@ -200,9 +200,10 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
   pre-filled trip builder, stops on the way, other ways to travel (no timetables or fares), best
   time to go, things to do with the day tours and multi-day trips of that region, where to stay
   by area (no hotel names, no affiliate links), FAQs and a booking button. Airport guides show
-  `RIDE_PROMISES` word for word and describe the pickup only as the site already does ("your
-  driver meets you at arrivals", trip page, chat); exact meeting points are an open question
-  (§9). Structured data: WebPage about a TouristDestination / Airport, FAQPage, BreadcrumbList;
+  `RIDE_PROMISES` word for word and describe the pickup as confirmed: the driver meets the
+  traveller at arrivals holding a sign with their name, and the traveller chooses what it says
+  (§4.6, Jorge 2026-11-11), plus the trip page and the chat; the exact meeting spot at each
+  airport is still an open question (§9). Structured data: WebPage about a TouristDestination / Airport, FAQPage, BreadcrumbList;
   never ratings. Pre-rendered like the route pages. Guides are in the footer, sitemap and
   `llms.txt`, and route pages link to the guides of their two ends.
 - **Site shell (2026-11-09):** every public page (home, `/transfers/*`, legal and info pages; not
@@ -263,7 +264,7 @@ Legal pages (`/terms`, `/privacy`, `/cancellation`) are linked from every footer
    passengers, Fixed Price vs Driver Bids
    toggle, sightseeing stop cards (duration, price, whether there is an entrance fee: free, included or paid at the gate), vehicle
    cards with the price per car and "from $X per person (N travellers)", the "Every ride includes"
-   list (flight tracking on airport pickups, 60 min free waiting, child seats free on request, free
+   list (flight tracking and the name sign at arrivals on airport pickups, 60 min free waiting, child seats free on request, free
    cancellation up to 24 h), live route timeline with total duration, flight number or hotel
    field, "How many bags?" / "¿Cuántas maletas?" as two counters, **Large suitcases** / "Maletas grandes" and
    **Carry-ons** / "Maletas de mano" (each 0–20; each starts at 1 per traveller and follows the traveller count
@@ -312,8 +313,9 @@ Bookings, payment status and balance due, trip chat (Phase 4).
 ### 4.5 Trip chat and contact privacy (Jorge, 2026-11-10)
 - **Drivers never see the traveller's phone or email.** Not on the driver portal, the driver app,
   `/api/v1`, pushes or emails to drivers (the driver trip page used to show the phone from the day
-  before; removed). Drivers see the traveller's first name + last initial ("Emily R.", for the
-  airport name sign; `passenger_short_name()` in `my_trips()`, letters only, migration 0035) and talk
+  before; removed). Drivers see the traveller's first name + last initial ("Emily R.";
+  `passenger_short_name()` in `my_trips()`, letters only, migration 0035), the text for the name
+  sign (§4.6) and talk
   to them in the trip chat, or call our team. Admins keep full access. Booking fields the assigned driver can read through
   `my_trips()` (`flight_or_hotel_notes`, `driver_notes`; plus `client_notes`, which drivers don't
   see) have contact details hidden on every write (trigger `bookings_guard_notes`, migration 0034), the original kept for admins.
@@ -346,6 +348,38 @@ Bookings, payment status and balance due, trip chat (Phase 4).
 - **"Call our team" / "Llamar a nuestro equipo"** (phone + WhatsApp, `NEXT_PUBLIC_WHATSAPP_NUMBER`)
   under every chat and on the driver app trip screen. Later PRs: masked "Llamar al cliente" calling
   (Twilio; the contact row is ready for it) and optional translation.
+
+### 4.6 Name sign at the pickup (Jorge, 2026-11-11, migration 0040)
+The driver meets the traveller holding a sign (at the airport: at arrivals, with a whiteboard).
+The traveller chooses what it says.
+- **What the sign says, in this order** (one rule: `pickup_sign()` in the database, mirrored by
+  `signShown()` in `src/lib/sign.ts`):
+  1. the traveller's **own text**, if they wrote one (`bookings.sign_text`);
+  2. else, if they ticked **"Don't show my name" / "No mostrar mi nombre"**
+     (`bookings.sign_hide_name`): the brand name, **"Costa Rica Private Transfers"**;
+  3. else their **first name + last initial** ("Emily R."), or the brand name when the name they
+     gave has no letters.
+- **The text:** optional, at most 40 characters, one line, trimmed. Phone numbers, emails and
+  links are **refused** (not hidden as in notes: "[hidden]" on a sign helps nobody), with the same
+  check as the message for the driver (`hasContactDetails()` on the server and in the app,
+  `no_contact_details()` in the database as a backstop). Stored explicitly as two columns:
+  `sign_text` NULL = nothing written, and the boolean for "no name"; the two are never set together.
+- **Where the traveller sets it:** the ride builder on the website (summary step, under the flight
+  number) and the app's "Your ride" screen: "Name on the sign" / "Nombre en el rótulo" with the hint
+  "Your driver waits with a sign. Leave it empty and it will show your first name and last initial."
+  and the "Don't show my name" tick. **After booking** they can change it on the private trip page
+  and in the app's trip screen **until the driver taps "I'm on my way"**; after that it is
+  read-only (`saveSign()` in `src/app/trip/[token]/actions.ts`, `POST /api/v1/client/sign`). Rides
+  only: day tours and expeditions have no sign field (their drivers see the short name).
+- **What the driver sees:** one computed value, `my_trips().sign_text` (the last column, so
+  older driver app builds keep working and keep showing the short name), shown large as
+  **"Rótulo"** / "Sign" at the top of the travellers section in the driver app and on the driver
+  portal's trip page. Drivers still never get the full name, phone or email and still read 0 rows
+  from `bookings` and `trips` (`npm run test:db`). The job board does not show the sign.
+- **Team:** the admin booking page shows the sign and which of the three cases it is.
+- **Emails:** "request received" (when the request has a ride) and "ride confirmed" say the driver
+  will wait with a name sign and that it can be changed on the trip page.
+- Older customer app builds don't send the field: their bookings get the default (short name).
 
 ---
 
@@ -616,6 +650,9 @@ send one number that is kept as the large suitcases; migration 0037; drivers get
 and see "4 + 4" / "4 grandes + 4 de mano") · `drive_minutes` smallint
 (door-to-door drive time the ride was priced with: the Google route, or `ROUTE_MINUTES` between two
 of our towns; null = unknown; 0035) ·
+`sign_text` text (the traveller's own text for the driver's name sign, ≤ 40 characters, no contact
+details; null = none) and `sign_hide_name` bool ("Don't show my name": the sign shows the brand
+name; never together with a text); §4.6, migration 0040 ·
 `pricing_mode` (`fixed` | `bid`) · `total_price` numeric · `driver_payout` / `platform_fee` numeric
 (migration 0017; null on expeditions) · `company_costs` (entrances / lunch / activities the company pays, deducted before the driver's share; part of `platform_fee`; 0023) · `claimed_at` (set when the team accepted an offer from the job board) · `currency` (`USD` | `CRC`) ·
 `amount_paid` numeric · `payment_mode` (`full_100` | `cash_driver`; `deposit_20` on old rows
@@ -691,7 +728,8 @@ and `season_for_date(date)` returns the season for a travel date.
   fixed price. Drivers read only through `driver_jobs()` (open jobs, town to town) and `my_trips()`
   (their own trips), which return their payout and never the client's price (`driver_jobs()` lists
   only rides one of the driver's approved vehicles can serve by category, §5.3); stop snapshots come
-  without their price (`stops_for_driver()`, 0036). The one exception is `my_trips().cash_to_collect`
+  without their price (`stops_for_driver()`, 0036); the name sign comes as one computed text
+  (`pickup_sign()`, 0040), never the full name. The one exception is `my_trips().cash_to_collect`
   on cash trips. `npm run test:db` checks all of this. Traveller contact details and
   the private trip-page code live in **`trips`**, readable only by admins and the server.
   `trips.language` (`en` | `es`, default `en`) is the language the request was sent in; the
@@ -808,12 +846,12 @@ and `season_for_date(date)` returns the season for a travel date.
     - **Drivers:** KYC document files are deleted; a minimal record (name, permit number, dates
       checked and approved) is kept for the same period in case of an insurance or legal claim.
     - Done within 30 days; a confirmation email is sent. Available in the apps and on the website.
-16. **Airport meeting points and guide facts (open, from the guides of 2026-11-11).** The airport
-    guides say only what the site already said: "your driver meets you at arrivals", and the
-    driver's name, photo and car are on the trip page. To confirm with Jorge: the exact meeting
-    spot at SJO and at LIR (which exit, inside or outside), whether drivers hold a sign with the
-    traveller's name (the driver app shows one), and what happens for pickups outside the
-    04:00–22:00 pickup times the trip builder offers. Also to confirm from his own experience:
+16. **Airport meeting points and guide facts (partly open, from the guides of 2026-11-11).**
+    **Decided (Jorge, 2026-11-11): drivers meet travellers at arrivals holding a sign (a
+    whiteboard) with the traveller's name, and the traveller may choose what it says; with "no
+    name" it shows the brand name. Built, §4.6.** Still to confirm with Jorge: the exact meeting
+    spot at SJO and at LIR (which exit, inside or outside), and what happens for pickups outside
+    the 04:00–22:00 pickup times the trip builder offers. Also to confirm from his own experience:
     the Sierpe boat times, the three Drake Bay / Sierpe stay areas, and each "where to stay"
     description. Until then the guides stay general on those points.
 

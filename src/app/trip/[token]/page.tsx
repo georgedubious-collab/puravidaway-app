@@ -9,7 +9,9 @@ import { HtmlLang } from "@/components/site/HtmlLang";
 import { CostaRicaFlag, UsFlag } from "@/components/site/LangSwitch";
 import { LiveRefresh } from "@/components/LiveRefresh";
 import { RateDriver } from "@/components/RateDriver";
-import { rateDriver } from "./actions";
+import { SignEditor } from "@/components/SignEditor";
+import { rateDriver, saveSign } from "./actions";
+import { signEditable } from "@/lib/sign";
 import { TRIP_TOKEN, bookingDue, serviceLabel, usd, type BookingRow, type BookingStatus } from "@/lib/bookings";
 import { localizeCatalog, placeNameFor } from "@/lib/catalogEs";
 import { getCatalog } from "@/lib/catalogSource";
@@ -386,6 +388,19 @@ export default async function TripPage({ params, searchParams }: Props) {
                 ) : (
                   <RateDriver action={rateDriver} token={token} bookingId={b.id} driverFirstName={driver.firstName} lang={lang} />
                 )
+              )}
+
+              {b.service_type === "transfer" && ["pending_payment", "pending_bids", "confirmed"].includes(b.status) && (
+                <SignEditor
+                  action={saveSign}
+                  token={token}
+                  bookingId={b.id}
+                  signText={b.sign_text ?? null}
+                  hideName={Boolean(b.sign_hide_name)}
+                  guestName={(trip.guest_name as string | null) ?? null}
+                  editable={signEditable(b)}
+                  lang={lang}
+                />
               )}
 
               {b.status !== "cancelled" && (
