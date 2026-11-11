@@ -1,0 +1,1 @@
+- 2026-11-10 — Claude — New-trip push alerts to drivers are now in Spanish by default (English only for drivers who switched the app to English); same alert, same data, no client price or contact details.
