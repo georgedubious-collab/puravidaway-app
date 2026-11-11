@@ -8,10 +8,10 @@
 
 | | **Daytrip** | **GetTransfer** | **Welcome Pickups** | **Costa Rica Private Transfers (target)** |
 | :--- | :--- | :--- | :--- | :--- |
-| Core product | Door-to-door intercity private transfers with curated sightseeing stops | Marketplace: traveler posts a trip, carriers bid | Airport pickups with meet-and-greet, plus in-destination add-ons | All three combined, Costa Rica only, plus 1-day tours and multi-day expeditions |
+| Core product | Door-to-door intercity private transfers with curated sightseeing stops | Marketplace: traveler posts a trip, carriers bid | Airport pickups with meet-and-greet, plus in-destination add-ons | All three combined, Costa Rica only, plus 1-day tours (multi-day trips retired 2026-11-11) |
 | Pricing model | Fixed price per car, shown "from $X per person"; stops priced on driver distance + wait time; entrance fees extra | Set by competing carriers; traveler can name a price; claims no hidden markup | Fixed per ride, premium vs ride-share; includes meet-and-greet and flight tracking | Fixed route × vehicle price table **and** bid mode with the fixed price as reference |
 | Revenue | Sets retail price and keeps **~30%** of the fare (driver gets ~70%); 5% to US/CA travel agents; local partner drivers are independent contractors | Commission from carriers: **13–25%** by monthly volume and rating, minus tenure and prepaid-credit discounts (effective floor ~8%). The 2022 "5%" claim is not current | Commission per transaction; shares it with referring hotels / Airbnb hosts (B2B2C) | Margin on own rides; **commission on accepted partner-driver bids** (% still to be set, §9 of PROJECT.md) |
-| Payment | Card online or **cash to driver after the trip** | Card in advance on offer acceptance | Card online | Online in full via Green Pay (link after confirmation), or **cash to the driver + 10% cash booking fee** on rides and day tours (decided 2026-11-08); expeditions online only |
+| Payment | Card online or **cash to driver after the trip** | Card in advance on offer acceptance | Card online | Online in full via Green Pay (link after confirmation), or **cash to the driver + 10% cash booking fee** on rides and day tours (decided 2026-11-08) |
 | Cancellation | **Free up to 24 h before pickup** | Varies by carrier; refunds reported slow | Not prominent | **Free up to 24 h before pickup** for rides and day tours (decided 2026-11-08), policy at `/cancellation` |
 | Trust signals | 10,000+ drivers, 130+ countries; Tripadvisor 5.0 (5k+ reviews), Trustpilot 4.6; flight tracking; driver waits if delayed | Carrier ratings, vehicle photos, reviews; AI checks on photos and unresponsive drivers | Vetted English-speaking "Welcomers", meet-and-greet with name sign, flight tracking | **Owner-operated, no-handoff**: Jorge personally drives or vouches for every partner; ICT / INS / Dekra / Marchamo compliance visible per driver |
 | Scale | Global | 150–180 countries, ~1M passengers in 2025 | 374+ destinations; not in the US; **operates at SJO** (confirmed 2026-11-08) | One country, deep: Costa Rica-specific logistics (Sierpe boats, SINAC permits, 4x4 roads) |
@@ -242,7 +242,8 @@ What the exact point does to price (Daytrip, Sedan, from SJO):
 - **Welcome Pickups is airport-only.** It does operate at SJO (flat airport-taxi prices, English-speaking drivers, ~45 min free waiting, mostly San José / Jacó), but doesn't do long intercity routes, stops or tours.
 - **None of them handle Costa Rica's hard logistics**: Sierpe boat connections to Drake Bay,
   SINAC Corcovado permits, 4x4-only roads to Monteverde, Poás timed entry. That is our moat.
-- **None sell multi-day expeditions.** Tab 3 has no direct competitor among the three.
+- **Multi-day trips: retired 2026-11-11** (Jorge). Like the three benchmarks, we now sell
+  transfers and 1-day tours only.
 
 ## 5. Product requirements that follow (checklist for every PR)
 
@@ -273,8 +274,9 @@ Status as of 2026-11-08 in brackets.
    travellers can ask for one for free, "if available", at the same price (PROJECT.md §5.3). It is
    a per-vehicle badge, never a site-wide promise; whether the three benchmarks offer an electric
    option on these routes was not checked.]**
-7. After adding a transfer, suggest a tour or expedition (Welcome-style upsell). **[Done:
-   inline, dismissible, by drop-off region.]**
+7. After adding a transfer, suggest a 1-day tour (Welcome-style upsell). **[Done:
+   inline, dismissible, by drop-off region; tours only since multi-day trips were retired on
+   2026-11-11.]**
 8. Host/hotel referral links are a planned feature (Phase 4) — keep booking URLs shareable.
    **[Shareable ride links done; referral tracking still planned.]**
 

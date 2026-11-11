@@ -42,7 +42,7 @@ searches are worth money.
 
 ## 3. Site map
 
-**Top nav:** Transfers · Tours · Multi-day · Destinations · Travel guides · Help · WhatsApp ·
+**Top nav:** Transfers · Tours · Destinations · Travel guides · Help · WhatsApp ·
 EN/ES (config in `src/lib/siteNav.ts`).
 
 **Footer:** Company (About, How it works, Our drivers & safety, Reviews) · Partners (Drive with
@@ -89,8 +89,10 @@ pages `/es/traslados/<slug>` and their index `/es/traslados`, destination guides
    Product block earns nothing and risks looking like a fake listing. Bus, shuttle and flight
    notes are general on purpose (no timetables, fares, terminals or boat times); re-check them
    and bump `ROUTES_UPDATED` in `src/lib/routes/make.ts` about twice a year.
-5. **Tour and multi-day pages** (TouristTrip schema, permits where they apply: Poás timed entry,
-   Corcovado SINAC).
+5. **Day tour pages** (TouristTrip schema, permits where they apply: Poás timed entry).
+   Multi-day trips were retired on 2026-11-11: no multi-day pages, schema or links; the old
+   `/?tab=multiday` address redirects (308) to `/?tab=tours`. Corcovado is mentioned only as
+   travel advice (SINAC permit and guide booked separately), never as something we sell.
 6. **Partners and app**: Hotels & agents (referral), app download page with QR and store badges.
 
 ## 5. First guide articles (by opportunity)
@@ -175,7 +177,7 @@ What is recorded in Google Analytics (GA4's standard names, so its built-in repo
 | `page_view` | each public page | cleaned address, page title |
 | `view_item` | the ride builder shows prices for a route (once per route) | route as town codes, number of vehicle classes offered, "from" price, USD |
 | `select_item` | a vehicle class is tapped | route, vehicle class, its price |
-| `add_to_cart` | a ride, day tour or multi-day trip is added to "Your trip" | item code, price, fixed price or bid |
+| `add_to_cart` | a ride or day tour is added to "Your trip" | item code, price, fixed price or bid |
 | `begin_checkout` | the trip is opened to review (phones) or the details form is first touched (desktop), once per trip | total, payment choice, fixed / bid / mixed, number of items |
 | `generate_lead` | "Send trip request" succeeded | total in USD, payment choice (`full_100` online or `cash_driver`), fixed / bid / mixed, items |
 | `click` | a WhatsApp button, an app store link (none on the site yet) or the language switch | only the kind of link (`whatsapp`, `app_store`, `language`) |

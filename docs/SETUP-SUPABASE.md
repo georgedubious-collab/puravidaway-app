@@ -17,7 +17,7 @@ Either way works; the first needs no installs.
 **Run** each file from `supabase/migrations/` **in order**:
 1. `20261014000001_core_schema.sql` — tables
 2. `20261014000002_row_level_security.sql` — security rules + private bucket for driver documents
-3. `20261014000003_seed_catalog.sql` — current vehicles, stops, tours, expeditions, seasons
+3. `20261014000003_seed_catalog.sql` — current vehicles, stops, tours, expeditions (retired 2026-11-11 by `20261111000043_retire_multi_day.sql`), seasons
 4. `20261014000004_driver_applications.sql` — driver applications and the document vault (Phase 2c)
 5. `20261014000005_review_fixes.sql` — security fixes from the Phase 2b review
 6. `20261014000006_driver_vehicles.sql` — several vehicles per driver
