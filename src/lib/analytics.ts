@@ -345,7 +345,9 @@ export function applyConsent(choice: ConsentChoice | null): void {
     }
     if (useGa && !state.gaConfigured) {
       // Page views are sent by trackPageView() with a cleaned address, never automatically.
-      gtag("config", GA_ID, { send_page_view: false });
+      // The cleaned address is also given here so that anything Google's tag might send by
+      // itself carries it instead of the address bar (every event of ours sets its own).
+      gtag("config", GA_ID, { send_page_view: false, page_location: cleanLocation() });
       state.gaConfigured = true;
     }
     if (useAds && !state.adsConfigured) {
@@ -382,7 +384,7 @@ export function applyConsent(choice: ConsentChoice | null): void {
 function send(name: string, params: Record<string, unknown>): void {
   if (typeof window === "undefined" || !state.gaOn || state.blocked || !GA_ID) return;
   if (isPrivatePath(window.location.pathname)) return;
-  gtag("event", name, { ...params, send_to: GA_ID });
+  gtag("event", name, { page_location: cleanLocation(), ...params, send_to: GA_ID });
 }
 
 /** One page view per public page, with the address cleaned (no ride details, no typed places). */
