@@ -233,7 +233,7 @@ export function BookingProvider({
   const fromCents = quote && quote.vehicles.length ? quote.vehicles.reduce((m, v) => Math.min(m, v.totalCents), Infinity) : null;
   const pickedStops = quote && stopsOn ? state.stopIds.filter((id) => quote.stops.some((s) => s.id === id)) : [];
   const p = effectivePrefs;
-  const extrasCount = pickedStops.length + (p.childSeats ? 1 : 0) + Number(p.wifi) + Number(p.stroller) + Number(p.pets) + (state.driverNotes.trim() ? 1 : 0) + (state.notes.trim() ? 1 : 0);
+  const extrasCount = pickedStops.length + (p.childSeats ? 1 : 0) + (p.boosters ? 1 : 0) + Number(p.wifi) + Number(p.stroller) + Number(p.pets) + (state.driverNotes.trim() ? 1 : 0) + (state.notes.trim() ? 1 : 0);
 
   const tour = tours?.find((x) => x.id === state.tourId);
 
@@ -255,6 +255,7 @@ export function BookingProvider({
     const out: string[] = [];
     if (p.language === "spanish_ok") out.push(t("Spanish OK", "Español está bien"));
     if (p.childSeats) out.push(p.childSeats + t(" child seat" + (p.childSeats > 1 ? "s" : ""), p.childSeats > 1 ? " sillas de niño" : " silla de niño"));
+    if (p.boosters) out.push(p.boosters + (p.boosters > 1 ? " boosters" : " booster"));
     if (p.wifi) out.push("Wi-Fi");
     if (p.stroller) out.push(t("stroller", "coche de bebé"));
     if (p.pets) out.push(t("pet", "mascota"));

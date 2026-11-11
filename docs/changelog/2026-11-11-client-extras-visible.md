@@ -1,0 +1,1 @@
+- 2026-11-11 — Claude — Customer app: extras (child seats, new booster seats, Wi-Fi, stroller, pet) now sit on the "Your ride" screen instead of a hidden panel; the vehicle screen starts with "How do you want to book?" explaining Fixed price vs Driver offers; booster seats saved with ride preferences and shown to the team and driver; removed the doubled "direct ride" wording.

@@ -100,7 +100,7 @@ export function TripDetail({
   const facts = tripFacts(trip);
   const bags = tripBags(trip, lang);
   const vehicle = vehicleLabel(trip.vehicle_class, lang);
-  const prefs = (trip.preferences ?? {}) as { language?: string; childSeats?: number; wifi?: boolean; stroller?: boolean; pets?: boolean };
+  const prefs = (trip.preferences ?? {}) as { language?: string; childSeats?: number; boosters?: number; wifi?: boolean; stroller?: boolean; pets?: boolean };
   const active = trip.status === "confirmed" || trip.status === "in_progress";
   // I'm on my way → Client picked up → Trip ended.
   const nextIndex = trip.status === "in_progress" ? 2 : trip.en_route_at ? 1 : 0;
@@ -130,6 +130,7 @@ export function TripDetail({
   if (prefs.language === "english") asked.push(t("Conductor que habla inglés", "English-speaking driver"));
   if (prefs.language === "spanish_ok") asked.push(t("Español o inglés básico está bien", "Spanish or basic English is fine"));
   if (prefs.childSeats) asked.push(plural(prefs.childSeats, ["silla de niño", "sillas de niño"], ["child seat", "child seats"], lang));
+  if (prefs.boosters) asked.push(plural(prefs.boosters, ["booster", "boosters"], ["booster seat", "booster seats"], lang));
   if (prefs.wifi) asked.push("Wi-Fi");
   if (prefs.stroller) asked.push(t("Coche de bebé", "Stroller"));
   if (prefs.pets) asked.push(t("Viaja con una mascota", "Travelling with a pet"));

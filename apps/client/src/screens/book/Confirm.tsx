@@ -7,7 +7,7 @@ import { useNav } from "../../nav";
 import { driveTime, time12 } from "../../prices";
 import { useSession } from "../../session";
 import { C, S, SP, T } from "../../theme";
-import { Bar, BottomBar, Btn, Card, Choice, FieldLabel, IconLine, Input, Page, Skeleton, Stepper, Text } from "../../ui";
+import { Bar, BottomBar, Btn, Card, Choice, FieldLabel, IconLine, Input, Page, Skeleton, Stepper, Text, Toggle } from "../../ui";
 import { validEmail, sendCode } from "../SignIn";
 import { ActionRow, BagNote, QuoteProblem, RouteDots } from "./parts";
 import { useSendRequest } from "./Review";
@@ -58,11 +58,8 @@ export function BookConfirm() {
 
   const pickedStops = quote && stopsOn ? quote.stops.filter((s) => state.stopIds.includes(s.id)) : [];
   const p = effectivePrefs;
+  const { prefs } = state;
   const extras: string[] = [p.language === "spanish_ok" ? t("Spanish or basic English is fine", "Español o inglés básico está bien") : t("English-speaking driver", "Conductor que habla inglés")];
-  if (p.childSeats) extras.push(p.childSeats + t(" child seat" + (p.childSeats > 1 ? "s" : ""), p.childSeats > 1 ? " sillas de niño" : " silla de niño"));
-  if (p.wifi) extras.push("Wi-Fi");
-  if (p.stroller) extras.push(t("Stroller", "Coche de bebé"));
-  if (p.pets) extras.push(t("Pet", "Mascota"));
   if (state.driverNotes.trim()) extras.push(t("Message for your driver", "Mensaje para su conductor"));
 
   return (
@@ -115,7 +112,7 @@ export function BookConfirm() {
       <QuoteProblem />
       {notesBlocked ? (
         <Text accessibilityRole="alert" style={S.error}>
-          {t("Your message for the driver has a phone number, email or link. Please take it out under Driver and extras.", "Su mensaje para el conductor tiene un teléfono, correo o enlace. Quítelo en Conductor y extras.")}
+          {t("Your message for the driver has a phone number, email or link. Please take it out under Driver's language and message.", "Su mensaje para el conductor tiene un teléfono, correo o enlace. Quítelo en Idioma del conductor y mensaje.")}
         </Text>
       ) : null}
 
@@ -125,6 +122,23 @@ export function BookConfirm() {
         <Counter label={t("Carry-ons", "Maletas de mano")} value={bags.carryOns} min={0} max={20} onChange={(n) => set({ carryOns: n })} less={t("One carry-on fewer", "Una maleta de mano menos")} more={t("One more carry-on", "Una maleta de mano más")} last />
       </View>
       <BagNote />
+
+      <View style={[BOX, { paddingBottom: 14 }]}>
+        <View style={{ paddingTop: 14, gap: 2 }}>
+          <Text accessibilityRole="header" style={{ fontSize: 16, lineHeight: 22, fontWeight: "800", color: C.text }}>{t("Extras", "Extras")}</Text>
+          <Text style={T.caption}>{t("Free, subject to availability. Tell us what you need.", "Gratis, según disponibilidad. Díganos qué necesita.")}</Text>
+        </View>
+        <Counter label={t("Baby / child seats", "Sillas para bebé / niño")} value={prefs.childSeats} min={0} max={4} onChange={(childSeats) => set({ prefs: { ...prefs, childSeats } })} less={t("One fewer child seat", "Una silla menos")} more={t("One more child seat", "Una silla más")} />
+        <Counter label={t("Booster seats", "Boosters (asiento elevador)")} value={prefs.boosters ?? 0} min={0} max={4} onChange={(boosters) => set({ prefs: { ...prefs, boosters } })} less={t("One fewer booster seat", "Un booster menos")} more={t("One more booster seat", "Un booster más")} />
+        {prefs.childSeats + (prefs.boosters ?? 0) > 0 ? (
+          <Text style={[T.small, { paddingTop: 10 }]}>{t("Add the children's ages under Driver's language and message, so the right seats come along.", "Escriba la edad de los niños en Idioma del conductor y mensaje, para llevar las sillas correctas.")}</Text>
+        ) : null}
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, paddingTop: 12 }}>
+          <Toggle icon="wifi-outline" label={t("Wi-Fi on board", "Wi-Fi a bordo")} on={prefs.wifi} onPress={() => set({ prefs: { ...prefs, wifi: !prefs.wifi } })} />
+          <Toggle icon="cart-outline" label={t("Stroller", "Coche de bebé")} on={prefs.stroller} onPress={() => set({ prefs: { ...prefs, stroller: !prefs.stroller } })} />
+          <Toggle icon="paw-outline" label={t("Travelling with a pet", "Viajo con mascota")} on={prefs.pets} onPress={() => set({ prefs: { ...prefs, pets: !prefs.pets } })} />
+        </View>
+      </View>
 
       <View style={BOX}>
         <ActionRow
@@ -153,7 +167,7 @@ export function BookConfirm() {
             onPress={() => nav.navigate("BookStops")}
           />
         ) : null}
-        <ActionRow title={t("Driver and extras", "Conductor y extras")} detail={extras.join(" · ")} action={t("Change", "Cambiar")} onPress={() => nav.navigate("BookExtras")} />
+        <ActionRow title={t("Driver's language and message", "Idioma del conductor y mensaje")} detail={extras.join(" · ")} action={t("Change", "Cambiar")} onPress={() => nav.navigate("BookExtras")} />
         <ActionRow
           title={state.payMode === "full_100" ? t("Pay by card", "Pagar con tarjeta") : t("Cash to the driver", "Efectivo al conductor")}
           detail={state.payMode === "cash_driver" && priced ? t("Includes the " + feeBps / 100 + "% cash booking fee", "Incluye el cargo del " + feeBps / 100 + "% por reserva en efectivo") : undefined}

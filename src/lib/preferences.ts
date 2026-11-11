@@ -13,6 +13,8 @@ export interface RidePrefs {
   stroller: boolean;
   /** Baby / child seats needed (0–4). */
   childSeats: number;
+  /** Booster seats for older children (0–4). Older apps don't send it. */
+  boosters?: number;
   pets: boolean;
 }
 
@@ -34,7 +36,9 @@ export function parsePrefs(raw: unknown): RidePrefs | null {
   if (o.language !== "english" && o.language !== "spanish_ok") return null;
   if (typeof o.wifi !== "boolean" || typeof o.stroller !== "boolean" || typeof o.pets !== "boolean") return null;
   if (!Number.isInteger(o.childSeats) || (o.childSeats as number) < 0 || (o.childSeats as number) > 4) return null;
-  return { language: o.language, wifi: o.wifi, stroller: o.stroller, childSeats: o.childSeats as number, pets: o.pets };
+  const boosters = o.boosters == null ? 0 : o.boosters;
+  if (typeof boosters !== "number" || !Number.isInteger(boosters) || boosters < 0 || boosters > 4) return null;
+  return { language: o.language, wifi: o.wifi, stroller: o.stroller, childSeats: o.childSeats as number, ...(boosters ? { boosters } : {}), pets: o.pets };
 }
 
 /** Short words for summaries ("Wi-Fi · 2 child seats · pet"). */
@@ -63,6 +67,8 @@ export function prefsSummary(p: Partial<RidePrefs> | null | undefined, lang: "en
         ? `${p.childSeats} asiento${p.childSeats > 1 ? "s" : ""} para niños`
         : `${p.childSeats} child seat${p.childSeats > 1 ? "s" : ""}`,
     );
+  if (p.boosters)
+    out.push(es ? `${p.boosters} booster${p.boosters > 1 ? "s" : ""} (asiento elevador)` : `${p.boosters} booster seat${p.boosters > 1 ? "s" : ""}`);
   if (p.pets) out.push(es ? "viaja con una mascota" : "travelling with a pet");
   return out;
 }
