@@ -1,7 +1,7 @@
 import "server-only";
 import { usd } from "./bookings";
 import { getCatalog } from "./catalogSource";
-import { formatScheduledAt, scheduledParts } from "./dates";
+import { formatScheduledAt, formatScheduledAtFor, scheduledParts } from "./dates";
 import { SITE_URL, sendEmail } from "./email";
 import { townName, townOf } from "./matching";
 import { sendPush } from "./push";
@@ -28,11 +28,11 @@ export async function notifyDriversOfJobs(bookingIds: string[]): Promise<void> {
         .in("id", bookingIds)
         .eq("status", "pending_bids")
         .not("driver_payout", "is", null),
-      db.from("drivers").select("id, home_hub, profiles!drivers_id_fkey(full_name, email, role)").eq("kyc_status", "approved"),
+      db.from("drivers").select("id, home_hub, profiles!drivers_id_fkey(full_name, email, role, app_lang)").eq("kyc_status", "approved"),
       getCatalog(),
     ]);
     if (!jobs?.length || !drivers?.length) return;
-    type D = { id: string; home_hub: string | null; profiles: { full_name: string | null; email: string | null; role: string } | null };
+    type D = { id: string; home_hub: string | null; profiles: { full_name: string | null; email: string | null; role: string; app_lang: string | null } | null };
     const list = (drivers as unknown as D[]).filter((d) => d.profiles?.email && d.profiles.role === "driver");
 
     const { data: blocked } = await db.from("driver_unavailable").select("driver_id, day").in("driver_id", list.map((d) => d.id));
@@ -50,9 +50,20 @@ export async function notifyDriversOfJobs(bookingIds: string[]): Promise<void> {
       const when = formatScheduledAt(j.scheduled_at);
       const payout = usd(Math.round(Number(j.driver_payout)));
       // Push to every approved driver's phone (driver app), then email as the backup.
+      // In the driver's app language: Spanish unless they switched the app to English.
+      const pax = j.passenger_count ?? 1;
+      const whatEs = j.service_type === "transfer" ? what : (catalog.dayTours.find((t) => t.id === j.catalog_item_id)?.name ?? "Tour de un día");
+      const inEnglish = available.filter((d) => d.profiles?.app_lang === "en").map((d) => d.id);
+      const inSpanish = available.filter((d) => d.profiles?.app_lang !== "en").map((d) => d.id);
+      const data = { screen: "job", id: j.id };
       await sendPush(
-        available.map((d) => d.id),
-        { title: `New job: ${what}`, body: `${when} · ${j.passenger_count ?? 1} traveller${(j.passenger_count ?? 1) > 1 ? "s" : ""} · suggested payout ${payout}`, data: { screen: "job", id: j.id } },
+        inSpanish,
+        { title: `Nuevo viaje: ${whatEs}`, body: `${formatScheduledAtFor(j.scheduled_at, "es")} · ${pax} ${pax > 1 ? "pasajeros" : "pasajero"} · pago sugerido ${payout}`, data },
+        "driver",
+      );
+      await sendPush(
+        inEnglish,
+        { title: `New job: ${what}`, body: `${when} · ${pax} traveller${pax > 1 ? "s" : ""} · suggested payout ${payout}`, data },
         "driver",
       );
       const sorted = [...available].sort((a, b) => Number(b.home_hub === from) - Number(a.home_hub === from)).slice(0, MAX_RECIPIENTS);
