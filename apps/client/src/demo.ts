@@ -22,6 +22,8 @@ export interface Demo {
   codeSentTo?: string;
   /** Show the success screen as already paid. */
   paid?: boolean;
+  /** Which side of the Explore tab to open on. */
+  explore?: "rides" | "tours";
 }
 
 export const DemoContext = createContext<Demo | null>(null);

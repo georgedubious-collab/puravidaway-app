@@ -43,7 +43,7 @@ const trips: AppTrip[] = [
     token: "demo",
     createdAt: at(-100),
     bookings: [
-      booking({ id: "b1", ref: "CRPT-1042", driverOnTheWay: true, driver, car, unreadChat: 2, driverLocation: { lat: 10.0, lng: -84.2, recordedAt: at(0), etaAt: at(0.4), lateMin: null } }),
+      booking({ id: "b1", ref: "CRPT-1042", title: "SJO Airport / San José → La Fortuna / Arenal", driverOnTheWay: true, driver, car, unreadChat: 2, driverLocation: { lat: 10.1, lng: -84.33, recordedAt: at(0), etaAt: at(0.2), lateMin: null } }),
       booking({ id: "b2", ref: "CRPT-1047", title: "Hotel Arenal Springs → Monteverde Lodge", scheduledAt: at(74), dueUsd: 168, paymentMode: "cash_driver", cashFeeUsd: 8, driver, car }),
       booking({ id: "b3", ref: "CRPT-1051", kind: "day_tour", title: "Manuel Antonio National Park Wildlife Walk", scheduledAt: at(120), status: "pending_bids", dueUsd: 340 }),
       booking({ id: "b4", ref: "CRPT-0988", title: "Liberia Airport → Tamarindo", scheduledAt: at(-400), status: "completed", driver, car }),
@@ -119,10 +119,12 @@ const tabs = (tab: "Explore" | "Trips" | "Account", tripId?: string): Route => (
   },
 });
 const sarah = "sarah@example.com";
-const ride: Partial<BookingState> = { from: hub("SJO"), to: hub("Arenal"), date: "2026-12-15", vehicleId: "suv", bags: 3, carryOns: 2 };
+const ride: Partial<BookingState> = { from: hub("SJO"), to: hub("Arenal"), date: "2026-12-15", time: "10:30", whenSet: true, vehicleId: "suv", bags: 3, carryOns: 2 };
 const rideFull: Partial<BookingState> = { ...ride, stopIds: ["sloth"], prefs: { language: "english", wifi: true, stroller: false, childSeats: 1, pets: false }, notes: "AA 1234", name: "Sarah Miller", phone: "+1 555 123 4567" };
 const tourPick: Partial<BookingState> = { kind: "tour", date: "2026-12-15", tourId: "dt1", upgrade: true, name: "Sarah Miller", phone: "+1 555 123 4567" };
 const steps = (...names: string[]): Route[] => [tabs("Explore"), ...names.map((name) => ({ name }))];
+const toursTab: Demo = { explore: "tours" };
+const tourDay: Partial<BookingState> = { kind: "tour", date: "2026-12-15" };
 
 interface Setup {
   routes: Route[];
@@ -137,12 +139,15 @@ interface Setup {
 }
 
 const SCREENS: Record<string, Setup> = {
-  // Home
-  home: { routes: [tabs("Explore")], email: null },
-  "home-in": { routes: [tabs("Explore")] },
-  "home-loading": { routes: [tabs("Explore")], email: null, demo: { loading: true } },
-  // Booking a ride, step by step
-  "where-empty": { routes: steps("BookWhere"), email: null, state: {}, quote: null },
+  // Explore, rides side (the map)
+  home: { routes: [tabs("Explore")], email: null, quote: null },
+  "home-in": { routes: [tabs("Explore")], quote: null },
+  "home-route": { routes: [tabs("Explore")], email: null, state: ride },
+  "home-loading": { routes: [tabs("Explore")], email: null, quote: null, demo: { loading: true } },
+  menu: { routes: [tabs("Explore"), { name: "Menu" }], email: null, quote: null },
+  // Booking a ride: places → vehicle → confirm
+  places: { routes: steps("BookWhere"), email: null, state: { from: hub("SJO") }, quote: null },
+  "where-empty": { routes: steps("BookWhere"), email: null, state: { from: null }, quote: null },
   where: { routes: steps("BookWhere"), email: null, state: ride },
   search: { routes: [...steps("BookWhere"), { name: "PlaceSearch", params: { field: "to" } }], email: null, state: { from: hub("SJO") }, quote: null },
   "search-found": {
@@ -152,22 +157,27 @@ const SCREENS: Record<string, Setup> = {
     quote: null,
     demo: { found: [{ placeId: "p1", main: "Tabacón Thermal Resort & Spa", secondary: "La Fortuna, Alajuela Province" }, { placeId: "p2", main: "Tabacón Hot Springs", secondary: "Route 142, La Fortuna" }] },
   },
-  when: { routes: steps("BookWhere", "BookWhen"), email: null, state: ride },
-  time: { routes: [...steps("BookWhere", "BookWhen"), { name: "TimePicker" }], email: null, state: ride },
-  ride: { routes: steps("BookWhere", "BookWhen", "BookRide"), email: null, state: ride },
-  "ride-bid": { routes: steps("BookWhere", "BookWhen", "BookRide"), email: null, state: { ...ride, mode: "bid", offer: "120" } },
-  "ride-loading": { routes: steps("BookWhere", "BookWhen", "BookRide"), email: null, state: ride, quote: null, quoteBusy: true },
-  extras: { routes: steps("BookWhere", "BookWhen", "BookRide", "BookExtras"), email: null, state: { ...ride, stopIds: ["sloth"], prefs: { language: "english", wifi: true, stroller: false, childSeats: 1, pets: false } } },
-  "extras-empty": { routes: steps("BookWhere", "BookWhen", "BookRide", "BookExtras"), email: null, state: { ...ride, vehicleId: "economy" } },
-  review: { routes: steps("BookWhere", "BookWhen", "BookRide", "BookExtras", "BookReview"), state: rideFull },
-  guest: { routes: steps("BookWhere", "BookWhen", "BookRide", "BookExtras", "BookReview"), email: null, state: { ...rideFull, guestEmail: sarah, payMode: "cash_driver" } },
-  code: { routes: [...steps("BookWhere", "BookWhen", "BookRide", "BookExtras", "BookReview"), { name: "Code" }], email: null, state: { ...rideFull, guestEmail: sarah }, demo: { codeSentTo: sarah } },
-  // Day tours
-  tours: { routes: steps("Tours"), email: null, state: { kind: "tour", date: "2026-12-15" } },
-  "tours-loading": { routes: steps("Tours"), email: null, state: { kind: "tour", date: "2026-12-15" }, tours: null },
-  "tour-when": { routes: [...steps("Tours"), { name: "TourWhen" }], email: null, state: { kind: "tour", date: "2026-12-15" } },
-  tour: { routes: [...steps("Tours"), { name: "TourDetail", params: { id: "dt1" } }], email: null, state: tourPick },
-  "tour-review": { routes: [...steps("Tours"), { name: "TourDetail", params: { id: "dt1" } }, { name: "BookReview" }], state: tourPick },
+  "map-pick": { routes: [...steps("BookWhere"), { name: "PlaceOnMap", params: { field: "to" } }], email: null, state: { from: hub("SJO"), to: hub("Arenal") } },
+  when: { routes: [...steps("BookWhere", "BookRide"), { name: "BookWhen" }], email: null, state: ride },
+  time: { routes: [...steps("BookWhere", "BookRide"), { name: "BookWhen" }, { name: "TimePicker" }], email: null, state: ride },
+  choose: { routes: steps("BookWhere", "BookRide"), email: null, state: ride },
+  ride: { routes: steps("BookWhere", "BookRide"), email: null, state: ride },
+  "ride-new": { routes: steps("BookWhere", "BookRide"), email: null, state: { ...ride, whenSet: false } },
+  "ride-bid": { routes: steps("BookWhere", "BookRide"), email: null, state: { ...ride, mode: "bid", offer: "120" } },
+  "ride-loading": { routes: steps("BookWhere", "BookRide"), email: null, state: ride, quote: null, quoteBusy: true },
+  stops: { routes: [...steps("BookWhere", "BookRide", "BookConfirm"), { name: "BookStops" }], email: null, state: { ...ride, stopIds: ["sloth"] } },
+  extras: { routes: [...steps("BookWhere", "BookRide", "BookConfirm"), { name: "BookExtras" }], email: null, state: { ...ride, stopIds: ["sloth"], prefs: { language: "english", wifi: true, stroller: false, childSeats: 1, pets: false } } },
+  "extras-empty": { routes: [...steps("BookWhere", "BookRide", "BookConfirm"), { name: "BookExtras" }], email: null, state: { ...ride, vehicleId: "economy" } },
+  confirm: { routes: steps("BookWhere", "BookRide", "BookConfirm"), state: { ...ride, name: "Sarah Miller", phone: "+1 555 123 4567" } },
+  review: { routes: steps("BookWhere", "BookRide", "BookConfirm"), state: rideFull },
+  guest: { routes: steps("BookWhere", "BookRide", "BookConfirm"), email: null, state: { ...rideFull, guestEmail: sarah, payMode: "cash_driver" } },
+  code: { routes: [...steps("BookWhere", "BookRide", "BookConfirm"), { name: "Code" }], email: null, state: { ...rideFull, guestEmail: sarah }, demo: { codeSentTo: sarah } },
+  // Explore, day tours side
+  tours: { routes: [tabs("Explore")], email: null, state: tourDay, demo: toursTab },
+  "tours-loading": { routes: [tabs("Explore")], email: null, state: tourDay, tours: null, demo: toursTab },
+  "tour-when": { routes: [tabs("Explore"), { name: "TourWhen" }], email: null, state: tourDay, demo: toursTab },
+  tour: { routes: [tabs("Explore"), { name: "TourDetail", params: { id: "dt1" } }], email: null, state: tourPick, demo: toursTab },
+  "tour-review": { routes: [tabs("Explore"), { name: "TourDetail", params: { id: "dt1" } }, { name: "BookReview" }], state: tourPick, demo: toursTab },
   // After sending
   sent: { routes: [tabs("Explore"), { name: "Sent", params: { tripToken: "demo", payOnline: true, totalCents: 27900, testCheckout: true } }] },
   "sent-paid": { routes: [tabs("Explore"), { name: "Sent", params: { tripToken: "demo", payOnline: true, totalCents: 27900, testCheckout: true } }], demo: { paid: true } },
@@ -179,6 +189,8 @@ const SCREENS: Record<string, Setup> = {
   signin: { routes: [tabs("Trips")], email: null },
   "signin-code": { routes: [tabs("Trips")], email: null, demo: { codeSentTo: sarah } },
   trip: { routes: [tabs("Trips", "b1")] },
+  live: { routes: [tabs("Trips", "b1")] },
+  "trip-driver": { routes: [tabs("Trips", "b2")] },
   trip2: { routes: [tabs("Trips", "b3")] },
   rate: { routes: [tabs("Trips", "b4")] },
   "rate-sheet": { routes: [tabs("Trips", "b4"), { name: "Rate", params: { id: "b4" } }] },

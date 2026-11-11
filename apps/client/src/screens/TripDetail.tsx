@@ -5,20 +5,22 @@ import { useRoute, type RouteProp } from "@react-navigation/native";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Image, KeyboardAvoidingView, Platform, Pressable, RefreshControl, ScrollView, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { WebView } from "react-native-webview";
 import { api } from "../api";
 import { useDemo } from "../demo";
 import { crDateTime, plural, usd } from "../format";
+import { pointForLabel, shortPlace, type MapPoint } from "../geo";
 import { pick, success, tap } from "../haptics";
 import { LangToggle, useT } from "../i18n";
 import { photoForTrip } from "../images";
+import { RouteMap } from "../MapView";
 import { useNav, type RootParams, type TripsParams } from "../nav";
 import { Photo } from "../Photo";
 import { allBookings, useSession } from "../session";
 import { C, R, S, SHADOW, SHADOW_UP, SP, T, fontFor } from "../theme";
 import { TRAVELLER_STATUS, type AppBooking, type ChatAnswer, type ChatMessage } from "../types";
-import { Badge, Bar, Btn, Card, Divider, IconLine, Input, ListRow, Page, RoundBtn, Skeleton, Text } from "../ui";
+import { Badge, Bar, Btn, Card, CountBadge, Divider, IconLine, Input, ListRow, Page, RoundBtn, Skeleton, Text, type IconName } from "../ui";
 import { hasContactDetails } from "../contact";
+import { RouteDots } from "./book/parts";
 import { Avatar, bookingStage } from "./Trips";
 
 function useBookingById(id: string) {
@@ -26,14 +28,19 @@ function useBookingById(id: string) {
   return allBookings(trips).find((x) => x.booking.id === id);
 }
 
-/** One booking: status, the live map, the driver and car once assigned, what's due, the chat and the rating. */
+/**
+ * One booking: status, the driver and car once assigned, what's due, the chat and the rating.
+ * Once a driver is assigned and the ride is close (on the way, on the road, or sharing their
+ * position) the page leads with the map: where the driver is, minutes to arrival, "Message
+ * driver" and "Call our team". The driver's phone number is never shown.
+ */
 export function TripDetail() {
   const { lang, t } = useT();
   const nav = useNav();
   const insets = useSafeAreaInsets();
   const demo = useDemo();
   const { id } = useRoute<RouteProp<TripsParams, "TripDetail">>().params;
-  const { reload, loaded } = useSession();
+  const { reload, loaded, whatsapp } = useSession();
   const found = useBookingById(id);
   const b = found?.booking;
   const [pulling, setPulling] = useState(false);
@@ -80,109 +87,184 @@ export function TripDetail() {
     setPulling(false);
   }
 
+  // Driver assigned and the ride is close or under way: the map-first view.
+  const liveView = Boolean(b.driver) && (b.status === "confirmed" || b.status === "in_progress") && (b.driverOnTheWay || b.status === "in_progress" || Boolean(loc));
+  const [fromLabel, toLabel] = b.kind === "transfer" && b.title.includes(" → ") ? b.title.split(" → ") : [undefined, undefined];
+  const pickupAt = pointForLabel(fromLabel);
+  const dropAt = pointForLabel(toLabel);
+  // With the driver's position: the driver and where they are heading (the pickup, or the drop-off once on the
+  // road), joined by a dotted line. Without it: the ride itself, pickup to drop-off.
+  const onRoad = b.status === "in_progress";
+  const target = onRoad ? dropAt : pickupAt;
+  const points: MapPoint[] = [];
+  if (pickupAt && !(loc && onRoad)) points.push({ ...pickupAt, kind: "pickup", label: t("Pickup: ", "Recogida: ") + shortPlace(fromLabel, 18) });
+  if (dropAt && !(loc && !onRoad)) points.push({ ...dropAt, kind: "dropoff", label: shortPlace(toLabel) });
+  if (loc) points.push({ lat: loc.lat, lng: loc.lng, kind: "driver" });
+  const line = loc && target ? [{ lat: loc.lat, lng: loc.lng }, target] : !loc && pickupAt && dropAt ? [pickupAt, dropAt] : undefined;
+  const hasMap = liveView && points.length > 0;
+  const etaMin = b.status === "confirmed" && loc?.etaAt ? Math.round((new Date(loc.etaAt).getTime() - Date.now()) / 60000) : null;
+  const pickupTime = b.scheduledAt ? crDateTime(b.scheduledAt, lang).split(" · ").pop() : undefined;
+
   return (
     <View style={S.screen}>
-      <Bar style="light" />
-      <ScrollView style={S.screen} contentContainerStyle={{ paddingBottom: SP.xxl }} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={pulling} onRefresh={() => void pull()} tintColor="#fff" colors={[C.emerald]} />}>
-        <Photo name={photoForTrip(b.title)} scrim style={{ height: 260 }} />
-        <View style={{ marginTop: -28, backgroundColor: C.bg, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: SP.page, gap: SP.lg }}>
-          <View style={{ gap: 8 }}>
-            <View style={{ flexDirection: "row", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-              <Badge text={stage.text} tone={stage.tone} icon={stage.icon} />
-              <Text style={T.caption}>{b.ref}</Text>
-            </View>
-            <Text accessibilityRole="header" style={T.h1}>
-              {b.title}
-            </Text>
-            <Text style={T.body}>
-              {crDateTime(b.scheduledAt, lang)} · {t("Costa Rica time", "hora de Costa Rica")}
-            </Text>
+      <Bar style={hasMap ? "dark" : "light"} />
+      <ScrollView style={S.screen} contentContainerStyle={{ paddingBottom: SP.xxl }} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={pulling} onRefresh={() => void pull()} tintColor={hasMap ? C.emerald : "#fff"} colors={[C.emerald]} />}>
+        {hasMap ? (
+          <View>
+            <RouteMap style={{ height: 340 }} points={points} line={line} lineStyle={loc ? "dotted" : "solid"} pad={{ top: insets.top + 52, bottom: 28 }} />
+            {loc ? (
+              <View style={[{ position: "absolute", left: SP.lg, bottom: 40, flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "#fff", borderRadius: R.pill, paddingHorizontal: 12, paddingVertical: 6 }, SHADOW]}>
+                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: C.emeraldBright }} />
+                <Text style={{ fontSize: 12, fontWeight: "800", color: C.emerald, letterSpacing: 0.5 }}>{t("LIVE", "EN VIVO")}</Text>
+              </View>
+            ) : null}
           </View>
-
-          {b.driverOnTheWay && b.status === "confirmed" ? (
-            <Card tone="emerald">
-              <IconLine icon="navigate" color={C.emerald} text={t(driverName + " is on the way to your pickup.", driverName + " va en camino a su punto de recogida.")} />
-            </Card>
-          ) : null}
-          {b.status === "pending_payment" || b.status === "pending_bids" ? (
-            <Card tone="amber">
-              <IconLine icon="time-outline" color={C.amber} text={TRAVELLER_STATUS[lang][b.status] ?? b.status} />
-            </Card>
-          ) : null}
-
-          {loc && b.driver && (b.status === "confirmed" || b.status === "in_progress") ? (
-            <Card style={{ padding: 0, gap: 0, overflow: "hidden" }}>
-              <View style={{ height: 220, backgroundColor: C.emeraldTint }}>
-                {demo ? (
-                  <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-                    <Ionicons name="location" size={40} color={C.emerald} />
-                  </View>
-                ) : (
-                  <WebView
-                    source={{
-                      uri:
-                        "https://www.openstreetmap.org/export/embed.html?bbox=" +
-                        (loc.lng - 0.02) + "," + (loc.lat - 0.02) + "," + (loc.lng + 0.02) + "," + (loc.lat + 0.02) +
-                        "&layer=mapnik&marker=" + loc.lat + "," + loc.lng,
-                    }}
-                    scrollEnabled={false}
-                  />
-                )}
-                <View style={[{ position: "absolute", left: 12, top: 12, flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "#fff", borderRadius: R.pill, paddingHorizontal: 12, paddingVertical: 6 }, SHADOW]}>
-                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: C.emeraldBright }} />
-                  <Text style={{ fontSize: 12, fontWeight: "800", color: C.emerald, letterSpacing: 0.5 }}>{t("LIVE", "EN VIVO")}</Text>
-                </View>
+        ) : (
+          <Photo name={photoForTrip(b.title)} scrim style={{ height: 260 }} />
+        )}
+        <View style={{ marginTop: -28, backgroundColor: C.bg, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: SP.page, gap: SP.lg }}>
+          {liveView && b.driver ? (
+            <View style={{ gap: 14 }}>
+              <View style={{ flexDirection: "row", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                <Badge text={stage.text} tone={stage.tone} icon={stage.icon} />
+                <Text style={T.caption}>{b.ref}</Text>
               </View>
-              <View style={{ padding: SP.lg, gap: 6 }}>
-                <Text style={T.h3}>{b.status === "in_progress" ? t("You're on the road", "Ya va en ruta") : t("Where " + b.driver.firstName + " is now", "Dónde está " + b.driver.firstName + " ahora")}</Text>
-                {b.status === "confirmed" && loc.etaAt ? (
-                  <Text style={T.body}>
-                    {t("Arriving around ", "Llega alrededor de las ")}
-                    <Text style={{ fontWeight: "700", color: C.text }}>{crDateTime(loc.etaAt, lang).split(" · ").pop()}</Text>
-                    {t(" with current traffic.", " con el tráfico actual.")}
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text accessibilityRole="header" style={[T.h2, { fontWeight: "800" }]}>
+                    {b.status === "in_progress" ? t("You're on the road", "Ya va en ruta") : b.driverOnTheWay ? t("Your driver is on the way", "Su conductor va en camino") : t("Your driver is confirmed", "Su conductor está confirmado")}
                   </Text>
+                  {b.status === "confirmed" && loc?.etaAt ? (
+                    <Text style={T.small}>
+                      {t("Arriving around ", "Llega alrededor de las ")}
+                      <Text style={{ fontWeight: "700", color: C.text }}>{crDateTime(loc.etaAt, lang).split(" · ").pop()}</Text>
+                      {t(" with current traffic.", " con el tráfico actual.")}
+                    </Text>
+                  ) : b.status === "confirmed" && b.driverOnTheWay ? (
+                    <Text style={T.small}>{t(b.driver.firstName + " is on the way to your pickup.", b.driver.firstName + " va en camino a su punto de recogida.")}</Text>
+                  ) : (
+                    <Text style={T.small}>
+                      {crDateTime(b.scheduledAt, lang)} · {t("Costa Rica time", "hora de Costa Rica")}
+                    </Text>
+                  )}
+                </View>
+                {etaMin !== null && etaMin >= 1 && etaMin <= 180 ? (
+                  <View accessible accessibilityLabel={t(etaMin + " minutes away", "A " + etaMin + " minutos")} style={{ minWidth: 56, paddingHorizontal: 12, paddingVertical: 8, borderRadius: R.control, backgroundColor: C.emerald, alignItems: "center" }}>
+                    <Text maxFontSizeMultiplier={1.15} style={{ fontSize: 20, lineHeight: 23, fontWeight: "800", color: "#fff" }}>
+                      {etaMin}
+                    </Text>
+                    <Text maxFontSizeMultiplier={1.15} style={{ fontSize: 12, lineHeight: 15, fontWeight: "700", color: "#fff" }}>
+                      min
+                    </Text>
+                  </View>
                 ) : null}
-                <Text style={T.caption}>{t("Updates by itself. Shown from 3 hours before your pickup until the trip ends.", "Se actualiza solo. Se muestra desde 3 horas antes de su recogida hasta que termina el viaje.")}</Text>
               </View>
-            </Card>
-          ) : null}
+
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 12, padding: 12, borderRadius: 16, backgroundColor: C.surface }}>
+                <Avatar name={b.driver.firstName} photo={b.driver.photo} size={52} />
+                <View style={{ flex: 1, gap: 3 }}>
+                  <Text style={{ fontSize: 16, lineHeight: 22, fontWeight: "700", color: C.text }}>{b.driver.firstName}</Text>
+                  {b.car ? <Text style={T.caption}>{b.car.name + (b.car.color ? " · " + b.car.color : "") + (b.car.plate ? " · " + b.car.plate : "")}</Text> : null}
+                  {b.driver.ict ? (
+                    <View style={{ alignSelf: "flex-start", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, backgroundColor: C.amberSoft }}>
+                      <Text style={{ fontSize: 12, lineHeight: 16, fontWeight: "700", color: C.amber }}>{t("ICT tourism permit", "Permiso turístico del ICT")}</Text>
+                    </View>
+                  ) : null}
+                </View>
+                {b.driver.rating ? (
+                  <View accessible accessibilityLabel={t("Rating " + b.driver.rating, "Calificación " + b.driver.rating)} style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                    <Ionicons name="star" size={16} color={C.gold} />
+                    <Text style={{ fontSize: 15, fontWeight: "800", color: C.text }}>{b.driver.rating}</Text>
+                  </View>
+                ) : null}
+              </View>
+
+              <View style={{ flexDirection: "row", gap: 10 }}>
+                <LiveBtn solid icon="chatbubble-outline" label={t("Message driver", "Escribir al conductor")} badge={b.unreadChat} onPress={() => nav.navigate("Chat", { id: b.id })} />
+                {whatsapp ? <LiveBtn icon="call-outline" label={t("Call our team", "Llamar a nuestro equipo")} onPress={() => void Linking.openURL("tel:+" + whatsapp)} /> : null}
+              </View>
+              <Text style={T.caption}>
+                {t("Your phone number stays private in the chat. ", "Su número de teléfono se mantiene privado en el chat. ")}
+                {loc ? t("The map updates by itself, from 3 hours before your pickup until the trip ends.", "El mapa se actualiza solo, desde 3 horas antes de su recogida hasta que termina el viaje.") : ""}
+              </Text>
+
+              {fromLabel && toLabel ? (
+                <View style={{ flexDirection: "row", gap: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: C.border }}>
+                  <RouteDots small inset={6} />
+                  <View style={{ flex: 1, gap: 10 }}>
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 8 }}>
+                      <Text style={[T.smallStrong, { flex: 1, fontWeight: "700" }]}>{fromLabel}</Text>
+                      {pickupTime ? <Text style={T.small}>{pickupTime}</Text> : null}
+                    </View>
+                    <Text style={[T.smallStrong, { fontWeight: "700" }]}>{toLabel}</Text>
+                  </View>
+                </View>
+              ) : (
+                <Text style={T.h3}>{b.title}</Text>
+              )}
+            </View>
+          ) : (
+            <>
+              <View style={{ gap: 8 }}>
+                <View style={{ flexDirection: "row", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                  <Badge text={stage.text} tone={stage.tone} icon={stage.icon} />
+                  <Text style={T.caption}>{b.ref}</Text>
+                </View>
+                <Text accessibilityRole="header" style={T.h1}>
+                  {b.title}
+                </Text>
+                <Text style={T.body}>
+                  {crDateTime(b.scheduledAt, lang)} · {t("Costa Rica time", "hora de Costa Rica")}
+                </Text>
+              </View>
+              {b.status === "pending_payment" || b.status === "pending_bids" ? (
+                <Card tone="amber">
+                  <IconLine icon="time-outline" color={C.amber} text={TRAVELLER_STATUS[lang][b.status] ?? b.status} />
+                </Card>
+              ) : null}
+            </>
+          )}
 
           {b.driver ? (
-            <Card>
-              <Text style={T.label}>{t("Your driver", "Su conductor")}</Text>
-              <View style={{ flexDirection: "row", gap: 14, alignItems: "center" }}>
-                <Avatar name={b.driver.firstName} photo={b.driver.photo} size={68} />
-                <View style={{ flex: 1, gap: 6 }}>
-                  <Text style={T.h2}>{b.driver.firstName}</Text>
-                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-                    {b.driver.rating ? <Badge text={b.driver.rating} tone="gold" icon="star" /> : null}
-                    {b.driver.english ? <Badge text={b.driver.english === "fluent" ? t("Fluent English", "Inglés fluido") : t("Basic English", "Inglés básico")} tone="grey" icon="chatbubbles-outline" /> : null}
-                    {b.driver.ict ? <Badge text={t("ICT tourist-transport permit", "Permiso ICT de transporte turístico")} tone="sky" icon="ribbon-outline" /> : null}
+            liveView ? (
+              b.driver.bio || b.driver.english || (b.car && (b.car.seats || b.car.photos.length > 0)) ? (
+                <Card>
+                  <Text style={T.label}>{t("About " + b.driver.firstName, "Sobre " + b.driver.firstName)}</Text>
+                  {b.driver.english ? <Badge text={b.driver.english === "fluent" ? t("Fluent English", "Inglés fluido") : t("Basic English", "Inglés básico")} tone="grey" icon="chatbubbles-outline" /> : null}
+                  {b.driver.bio ? <Text style={T.body}>{b.driver.bio}</Text> : null}
+                  {b.car ? <CarLines car={b.car} /> : null}
+                </Card>
+              ) : null
+            ) : (
+              <Card>
+                <Text style={T.label}>{t("Your driver", "Su conductor")}</Text>
+                <View style={{ flexDirection: "row", gap: 14, alignItems: "center" }}>
+                  <Avatar name={b.driver.firstName} photo={b.driver.photo} size={68} />
+                  <View style={{ flex: 1, gap: 6 }}>
+                    <Text style={T.h2}>{b.driver.firstName}</Text>
+                    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+                      {b.driver.rating ? <Badge text={b.driver.rating} tone="gold" icon="star" /> : null}
+                      {b.driver.english ? <Badge text={b.driver.english === "fluent" ? t("Fluent English", "Inglés fluido") : t("Basic English", "Inglés básico")} tone="grey" icon="chatbubbles-outline" /> : null}
+                      {b.driver.ict ? <Badge text={t("ICT tourist-transport permit", "Permiso ICT de transporte turístico")} tone="sky" icon="ribbon-outline" /> : null}
+                    </View>
                   </View>
                 </View>
-              </View>
-              {b.driver.bio ? <Text style={T.body}>{b.driver.bio}</Text> : null}
-              {b.car ? (
-                <>
-                  <Divider />
-                  <IconLine icon="car-outline" text={b.car.name + (b.car.color ? " · " + b.car.color : "") + (b.car.plate ? " · " + b.car.plate : "") + (b.car.seats ? " · " + plural(b.car.seats, "seat", lang) : "")} />
-                  {b.car.photos.length > 0 ? (
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
-                      {b.car.photos.map((u) => (
-                        <Image key={u} source={{ uri: u }} accessibilityLabel={b.car?.name ?? t("Vehicle", "Vehículo")} style={{ width: 180, height: 126, borderRadius: R.control, backgroundColor: C.surface }} />
-                      ))}
-                    </ScrollView>
-                  ) : null}
-                </>
-              ) : null}
-            </Card>
+                {b.driver.bio ? <Text style={T.body}>{b.driver.bio}</Text> : null}
+                {b.car ? (
+                  <>
+                    <Divider />
+                    <CarLines car={b.car} />
+                  </>
+                ) : null}
+              </Card>
+            )
           ) : b.status !== "cancelled" ? (
             <Card>
               <IconLine icon="person-circle-outline" text={t("We're matching you with a hand-picked local driver. Their profile and car photos will show here.", "Estamos asignándole un conductor local seleccionado. Su perfil y las fotos del vehículo aparecerán aquí.")} />
             </Card>
           ) : null}
 
-          {b.status !== "cancelled" ? (
+          {b.status !== "cancelled" && !liveView ? (
             <Card>
               <ListRow
                 icon="chatbubbles-outline"
@@ -236,6 +318,43 @@ export function TripDetail() {
       </ScrollView>
       {top}
     </View>
+  );
+}
+
+/** The car in one line (model, colour, plate, seats) and its photos. */
+function CarLines({ car }: { car: NonNullable<AppBooking["car"]> }) {
+  const { lang, t } = useT();
+  return (
+    <>
+      <IconLine icon="car-outline" text={car.name + (car.color ? " · " + car.color : "") + (car.plate ? " · " + car.plate : "") + (car.seats ? " · " + plural(car.seats, "seat", lang) : "")} />
+      {car.photos.length > 0 ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
+          {car.photos.map((u) => (
+            <Image key={u} source={{ uri: u }} accessibilityLabel={car.name || t("Vehicle", "Vehículo")} style={{ width: 180, height: 126, borderRadius: R.control, backgroundColor: C.surface }} />
+          ))}
+        </ScrollView>
+      ) : null}
+    </>
+  );
+}
+
+/** One of the two big buttons on the live trip view ("Message driver", "Call our team"). */
+function LiveBtn({ icon, label, onPress, solid, badge }: { icon: IconName; label: string; onPress: () => void; solid?: boolean; badge?: number }) {
+  const fg = solid ? "#fff" : C.text;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label + (badge ? ", " + badge : "")}
+      onPress={() => {
+        tap();
+        onPress();
+      }}
+      style={({ pressed }) => ({ flex: 1, minHeight: 52, borderRadius: 16, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingHorizontal: 10, paddingVertical: 8, backgroundColor: solid ? C.emerald : C.card, borderWidth: solid ? 0 : 2, borderColor: C.border, opacity: pressed ? 0.8 : 1 })}
+    >
+      <Ionicons name={icon} size={20} color={fg} />
+      <Text style={{ fontSize: 15, lineHeight: 19, fontWeight: "800", color: fg, flexShrink: 1, textAlign: "center" }}>{label}</Text>
+      {badge ? <CountBadge n={badge} /> : null}
+    </Pressable>
   );
 }
 

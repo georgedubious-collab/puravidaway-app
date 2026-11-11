@@ -7,14 +7,16 @@ import { C, F } from "./theme";
  * The app's map (React Navigation, native stacks):
  *
  *   Tabs
- *     Explore  → Home
+ *     Explore  → Home (the Rides | Day tours switch: a map to plan a ride, or the tours)
  *     Trips    → TripsList, TripDetail
  *     Account  → AccountHome
  *   pushed over the tabs (slide in from the right, swipe back):
- *     BookWhere → BookWhen → BookRide → BookExtras → BookReview → Sent
- *     Tours → TourDetail (→ BookReview), Chat
+ *     a ride:  BookWhere (pickup and drop-off) → BookRide (map and vehicles) → BookConfirm → Sent
+ *     a tour:  TourDetail → BookReview → Sent
+ *     Chat
  *   slide-up panels:
- *     PlaceSearch, TimePicker, TourWhen, Code, Rate
+ *     Menu, PlaceSearch, PlaceOnMap, BookWhen (date, time, travellers, bags), TimePicker,
+ *     BookStops, BookExtras, TourWhen, Code, Rate
  */
 export type ExploreParams = { Home: undefined };
 export type TripsParams = { TripsList: undefined; TripDetail: { id: string } };
@@ -29,13 +31,16 @@ export type RootParams = {
   BookWhere: undefined;
   BookWhen: undefined;
   BookRide: undefined;
+  BookConfirm: undefined;
+  BookStops: undefined;
   BookExtras: undefined;
   BookReview: undefined;
-  Tours: undefined;
   TourDetail: { id: string };
   Sent: Sent;
   Chat: { id: string };
+  Menu: undefined;
   PlaceSearch: { field: "from" | "to" };
+  PlaceOnMap: { field: "from" | "to" };
   TimePicker: undefined;
   TourWhen: undefined;
   Code: undefined;

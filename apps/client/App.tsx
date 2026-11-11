@@ -30,8 +30,8 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
  * prices without signing in; when they send a request they confirm their email
  * with a 6-digit code (no account, no password), which also lets them see their
  * trips, their driver and car (and where the driver is around the pickup), the
- * chat and the rating. Booking is five short steps (src/screens/book); a test
- * checkout stands in until card payments are connected.
+ * chat and the rating. A ride is planned on a map (places, vehicle, confirm:
+ * src/screens/book); a test checkout stands in until card payments are connected.
  */
 export default function App() {
   // Plus Jakarta Sans, one file per weight (see F in src/theme.ts), and the icon font, so nothing flashes in late.

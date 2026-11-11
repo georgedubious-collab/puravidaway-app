@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import { Pressable, View } from "react-native";
-import { bagsFor, bagsSummary, cents, useBooking } from "../../booking";
+import { cents, useBooking } from "../../booking";
 import { longDate } from "../../DatePicker";
 import { useDemo } from "../../demo";
 import { plural } from "../../format";
@@ -10,12 +10,10 @@ import { useT } from "../../i18n";
 import { photoFor } from "../../images";
 import { useNav } from "../../nav";
 import { Photo } from "../../Photo";
-import { time12 } from "../../prices";
 import { useSession } from "../../session";
 import { C, S, SP, T } from "../../theme";
 import { Bar, BottomBar, Btn, Card, Choice, Divider, FieldLabel, IconLine, Input, LinkBtn, Page, Text, type IconName } from "../../ui";
 import { CodeInput, sendCode, validEmail, verifyCode } from "../SignIn";
-import { StepIntro } from "./parts";
 
 /**
  * Sends the planned trip and, when it goes through, replaces the booking steps
@@ -37,19 +35,21 @@ export function useSendRequest(): () => Promise<string | null> {
   };
 }
 
-/** Step 5 of 5 — Review & send: the trip at a glance (tap a row to change it), who is travelling, how they pay. */
+/**
+ * Review & send for a day tour: the tour at a glance (tap a row to change it), who is travelling, how they pay.
+ * A ride is sent from its own last screen (src/screens/book/Confirm.tsx).
+ */
 export function BookReview() {
   const { lang, t } = useT();
   const nav = useNav();
   const { email } = useSession();
-  const { state, set, chosen, quote, vehicle, extrasCount, tour } = useBooking();
+  const { state, set, chosen, tour } = useBooking();
   const send = useSendRequest();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const guest = email === null;
-  const isTour = state.kind === "tour";
 
-  if (!chosen) {
+  if (!chosen || state.kind !== "tour") {
     return (
       <Page>
         <Bar style="dark" />
@@ -78,28 +78,13 @@ export function BookReview() {
     if (err) setError(err);
   }
 
-  const bagsText = " · " + bagsSummary(bagsFor(state), lang);
-  const p = state.prefs;
-  const extras: string[] = [];
-  if (!isTour) {
-    const stops = (chosen.spec.stopIds as string[] | undefined) ?? [];
-    for (const id of stops) extras.push(quote?.stops.find((s) => s.id === id)?.name ?? id);
-    if (p.childSeats) extras.push(p.childSeats + t(" child seat" + (p.childSeats > 1 ? "s" : ""), p.childSeats > 1 ? " sillas de niño" : " silla de niño"));
-    if (p.wifi) extras.push("Wi-Fi");
-    if (p.stroller) extras.push(t("Stroller", "Coche de bebé"));
-    if (p.pets) extras.push(t("Pet", "Mascota"));
-    if (state.driverNotes.trim()) extras.push(t("Message for your driver", "Mensaje para su conductor"));
-    if (state.notes.trim()) extras.push(state.notes.trim());
-  }
-  const language = (chosen.spec.prefs as { language?: string } | undefined)?.language === "spanish_ok" ? t("Spanish or basic English is fine", "Español o inglés básico está bien") : t("English-speaking driver", "Conductor que habla inglés");
-
   return (
     <Page
       footer={
         <BottomBar>
           <View style={{ gap: 10 }}>
             <View style={{ flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", gap: 10 }}>
-              <Text style={T.bodyStrong}>{state.mode === "bid" && !isTour ? t("Your offer", "Su oferta") : "Total"}</Text>
+              <Text style={T.bodyStrong}>Total</Text>
               <Text style={T.money}>{cents(total)}</Text>
             </View>
             <Btn
@@ -114,36 +99,18 @@ export function BookReview() {
       }
     >
       <Bar style="dark" />
-      {isTour ? (
-        <Text accessibilityRole="header" style={T.display}>
-          {t("Review and send", "Revise y envíe")}
-        </Text>
-      ) : (
-        <StepIntro step={5} title={t("Review and send", "Revise y envíe")} />
-      )}
+      <Text accessibilityRole="header" style={T.display}>
+        {t("Review and send", "Revise y envíe")}
+      </Text>
 
       <View style={[S.card, { padding: 0, gap: 0, overflow: "hidden" }]}>
-        <Photo name={isTour && tour ? "tour:" + tour.id : photoFor(state.to?.label)} fallback={isTour && tour ? photoFor((tour.regionName ?? "") + " " + tour.name) : undefined} style={{ height: 120 }} />
+        <Photo name={tour ? "tour:" + tour.id : photoFor(chosen.title)} fallback={tour ? photoFor((tour.regionName ?? "") + " " + tour.name) : undefined} style={{ height: 120 }} />
         <View style={{ paddingHorizontal: SP.lg, paddingVertical: SP.sm }}>
-          {isTour ? (
-            <>
-              <Row icon="trail-sign-outline" label={t("Day tour", "Tour de un día")} value={chosen.title} detail={state.upgrade && tour?.totalWithUpgradeCents != null ? "+ Smart En-Route Transfer" : undefined} onEdit={() => nav.goBack()} />
-              <Divider />
-              <Row icon="calendar-outline" label={t("Date", "Fecha")} value={longDate(chosen.date, lang)} onEdit={() => nav.navigate("TourWhen")} />
-              <Divider />
-              <Row icon="people-outline" label={t("Travellers", "Viajeros")} value={plural(state.pax, "traveller", lang)} onEdit={() => nav.navigate("TourWhen")} />
-            </>
-          ) : (
-            <>
-              <Row icon="navigate-outline" label={t("Route", "Ruta")} value={chosen.title} onEdit={() => nav.popTo("BookWhere")} />
-              <Divider />
-              <Row icon="calendar-outline" label={t("Date and pickup time", "Fecha y hora de recogida")} value={longDate(chosen.date, lang)} detail={time12(state.time) + " · " + t("Costa Rica time", "hora de Costa Rica") + " · " + plural(state.pax, "traveller", lang) + bagsText} onEdit={() => nav.popTo("BookWhen")} />
-              <Divider />
-              <Row icon="car-outline" label={t("Vehicle", "Vehículo")} value={vehicle?.name ?? ""} detail={state.mode === "bid" ? t("Driver bids · your offer ", "Ofertas de conductores · su oferta ") + cents(chosen.totalCents) : t("Fixed price ", "Precio fijo ") + cents(chosen.totalCents)} onEdit={() => nav.popTo("BookRide")} />
-              <Divider />
-              <Row icon="sparkles-outline" label={t("Stops and extras", "Paradas y extras")} value={extrasCount ? extras.join(" · ") : t("None added", "Ninguno")} detail={language} onEdit={() => nav.popTo("BookExtras")} />
-            </>
-          )}
+          <Row icon="trail-sign-outline" label={t("Day tour", "Tour de un día")} value={chosen.title} detail={state.upgrade && tour?.totalWithUpgradeCents != null ? "+ Smart En-Route Transfer" : undefined} onEdit={() => nav.goBack()} />
+          <Divider />
+          <Row icon="calendar-outline" label={t("Date", "Fecha")} value={longDate(chosen.date, lang)} onEdit={() => nav.navigate("TourWhen")} />
+          <Divider />
+          <Row icon="people-outline" label={t("Travellers", "Viajeros")} value={plural(state.pax, "traveller", lang)} onEdit={() => nav.navigate("TourWhen")} />
         </View>
       </View>
 

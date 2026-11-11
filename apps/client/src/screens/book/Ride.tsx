@@ -1,160 +1,189 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Pressable, TextInput, View } from "react-native";
-import { bagsFor, cents, luggageCapacity, useBooking } from "../../booking";
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, TextInput, View, useWindowDimensions } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { cents, useBooking } from "../../booking";
+import { shortDate } from "../../DatePicker";
+import { plural } from "../../format";
+import { pointOfPlace, shortPlace, type MapPoint } from "../../geo";
 import { pick } from "../../haptics";
-import { useT } from "../../i18n";
-import { photoForVehicle } from "../../images";
+import { LangToggle, useT } from "../../i18n";
+import { RouteMap } from "../../MapView";
 import { useNav } from "../../nav";
-import { Photo } from "../../Photo";
-import { C, R, S, SP, T, fontFor } from "../../theme";
-import { Badge, Bar, Card, Page, Segments, Skeleton, Text } from "../../ui";
-import { PriceBar, QuoteFacts, QuoteProblem, StepIntro } from "./parts";
+import { driveTime, time12 } from "../../prices";
+import { C, S, SP, T, fontFor } from "../../theme";
+import { Bar, Btn, Card, RoundBtn, Segments, Skeleton, Text } from "../../ui";
+import { BagNote, ChipBtn, QuoteFacts, QuoteProblem, SHEET } from "./parts";
 
-/** Step 3 of 5 — Your ride: the fixed price or an offer for drivers to bid on, and the vehicle. */
+/**
+ * Choose the vehicle: the route on the map with its drive time, and a panel
+ * with the date and travellers, every vehicle with its price for this ride,
+ * and the choice between the fixed price and an offer for drivers to bid on.
+ */
 export function BookRide() {
-  const { t } = useT();
+  const { lang, t } = useT();
   const nav = useNav();
-  const { state, set, quote, quoteBusy, vehicle, minOffer, offerValid, offerLow, itemCents } = useBooking();
-  const { mode } = state;
+  const insets = useSafeAreaInsets();
+  const { height } = useWindowDimensions();
+  const { state, set, quote, quoteBusy, vehicle, minOffer, offerValid, offerLow } = useBooking();
+  const { mode, from, to } = state;
   const canNext = Boolean(vehicle) && (mode === "fixed" || offerValid);
-  // A gentle hint, never a block: more large suitcases than the chosen vehicle lists.
-  const fits = luggageCapacity(vehicle?.luggage);
-  const largeBags = bagsFor(state).large;
+  const mapH = Math.round(Math.min(320, Math.max(200, height * 0.32)));
 
   function setMode(next: "fixed" | "bid") {
     // Start the offer at the fixed price for the chosen vehicle.
     set(next === "bid" && !state.offer && vehicle ? { mode: next, offer: String(Math.round(vehicle.totalCents / 100)) } : { mode: next });
   }
 
+  const a = pointOfPlace(from);
+  const b = pointOfPlace(to);
+  const points: MapPoint[] = [];
+  if (a) points.push({ ...a, kind: "pickup", label: shortPlace(from?.label) });
+  if (b) points.push({ ...b, kind: "dropoff", label: shortPlace(to?.label) });
+
   return (
-    <Page
-      footer={
-        <PriceBar
-          label={mode === "bid" ? t("Your offer", "Su oferta") : vehicle ? "Total · " + vehicle.name : "Total"}
-          amount={!quote && quoteBusy ? null : !vehicle || (mode === "bid" && !offerValid) ? "—" : cents(itemCents)}
-          note={t("For the whole car, taxes included", "Por todo el vehículo, impuestos incluidos")}
-          action={t("Continue", "Continuar")}
-          onPress={() => nav.navigate("BookExtras")}
-          disabled={!canNext}
-          busy={Boolean(quote) && quoteBusy}
-        />
-      }
-    >
+    <KeyboardAvoidingView style={S.screen} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <Bar style="dark" />
-      <StepIntro step={3} title={t("Choose your ride", "Elija su vehículo")} subtitle={t("One price for the whole car, not per person.", "Un solo precio por todo el vehículo, no por persona.")} />
-      <QuoteFacts />
-      <QuoteProblem />
-      {quote?.vehicles.length ? (
-        <Segments
-          value={mode}
-          onChange={setMode}
-          options={[
-            { id: "fixed", label: t("Fixed price", "Precio fijo"), icon: "pricetag-outline" },
-            { id: "bid", label: t("Driver bids", "Ofertas de conductores"), icon: "hammer-outline" },
-          ]}
-        />
-      ) : null}
-      {mode === "bid" && vehicle ? (
-        <Card tone="amber">
-          <Text style={T.h2}>{t("Name your price", "Proponga su precio")}</Text>
-          <Text style={T.body}>
-            {t(
-              "Hand-picked local drivers see your offer and bid on it. Our team confirms the best match and emails you the driver's profile and car. Nothing is charged until then.",
-              "Conductores locales seleccionados ven su oferta y ofertan. Nuestro equipo confirma la mejor opción y le envía por correo el perfil del conductor y el vehículo. No se cobra nada hasta entonces.",
-            )}
-          </Text>
-          <Text style={T.small}>{t("Fixed price for the " + vehicle.name + ": ", "Precio fijo del " + vehicle.name + ": ") + cents(vehicle.totalCents)}</Text>
-          <View style={[S.input, { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 6 }]}>
-            <Text style={{ fontSize: 26, fontWeight: "800", color: C.text }}>$</Text>
-            <TextInput
-              accessibilityLabel={t("Your offer in US dollars", "Su oferta en dólares")}
-              value={state.offer}
-              onChangeText={(v) => set({ offer: v.replace(/[^0-9]/g, "").slice(0, 5) })}
-              keyboardType="number-pad"
-              maxFontSizeMultiplier={1.2}
-              style={{ flex: 1, fontSize: 26, color: C.text, padding: 0, fontFamily: fontFor("800") }}
-            />
-            <Text style={T.small}>USD</Text>
-          </View>
-          {!offerValid ? <Text style={S.error}>{t("Enter an offer of at least ", "Ingrese una oferta de al menos ") + cents(minOffer) + "."}</Text> : null}
-          {offerLow ? <Text style={{ color: C.amber, fontWeight: "700", fontSize: 15, lineHeight: 21 }}>{t("That's well below the fixed price, so drivers may not accept it.", "Está muy por debajo del precio fijo, así que es posible que los conductores no la acepten.")}</Text> : null}
-        </Card>
-      ) : null}
-
-      {!quote && quoteBusy ? (
-        <View style={{ gap: SP.md }}>
-          {[0, 1, 2].map((i) => (
-            <View key={i} style={[S.card, { flexDirection: "row", padding: SP.md, gap: SP.md, alignItems: "center" }]}>
-              <Skeleton width={112} height={92} radius={14} />
-              <View style={{ flex: 1, gap: 10 }}>
-                <Skeleton height={18} width="80%" />
-                <Skeleton height={14} width="60%" />
-                <Skeleton height={20} width="40%" />
-              </View>
-            </View>
-          ))}
-        </View>
-      ) : null}
-
-      {quote?.vehicles.length ? <Text style={T.label}>{mode === "bid" ? t("Vehicle you'd like", "Vehículo que desea") : t("Choose your vehicle", "Elija su vehículo")}</Text> : null}
-      <View accessibilityRole="radiogroup" style={{ gap: SP.md }}>
-        {quote?.vehicles.map((v) => {
-          const on = v.id === vehicle?.id;
-          return (
-            <Pressable
-              key={v.id}
-              accessibilityRole="radio"
-              accessibilityState={{ selected: on }}
-              accessibilityLabel={v.name + ", " + cents(v.totalCents) + t(" per car", " por vehículo")}
-              onPress={() => {
-                if (!on) pick();
-                set({ vehicleId: v.id });
-              }}
-              style={({ pressed }) => [S.card, { padding: SP.md - (on ? 2 : 0), gap: SP.md, borderWidth: on ? 2 : 0, borderColor: C.emerald, opacity: pressed ? 0.85 : 1 }]}
-            >
-              <View style={{ flexDirection: "row", gap: SP.md }}>
-                <Photo name={photoForVehicle(v.id, v.name)} style={{ width: 112, height: 88, borderRadius: R.control }} />
-                <View style={{ flex: 1, gap: 6 }}>
-                  <View style={{ flexDirection: "row", gap: 8, alignItems: "flex-start" }}>
-                    <Text style={[T.h3, { flex: 1 }]}>{v.name}</Text>
-                    <Ionicons name={on ? "checkmark-circle" : "ellipse-outline"} size={24} color={on ? C.emerald : C.faint} />
-                  </View>
-                  <View style={{ flexDirection: "row", flexWrap: "wrap", columnGap: 12, rowGap: 2 }}>
-                    <Fact icon="people-outline" text={t("Up to ", "Hasta ") + v.maxPax} />
-                    <Fact icon="briefcase-outline" text={v.luggage} />
-                  </View>
-                  {v.allowsStops ? null : <Text style={T.caption}>{t("Direct ride, no stops", "Traslado directo, sin paradas")}</Text>}
-                  <Badge text={v.badge} tone="gold" />
-                  <View style={{ flexDirection: "row", alignItems: "baseline", flexWrap: "wrap", columnGap: 8, marginTop: 2 }}>
-                    <Text style={[T.money, mode === "bid" ? { color: C.muted, fontSize: 20 } : null]}>{cents(v.totalCents)}</Text>
-                    <Text style={T.caption}>{t("per car", "por vehículo")}</Text>
-                  </View>
-                  {v.perPersonCents ? <Text style={T.caption}>{t("from " + cents(v.perPersonCents) + "/person", "desde " + cents(v.perPersonCents) + "/persona")}</Text> : null}
-                </View>
-              </View>
-            </Pressable>
-          );
-        })}
+      <RouteMap
+        style={{ height: mapH + 26 }}
+        points={points}
+        line={a && b ? [a, b] : undefined}
+        pill={quote ? t("About " + driveTime(quote.minutes) + " drive", "Aprox. " + driveTime(quote.minutes) + " de viaje") : undefined}
+        pad={{ top: insets.top + 44, bottom: 26, left: 24, right: 24 }}
+      />
+      <View style={{ position: "absolute", top: insets.top + 8, left: SP.lg, right: SP.lg, flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+        <RoundBtn icon="chevron-back" label={t("Back", "Volver")} onPress={() => nav.goBack()} />
+        <LangToggle />
       </View>
-      {fits != null && largeBags > fits ? (
-        <View style={{ backgroundColor: C.amberSoft, borderRadius: R.control, padding: SP.md }}>
-          <Text style={[T.small, { color: C.amber, fontWeight: "700" }]}>
-            {t(
-              "This vehicle lists " + fits + (fits === 1 ? " suitcase" : " suitcases") + " and you have " + largeBags + " large. Consider a larger vehicle or ask our team.",
-              "Este vehículo indica " + fits + (fits === 1 ? " maleta" : " maletas") + " y usted lleva " + largeBags + " grandes. Considere un vehículo más grande o consulte a nuestro equipo.",
-            )}
-          </Text>
-        </View>
-      ) : null}
-    </Page>
-  );
-}
 
-function Fact({ icon, text }: { icon: React.ComponentProps<typeof Ionicons>["name"]; text: string }) {
-  return (
-    <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-      <Ionicons name={icon} size={15} color={C.muted} />
-      <Text style={T.small}>{text}</Text>
-    </View>
+      <View style={[SHEET, { flex: 1, marginTop: -26 }]}>
+        <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: SP.lg, paddingTop: SP.lg, paddingBottom: SP.lg, gap: 12 }}>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+            <ChipBtn
+              grow
+              icon="calendar-outline"
+              tone={state.whenSet ? undefined : "amber"}
+              label={state.whenSet ? shortDate(state.date, lang) + " · " + time12(state.time) : t("Choose date and time", "Elija fecha y hora")}
+              accessibilityLabel={t("Date and pickup time", "Fecha y hora de recogida") + (state.whenSet ? ": " + shortDate(state.date, lang) + ", " + time12(state.time) : "")}
+              onPress={() => nav.navigate("BookWhen")}
+            />
+            <ChipBtn icon="person-outline" label={plural(state.pax, "traveller", lang)} onPress={() => nav.navigate("BookWhen")} />
+          </View>
+          {state.whenSet ? null : (
+            <Text style={T.caption}>{t("Prices shown are for " + shortDate(state.date, lang) + ". Choose your date to see yours.", "Los precios mostrados son para el " + shortDate(state.date, lang) + ". Elija su fecha para ver los suyos.")}</Text>
+          )}
+
+          <QuoteProblem />
+          {quote?.vehicles.length ? (
+            <Text accessibilityRole="header" style={[T.h3, { fontSize: 18, fontWeight: "800", marginTop: 2 }]}>
+              {mode === "bid" ? t("Vehicle you'd like", "Vehículo que desea") : t("Choose your vehicle", "Elija su vehículo")}
+            </Text>
+          ) : null}
+
+          {!quote && quoteBusy ? (
+            <View style={{ gap: 8 }}>
+              {[0, 1, 2, 3].map((i) => (
+                <View key={i} style={{ flexDirection: "row", alignItems: "center", gap: 12, minHeight: 68, paddingHorizontal: 8 }}>
+                  <Skeleton width={48} height={36} radius={10} />
+                  <View style={{ flex: 1, gap: 8 }}>
+                    <Skeleton height={16} width="70%" />
+                    <Skeleton height={12} width="50%" />
+                  </View>
+                  <Skeleton width={56} height={20} />
+                </View>
+              ))}
+            </View>
+          ) : null}
+
+          <View accessibilityRole="radiogroup" style={{ gap: 8 }}>
+            {quote?.vehicles.map((v) => {
+              const on = v.id === vehicle?.id;
+              const facts = [v.badge, v.allowsStops ? "" : t("Direct ride, no stops", "Traslado directo, sin paradas"), v.perPersonCents ? t("from " + cents(v.perPersonCents) + "/person", "desde " + cents(v.perPersonCents) + "/persona") : ""].filter(Boolean);
+              return (
+                <Pressable
+                  key={v.id}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: on }}
+                  accessibilityLabel={v.name + ", " + cents(v.totalCents) + t(" per car", " por vehículo")}
+                  onPress={() => {
+                    if (!on) pick();
+                    set({ vehicleId: v.id });
+                  }}
+                  style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: 10, minHeight: 68, paddingVertical: 8, paddingLeft: 8, paddingRight: 14, borderRadius: 16, borderWidth: 2, borderColor: on ? C.emerald : C.card, backgroundColor: on ? C.emeraldTint : C.card, opacity: pressed ? 0.75 : 1 })}
+                >
+                  <View style={{ width: 52, height: 40, alignItems: "center", justifyContent: "center" }}>
+                    <Ionicons name={v.maxPax > 5 ? "bus-outline" : "car-outline"} size={32} color={C.text} />
+                  </View>
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text style={{ fontSize: 16, lineHeight: 21, fontWeight: "700", color: C.text }}>{v.name}</Text>
+                    <Text style={T.caption}>
+                      {t("Up to " + plural(v.maxPax, "traveller", "en"), "Hasta " + plural(v.maxPax, "traveller", "es"))} · {v.luggage}
+                    </Text>
+                    {facts.length ? <Text style={[T.caption, { fontSize: 12, lineHeight: 16, color: C.muted }]}>{facts.join(" · ")}</Text> : null}
+                  </View>
+                  <Text style={{ fontSize: 18, lineHeight: 24, fontWeight: "800", color: mode === "bid" ? C.muted : C.text }}>{cents(v.totalCents)}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          <BagNote />
+          {quote?.vehicles.length ? <Text style={[T.caption, { textAlign: "center" }]}>{t("Price is for the whole vehicle, not per person. Taxes included.", "El precio es por todo el vehículo, no por persona. Impuestos incluidos.")}</Text> : null}
+          <QuoteFacts brief />
+
+          {quote?.vehicles.length ? (
+            <View style={{ gap: 8, marginTop: 4 }}>
+              <Text style={T.label}>{t("Book at the fixed price, or make an offer", "Reserve al precio fijo o haga una oferta")}</Text>
+              <Segments
+                value={mode}
+                onChange={setMode}
+                options={[
+                  { id: "fixed", label: t("Fixed price", "Precio fijo"), icon: "pricetag-outline" },
+                  { id: "bid", label: t("Driver bids", "Ofertas de conductores"), icon: "hammer-outline" },
+                ]}
+              />
+            </View>
+          ) : null}
+          {mode === "bid" && vehicle ? (
+            <Card tone="amber">
+              <Text style={T.h3}>{t("Name your price", "Proponga su precio")}</Text>
+              <Text style={T.small}>
+                {t(
+                  "Hand-picked local drivers see your offer and bid on it. Our team confirms the best match and emails you the driver's profile and car. Nothing is charged until then.",
+                  "Conductores locales seleccionados ven su oferta y ofertan. Nuestro equipo confirma la mejor opción y le envía por correo el perfil del conductor y el vehículo. No se cobra nada hasta entonces.",
+                )}
+              </Text>
+              <Text style={T.small}>{t("Fixed price for the " + vehicle.name + ": ", "Precio fijo del " + vehicle.name + ": ") + cents(vehicle.totalCents)}</Text>
+              <View style={[S.input, { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 6 }]}>
+                <Text style={{ fontSize: 26, fontWeight: "800", color: C.text }}>$</Text>
+                <TextInput
+                  accessibilityLabel={t("Your offer in US dollars", "Su oferta en dólares")}
+                  value={state.offer}
+                  onChangeText={(v) => set({ offer: v.replace(/[^0-9]/g, "").slice(0, 5) })}
+                  keyboardType="number-pad"
+                  maxFontSizeMultiplier={1.2}
+                  style={{ flex: 1, fontSize: 26, color: C.text, padding: 0, fontFamily: fontFor("800") }}
+                />
+                <Text style={T.small}>USD</Text>
+              </View>
+              {!offerValid ? <Text style={S.error}>{t("Enter an offer of at least ", "Ingrese una oferta de al menos ") + cents(minOffer) + "."}</Text> : null}
+              {offerLow ? <Text style={{ color: C.amber, fontWeight: "700", fontSize: 15, lineHeight: 21 }}>{t("That's well below the fixed price, so drivers may not accept it.", "Está muy por debajo del precio fijo, así que es posible que los conductores no la acepten.")}</Text> : null}
+            </Card>
+          ) : null}
+
+        </ScrollView>
+
+        <View style={{ paddingHorizontal: SP.lg, paddingTop: 10, paddingBottom: Math.max(insets.bottom, 14), borderTopWidth: 1, borderTopColor: C.border }}>
+          {state.whenSet ? (
+            <Btn
+              label={vehicle ? t("Choose " + vehicle.name, "Elegir " + vehicle.name) : t("Choose a vehicle", "Elija un vehículo")}
+              onPress={() => nav.navigate("BookConfirm")}
+              disabled={!canNext}
+              busy={Boolean(quote) && quoteBusy}
+            />
+          ) : (
+            <Btn label={t("Choose date and time", "Elija fecha y hora")} icon="calendar-outline" onPress={() => nav.navigate("BookWhen")} />
+          )}
+        </View>
+      </View>
+    </KeyboardAvoidingView>
   );
 }

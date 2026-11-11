@@ -94,7 +94,9 @@ export function PlaceSearch() {
       const data = (await res.json()) as { place?: Place; error?: string };
       if (!data.place) return setError(data.error ?? t("We couldn't find that place.", "No pudimos encontrar ese lugar."));
       session.current = newSession();
-      choose({ id: data.place.id, label: data.place.label }, true);
+      // The map point is kept only to draw the route; prices never use it.
+      const { lat, lng } = data.place;
+      choose({ id: data.place.id, label: data.place.label, ...(typeof lat === "number" && typeof lng === "number" ? { lat, lng } : {}) }, true);
     } catch {
       setError(t("We couldn't find that place. Check your connection.", "No pudimos encontrar ese lugar. Revise su conexión."));
     }

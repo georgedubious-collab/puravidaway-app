@@ -26,6 +26,11 @@ export interface BookingState {
   /** Carry-ons; null = not changed, so 1 per traveller (see bagsFor). */
   carryOns: number | null;
   time: string;
+  /**
+   * True once the traveller has looked at the date, time and group size (the "Date" panel).
+   * Until then the day is only our starting guess, so the ride can't be sent with it. Never sent to the server.
+   */
+  whenSet: boolean;
   vehicleId: string;
   mode: "fixed" | "bid";
   offer: string;
@@ -54,6 +59,7 @@ const fresh = (): BookingState => ({
   bags: null,
   carryOns: null,
   time: "09:00",
+  whenSet: false,
   vehicleId: "sedan",
   mode: "fixed",
   offer: "",
@@ -245,7 +251,7 @@ export function BookingProvider({
         spec: { kind: "day_tour", tourId: tour.id, upgrade, pax },
       };
     }
-    if (!quote || !vehicle || !rideReady) return null;
+    if (!quote || !vehicle || !rideReady || !state.whenSet) return null;
     const out: string[] = [];
     if (p.language === "spanish_ok") out.push(t("Spanish OK", "Español está bien"));
     if (p.childSeats) out.push(p.childSeats + t(" child seat" + (p.childSeats > 1 ? "s" : ""), p.childSeats > 1 ? " sillas de niño" : " silla de niño"));

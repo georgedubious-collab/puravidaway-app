@@ -1,28 +1,92 @@
 import { Ionicons } from "@expo/vector-icons";
 import type { ReactNode } from "react";
 import { Pressable, View } from "react-native";
-import { cents, useBooking } from "../../booking";
+import { bagsFor, cents, luggageCapacity, useBooking } from "../../booking";
 import { useT } from "../../i18n";
 import { useNav } from "../../nav";
 import { driveTime } from "../../prices";
-import { C, S, T } from "../../theme";
-import { Badge, BottomBar, Btn, Progress, Skeleton, Text } from "../../ui";
+import { C, R, S, SHADOW_UP, T } from "../../theme";
+import { Badge, BottomBar, Btn, Skeleton, Text, type IconName } from "../../ui";
 
-export const STEPS = 5;
+/** The white panel that sits over the bottom of a map. */
+export const SHEET = [{ backgroundColor: C.card, borderTopLeftRadius: 26, borderTopRightRadius: 26 }, SHADOW_UP];
 
-/** "Step 2 of 5", the bars, then the one question this screen asks. */
-export function StepIntro({ step, title, subtitle }: { step: number; title: string; subtitle?: string }) {
-  const { t } = useT();
+/** Pickup to drop-off, drawn: a green dot, a line, a dark square. Stretches to the height of the rows beside it. */
+export function RouteDots({ inset = 20, small }: { inset?: number; small?: boolean }) {
+  const d = small ? 10 : 12;
   return (
-    <View style={{ gap: 14 }}>
-      <Progress step={step} of={STEPS} label={t("Step " + step + " of " + STEPS, "Paso " + step + " de " + STEPS)} />
-      <View style={{ gap: 6 }}>
-        <Text accessibilityRole="header" style={T.display}>
-          {title}
-        </Text>
-        {subtitle ? <Text style={T.body}>{subtitle}</Text> : null}
-      </View>
+    <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ alignItems: "center", paddingVertical: inset, width: 14 }}>
+      <View style={{ width: d, height: d, borderRadius: d / 2, backgroundColor: C.emerald }} />
+      <View style={{ flex: 1, width: 2, minHeight: 10, backgroundColor: C.faint }} />
+      <View style={{ width: d, height: d, borderRadius: 3, backgroundColor: C.text }} />
     </View>
+  );
+}
+
+/** A small outlined button with an icon ("Add a stop", the date, the travellers). `tone="amber"` asks for attention. */
+export function ChipBtn({ icon, label, onPress, tone, grow, accessibilityLabel }: { icon?: IconName; label: string; onPress: () => void; tone?: "amber"; grow?: boolean; accessibilityLabel?: string }) {
+  const fg = tone === "amber" ? C.amber : C.text;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? label}
+      onPress={onPress}
+      style={({ pressed }) => ({
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 8,
+        minHeight: 44,
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+        borderRadius: R.pill,
+        borderWidth: 1,
+        borderColor: tone === "amber" ? C.amberSoft : C.border,
+        backgroundColor: tone === "amber" ? C.amberSoft : C.card,
+        opacity: pressed ? 0.6 : 1,
+        ...(grow ? { flexGrow: 1, flexShrink: 1 } : { flexShrink: 1 }),
+      })}
+    >
+      {icon ? <Ionicons name={icon} size={18} color={fg} /> : null}
+      <Text style={{ fontSize: 14, lineHeight: 19, fontWeight: "700", color: fg, flexShrink: 1 }}>{label}</Text>
+    </Pressable>
+  );
+}
+
+/** A gentle amber hint, never a block: more large suitcases than the chosen vehicle lists. */
+export function BagNote() {
+  const { t } = useT();
+  const { state, vehicle } = useBooking();
+  const fits = luggageCapacity(vehicle?.luggage);
+  const large = bagsFor(state).large;
+  if (fits == null || large <= fits) return null;
+  return (
+    <View style={{ backgroundColor: C.amberSoft, borderRadius: R.control, padding: 12 }}>
+      <Text style={[T.small, { color: C.amber, fontWeight: "700" }]}>
+        {t(
+          "This vehicle lists " + fits + (fits === 1 ? " suitcase" : " suitcases") + " and you have " + large + " large. Consider a larger vehicle or ask our team.",
+          "Este vehículo indica " + fits + (fits === 1 ? " maleta" : " maletas") + " y usted lleva " + large + " grandes. Considere un vehículo más grande o consulte a nuestro equipo.",
+        )}
+      </Text>
+    </View>
+  );
+}
+
+/** One line of a settings-like card on the confirm screen: title, a detail under it, and a green action word. */
+export function ActionRow({ title, detail, action, onPress, last }: { title: string; detail?: string; action: string; onPress: () => void; last?: boolean }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={title + (detail ? ": " + detail : "") + ". " + action}
+      onPress={onPress}
+      style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: 12, minHeight: 60, paddingVertical: 10, borderBottomWidth: last ? 0 : 1, borderBottomColor: C.border, opacity: pressed ? 0.6 : 1 })}
+    >
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text style={{ fontSize: 16, lineHeight: 22, fontWeight: "600", color: C.text }}>{title}</Text>
+        {detail ? <Text style={T.caption}>{detail}</Text> : null}
+      </View>
+      <Text style={{ fontSize: 14, lineHeight: 19, fontWeight: "700", color: C.emerald }}>{action}</Text>
+    </Pressable>
   );
 }
 
@@ -88,12 +152,15 @@ export function FromBar({ onNext, canNext }: { onNext: () => void; canNext: bool
   );
 }
 
-/** Drive time, distance, ferry and season for the priced route; grey blocks while it loads. */
-export function QuoteFacts() {
+/**
+ * Drive time, distance, ferry and season for the priced route; grey blocks while it loads.
+ * `brief` leaves out the drive time (already on the map) and the placeholder.
+ */
+export function QuoteFacts({ brief }: { brief?: boolean }) {
   const { t } = useT();
   const { state, quote, quoteBusy } = useBooking();
   if (!quote) {
-    if (!quoteBusy || !state.from || !state.to) return null;
+    if (brief || !quoteBusy || !state.from || !state.to) return null;
     return (
       <View style={{ flexDirection: "row", gap: 8 }}>
         <Skeleton height={30} width={140} radius={15} />
@@ -101,9 +168,10 @@ export function QuoteFacts() {
       </View>
     );
   }
+  if (brief && quote.km == null && !quote.ferries && !quote.season.percent) return null;
   return (
     <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-      <Badge text={t("About ", "Aprox. ") + driveTime(quote.minutes)} tone="grey" icon="time-outline" />
+      {brief ? null : <Badge text={t("About ", "Aprox. ") + driveTime(quote.minutes)} tone="grey" icon="time-outline" />}
       {quote.km != null ? <Badge text={quote.km + " km"} tone="grey" icon="speedometer-outline" /> : null}
       {quote.ferries ? <Badge text={t("Ferry fares included", "Tarifas de ferry incluidas")} tone="sky" icon="boat-outline" /> : null}
       {quote.season.percent ? <Badge text={quote.season.name + " " + (quote.season.percent > 0 ? "+" : "") + quote.season.percent + "%"} tone="gold" icon="sunny-outline" /> : null}

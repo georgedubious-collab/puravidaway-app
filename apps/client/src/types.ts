@@ -74,6 +74,9 @@ export const TRAVELLER_STATUS: Record<Lang, Record<string, string>> = {
 export interface Place {
   id: string;
   label: string;
+  /** The map point the place search gave (typed places only). Only used to draw the map; the server looks the place up again for prices. */
+  lat?: number;
+  lng?: number;
 }
 export interface RideQuote {
   base: Record<string, unknown>;

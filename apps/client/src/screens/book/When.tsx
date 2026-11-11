@@ -10,7 +10,7 @@ import { useNav } from "../../nav";
 import { TIMES, crDatePlus, time12, validDate } from "../../prices";
 import { C, S, SP, T } from "../../theme";
 import { Bar, BottomBar, Btn, Card, Divider, Page, Stepper, Text } from "../../ui";
-import { FromBar, PickRow, QuoteProblem, StepIntro } from "./parts";
+import { BagNote, PickRow, QuoteProblem } from "./parts";
 
 /** The travellers row: a label and − n +. */
 function Travellers() {
@@ -85,15 +85,29 @@ function DateCard() {
   );
 }
 
-/** Step 2 of 5 — When & who: the day, the pickup time, how many travel. */
+/**
+ * Slide-up panel for a ride — when and who: the day, the pickup time, how many travel and their bags.
+ * "Done" also records that the traveller has seen these, which the ride needs before it can be sent.
+ */
 export function BookWhen() {
   const { t } = useT();
   const nav = useNav();
-  const { state, quote } = useBooking();
+  const { state, set } = useBooking();
   return (
-    <Page footer={<FromBar canNext={Boolean(quote && quote.vehicles.length)} onNext={() => nav.navigate("BookRide")} />}>
+    <Page
+      footer={
+        <BottomBar>
+          <Btn
+            label={t("Done", "Listo")}
+            onPress={() => {
+              set({ whenSet: true });
+              nav.goBack();
+            }}
+          />
+        </BottomBar>
+      }
+    >
       <Bar style="dark" />
-      <StepIntro step={2} title={t("When, and how many?", "¿Cuándo y cuántos viajan?")} />
       <DateCard />
       <Card>
         <View>
@@ -104,6 +118,7 @@ export function BookWhen() {
           <Bags />
         </View>
       </Card>
+      <BagNote />
       <QuoteProblem />
     </Page>
   );
