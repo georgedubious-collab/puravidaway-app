@@ -81,10 +81,20 @@ function ClassesTable({ origin, destination, catalog, lang }: { origin: HubId; d
 }
 
 /** Short column label of one of our towns for the drive-time grid. */
+const GRID_NAMES: Record<HubId, [string, string]> = {
+  SJO: ["SJO airport", "Aeropuerto SJO"],
+  LIR: ["LIR airport", "Aeropuerto LIR"],
+  Arenal: ["La Fortuna", "La Fortuna"],
+  ManuelAntonio: ["Manuel Antonio", "Manuel Antonio"],
+  Monteverde: ["Monteverde", "Monteverde"],
+  Sierpe: ["Sierpe dock", "Muelle de Sierpe"],
+  DrakeBay: ["Drake Bay", "Bahía Drake"],
+  PuertoViejo: ["Puerto Viejo", "Puerto Viejo"],
+  Tamarindo: ["Tamarindo", "Tamarindo"],
+};
 function gridName(id: HubId, lang: PublicLang): string {
-  if (id === "SJO") return t(lang, "SJO airport", "Aeropuerto SJO");
-  if (id === "LIR") return t(lang, "LIR airport", "Aeropuerto LIR");
-  return shortHubName(id, lang);
+  const [en, es] = GRID_NAMES[id];
+  return t(lang, en, es);
 }
 
 /** Door-to-door drive times between the listed towns (ROUTE_MINUTES), as a real HTML table. */
@@ -104,7 +114,7 @@ function DriveMatrix({ hubs, lang }: { hubs: HubId[]; lang: PublicLang }) {
         <tbody className="divide-y divide-slate-200">
           {hubs.map((from) => (
             <tr key={from}>
-              <th scope="row" className="sticky left-0 z-10 bg-white px-3 py-2.5 font-bold text-slate-900 whitespace-nowrap">{gridName(from, lang)}</th>
+              <th scope="row" className="sticky left-0 z-10 bg-white px-3 py-2.5 font-bold leading-snug text-slate-900 min-w-[7rem] shadow-[1px_0_0_#e2e8f0]">{gridName(from, lang)}</th>
               {hubs.map((to) => (
                 <td key={to} className={`px-3 py-2.5 whitespace-nowrap ${from === to ? "bg-slate-50 text-slate-400" : "text-slate-800"}`}>
                   {from === to ? "—" : formatDuration(routeMinutes(from, to), lang)}
