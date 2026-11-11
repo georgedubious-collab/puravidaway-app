@@ -117,8 +117,10 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
   (`@vercel/analytics`) is in the root layout and must be enabled in the Vercel dashboard.
 - Rendered per request (`connection()` in `page.tsx`): full HTML for search engines; "today" is
   computed server-side in `America/Costa_Rica`.
-- Ride builder (2026-11-08): pickup time picker (Costa Rica time, 04:00–22:00 in 15 min, default
-  9:00) saved in `bookings.scheduled_at` (UTC−6); day tours default to 7:00 and expeditions to
+- Ride builder (2026-11-08): pickup time picker (Costa Rica time, **any hour of the day** in 15 min
+  on the website and every half hour in the app since 2026-11-11, it was 04:00–22:00; default
+  9:00; night hours are marked "+20%" and cost the night premium, §6.6) saved in
+  `bookings.scheduled_at` (UTC−6); day tours default to 7:00 and expeditions to
   6:00 until confirmed. Dates and times are shown in Costa Rica time everywhere
   (`formatScheduledAt()` in `src/lib/dates.ts`). Vehicle and stop cards show season-adjusted
   prices for the chosen date.
@@ -538,9 +540,14 @@ ride       = round_to_dollar(standard × vehicle factor × area factor)
              + vehicle extra fee
 stop       = round_to_dollar(minutes at stop × wait rate/60 + detour km × per km + detour min × per hour/60)
              + tour price per person × travellers
+night      = round_to_cent(round_to_dollar(standard × vehicle factor × area factor) × season multiplier × night %)
+             only when the pickup time is in the night window (§6.6), else 0
 transfer   = (ride + Σ selected stop prices) × season multiplier
+             + night
              + ferries × (car-and-driver fare + passengers × passenger fare)
 ```
+**Order of operations: base formula → vehicle factor (× area factor) → season → night premium →
+pass-through costs.** The night premium is charged on the ride itself only (§6.6).
 Area factor = the pickup town's, or an extra area's when the pickup OR drop-off is in it and
 the route takes the ferry (Southern Nicoya), whichever is higher. Ferry fares (Gulf of Nicoya, per crossing on Google's
 route) are added after the season multiplier and never season-adjusted.
@@ -567,7 +574,7 @@ Multipliers live in the database and are edited from the admin pricing manager.
 > quote" (`docs/PRICING.md` §6). The steps below describe what is built today.
 
 1. Client enters route, date, passengers and stops; the system shows a **reference price**
-   (the fixed price from §6.1).
+   (the fixed price from §6.1, including the night premium when the pickup is at night, §6.6).
 2. Client can broadcast their own offer.
 3. Approved drivers see open requests and bid within a **floor/ceiling** relative to the
    reference price.
@@ -604,6 +611,59 @@ our towns). `my_trips()` returns `arrive_at` = pickup (or the actual pickup once
 drive time + each stop's time there and its detour (`sightseeing_stops.duration_min + detour_min`).
 The driver app shows it on the drop-off ("Llegada aprox. 3:45 p. m." / "Arrives approx. 3:45 PM"),
 the driver portal as "Llegada aprox.". No drive time → nothing shown, never a straight-line guess.
+
+### 6.6 Pickups at any hour, with a night premium (Jorge, 2026-11-11, migration 0041)
+Jorge: "24/7 arrivals. Trips that start from 10pm/4am should charge a 20% premium."
+- **Pickups at any hour.** The website offers every quarter hour of the day and the app every
+  half hour (it was 04:00–22:00). The time is Costa Rica time and belongs to the day the traveller
+  picked: a 01:00 pickup on the 15th is stored as the 15th at 01:00 UTC−6.
+- **Night window:** a ride whose pickup time is **from 22:00 up to, but not including, 04:00**
+  (22:00, 23:30 and 03:45 are night; 04:00 and 21:45 are not) costs **20% more**.
+- **The three numbers live in the database**, next to the other pricing settings, and are edited
+  at `/admin/pricing` → "Recogidas nocturnas": `pricing_settings.night_premium_bps` (2000 = 20%,
+  0–100%; 0 = off), `night_start_hour` (22) and `night_end_hour` (4; the window ends just before
+  it and may cross midnight; the same hour in both = off). Loaded by `getCatalog()` as
+  `catalog.nightPremium`; the rule is `src/lib/nightPremium.ts`. The values in the code are only
+  the built-in fallback for when the database isn't connected, like the other settings.
+- **What is marked up:** the ride itself (the formula × vehicle × area), after the season.
+  **Not marked up:** sightseeing stops (the driver's waiting time and the guided visit /
+  entrance part), ferry fares, the Drake Bay river boat fee (the vehicle's extra fee), the cash
+  booking fee's rate (it stays a % of the final price), day tours and expeditions.
+- **One place computes it:** `quoteTransfer()` in `src/lib/pricing.ts` (`nightCents`), used by the
+  website's ride builder, the app's quote API (`POST /api/v1/client/quote` now takes `time`), the
+  server re-check when a request is sent (`priceItem()`) and the saved booking
+  (`bookings.total_price` includes it; `bookings.night_premium` keeps the amount). An app build
+  from before this sends no time to the quote API and gets the daytime price, as before (it
+  cannot choose a night hour).
+- **Driver payout rises with it automatically:** the payout is the commission share of
+  `total_price` after pass-throughs (§9 #2), so with today's 20% commission the driver gets 80%
+  of the premium. Example (SJO → Manuel Antonio, Standard Sedan, green season): $202.00 by day,
+  $242.40 at night; payout $161.60 → $193.92.
+- **"Name your price":** the reference fixed price shown to the traveller, the 70% rule that
+  posts an offer to the job board, and the payout drivers' offers are measured against all
+  include the premium. The traveller's own offer is not marked up.
+- **Shown before the traveller commits,** like the season: "Night pickup +20%" / "Recogida
+  nocturna +20%" on the vehicle cards and as a line with the amount in the summary (website), a
+  chip on the vehicle step and on "Your ride" (app), "+20%" beside each night hour in the time
+  lists, and "Includes $X night pickup premium" on the trip page. The admin booking page shows
+  "Recargo nocturno".
+- **"From" prices** (popular routes, route pages, guides, the app's home screen) stay daytime
+  prices. The airport guides, the FAQ and `llms.txt` carry one sentence built from the database
+  values (`nightSentence()`, token `{night}`): "Pickups are available at any hour. Rides that
+  start between 10:00 PM and 4:00 AM cost 20% more."
+- **Wording rule:** Jorge confirmed pickups at any hour only. Never write "24/7 support",
+  "24/7 concierge" or that the team answers at all hours; say "pickups at any hour" /
+  "recogidas a cualquier hora".
+- **Checked for the old 04:00–22:00 assumption:** pickup-time validation (`isValidPickupTime`),
+  shared ride links, the driver's steps ("on my way" from 6 h before, start from 3 h before),
+  location sharing, the ETA and late alerts, the chat window and the review reminder all work
+  from the stored timestamp, not from a time of day; the driver calendar's "unavailable that day"
+  rule and the app's Today / Upcoming lists use the Costa Rica date of the pickup. Known edges,
+  for Jorge to decide (§9 #17): a 23:30 ride ends on the next day, and a 01:00 pickup means the
+  driver leaves home the evening before, while the calendar only looks at the pickup's own date;
+  late-driver and no-location alerts for night pickups are emailed to the team at night.
+- Tests: `npm run test:night` (window, order of operations, pass-throughs, payout, old-style
+  request) and `npm run test:db` (the same prices with the values read from the database).
 
 ---
 
@@ -653,7 +713,8 @@ of our towns; null = unknown; 0035) ·
 `sign_text` text (the traveller's own text for the driver's name sign, ≤ 40 characters, no contact
 details; null = none) and `sign_hide_name` bool ("Don't show my name": the sign shows the brand
 name; never together with a text); §4.6, migration 0040 ·
-`pricing_mode` (`fixed` | `bid`) · `total_price` numeric · `driver_payout` / `platform_fee` numeric
+`pricing_mode` (`fixed` | `bid`) · `total_price` numeric · `night_premium` numeric(10,2) (the part
+of `total_price` that is the night-pickup premium, 0 by day; §6.6, migration 0041) · `driver_payout` / `platform_fee` numeric
 (migration 0017; null on expeditions) · `company_costs` (entrances / lunch / activities the company pays, deducted before the driver's share; part of `platform_fee`; 0023) · `claimed_at` (set when the team accepted an offer from the job board) · `currency` (`USD` | `CRC`) ·
 `amount_paid` numeric · `payment_mode` (`full_100` | `cash_driver`; `deposit_20` on old rows
 only) · `cash_fee` numeric(10,2) (cash booking fee snapshot, 0 unless `cash_driver`) · `assigned_driver_id` →
@@ -691,8 +752,9 @@ and `season_for_date(date)` returns the season for a travel date.
 - `pricing_settings` — a single row (`id` = true): `cash_fee_bps` int (default 1000 = 10%, 0–5000),
   ride formula `ride_base_fare`, `ride_per_km`, `ride_per_hour`, `ride_minimum_fare` (USD),
   ferry fares `ferry_vehicle_fare_crc`, `ferry_passenger_fare_crc` (colones per crossing) and
-  `crc_per_usd` (migration 0015), `driver_commission_bps` (0017), `wait_per_hour` (USD/h at a stop, 0021), `updated_at`. Public read, admin write. Loaded by `getCatalog()`
-  as `cashFeeBps` / `rideFormula` / `ferryFares` / `crcPerUsd`.
+  `crc_per_usd` (migration 0015), `driver_commission_bps` (0017), `wait_per_hour` (USD/h at a stop, 0021), night pickups
+  `night_premium_bps`, `night_start_hour`, `night_end_hour` (§6.6, migration 0041), `updated_at`. Public read, admin write. Loaded by `getCatalog()`
+  as `cashFeeBps` / `rideFormula` / `ferryFares` / `crcPerUsd` / `nightPremium`.
 - `driver_reviews` — id, booking_id (unique), driver_id, trip_id, stars 1–5, comment (no contact details),
   weight (generated: 2 with a comment, 1 without), created_at. Written by the server from the traveller's
   private trip page once the booking is completed; driver reads own, admin all. `bookings.review_requested_at`
@@ -849,11 +911,20 @@ and `season_for_date(date)` returns the season for a travel date.
 16. **Airport meeting points and guide facts (partly open, from the guides of 2026-11-11).**
     **Decided (Jorge, 2026-11-11): drivers meet travellers at arrivals holding a sign (a
     whiteboard) with the traveller's name, and the traveller may choose what it says; with "no
-    name" it shows the brand name. Built, §4.6.** Still to confirm with Jorge: the exact meeting
-    spot at SJO and at LIR (which exit, inside or outside), and what happens for pickups outside
-    the 04:00–22:00 pickup times the trip builder offers. Also to confirm from his own experience:
+    name" it shows the brand name. Built, §4.6.** **Decided (Jorge, 2026-11-11): pickups at any hour, and rides that start between 10 PM
+    and 4 AM cost 20% more. Built, §6.6.** Still to confirm with Jorge: the exact meeting
+    spot at SJO and at LIR (which exit, inside or outside). Also to confirm from his own experience:
     the Sierpe boat times, the three Drake Bay / Sierpe stay areas, and each "where to stay"
     description. Until then the guides stay general on those points.
+
+17. **Night pickups: operations (open, from §6.6 of 2026-11-11).** (a) The driver calendar's
+    "unavailable that day" looks only at the pickup's own date: should a blocked day also hide a
+    ride that starts at 23:30 the evening before and ends on it, or a 01:00 pickup the driver
+    must leave home for the evening before? (b) Who watches the late-driver and "no driver
+    location" alerts for night pickups? They are emailed to the team at any hour, and the site
+    makes no promise about support hours. (c) The premium is on the ride only, not on stops:
+    confirm. (d) Should the Drake Bay boat be offered at night at all (the river-mouth crossing
+    is done in daylight only)? Today the builder does not block it.
 
 ---
 
