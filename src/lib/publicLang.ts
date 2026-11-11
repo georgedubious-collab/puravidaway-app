@@ -23,9 +23,10 @@ export function t<T>(lang: PublicLang, en: T, es: T): T {
 
 /**
  * English path → Spanish path, for every page that exists in both languages:
- * the booking app (home), the info pages and the legal pages. Route pages are
- * matched by prefix below (/transfers/<slug> ↔ /es/traslados/<slug>, same slug).
- * Add a pair here when a page gets its Spanish version (later: destinations, guides, blog).
+ * the booking app (home), the info pages, the legal pages and the guide index pages.
+ * Route pages and guides are matched by prefix below (/transfers/<slug> ↔ /es/traslados/<slug>,
+ * /destinations/<slug> ↔ /es/destinos/<slug>, /airports/<code> ↔ /es/aeropuertos/<code>, same slug).
+ * Add a pair here when a page gets its Spanish version (later: travel guides, blog).
  */
 export const ES_PATHS: Record<string, string> = {
   "/": "/es",
@@ -37,6 +38,9 @@ export const ES_PATHS: Record<string, string> = {
   "/terms": "/es/terminos",
   "/privacy": "/es/privacidad",
   "/cancellation": "/es/cancelacion",
+  // Guide index pages; the guides themselves are matched by prefix below.
+  "/destinations": "/es/destinos",
+  "/airports": "/es/aeropuertos",
 };
 
 const EN_PATHS: Record<string, string> = Object.fromEntries(
@@ -46,6 +50,16 @@ const EN_PATHS: Record<string, string> = Object.fromEntries(
 /** Route landing pages: the same slug under each language's folder. */
 export const EN_ROUTE_PREFIX = "/transfers/";
 export const ES_ROUTE_PREFIX = "/es/traslados/";
+
+/**
+ * Page families that keep the same slug under each language's folder:
+ * route pages, destination guides and airport guides (English prefix, Spanish prefix).
+ */
+const PREFIX_PAIRS: [string, string][] = [
+  [EN_ROUTE_PREFIX, ES_ROUTE_PREFIX],
+  ["/destinations/", "/es/destinos/"],
+  ["/airports/", "/es/aeropuertos/"],
+];
 
 /** English info pages with a Spanish version (the sitemap lists home, legal and route pages separately). */
 export const BILINGUAL_PATHS = ["/about", "/how-it-works", "/our-drivers", "/faq", "/contact"];
@@ -64,8 +78,8 @@ export function langOfPath(pathname: string): PublicLang {
 /** The Spanish path of an English path (no query), or null when the page has no Spanish version. */
 export function esPathOf(enPath: string): string | null {
   if (ES_PATHS[enPath]) return ES_PATHS[enPath];
-  if (enPath.startsWith(EN_ROUTE_PREFIX) && enPath.length > EN_ROUTE_PREFIX.length) {
-    return ES_ROUTE_PREFIX + enPath.slice(EN_ROUTE_PREFIX.length);
+  for (const [en, es] of PREFIX_PAIRS) {
+    if (enPath.startsWith(en) && enPath.length > en.length) return es + enPath.slice(en.length);
   }
   return null;
 }
@@ -73,8 +87,8 @@ export function esPathOf(enPath: string): string | null {
 /** The English path of a Spanish path (no query), or null. */
 export function enPathOf(esPath: string): string | null {
   if (EN_PATHS[esPath]) return EN_PATHS[esPath];
-  if (esPath.startsWith(ES_ROUTE_PREFIX) && esPath.length > ES_ROUTE_PREFIX.length) {
-    return EN_ROUTE_PREFIX + esPath.slice(ES_ROUTE_PREFIX.length);
+  for (const [en, es] of PREFIX_PAIRS) {
+    if (esPath.startsWith(es) && esPath.length > es.length) return en + esPath.slice(es.length);
   }
   return null;
 }
