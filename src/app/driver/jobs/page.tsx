@@ -13,7 +13,7 @@ import { prefsSummary } from "@/lib/preferences";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { makeT } from "@/lib/teamLang";
 import { getTeamLang } from "@/lib/teamLangServer";
-import { vehicleCanServe } from "@/lib/vehicleEligibility";
+import { seatsFit, vehicleCanServe } from "@/lib/vehicleEligibility";
 import { DriverHeader } from "../DriverHeader";
 import { offerJob, withdrawOffer } from "./actions";
 
@@ -127,7 +127,7 @@ async function Jobs() {
             const asked = prefsSummary(j.preferences, lang);
             const pax = j.passenger_count ?? 1;
             const fit = vehicles.filter(
-              (x) => (x.passenger_capacity ?? 0) >= (j.passenger_count ?? 1) && vehicleCanServe(x.vehicle_class, j.vehicle_class),
+              (x) => seatsFit(x.passenger_capacity, j.passenger_count) && vehicleCanServe(x.vehicle_class, j.vehicle_class),
             );
             const payout = j.driver_payout != null ? Math.round(Number(j.driver_payout)) : null;
             const open = j.my_offer_status === "submitted";

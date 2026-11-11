@@ -8,7 +8,7 @@
  */
 
 /** Categories a vehicle can be tagged with (driver_vehicles.vehicle_class). */
-export const VEHICLE_CATEGORY_IDS = ["economy", "sedan", "suv", "4x4", "van"] as const;
+export const VEHICLE_CATEGORY_IDS = ["economy", "sedan", "suv", "4x4", "van", "van_4x4"] as const;
 export type VehicleCategory = (typeof VEHICLE_CATEGORY_IDS)[number];
 
 /** Job classes the rule knows (vehicle_classes ids a ride can be booked as). */
@@ -20,6 +20,8 @@ export const CATEGORY_SERVES: Record<VehicleCategory, readonly string[]> = {
   suv: ["economy", "sedan", "suv"],
   "4x4": ["economy", "sedan", "suv", "4x4", "sierpe_combo"],
   van: ["economy", "sedan", "suv", "van"],
+  // A van that is also a 4x4: everything a van gets plus everything a 4x4 gets.
+  van_4x4: ["economy", "sedan", "suv", "van", "4x4", "sierpe_combo"],
 };
 
 export function isVehicleCategory(v: unknown): v is VehicleCategory {
@@ -34,13 +36,29 @@ export function vehicleCanServe(vehicleClass: string | null | undefined, jobClas
   return isVehicleCategory(vehicleClass) && CATEGORY_SERVES[vehicleClass].includes(jobClass);
 }
 
-/** Does the driver have at least one approved vehicle that may take the job? (driver_jobs' rule) */
+/**
+ * Enough seats for the group? Same answer as offer_job() and driver_jobs(): a job without a
+ * traveller count fits any vehicle; a vehicle without a seat number counts as 0 seats.
+ */
+export function seatsFit(passengerCapacity: number | null | undefined, passengerCount: number | null | undefined): boolean {
+  if (passengerCount == null) return true;
+  return (passengerCapacity ?? 0) >= passengerCount;
+}
+
+/**
+ * Does the driver have at least one approved vehicle that may take the job: right category
+ * AND enough seats, on the same vehicle? (driver_jobs' rule; day tours carry travellers but
+ * no class, so only the seats count for them)
+ */
 export function driverCanServe(
-  vehicles: { status: string; vehicle_class?: string | null }[],
+  vehicles: { status: string; vehicle_class?: string | null; passenger_capacity?: number | null }[],
   jobClass: string | null | undefined,
+  passengerCount?: number | null,
 ): boolean {
-  if (!jobClass) return true;
-  return vehicles.some((v) => v.status === "approved" && vehicleCanServe(v.vehicle_class, jobClass));
+  if (!jobClass && passengerCount == null) return true;
+  return vehicles.some(
+    (v) => v.status === "approved" && vehicleCanServe(v.vehicle_class, jobClass) && seatsFit(v.passenger_capacity, passengerCount),
+  );
 }
 
 type Lang = "es" | "en";
@@ -52,6 +70,7 @@ const CATEGORY_NAME: Record<VehicleCategory, [string, string]> = {
   suv: ["Minivan (MPV)", "Minivan (MPV)"],
   "4x4": ["4x4 ejecutivo", "Executive 4x4"],
   van: ["Van / microbús", "Van"],
+  van_4x4: ["Van 4x4", "Van 4x4"],
 };
 
 /** Job classes as they read in the hint. */

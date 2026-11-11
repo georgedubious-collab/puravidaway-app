@@ -2,7 +2,7 @@
  * Which jobs a driver's vehicle may take, by vehicle category (Jorge, 2026-11-11).
  *
  * The rule itself lives in the database: public.vehicle_can_serve() in
- * supabase/migrations/20261111000038_vehicle_categories.sql, used by the job board
+ * supabase/migrations/20261111000038_vehicle_categories.sql (van_4x4: migration 0039), used by the job board
  * (driver_jobs) and by offers (offer_job). This file mirrors it for the pages that
  * decide outside the database: job alerts, the admin's assignment warning and the
  * vehicle pickers. apps/driver/src/vehicleCategory.ts is the driver app's copy.
@@ -15,15 +15,19 @@
  *   suv (MPV)        economy, sedan, suv
  *   4x4              economy, sedan, suv, 4x4, sierpe_combo
  *   van              economy, sedan, suv, van        (not 4x4 jobs: those are about rough roads)
+ *   van_4x4          economy, sedan, suv, van, 4x4, sierpe_combo   (a van that is also a 4x4)
  *
- * Not tagged yet (null) = receives every job, as before categories existed.
- * A job without a class (day tours, expeditions) is open to every vehicle.
+ * Not tagged yet (null) = not filtered by category, as before categories existed.
+ * A job without a class (day tours, expeditions) is open to every category.
+ * Seats are a second, separate check (seatsFit): the vehicle must seat the travellers, and a
+ * vehicle without a seat number seats nobody. The board and the alerts need ONE approved
+ * vehicle that passes both (migration 20261111000039_vehicle_categories_2.sql).
  *
  * No imports, so Node can run it directly in the test script.
  */
 
 /** Categories a vehicle can be tagged with (driver_vehicles.vehicle_class). */
-export const VEHICLE_CATEGORY_IDS = ["economy", "sedan", "suv", "4x4", "van"] as const;
+export const VEHICLE_CATEGORY_IDS = ["economy", "sedan", "suv", "4x4", "van", "van_4x4"] as const;
 export type VehicleCategory = (typeof VEHICLE_CATEGORY_IDS)[number];
 
 /** Job classes the rule knows (vehicle_classes ids a ride can be booked as). */
@@ -35,6 +39,8 @@ export const CATEGORY_SERVES: Record<VehicleCategory, readonly string[]> = {
   suv: ["economy", "sedan", "suv"],
   "4x4": ["economy", "sedan", "suv", "4x4", "sierpe_combo"],
   van: ["economy", "sedan", "suv", "van"],
+  // A van that is also a 4x4: everything a van gets plus everything a 4x4 gets.
+  van_4x4: ["economy", "sedan", "suv", "van", "4x4", "sierpe_combo"],
 };
 
 export function isVehicleCategory(v: unknown): v is VehicleCategory {
@@ -49,13 +55,29 @@ export function vehicleCanServe(vehicleClass: string | null | undefined, jobClas
   return isVehicleCategory(vehicleClass) && CATEGORY_SERVES[vehicleClass].includes(jobClass);
 }
 
-/** Does the driver have at least one approved vehicle that may take the job? (driver_jobs' rule) */
+/**
+ * Enough seats for the group? Same answer as offer_job() and driver_jobs(): a job without a
+ * traveller count fits any vehicle; a vehicle without a seat number counts as 0 seats.
+ */
+export function seatsFit(passengerCapacity: number | null | undefined, passengerCount: number | null | undefined): boolean {
+  if (passengerCount == null) return true;
+  return (passengerCapacity ?? 0) >= passengerCount;
+}
+
+/**
+ * Does the driver have at least one approved vehicle that may take the job: right category
+ * AND enough seats, on the same vehicle? (driver_jobs' rule; day tours carry travellers but
+ * no class, so only the seats count for them)
+ */
 export function driverCanServe(
-  vehicles: { status: string; vehicle_class?: string | null }[],
+  vehicles: { status: string; vehicle_class?: string | null; passenger_capacity?: number | null }[],
   jobClass: string | null | undefined,
+  passengerCount?: number | null,
 ): boolean {
-  if (!jobClass) return true;
-  return vehicles.some((v) => v.status === "approved" && vehicleCanServe(v.vehicle_class, jobClass));
+  if (!jobClass && passengerCount == null) return true;
+  return vehicles.some(
+    (v) => v.status === "approved" && vehicleCanServe(v.vehicle_class, jobClass) && seatsFit(v.passenger_capacity, passengerCount),
+  );
 }
 
 type Lang = "es" | "en";
@@ -67,6 +89,7 @@ const CATEGORY_NAME: Record<VehicleCategory, [string, string]> = {
   suv: ["Minivan (MPV)", "Minivan (MPV)"],
   "4x4": ["4x4 ejecutivo", "Executive 4x4"],
   van: ["Van / microbús", "Van"],
+  van_4x4: ["Van 4x4", "Van 4x4"],
 };
 
 /** Job classes as they read in the hint. */
