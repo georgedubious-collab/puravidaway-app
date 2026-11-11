@@ -10,6 +10,7 @@ import { Reviews } from "@/components/trust/Reviews";
 import { AIRPORT_HUBS, HUBS, routeMinutes, stopFitsRoute } from "@/lib/catalog";
 import { entranceLabel, hubName, localizeCatalog } from "@/lib/catalogEs";
 import { getCatalog } from "@/lib/catalogSource";
+import { airportGuideForHub, airportPath, destinationGuideForHub, destinationPath } from "@/lib/guides";
 import { formatDuration, formatUSD } from "@/lib/pricing";
 import { bilingualAlternates, localizedHref, t, type PublicLang } from "@/lib/publicLang";
 import { builderHref, fillFaq, relatedHref, type RoutePage } from "@/lib/routePages";
@@ -82,6 +83,15 @@ export async function RouteLandingPage({ page: enPage, lang }: { page: RoutePage
   const seasonName = defaultSeason?.name ?? t(lang, "Green season", "Temporada verde");
   const heroPhoto = routePhoto(page.origin, page.destination);
   const roadPhoto = drivePhoto(page.origin, page.destination);
+  // Guides for the two ends of the ride: a destination guide for a town, an arrival guide for an airport.
+  const guideLinks = [page.destination, page.origin].flatMap((hub) => {
+    const dest = destinationGuideForHub(hub);
+    const airport = airportGuideForHub(hub);
+    return [
+      ...(dest ? [{ label: t(lang, `${dest.name.en} travel guide`, `Guía de viaje de ${dest.name.es}`), href: localizedHref(destinationPath(dest), lang) }] : []),
+      ...(airport ? [{ label: t(lang, `${airport.name.en} arrival guide`, `Guía de llegada: ${airport.name.es}`), href: localizedHref(airportPath(airport), lang) }] : []),
+    ];
+  });
 
   return (
     <div className="flex-1 bg-slate-50">
@@ -218,6 +228,19 @@ export async function RouteLandingPage({ page: enPage, lang }: { page: RoutePage
           <div>
             <h2 className="text-2xl font-extrabold text-slate-900">{page.driveTitle}</h2>
             <p className="mt-3 leading-relaxed text-slate-600">{page.drive}</p>
+            {guideLinks.length > 0 && (
+              <p className="mt-4 text-sm text-slate-600">
+                {t(lang, "Planning the rest of the trip?", "¿Planea el resto del viaje?")}{" "}
+                {guideLinks.map((g, i) => (
+                  <span key={g.href}>
+                    {i > 0 && " · "}
+                    <Link href={g.href} className="font-semibold text-emerald-700 underline underline-offset-2">
+                      {g.label}
+                    </Link>
+                  </span>
+                ))}
+              </p>
+            )}
             {roadPhoto && (
               <Photo
                 id={roadPhoto}

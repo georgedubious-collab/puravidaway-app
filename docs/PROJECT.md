@@ -109,7 +109,7 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
   `robots.txt` blocks only `/admin`, `/driver`, `/trip`, `/login`, `/auth`, `/api`, explicitly
   welcomes search and AI crawlers (Googlebot, Bingbot, GPTBot, OAI-SearchBot, PerplexityBot,
   ClaudeBot, Claude-SearchBot, Google-Extended) on everything else, and points to
-  `sitemap.xml` (home, route pages, info pages and legal pages, each in English and Spanish
+  `sitemap.xml` (home, route pages, destination and airport guides, info pages and legal pages, each in English and Spanish
   with hreflang).
   `NEXT_PUBLIC_SITE_URL` (default `https://puravidaway-app.vercel.app`) sets canonical and
   link-preview URLs; the preview image is `src/app/opengraph-image.tsx`. Custom 404 and error
@@ -185,6 +185,26 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
   Corcovado, Poás, all vehicle classes) until a real photo is added with one registry line. The
   rules (own photos only, never shared with any other business, a photo shows what its caption
   says, no people / plates / metadata) and the list of published photos are in `docs/PHOTOS.md`.
+- **Destination and airport guides (2026-11-11, docs/SEO.md §4 step 2):** `/destinations` (index)
+  and `/destinations/<slug>` for La Fortuna / Arenal, Manuel Antonio, Monteverde, Tamarindo /
+  Guanacaste, Puerto Viejo and Drake Bay & Sierpe; `/airports` (index) and `/airports/sjo`,
+  `/airports/lir`. Spanish: `/es/destinos`, `/es/destinos/<slug>`, `/es/aeropuertos`,
+  `/es/aeropuertos/<code>` (same slugs, paired in `src/lib/publicLang.ts`). The text is data in
+  `src/lib/guides/` (`destinations.ts`, `airports.ts`; English and Spanish side by side, rules in
+  `types.ts`), drawn by `src/components/site/pages/GuidePages.tsx` and `site/GuideParts.tsx`.
+  No number is typed into the text: drive times (`ROUTE_MINUTES`), "from" prices
+  (`routeFromPrices()`, default season), the boat time and the cash fee are tokens filled from
+  the catalog, so guides, route pages and the trip builder always agree. A ride to Drake Bay is
+  priced with the vehicle option that includes the river boat; rides to Sierpe end at the dock.
+  Each guide: dated direct answer, drive-time and price table linking to route pages or the
+  pre-filled trip builder, stops on the way, other ways to travel (no timetables or fares), best
+  time to go, things to do with the day tours and multi-day trips of that region, where to stay
+  by area (no hotel names, no affiliate links), FAQs and a booking button. Airport guides show
+  `RIDE_PROMISES` word for word and describe the pickup only as the site already does ("your
+  driver meets you at arrivals", trip page, chat); exact meeting points are an open question
+  (§9). Structured data: WebPage about a TouristDestination / Airport, FAQPage, BreadcrumbList;
+  never ratings. Pre-rendered like the route pages. Guides are in the footer, sitemap and
+  `llms.txt`, and route pages link to the guides of their two ends.
 - **Site shell (2026-11-09):** every public page (home, `/transfers/*`, legal and info pages; not
   `/admin`, `/driver`, `/trip`, `/login`) shares `SiteHeader` (menu Transfers / Day tours / Multi-day trips /
   Help from `src/lib/siteNav.ts`, WhatsApp, a flag language button always visible in the bar, phones
@@ -192,8 +212,8 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
   customer app; it opens the same page in the other language and keeps the query string
   (`src/components/site/LangSwitch.tsx`) — and a phone menu) and `SiteFooter` (Company, Partners, Popular routes,
   Support, Legal, social icons, the TravelAgency structured data). The menu's Transfers / Day tours /
-  Multi-day trips open the booking app on that tab (`/?tab=transfers|tours|multiday`, `/es?tab=…` in Spanish). Destinations and
-  Travel guides are commented placeholders in `siteNav.ts` for later PRs. Info pages (EN · ES):
+  Multi-day trips open the booking app on that tab (`/?tab=transfers|tours|multiday`, `/es?tab=…` in Spanish). Destinations
+  (since 2026-11-11) opens the guides index; Travel guides is a commented placeholder in `siteNav.ts` for a later PR. Info pages (EN · ES):
   `/about` · `/es/nosotros`, `/how-it-works` · `/es/como-funciona`, `/our-drivers` ·
   `/es/nuestros-conductores`, `/faq` · `/es/preguntas-frecuentes` (FAQ content in `src/lib/faq.ts`,
   FAQPage structured data), `/contact` · `/es/contacto` (WhatsApp, hello@costaricaprivatetransfers.com
@@ -788,6 +808,14 @@ and `season_for_date(date)` returns the season for a travel date.
     - **Drivers:** KYC document files are deleted; a minimal record (name, permit number, dates
       checked and approved) is kept for the same period in case of an insurance or legal claim.
     - Done within 30 days; a confirmation email is sent. Available in the apps and on the website.
+16. **Airport meeting points and guide facts (open, from the guides of 2026-11-11).** The airport
+    guides say only what the site already said: "your driver meets you at arrivals", and the
+    driver's name, photo and car are on the trip page. To confirm with Jorge: the exact meeting
+    spot at SJO and at LIR (which exit, inside or outside), whether drivers hold a sign with the
+    traveller's name (the driver app shows one), and what happens for pickups outside the
+    04:00–22:00 pickup times the trip builder offers. Also to confirm from his own experience:
+    the Sierpe boat times, the three Drake Bay / Sierpe stay areas, and each "where to stay"
+    description. Until then the guides stay general on those points.
 
 ---
 

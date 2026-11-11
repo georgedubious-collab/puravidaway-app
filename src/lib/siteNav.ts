@@ -4,6 +4,7 @@
  * into the Spanish page (every public page has one; /driver stays as it is).
  * Labels are per language.
  */
+import { AIRPORT_GUIDES, DESTINATION_GUIDES, airportPath, destinationPath } from "./guides";
 import { localizedHref, type PublicLang } from "./publicLang";
 import { ROUTE_PAGES } from "./routePages";
 import { localizeRoutePage } from "./routePagesEs";
@@ -21,8 +22,9 @@ export const PRIMARY_NAV: NavLink[] = [
   { id: "transfers", label: { en: "Transfers", es: "Traslados" }, href: "/?tab=transfers" },
   { id: "tours", label: { en: "Day tours", es: "Tours de un día" }, href: "/?tab=tours" },
   { id: "multiday", label: { en: "Multi-day trips", es: "Viajes de varios días" }, href: "/?tab=multiday" },
-  // LATER PRs: add these when their index pages exist (keep the order Transfers → Help):
-  // { id: "destinations", label: { en: "Destinations", es: "Destinos" }, href: "/destinations" },
+  // Destination and airport guides (src/lib/guides); the airports are linked from that index and the footer.
+  { id: "destinations", label: { en: "Destinations", es: "Destinos" }, href: "/destinations" },
+  // LATER PR: add when its index page exists (keep the order Transfers → Help):
   // { id: "guides", label: { en: "Travel guides", es: "Guías de viaje" }, href: "/guides" },
   { id: "help", label: { en: "Help", es: "Ayuda" }, href: "/faq" },
 ];
@@ -70,6 +72,13 @@ export function footerColumns(lang: PublicLang): FooterColumn[] {
           : p.title.replace(/^Private transfer from /, ""),
         href: localizedHref(`/transfers/${p.slug}`, lang),
       })),
+    },
+    {
+      title: es ? "Destinos" : "Destinations",
+      links: [
+        ...DESTINATION_GUIDES.map((g) => ({ label: g.name[lang], href: localizedHref(destinationPath(g), lang) })),
+        ...AIRPORT_GUIDES.map((a) => ({ label: a.name[lang], href: localizedHref(airportPath(a), lang) })),
+      ],
     },
     {
       title: es ? "Soporte" : "Support",
