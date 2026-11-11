@@ -13,6 +13,7 @@
     "test:sign": "node --no-warnings scripts/test-sign.mjs",
     "test:night": "node --no-warnings scripts/test-night-premium.mjs",
     "test:routes": "node --no-warnings scripts/test-route-pages.mjs",
+    "test:blog": "node --no-warnings scripts/test-blog.mjs",
     "db:seed": "node scripts/generate-catalog-seed.mjs"
   },
   "dependencies": {

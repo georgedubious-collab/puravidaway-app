@@ -292,6 +292,32 @@ const DRIVE_TIMES: Article = {
       ],
     },
     {
+      id: "region-by-region",
+      title: l("Region by region: what each drive is like", "Región por región: cómo es cada recorrido"),
+      blocks: [
+        p(
+          "**Central Valley to the Pacific.** The easiest long drives in the country. Route 27 runs from the San José area to the coast, and the coastal highway continues south to Manuel Antonio, about {time:SJO>ManuelAntonio} from the airport, and on toward Sierpe, about {time:ManuelAntonio>Sierpe} further. See [how to get from San José to Manuel Antonio](/guides/san-jose-to-manuel-antonio).",
+          "**Del Valle Central al Pacífico.** Los recorridos largos más sencillos del país. La Ruta 27 va de los alrededores de San José a la costa, y la Costanera sigue al sur hasta Manuel Antonio, a unas {time:SJO>ManuelAntonio} del aeropuerto, y más allá hacia Sierpe, a unas {time:ManuelAntonio>Sierpe} más. Vea [cómo ir de San José a Manuel Antonio](/guides/san-jose-to-manuel-antonio).",
+        ),
+        p(
+          "**The northern volcanoes and the cloud forest.** La Fortuna is over the mountains north of the Central Valley, about {time:SJO>Arenal} from San José airport and {time:LIR>Arenal} from Liberia. Monteverde sits at the top of a steep climb, about {time:SJO>Monteverde} from San José. Between the two you drive around Lake Arenal, about {time:Arenal>Monteverde}. See [San José to La Fortuna](/guides/san-jose-to-la-fortuna) and [San José to Monteverde](/guides/san-jose-to-monteverde).",
+          "**Los volcanes del norte y el bosque nuboso.** La Fortuna está al otro lado de las montañas al norte del Valle Central, a unas {time:SJO>Arenal} del aeropuerto de San José y {time:LIR>Arenal} del de Liberia. Monteverde queda al final de una subida empinada, a unas {time:SJO>Monteverde} de San José. Entre los dos se bordea el lago Arenal, unas {time:Arenal>Monteverde}. Vea [de San José a La Fortuna](/guides/san-jose-to-la-fortuna) y [de San José a Monteverde](/guides/san-jose-to-monteverde).",
+        ),
+        p(
+          "**Guanacaste.** Flat, dry and quick from Liberia airport: Tamarindo is about {time:LIR>Tamarindo} away. From San José the same beaches are a long day across the country, about {time:SJO>Tamarindo}. See [Liberia airport to Tamarindo](/guides/liberia-airport-to-tamarindo).",
+          "**Guanacaste.** Plano, seco y rápido desde el aeropuerto de Liberia: Tamarindo queda a unas {time:LIR>Tamarindo}. Desde San José, las mismas playas son un día largo cruzando el país, unas {time:SJO>Tamarindo}. Vea [del aeropuerto de Liberia a Tamarindo](/guides/liberia-airport-to-tamarindo).",
+        ),
+        p(
+          "**The Caribbean.** Puerto Viejo is about {time:SJO>PuertoViejo} from San José airport on Route 32, through Braulio Carrillo National Park and the port city of Limón. From Liberia it is about {time:LIR>PuertoViejo}, so fly into San José for the Caribbean. More in the [Puerto Viejo destination guide](/destinations/puerto-viejo).",
+          "**El Caribe.** Puerto Viejo está a unas {time:SJO>PuertoViejo} del aeropuerto de San José por la Ruta 32, cruzando el Parque Nacional Braulio Carrillo y la ciudad portuaria de Limón. Desde Liberia son unas {time:LIR>PuertoViejo}, así que para el Caribe conviene llegar por San José. Más en la [guía de destino de Puerto Viejo](/destinations/puerto-viejo).",
+        ),
+        p(
+          "**The Osa Peninsula.** Most travellers reach Drake Bay by boat: the drive ends at the river town of Sierpe, about {time:SJO>Sierpe} from San José airport, and a river boat does the rest (a rough 4x4 road and small planes are the other ways in). Corcovado National Park needs permits booked in advance and a registered guide. More in the [Drake Bay and Sierpe guide](/destinations/drake-bay).",
+          "**La península de Osa.** La mayoría de los viajeros llega a Bahía Drake en lancha: el recorrido por carretera termina en Sierpe, un pueblo a orillas del río, a unas {time:SJO>Sierpe} del aeropuerto de San José, y una lancha hace el resto (un camino difícil para 4x4 y las avionetas son las otras formas de llegar). El Parque Nacional Corcovado requiere permisos reservados con anticipación y un guía registrado. Más en la [guía de Bahía Drake y Sierpe](/destinations/drake-bay).",
+        ),
+      ],
+    },
+    {
       id: "planning",
       title: l("Planning tips", "Consejos para planificar"),
       blocks: [
