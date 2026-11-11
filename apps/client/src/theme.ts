@@ -30,6 +30,9 @@ export const C = {
   skySoft: "#E0F2FE",
 };
 
+/** The drawn map (shown where a real map isn't available): land, hills, sea and roads. */
+export const MAP = { land: "#E6EEE4", hills: "#D0E4CB", sea: "#CFE6EE", road: "#FFFFFF" };
+
 export const R = { card: 20, control: 14, pill: 999 };
 
 /** Spacing steps (4-pt grid). `page` is the side margin of every screen. */
