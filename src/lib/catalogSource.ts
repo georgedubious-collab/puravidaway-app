@@ -20,6 +20,7 @@ import {
   type RideFormula,
 } from "./catalog";
 import { BUILT_IN_CATALOG, type CatalogData } from "./catalogModel";
+import { NIGHT_PREMIUM_DEFAULT, type NightPremium } from "./nightPremium";
 import { DRIVER_COMMISSION_BPS_DEFAULT } from "./payout";
 import { createSupabasePublicClient } from "./supabase/server";
 
@@ -48,7 +49,7 @@ export async function getCatalog(): Promise<CatalogData> {
 }
 
 /** Only successful database reads are cached (a thrown error is never stored). */
-const cachedDatabaseCatalog = unstable_cache(loadDatabaseCatalog, ["catalog-v7"], {
+const cachedDatabaseCatalog = unstable_cache(loadDatabaseCatalog, ["catalog-v8"], {
   tags: [CATALOG_TAG],
   revalidate: 3600,
 });
@@ -182,6 +183,7 @@ async function loadDatabaseCatalog(): Promise<CatalogData> {
       ferryFares: readFerryFares(settings.data),
       crcPerUsd: readRate(settings.data),
       waitPerHourCents,
+      nightPremium: readNightPremium(settings.data),
       driverCommissionBps: bpsOrNull(settings.data?.driver_commission_bps == null ? null : Number(settings.data.driver_commission_bps) / 10000, 0, 5000) ?? DRIVER_COMMISSION_BPS_DEFAULT,
     };
   }
@@ -243,5 +245,22 @@ function readRideFormula(row: Record<string, unknown> | null | undefined): RideF
     perKmCents: pick("ride_per_km", RIDE_FORMULA_DEFAULT.perKmCents),
     perHourCents: pick("ride_per_hour", RIDE_FORMULA_DEFAULT.perHourCents),
     minimumFareCents: pick("ride_minimum_fare", RIDE_FORMULA_DEFAULT.minimumFareCents),
+  };
+}
+
+/**
+ * Night-pickup premium from pricing_settings (migration 0041). Until that migration has run
+ * the columns are missing and the built-in values apply; a value outside its allowed range
+ * also falls back, so a bad row can never price a ride wildly.
+ */
+function readNightPremium(row: Record<string, unknown> | null | undefined): NightPremium {
+  const int = (v: unknown, min: number, max: number, fallback: number) => {
+    const n = v == null ? NaN : Number(v);
+    return Number.isInteger(n) && n >= min && n <= max ? n : fallback;
+  };
+  return {
+    bps: int(row?.night_premium_bps, 0, 10000, NIGHT_PREMIUM_DEFAULT.bps),
+    startHour: int(row?.night_start_hour, 0, 23, NIGHT_PREMIUM_DEFAULT.startHour),
+    endHour: int(row?.night_end_hour, 0, 23, NIGHT_PREMIUM_DEFAULT.endHour),
   };
 }

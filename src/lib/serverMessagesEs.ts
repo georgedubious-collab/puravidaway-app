@@ -31,6 +31,7 @@ const EXACT: Record<string, string> = {
   "We couldn't save your request. Please try again or send it on WhatsApp.":
     "No pudimos guardar su solicitud. Por favor, inténtelo de nuevo o envíela por WhatsApp.",
   "A travel date is missing.": "Falta una fecha de viaje.",
+  "Pick a pickup time.": "Elija una hora de recogida.",
   "We couldn't check the road distance for this ride. Please try again.":
     "No pudimos verificar la distancia por carretera de este traslado. Por favor, inténtelo de nuevo.",
   "Pickup and drop-off are the same place.": "La recogida y el destino son el mismo lugar.",

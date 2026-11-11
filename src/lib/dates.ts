@@ -29,7 +29,11 @@ export function isValidYmd(s: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10)));
 }
 
-/** Rides: pickup time picked in the ride builder (Costa Rica time), 04:00–22:00 every 15 min. */
+/**
+ * Rides: pickup time picked in the ride builder (Costa Rica time), any hour of the day, every
+ * 15 min (Jorge, 2026-11-11: pickups at any hour; it was 04:00–22:00). Night hours cost the
+ * night premium (src/lib/nightPremium.ts).
+ */
 export const DEFAULT_PICKUP_TIME = "09:00";
 /** Day tours and expeditions have no time picker yet: these defaults are stored until the team confirms. */
 export const DEFAULT_TOUR_TIME = "07:00";
@@ -37,14 +41,14 @@ export const DEFAULT_EXPEDITION_TIME = "06:00";
 
 const HHMM = /^([01]\d|2[0-3]):(00|15|30|45)$/;
 
-/** Strict check for an untrusted pickup time: "HH:MM", quarter hours, 04:00–22:00. */
+/** Strict check for an untrusted pickup time: "HH:MM", quarter hours, 00:00–23:45. */
 export function isValidPickupTime(s: unknown): s is string {
-  return typeof s === "string" && HHMM.test(s) && s >= "04:00" && s <= "22:00";
+  return typeof s === "string" && HHMM.test(s);
 }
 
 export const PICKUP_TIMES: string[] = (() => {
   const out: string[] = [];
-  for (let m = 4 * 60; m <= 22 * 60; m += 15) {
+  for (let m = 0; m < 24 * 60; m += 15) {
     out.push(`${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`);
   }
   return out;
