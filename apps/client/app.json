@@ -51,6 +51,14 @@
         "projectId": "3beec35f-471f-4faa-abf5-f548ff348063"
       }
     },
-    "owner": "costa-rica-private-transfers"
+    "owner": "costa-rica-private-transfers",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/3beec35f-471f-4faa-abf5-f548ff348063",
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 4000
+    }
   }
 }
