@@ -1,7 +1,0 @@
-▲ Next.js 16.4.5
-- Local:         http://localhost:3412
-- Network:       http://192.168.100.160:3412
-✓ Ready in 316ms
-✓ Running next.config.ts took 53ms
-[PuraVidaWay] NEXT_PUBLIC_WHATSAPP_NUMBER is missing or invalid; WhatsApp buttons use a placeholder number.
-[PuraVidaWay] NEXT_PUBLIC_WHATSAPP_NUMBER is missing or invalid; WhatsApp buttons use a placeholder number.
