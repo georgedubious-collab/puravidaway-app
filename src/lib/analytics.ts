@@ -122,6 +122,8 @@ const state = {
   lastGaPage: "",
   lastPixelPage: "",
   lastQuoteKey: "",
+  /** A quote shown before Google Analytics was ready (it starts after the page's first paint). */
+  waitingQuote: null as { path: string; quote: QuoteView } | null,
   checkoutSent: false,
 };
 
@@ -398,6 +400,10 @@ export function trackPageView(): void {
     state.lastPixelPage = path;
     win().fbq?.("track", "PageView");
   }
+  // The quote that was already on screen when the visitor accepted (or when the page loaded).
+  const waiting = state.waitingQuote;
+  state.waitingQuote = null;
+  if (waiting && waiting.path === path) trackQuoteView(waiting.quote);
 }
 
 const usd = (cents: number) => Math.round(cents) / 100;
@@ -432,10 +438,23 @@ function pricingOf(items: CartItem[]): "fixed" | "bid" | "mixed" {
   return bids === 0 ? "fixed" : bids === items.length ? "bid" : "mixed";
 }
 
+interface QuoteView {
+  from: RouteEnd;
+  to: RouteEnd;
+  vehicleCount: number;
+  fromCents: number;
+}
+
 /** view_item: the ride builder shows prices for a route. Sent once per route, not on every change. */
-export function trackQuoteView(q: { from: RouteEnd; to: RouteEnd; vehicleCount: number; fromCents: number }): void {
+export function trackQuoteView(q: QuoteView): void {
+  if (typeof window === "undefined") return;
   const key = `${q.from}>${q.to}`;
-  if (state.lastQuoteKey === key || !state.gaOn) return;
+  if (!state.gaOn) {
+    // Nothing is sent or kept beyond this page; it is only remembered in case the visitor accepts.
+    state.waitingQuote = { path: window.location.pathname, quote: q };
+    return;
+  }
+  if (state.lastQuoteKey === key) return;
   state.lastQuoteKey = key;
   send("view_item", {
     currency: "USD",

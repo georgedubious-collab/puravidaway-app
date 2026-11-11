@@ -28,8 +28,9 @@ const BUTTON =
  * in the root layout and only when at least one tool id is set.
  *
  * - No choice yet: a small card at the bottom. "Accept" and "Reject" look the same; "Choose"
- *   opens the groups, unticked. It is not a wall: the page works behind it, and it sits above
- *   the booking bar on phones (globals.css, .consent-banner).
+ *   opens the groups, unticked. It is not a wall: the page works behind it. On phones it sits
+ *   above the booking bar (globals.css, .consent-banner); on wide screens it is at the bottom
+ *   right, away from the "Your trip" panel and its "Send trip request" button on the left.
  * - The card is drawn only in the browser and floats over the page, so it never moves content.
  * - The choice is kept on the device for six months; "Cookie settings" in the footer reopens it.
  * - Private pages (/admin, /driver, /trip/…, /login): no banner and no tools. If tools were
@@ -121,7 +122,7 @@ export function ConsentManager() {
       aria-labelledby={`${id}-title`}
       aria-describedby={`${id}-text`}
       lang={lang}
-      className="consent-banner print:hidden fixed z-[35] inset-x-2 sm:inset-x-auto sm:left-4 sm:w-[26rem] max-h-[calc(100dvh-6rem)] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 text-slate-900 shadow-[0_8px_40px_rgba(2,44,34,0.28)]"
+      className="consent-banner print:hidden fixed z-[35] inset-x-2 sm:inset-x-auto sm:right-4 sm:w-[26rem] max-h-[calc(100dvh-6rem)] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 text-slate-900 shadow-[0_8px_40px_rgba(2,44,34,0.28)]"
     >
       <h2 id={`${id}-title`} ref={titleRef} tabIndex={-1} className="text-base font-extrabold text-emerald-950 outline-none">
         {t("Cookies: your choice", "Cookies: usted decide")}
@@ -129,8 +130,8 @@ export function ConsentManager() {
       <p id={`${id}-text`} className="mt-1 text-sm leading-snug text-slate-700">
         {HAS_ANALYTICS_TOOLS &&
           t(
-            `With your OK we use ${analyticsTools} to see which pages and routes are useful and improve the site. `,
-            `Con su permiso usamos ${analyticsTools} para saber qué páginas y rutas son útiles y mejorar el sitio. `,
+            `With your OK we use ${analyticsTools} to see which pages and routes are useful. `,
+            `Con su permiso usamos ${analyticsTools} para saber qué páginas y rutas son útiles. `,
           )}
         {HAS_ADS_TOOLS &&
           t(
@@ -183,28 +184,24 @@ export function ConsentManager() {
           {t("Save my choice", "Guardar mi elección")}
         </button>
       )}
-      <div className={`${choosing ? "mt-2" : "mt-3"} grid grid-cols-2 gap-2`}>
-        <button type="button" onClick={() => decide({ analytics: false, ads: false })} className={BUTTON}>
+      <div className={`${choosing ? "mt-2" : "mt-3"} flex items-center gap-2`}>
+        <button type="button" onClick={() => decide({ analytics: false, ads: false })} className={`flex-1 ${BUTTON}`}>
           {choosing ? t("Reject all", "Rechazar todo") : t("Reject", "Rechazar")}
         </button>
-        <button type="button" onClick={() => decide({ analytics: HAS_ANALYTICS_TOOLS, ads: HAS_ADS_TOOLS })} className={BUTTON}>
+        <button type="button" onClick={() => decide({ analytics: HAS_ANALYTICS_TOOLS, ads: HAS_ADS_TOOLS })} className={`flex-1 ${BUTTON}`}>
           {choosing ? t("Accept all", "Aceptar todo") : t("Accept", "Aceptar")}
         </button>
+        {!choosing && (
+          <button type="button" onClick={() => setChoosing(true)} className="min-h-11 px-2 text-sm font-bold text-emerald-800 underline">
+            {t("Choose", "Elegir")}
+          </button>
+        )}
       </div>
-      {(!choosing || reopened) && (
-        <div className="mt-1 flex items-center justify-between gap-2">
-          {!choosing ? (
-            <button type="button" onClick={() => setChoosing(true)} className="min-h-11 px-1 text-sm font-bold text-emerald-800 underline">
-              {t("Choose", "Elegir")}
-            </button>
-          ) : (
-            <span />
-          )}
-          {reopened && (
-            <button type="button" onClick={close} className="min-h-11 px-1 text-sm font-semibold text-slate-600 underline">
-              {t("Close", "Cerrar")}
-            </button>
-          )}
+      {reopened && (
+        <div className="mt-1 text-right">
+          <button type="button" onClick={close} className="min-h-11 px-1 text-sm font-semibold text-slate-600 underline">
+            {t("Close", "Cerrar")}
+          </button>
         </div>
       )}
     </section>

@@ -58,7 +58,8 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={`${jakarta.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col bg-slate-50 text-slate-900 font-sans">
+      {/* data-clarity-mask: if Microsoft Clarity is ever switched on, its recordings hide all page text. */}
+      <body data-clarity-mask="true" className="min-h-full flex flex-col bg-slate-50 text-slate-900 font-sans">
         {children}
         {/* Vercel Web Analytics: no cookies, always on. */}
         <Analytics />

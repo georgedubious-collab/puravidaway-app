@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { LEGAL_ENTITY_PLACEHOLDER_ES, LegalPage, LegalSection } from "@/components/legal/LegalPage";
+import { CookieSentence, MeasurementCollected, MeasurementPurpose, MeasurementRecipients, MeasurementRetention } from "@/components/legal/MeasurementText";
 import { whatsAppLink } from "@/lib/cart";
 import { bilingualAlternates } from "@/lib/publicLang";
 
@@ -19,6 +20,7 @@ export const metadata: Metadata = {
 export default function PrivacidadPage() {
   return (
     <LegalPage
+      updated="2026-11-11"
       lang="es"
       title="Política de privacidad"
       intro={
@@ -89,15 +91,15 @@ export default function PrivacidadPage() {
             sepa adónde ir.
           </li>
           <li>
-            <strong>Estadísticas de visitas:</strong> usamos Vercel Web Analytics para contar las visitas
+            <strong>Estadísticas de visitas sin cookies:</strong> usamos Vercel Web Analytics para contar las visitas
             a las páginas, qué páginas son populares, y el país y el tipo de dispositivo del visitante.
             No usa cookies y no lo identifica ni lo sigue a otros sitios web.
           </li>
+          <MeasurementCollected lang="es" />
           <li>
             <strong>En su dispositivo:</strong> el sitio guarda su viaje en preparación en el
             almacenamiento local de su navegador para que no se pierda si recarga la página. Se queda en
-            su dispositivo y usted puede borrarlo en cualquier momento. No usamos cookies de publicidad
-            ni de rastreo.
+            su dispositivo y usted puede borrarlo en cualquier momento. <CookieSentence lang="es" />
           </li>
         </ul>
         <p>
@@ -165,6 +167,7 @@ export default function PrivacidadPage() {
           <li>
             <strong>Registros contables, tributarios y legales</strong> (obligación legal).
           </li>
+          <MeasurementPurpose lang="es" />
         </ul>
         <p>
           Al enviar una solicitud de viaje o una solicitud para ser conductor, usted da su consentimiento
@@ -195,6 +198,7 @@ export default function PrivacidadPage() {
             distancias por carretera, Estados Unidos) y, cuando se habilite el pago en línea, nuestro
             proveedor de pagos. Pueden usar los datos únicamente para prestarnos su servicio.
           </li>
+          <MeasurementRecipients lang="es" />
           <li>Las autoridades, cuando la ley lo exige.</li>
         </ul>
       </LegalSection>
@@ -227,6 +231,7 @@ export default function PrivacidadPage() {
             con nosotros y, después, durante el tiempo que los necesitemos para atender reclamos, asuntos
             de seguros o solicitudes legales; luego se eliminan.
           </li>
+          <MeasurementRetention lang="es" />
         </ul>
       </LegalSection>
 
