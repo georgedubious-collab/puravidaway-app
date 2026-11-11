@@ -13,7 +13,7 @@ Its own project: Vercel ignores this folder.
   how it's paid; "your driver is on the way".
 - **Trip:** the driver's first name, photo, rating, languages and car photos once assigned; the
   same chat as the trip page; a 1–5 star rating after the trip.
-- **Plan a trip, in the app** (map-first since 2026-11-11, see below): a private ride (type any hotel, airport or address; date, time,
+- **Plan a trip, in the app** (no map while booking since 2026-11-11, see below): a private ride (type any hotel, airport or address; date, time,
   travellers, vehicle, optional stops) or a day tour; contact details; pay online or cash. Every
   price comes from the server (`/api/v1/client/quote`, `/tours`) and the request goes through the
   same server action as the website (`/api/v1/client/trip-request`). Expeditions open the website.
@@ -81,20 +81,21 @@ Without the key nothing breaks: Android shows the app's own drawn map.
   screen push onto the stack (slide in, swipe back on iPhone). Place search, pickup time, tour
   date, the email code and the rating are panels that slide up from the bottom.
 - **Explore** — `src/screens/Explore.tsx`: a "Rides | Day tours" switch (the phone remembers the
-  side). Rides is a full-screen map with a "From / To" card, a "Date" button and three popular
-  destinations (`Home.tsx`); Day tours is the photo list (`Tours.tsx`). The ☰ button opens a small
+  side). Rides is a scrolling booking start: a headline, the "From / To" card with a "Date" button,
+  popular rides as picture cards (drive time, "from" price) and "Every ride includes" (`Home.tsx`,
+  promises in `Promises.tsx`); Day tours is the photo list (`Tours.tsx`). The ☰ button opens a small
   menu panel (`Menu.tsx`).
-- **Booking a ride** (map-first since 2026-11-11) — in `src/screens/book/`: `Where.tsx` (pickup and
-  drop-off, "Add a stop", "Set on map", our towns with drive times) → `Ride.tsx` (the route on the
-  map, date and travellers, the vehicles with prices, fixed price or driver bids) → `Confirm.tsx`
+- **Booking a ride** (no map while booking since 2026-11-11; the map is only on the trip screen once a driver is close) — in `src/screens/book/`: `Where.tsx` (pickup and
+  drop-off, "Add a stop", our towns with drive times) → `Ride.tsx` (a route summary card
+  with the drive time, date and travellers, the vehicles with prices, fixed price or driver bids) → `Confirm.tsx`
   ("Your ride": travellers and bags, flight number, stops, driver and extras, payment, contact
   details, "Request ride"). Panels: `When.tsx` (date, time, travellers, bags), `Extras.tsx` (stops;
-  driver and extras), `PlaceOnMap.tsx`, `PlaceSearch.tsx`. A ride can't be sent until the traveller
+  driver and extras), `PlaceSearch.tsx`. A ride can't be sent until the traveller
   has opened the date panel once (`whenSet` in the store), because the day starts as our guess.
   All screens share one store (`src/booking.tsx`), so going back keeps every choice and the price
   is only asked again when route, date, travellers or stops change. Day tours: `Tours.tsx` (list →
   tour → `Review.tsx`). The request body sent to `/api/v1/client/trip-request` is exactly the v1 one.
-- **Maps** — one component, `RouteMap` in `src/MapView.tsx`. iPhone: Apple Maps
+- **Maps** — one component, `RouteMap` in `src/MapView.tsx`, used only on the trip screen. iPhone: Apple Maps
   (`react-native-maps`, no key). Android: Google Maps, only when the build has a key (below);
   otherwise, and in the browser preview, the app draws its own map of Costa Rica with the pins in
   their real places. The line between pickup and drop-off is straight (the app has the two points,
@@ -135,8 +136,8 @@ Every screen can be shown in a browser with made-up data, without signing in:
     EXPO_PUBLIC_PREVIEW=1 npx expo start --web
 
 Then open the address it prints and add `?s=<screen>`; add `&lang=es` to see it in Spanish.
-Screens: `home` (rides map), `home-in`, `home-route`, `home-loading`, `menu`, `places`,
-`where-empty`, `where`, `search`, `search-found`, `map-pick`, `when`, `time`, `choose` (same as
+Screens: `home` (rides), `home-in`, `home-route`, `home-loading`, `menu`, `places`,
+`where-empty`, `where`, `search`, `search-found`, `map-pick` (now opens the place search), `when`, `time`, `choose` (same as
 `ride`), `ride-new`, `ride-bid`, `ride-loading`, `stops`, `extras`, `extras-empty`, `confirm`, `confirm-electric`
 (`review` and `guest` are the same screen with other data), `code`, `tours` (with the switch),
 `tours-loading`, `tour-when`, `tour`, `tour-review`, `sent`, `sent-paid`, `sent-cash`, `trips`,

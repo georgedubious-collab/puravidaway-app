@@ -109,7 +109,7 @@ export function Home({ top }: { top: ReactNode }) {
 
       <View style={{ gap: SP.md }}>
         <Text accessibilityRole="header" style={T.h2}>
-          {fromHub && mine.length ? t("Popular from " + shortPlace(from?.label), "Populares desde " + shortPlace(from?.label)) : t("Popular rides", "Traslados populares")}
+          {t("Popular rides", "Traslados populares")}
         </Text>
         {popular.map((r) => {
           const p = prices[r.from + ">" + r.to];
