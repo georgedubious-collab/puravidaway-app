@@ -20,6 +20,12 @@ export interface AppBooking {
   driverLocation: { lat: number; lng: number; recordedAt: string; etaAt: string | null; lateMin: number | null } | null;
   /** Unread chat messages from the driver or our team. Older servers don't send it. */
   unreadChat?: number;
+  /**
+   * The driver's name sign (rides only): the traveller's own text, whether they chose "Don't show
+   * my name", what the sign will say, and whether it can still be changed (until the driver is on
+   * the way). Older servers don't send it.
+   */
+  sign?: { text: string | null; hideName: boolean; shown: string; editable: boolean } | null;
 }
 
 export interface AppTrip {

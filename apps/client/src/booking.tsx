@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from "react";
 import { api } from "./api";
-import { hasContactDetails } from "./contact";
+import { cleanSignText, hasContactDetails, signBlocked as signTextBlocked } from "./contact";
 import { plural, usd } from "./format";
 import { useT } from "./i18n";
 import { HUBS, crDatePlus, fetchQuote, fetchTours, time12, validDate } from "./prices";
@@ -39,6 +39,10 @@ export interface BookingState {
   driverNotes: string;
   /** Flight number or hotel name. */
   notes: string;
+  /** What the traveller wants on the driver's name sign; empty = their first name + last initial. */
+  signText: string;
+  /** "Don't show my name": the sign shows our brand name. */
+  signHideName: boolean;
   tourId: string | null;
   upgrade: boolean;
   name: string;
@@ -67,6 +71,8 @@ const fresh = (): BookingState => ({
   prefs: DEFAULT_PREFS,
   driverNotes: "",
   notes: "",
+  signText: "",
+  signHideName: false,
   tourId: null,
   upgrade: false,
   name: "",
@@ -112,6 +118,8 @@ interface BookingValue {
   offerValid: boolean;
   offerLow: boolean;
   notesBlocked: boolean;
+  /** The name-sign text is too long or has a phone number, email or link. */
+  signBlocked: boolean;
   /** What the ride costs as chosen: the fixed price, or the traveller's offer. */
   itemCents: number;
   /** The cheapest vehicle, for "from $X" before one is chosen. */
@@ -228,8 +236,9 @@ export function BookingProvider({
   const offerValid = offerCents >= minOffer;
   const offerLow = Boolean(vehicle) && offerValid && offerCents < (vehicle?.totalCents ?? 0) * 0.7;
   const notesBlocked = hasContactDetails(state.driverNotes);
+  const signBlocked = !state.signHideName && signTextBlocked(state.signText);
   const itemCents = state.mode === "bid" ? offerCents : (vehicle?.totalCents ?? 0);
-  const rideReady = Boolean(quote) && Boolean(vehicle) && !notesBlocked && (state.mode === "fixed" || offerValid);
+  const rideReady = Boolean(quote) && Boolean(vehicle) && !notesBlocked && !signBlocked && (state.mode === "fixed" || offerValid);
   const fromCents = quote && quote.vehicles.length ? quote.vehicles.reduce((m, v) => Math.min(m, v.totalCents), Infinity) : null;
   const pickedStops = quote && stopsOn ? state.stopIds.filter((id) => quote.stops.some((s) => s.id === id)) : [];
   const p = effectivePrefs;
@@ -288,6 +297,8 @@ export function BookingProvider({
         ...(state.driverNotes.trim() ? { driverNotes: state.driverNotes.trim() } : {}),
         bags: bagsFor(state).large,
         carryOns: bagsFor(state).carryOns,
+        // Name sign: older servers ignore both fields.
+        ...(state.signHideName ? { signHideName: true } : cleanSignText(state.signText) ? { signText: cleanSignText(state.signText) } : {}),
       },
     };
     // pickedStops and p are derived from the listed values.
@@ -331,6 +342,7 @@ export function BookingProvider({
     offerValid,
     offerLow,
     notesBlocked,
+    signBlocked,
     itemCents,
     fromCents,
     rideReady,

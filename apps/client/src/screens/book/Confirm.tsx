@@ -5,6 +5,7 @@ import { shortDate } from "../../DatePicker";
 import { orSimilar } from "../../format";
 import { useT } from "../../i18n";
 import { useNav } from "../../nav";
+import { SIGN_MAX } from "../../contact";
 import { driveTime, time12 } from "../../prices";
 import { useSession } from "../../session";
 import { C, S, SP, T } from "../../theme";
@@ -25,7 +26,7 @@ export function BookConfirm() {
   const { lang, t } = useT();
   const nav = useNav();
   const { email } = useSession();
-  const { state, set, chosen, quote, quoteBusy, vehicle, stopsOn, effectivePrefs, itemCents, offerValid, notesBlocked } = useBooking();
+  const { state, set, chosen, quote, quoteBusy, vehicle, stopsOn, effectivePrefs, itemCents, offerValid, notesBlocked, signBlocked } = useBooking();
   const send = useSendRequest();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -196,6 +197,30 @@ export function BookConfirm() {
         <Text style={T.h3}>{t("Your details", "Sus datos")}</Text>
         <FieldLabel>{t("Full name", "Nombre completo")}</FieldLabel>
         <Input accessibilityLabel={t("Full name", "Nombre completo")} value={state.name} onChangeText={(name) => set({ name })} autoComplete="name" textContentType="name" />
+        <FieldLabel>{t("Name on the sign (optional)", "Nombre en el rótulo (opcional)")}</FieldLabel>
+        <Input
+          accessibilityLabel={t("Name on the sign", "Nombre en el rótulo")}
+          value={state.signHideName ? "" : state.signText}
+          onChangeText={(signText) => set({ signText })}
+          editable={!state.signHideName}
+          maxLength={SIGN_MAX}
+          autoCorrect={false}
+          placeholder={state.signHideName ? "Costa Rica Private Transfers" : t("e.g. The Smith Family", "p. ej. Familia Rodríguez")}
+          style={state.signHideName ? { backgroundColor: C.bg, color: C.muted } : undefined}
+        />
+        <Text style={T.caption}>
+          {state.signHideName
+            ? t("Your driver waits with a sign. It will show “Costa Rica Private Transfers” instead of your name.", "Su conductor lo espera con un rótulo. Mostrará “Costa Rica Private Transfers” en lugar de su nombre.")
+            : t("Your driver waits with a sign. Leave it empty and it will show your first name and last initial.", "Su conductor lo espera con un rótulo. Si lo deja vacío, mostrará su nombre y la inicial de su apellido.")}
+        </Text>
+        <View style={{ flexDirection: "row" }}>
+          <Toggle icon="eye-off-outline" label={t("Don't show my name", "No mostrar mi nombre")} on={state.signHideName} onPress={() => set({ signHideName: !state.signHideName })} />
+        </View>
+        {signBlocked ? (
+          <Text accessibilityRole="alert" style={S.error}>
+            {t("Please keep phone numbers, emails and links off the name sign.", "Por favor, no ponga teléfonos, correos ni enlaces en el rótulo.")}
+          </Text>
+        ) : null}
         <FieldLabel>{t("Mobile / WhatsApp, with country code", "Celular / WhatsApp, con código de país")}</FieldLabel>
         <Input accessibilityLabel={t("Mobile number", "Número de celular")} value={state.phone} onChangeText={(phone) => set({ phone })} keyboardType="phone-pad" placeholder="+1 555 123 4567" autoComplete="tel" textContentType="telephoneNumber" />
         {guest ? (
