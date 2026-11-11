@@ -14,7 +14,8 @@ import { localizeServerMessage } from "@/lib/serverMessagesEs";
 import { hubPlace, isAirportPickup, isHubPlace, mapsDirectionsUrl, needsRoute, type RidePlace, type RideRoute } from "@/lib/places";
 import { newItemId, whatsAppLink, type CartItem } from "@/lib/cart";
 import { DEFAULT_PICKUP_TIME, PICKUP_TIMES, addDays, formatShortDate, formatTime12h } from "@/lib/dates";
-import { applyMultiplier, ferryCents, formatDuration, formatUSD, perPersonCents, perPersonShare, quoteTransfer, rideCents } from "@/lib/pricing";
+import { applyMultiplier, ferryCents, formatDuration, formatUSD, nightPremiumCents, perPersonCents, perPersonShare, quoteTransfer, rideCents, rideDriveCents } from "@/lib/pricing";
+import { isNightPickup, nightChip, nightPercent, nightWindow } from "@/lib/nightPremium";
 import { MAX_SHARED_PAX, rideLinkQuery, type RideLinkState } from "@/lib/shareLink";
 import { MAX_BAGS, MIN_OFFER_USD } from "@/lib/tripRequest";
 import { bagsSummary, defaultBags, luggageCapacity } from "@/lib/bags";
@@ -119,6 +120,9 @@ export function TransfersView({
   // Cards show prices for the chosen date, so they add up to the total below.
   const seasonal = (cents: number) => applyMultiplier(cents, season.multiplierBps);
   const seasonPct = Math.round((season.multiplierBps - 10000) / 100);
+  // Night pickup: the ride itself costs a percentage more (values from /admin/pricing).
+  const night = catalog.nightPremium;
+  const nightPickup = isNightPickup(pickupTime, night);
 
   // A stop is offered only when it sits on the road between pickup and drop-off.
   const availableStops = useMemo(
@@ -202,8 +206,9 @@ export function TransfersView({
         catalog,
         route,
         pax,
+        pickupTime,
       }),
-    [origin, destination, effectiveVehicleId, effectiveStopIds, season, catalog, route, pax],
+    [origin, destination, effectiveVehicleId, effectiveStopIds, season, catalog, route, pax, pickupTime],
   );
 
   // Bid mode: the client's own offer (whole USD) replaces the fixed price.
@@ -227,7 +232,11 @@ export function TransfersView({
   const price = (cents: number) => (priceReady ? formatUSD(cents) : "…");
   // Car price on a vehicle card: the ride for the date + ferries for this group.
   const ferry = ferryCents(route, pax, catalog);
-  const carCents = (v: (typeof catalog.vehicles)[number]) => seasonal(rideCents(origin, destination, v, catalog, route)) + ferry;
+  // Same order as quoteTransfer(): ride × season, + the night premium on the driving part, + ferries.
+  const carCents = (v: (typeof catalog.vehicles)[number]) =>
+    seasonal(rideCents(origin, destination, v, catalog, route)) +
+    nightPremiumCents(rideDriveCents(origin, destination, v, catalog, route), season.multiplierBps, pickupTime, night) +
+    ferry;
 
   // "See prices · from $X": the cheapest vehicle that fits this group.
   const fromCarCents = availableVehicles.length ? Math.min(...availableVehicles.map(carCents)) : quote.totalCents;
@@ -352,6 +361,7 @@ export function TransfersView({
               {PICKUP_TIMES.map((pt) => (
                 <option key={pt} value={pt}>
                   {formatTime12h(pt, lang)}
+                  {isNightPickup(pt, night) ? ` · +${nightPercent(night)}` : ""}
                 </option>
               ))}
             </select>
@@ -372,6 +382,14 @@ export function TransfersView({
             "Hora de Costa Rica. Para recogidas en aeropuerto, indique la hora de aterrizaje de su vuelo.",
           )}
         </p>
+        {nightPickup && (
+          <p className="mt-1.5 text-xs font-bold text-amber-800" aria-live="polite">
+            {t(
+              `${nightChip(night, "en")}: rides that start ${nightWindow(night)} cost ${nightPercent(night)} more.`,
+              `${nightChip(night, "es")}: los traslados que empiezan ${nightWindow(night, "es")} cuestan un ${nightPercent(night)} más.`,
+            )}
+          </p>
+        )}
         {samePlace && (
           <p role="alert" className="mt-2 text-sm font-semibold text-red-700">
             {t("Pick a different drop-off to see prices.", "Elija un destino diferente para ver los precios.")}
@@ -510,6 +528,7 @@ export function TransfersView({
                                 {Math.abs(seasonPct)}%
                               </span>
                             )}
+                            {nightPickup && <span className="block text-xs font-bold text-amber-800">{nightChip(night, lang)}</span>}
                           </span>
                         </button>
                       );
@@ -918,10 +937,11 @@ export function TransfersView({
                 <>
                   {/* Same season-adjusted prices as the cards; stops take the remainder so the rows always add up. */}
                   <Row label={vehicle.name} value={price(seasonal(quote.baseCents))} />
+                  {quote.nightCents > 0 && <Row label={nightChip(night, lang)} value={`+${price(quote.nightCents)}`} />}
                   {quote.stopsCents > 0 && (
                     <Row
                       label={t("Stops (optional extras)", "Paradas (extras opcionales)")}
-                      value={`+${price(quote.totalCents - quote.ferryCents - seasonal(quote.baseCents))}`}
+                      value={`+${price(quote.totalCents - quote.ferryCents - quote.nightCents - seasonal(quote.baseCents))}`}
                       green
                     />
                   )}
@@ -938,6 +958,14 @@ export function TransfersView({
                     <p className="text-xs text-slate-600">
                       {t("Prices include", "Los precios incluyen")} {season.name} {seasonPct > 0 ? "+" : "−"}
                       {Math.abs(seasonPct)}%.
+                    </p>
+                  )}
+                  {quote.nightCents > 0 && (
+                    <p className="text-xs text-slate-600">
+                      {t(
+                        `Night pickup: rides that start ${nightWindow(night)} cost ${nightPercent(night)} more. Stops and ferry fares are not marked up.`,
+                        `Recogida nocturna: los traslados que empiezan ${nightWindow(night, "es")} cuestan un ${nightPercent(night)} más. Las paradas y las tarifas del ferry no tienen recargo.`,
+                      )}
                     </p>
                   )}
                   <div className="flex justify-between text-sm font-extrabold text-slate-900 pt-2 border-t border-slate-200">

@@ -89,6 +89,8 @@ ride price = max( minimum fare,  base + per-km × road km + per-hour × drive ho
              × vehicle factor
              × area factor (where drivers are scarce)
              × season multiplier (already in the database)
+             × night-pickup premium (only when the pickup is at night; built 2026-11-11,
+               `docs/PROJECT.md` §6.6: +20% from 10 PM to 4 AM, values in the database)
              + stops (as extras, §5) + ferry / boat costs
 ```
 

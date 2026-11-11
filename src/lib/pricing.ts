@@ -1,5 +1,7 @@
 /**
  * Pricing engine — source: docs/PROJECT.md §6.
+ * Ride order of operations: base formula → vehicle factor (× area) → season → night-pickup
+ * premium → pass-through costs (ferries), see quoteTransfer().
  * All math is in integer cents; multipliers are basis points (10000 = 1.00x).
  * Rounding: half-up to the nearest cent, applied once at the end.
  */
@@ -27,6 +29,7 @@ import {
   dayTourCents,
 } from "./catalog";
 import type { CatalogData } from "./catalogModel";
+import { NIGHT_PREMIUM_DEFAULT, nightBpsFor, type NightPremium } from "./nightPremium";
 import type { RideRoute } from "./places";
 
 export function applyMultiplier(cents: number, multiplierBps: number): number {
@@ -77,6 +80,22 @@ export function rideCents(
   route?: RideRoute | null,
 ): number {
   if (!route && origin === destination) return 0;
+  return rideDriveCents(origin, destination, vehicle, catalog, route) + vehicle.extraFeeCents;
+}
+
+/**
+ * The driving part of rideCents(): standard × vehicle factor × area factor, rounded to whole
+ * dollars, WITHOUT the vehicle's extra fee (the Drake Bay river boat). This is the amount the
+ * night-pickup premium is charged on.
+ */
+export function rideDriveCents(
+  origin: HubId,
+  destination: HubId,
+  vehicle: Pick<VehicleClass, "priceFactorBps">,
+  catalog?: Pick<CatalogData, "rideFormula" | "areaFactorBps">,
+  route?: RideRoute | null,
+): number {
+  if (!route && origin === destination) return 0;
   const f: RideFormula = catalog?.rideFormula ?? RIDE_FORMULA_DEFAULT;
   const areas = catalog?.areaFactorBps ?? AREA_FACTOR_BPS_DEFAULT;
   const areaBps = Math.max(areas[origin] ?? 10000, route?.area ? (areas[route.area] ?? 10000) : 0);
@@ -85,7 +104,24 @@ export function rideCents(
   const formula = f.baseFareCents + f.perKmCents * km + (f.perHourCents * drivingMinutes) / 60;
   const standard = Math.max(f.minimumFareCents, formula);
   const scaled = (standard * vehicle.priceFactorBps * areaBps) / 1e8;
-  return Math.round(scaled / 100) * 100 + vehicle.extraFeeCents;
+  return Math.round(scaled / 100) * 100;
+}
+
+/**
+ * Night-pickup premium for one ride, in cents (0 by day, or when no pickup time is given):
+ *   round_to_cent(driving part × season multiplier × night %)
+ * `driveCents` is rideDriveCents(): the ride after the vehicle and area factors, without the
+ * vehicle's extra fee. Stops, ferries, the boat fee and entrances are never part of it.
+ * The percentage and the hours come from the catalog (pricing_settings, /admin/pricing).
+ */
+export function nightPremiumCents(
+  driveCents: number,
+  seasonMultiplierBps: number,
+  pickupTime: string | null | undefined,
+  night: NightPremium = NIGHT_PREMIUM_DEFAULT,
+): number {
+  const bps = nightBpsFor(pickupTime, night);
+  return bps > 0 ? applyMultiplier(applyMultiplier(driveCents, seasonMultiplierBps), bps) : 0;
 }
 
 /**
@@ -117,6 +153,12 @@ export interface TransferQuoteInput {
   route?: RideRoute | null;
   /** Travellers, for ferry passenger fares (defaults to 1). */
   pax?: number;
+  /**
+   * Pickup time, Costa Rica time, "HH:MM". Inside the night window (catalog.nightPremium) the
+   * ride costs the night premium more. Not given = no premium: route pages, "from" prices and
+   * app builds from before night pickups (they can't choose a night hour).
+   */
+  pickupTime?: string | null;
   /** Live catalog (from the database). Defaults to the built-in catalog. */
   catalog?: CatalogData;
 }
@@ -128,6 +170,10 @@ export interface TransferQuote {
   subtotalCents: number;
   /** Car ferry fares, added after the season multiplier. */
   ferryCents: number;
+  /** Night-pickup premium included in totalCents (0 by day and in bid mode). */
+  nightCents: number;
+  /** The premium that was applied, in basis points (0 when none). */
+  nightBps: number;
   seasonMultiplierBps: number;
   totalCents: number;
   driveMinutes: number;
@@ -144,12 +190,24 @@ export function quoteTransfer(input: TransferQuoteInput): TransferQuote {
     .filter((s): s is NonNullable<typeof s> => Boolean(s));
 
   const baseCents = input.acceptedBidCents ?? rideCents(input.origin, input.destination, vehicle, input.catalog, input.route);
+  // Night pickup: a percentage of the driving part, after the season. Never on a traveller's own offer.
+  const night = input.catalog?.nightPremium ?? NIGHT_PREMIUM_DEFAULT;
+  const nightCents =
+    input.acceptedBidCents === undefined
+      ? nightPremiumCents(
+          rideDriveCents(input.origin, input.destination, vehicle, input.catalog, input.route),
+          input.season.multiplierBps,
+          input.pickupTime,
+          night,
+        )
+      : 0;
   // Each stop: the driver's part (wait + detour) + its tour part per traveller.
   const stopsCents = stops.reduce((sum, s) => sum + stopTotalCents(s, input.pax ?? 1), 0);
   const subtotalCents = baseCents + stopsCents;
   // In bid mode the traveller's offer covers everything, ferries included.
   const ferry = input.acceptedBidCents === undefined ? ferryCents(input.route, input.pax ?? 1, input.catalog) : 0;
-  const totalCents = applyMultiplier(subtotalCents, input.season.multiplierBps) + ferry;
+  // Order: base → vehicle (and area) → season → night premium → pass-through costs (ferries).
+  const totalCents = applyMultiplier(subtotalCents, input.season.multiplierBps) + nightCents + ferry;
 
   const driveMinutes = input.route ? input.route.totalMinutes : routeMinutes(input.origin, input.destination);
   const stopsMinutes = stops.reduce((sum, s) => sum + s.durationMin, 0);
@@ -159,6 +217,8 @@ export function quoteTransfer(input: TransferQuoteInput): TransferQuote {
     stopsCents,
     subtotalCents,
     ferryCents: ferry,
+    nightCents,
+    nightBps: nightCents > 0 ? night.bps : 0,
     seasonMultiplierBps: input.season.multiplierBps,
     totalCents,
     driveMinutes,

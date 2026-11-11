@@ -3,7 +3,7 @@ import Link from "next/link";
 import { routeMinutes } from "@/lib/catalog";
 import { hubName, localizeCatalog } from "@/lib/catalogEs";
 import type { CatalogData } from "@/lib/catalogModel";
-import { FAQ_GROUPS, faqAnswer } from "@/lib/faq";
+import { FAQ_GROUPS, faqAnswer, type FaqValues } from "@/lib/faq";
 import { ON_THE_ROAD_PHOTOS, photoEntry, routePhoto, WILDLIFE_PHOTOS } from "@/lib/photos";
 import { formatDuration, formatUSD } from "@/lib/pricing";
 import { localizedHref, t, type PublicLang } from "@/lib/publicLang";
@@ -27,7 +27,7 @@ export function HomeSections({ lang, catalog: rawCatalog }: { lang: PublicLang; 
       <HowItWorks lang={lang} />
       <OnTheRoad lang={lang} />
       <Wildlife lang={lang} />
-      <FaqTeaser lang={lang} cashFeeBps={catalog.cashFeeBps} />
+      <FaqTeaser lang={lang} values={{ cashFeeBps: catalog.cashFeeBps, nightPremium: catalog.nightPremium }} />
     </div>
   );
 }
@@ -207,7 +207,7 @@ function Wildlife({ lang }: { lang: PublicLang }) {
 /** Four questions from the help center (src/lib/faq.ts), by id; the full list and its structured data live on /faq. */
 const TEASER_IDS = ["per-car", "pay", "flight-delay", "cancel"];
 
-function FaqTeaser({ lang, cashFeeBps }: { lang: PublicLang; cashFeeBps: number }) {
+function FaqTeaser({ lang, values }: { lang: PublicLang; values: FaqValues }) {
   const items = TEASER_IDS.flatMap((id) => FAQ_GROUPS.flatMap((g) => g.items).filter((i) => i.id === id));
   if (!items.length) return null;
   return (
@@ -222,7 +222,7 @@ function FaqTeaser({ lang, cashFeeBps }: { lang: PublicLang; cashFeeBps: number 
                 +
               </span>
             </summary>
-            <p className="px-4 pb-4 leading-relaxed text-slate-600">{faqAnswer(item, lang, cashFeeBps)}</p>
+            <p className="px-4 pb-4 leading-relaxed text-slate-600">{faqAnswer(item, lang, values)}</p>
           </details>
         ))}
       </div>

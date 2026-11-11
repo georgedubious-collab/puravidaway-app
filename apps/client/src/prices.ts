@@ -20,11 +20,7 @@ export const HUBS: Place[] = ["SJO", "LIR", "Arenal", "ManuelAntonio", "Montever
 }));
 export const hub = (id: string): Place => ({ id: "hub:" + id, label: TOWNS[id] ?? id });
 
-/** Pickup times offered: every half hour from 4:00 AM to 10:00 PM. */
-export const TIMES = Array.from({ length: 37 }, (_, i) => {
-  const m = 4 * 60 + i * 30;
-  return String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0");
-});
+export { TIMES, isNightTime, nightLabel, type NightRule } from "./night";
 export const time12 = (t: string) => {
   const [h, m] = t.split(":").map(Number);
   return (h % 12 === 0 ? 12 : h % 12) + ":" + String(m).padStart(2, "0") + (h < 12 ? " AM" : " PM");
@@ -34,6 +30,8 @@ export interface QuoteInput {
   from: string;
   to: string;
   date: string;
+  /** Pickup time "HH:MM" (Costa Rica time), so a night pickup is priced with the night premium. Left out for "from" prices. */
+  time?: string;
   pax: number;
   stopIds: string[];
   /** The app's language, so names and badges come back in it. */
@@ -44,10 +42,10 @@ const quotes = new Map<string, RideQuote>();
 
 /** The price of a ride. The request body is exactly what the server expects; good answers are remembered. */
 export async function fetchQuote(q: QuoteInput): Promise<ApiResult<{ quote: RideQuote }>> {
-  const key = JSON.stringify([q.from, q.to, q.date, q.pax, q.stopIds, q.lang]);
+  const key = JSON.stringify([q.from, q.to, q.date, q.pax, q.stopIds, q.lang, q.time ?? ""]);
   const hit = quotes.get(key);
   if (hit) return { ok: true, data: { quote: hit } };
-  const res = await api<{ quote: RideQuote }>("/client/quote", { from: q.from, to: q.to, date: q.date, pax: q.pax, stopIds: q.stopIds, lang: q.lang });
+  const res = await api<{ quote: RideQuote }>("/client/quote", { from: q.from, to: q.to, date: q.date, ...(q.time ? { time: q.time } : {}), pax: q.pax, stopIds: q.stopIds, lang: q.lang });
   if (res.ok && res.data) quotes.set(key, res.data.quote);
   return res;
 }

@@ -988,6 +988,115 @@ await expectBlocked("non-applicant cannot upload KYC docs", "client2",
 await expectRows("other driver cannot read the document", "pending", "select * from storage.objects", 0);
 await expectRows("admin reads the documents", "admin", "select * from storage.objects", 2);
 
+// --- Night pickups (migration 0041) -------------------------------------------------------------
+// The premium and its hours live in pricing_settings; the server's price functions are run
+// here with the values read from this database, so a change in /admin/pricing changes prices.
+await expectRows("night premium seeded: +20% from 22:00 to 04:00", "anon",
+  "select 1 from public.pricing_settings where night_premium_bps = 2000 and night_start_hour = 22 and night_end_hour = 4", 1);
+await expectBlocked("visitor cannot change the night premium", "anon", "update public.pricing_settings set night_premium_bps = 0", { affected: 0 });
+await expectBlocked("driver cannot change the night premium", "driver", "update public.pricing_settings set night_premium_bps = 0", { affected: 0 });
+await expectBlocked("night premium above 100% refused", "admin", "update public.pricing_settings set night_premium_bps = 10001");
+await expectBlocked("negative night premium refused", "admin", "update public.pricing_settings set night_premium_bps = -1");
+await expectBlocked("night start hour 24 refused", "admin", "update public.pricing_settings set night_start_hour = 24");
+await expectBlocked("night end hour -1 refused", "admin", "update public.pricing_settings set night_end_hour = -1");
+await expectRows("bookings keep their night premium, 0 unless set", "admin", "select 1 from public.bookings where night_premium <> 0", 0);
+await expectBlocked("negative night premium on a booking refused", "server",
+  "update public.bookings set night_premium = -1 where id = '10000000-0000-0000-0000-000000000009'");
+await expectRows("drivers' functions never return the night premium (it is part of the client's price)", "admin",
+  "select 1 from pg_proc where proname in ('driver_jobs','my_trips') and pg_get_function_result(oid) ~ 'night'", 0);
+{
+  const { registerHooks } = await import("node:module");
+  // The app's files import each other without ".ts"; add it for Node.
+  registerHooks({
+    resolve(specifier, context, nextResolve) {
+      if (specifier.startsWith(".") && !/\.[a-z]+$/.test(specifier)) return nextResolve(`${specifier}.ts`, context);
+      return nextResolve(specifier, context);
+    },
+  });
+  const warn = console.warn;
+  console.warn = () => {}; // the catalog warns about the WhatsApp number when loaded outside the site
+  const { BUILT_IN_CATALOG } = await import("../../src/lib/catalogModel.ts");
+  const { parseSpec, priceItem } = await import("../../src/lib/tripRequest.ts");
+  const { splitPayout } = await import("../../src/lib/payout.ts");
+  const { quoteTransfer } = await import("../../src/lib/pricing.ts");
+  const { seasonForYmd } = await import("../../src/lib/catalogModel.ts");
+  console.warn = warn;
+  const expectEq = (name, got, want) => {
+    if (got === want) passed++;
+    else failures.push(`${name}: expected ${want}, got ${got}`);
+  };
+  /** The catalog with the night settings and the commission read from this database, as a visitor. */
+  const liveCatalog = async () => {
+    const r = (await as("anon", "select night_premium_bps, night_start_hour, night_end_hour, driver_commission_bps from public.pricing_settings")).rows[0];
+    return {
+      ...BUILT_IN_CATALOG,
+      driverCommissionBps: Number(r.driver_commission_bps),
+      nightPremium: { bps: Number(r.night_premium_bps), startHour: Number(r.night_start_hour), endHour: Number(r.night_end_hour) },
+    };
+  };
+  const DATE = "2027-06-15"; // green season
+  const ride = (time) => ({ kind: "transfer", origin: "SJO", destination: "ManuelAntonio", vehicleId: "sedan", stopIds: [], pax: 2, ...(time ? { pickupTime: time } : {}), pricing: "fixed" });
+  let catalog = await liveCatalog();
+  const price = (time) => priceItem(parseSpec(ride(time)), DATE, catalog);
+  const usd = (c) => `$${(c / 100).toFixed(2)}`;
+  const day = price("09:00");
+  const shown = [];
+  for (const [time, night] of [["21:30", false], ["22:00", true], ["23:30", true], ["03:30", true], ["04:00", false]]) {
+    const p = price(time);
+    expectEq(`night premium ${night ? "applied" : "not applied"} at ${time}`, p.totalCents, night ? Math.round(day.totalCents * 1.2) : day.totalCents);
+    expectEq(`night premium amount at ${time}`, p.nightCents, night ? Math.round(day.totalCents * 0.2) : 0);
+    shown.push(`${time} ${usd(p.totalCents)}`);
+  }
+  expectEq("old-style request without a pickup time: no premium", price(null).totalCents, day.totalCents);
+  // Driver payout: commission after pass-throughs, so it rises with the premium.
+  const night = price("23:30");
+  const payDay = splitPayout(day.totalCents, day.passThroughCents, catalog, day.companyCostCents).payoutCents;
+  const payNight = splitPayout(night.totalCents, night.passThroughCents, catalog, night.companyCostCents).payoutCents;
+  const keep = 1 - catalog.driverCommissionBps / 10000;
+  expectEq("driver payout by day", payDay, Math.round(day.totalCents * keep));
+  expectEq("driver payout rises with the night premium", payNight - payDay, Math.round(night.nightCents * keep));
+  // Pass-through costs are not marked up: the ferry and the Drake Bay boat fee.
+  const season = seasonForYmd(DATE, catalog);
+  const ferryRoute = { km: 180, drivingMinutes: 240, totalMinutes: 330, ferries: 1 };
+  const q = (time, o) => quoteTransfer({ origin: "SJO", destination: "Tamarindo", vehicleId: "sedan", stopIds: [], pax: 2, season, catalog, pickupTime: time, ...o });
+  const fDay = q("09:00", { route: ferryRoute });
+  const fNight = q("23:30", { route: ferryRoute });
+  expectEq("ferry fare not marked up at night", fNight.ferryCents, fDay.ferryCents);
+  expectEq("with a ferry, the premium is on the ride only", fNight.totalCents - fDay.totalCents, Math.round((fDay.totalCents - fDay.ferryCents) * 0.2));
+  const boatFee = catalog.vehicles.find((v) => v.id === "sierpe_combo").extraFeeCents;
+  const bDay = q("09:00", { destination: "DrakeBay", vehicleId: "sierpe_combo" });
+  const bNight = q("03:30", { destination: "DrakeBay", vehicleId: "sierpe_combo" });
+  expectEq("Drake Bay boat fee not marked up at night", bNight.totalCents - bDay.totalCents, Math.round((bDay.totalCents - boatFee) * 0.2));
+  const sDay = priceItem(parseSpec({ ...ride("09:00"), stopIds: ["tarcoles", "carara"] }), DATE, catalog);
+  const sNight = priceItem(parseSpec({ ...ride("23:30"), stopIds: ["tarcoles", "carara"] }), DATE, catalog);
+  expectEq("stops and their entrances not marked up at night", sNight.totalCents - sDay.totalCents, night.nightCents);
+  // "Name your price": the reference fixed price includes the premium.
+  expectEq("bid reference price includes the night premium",
+    priceItem(parseSpec({ ...ride("23:30"), pricing: "bid", offerCents: 15000 }), DATE, catalog).referenceCents, night.totalCents);
+  console.log(`  night pickups (values from the database): ${shown.join(" · ")}; driver payout ${usd(payDay)} → ${usd(payNight)}`);
+
+  // The team changes the settings in /admin/pricing: prices follow the database.
+  await expectOk("admin changes the night premium and its hours", "admin",
+    "update public.pricing_settings set night_premium_bps = 3000, night_start_hour = 21, night_end_hour = 5");
+  catalog = await liveCatalog();
+  expectEq("after the change, 21:30 is night at +30%", price("21:30").totalCents, Math.round(day.totalCents * 1.3));
+  expectEq("after the change, 04:00 is night too", price("04:00").totalCents, Math.round(day.totalCents * 1.3));
+  expectEq("after the change, 05:00 is day", price("05:00").totalCents, day.totalCents);
+  await expectOk("admin switches the night premium off", "admin", "update public.pricing_settings set night_premium_bps = 0");
+  catalog = await liveCatalog();
+  expectEq("premium off: 23:30 costs the day price", price("23:30").totalCents, day.totalCents);
+  await expectOk("admin restores the night settings", "admin",
+    "update public.pricing_settings set night_premium_bps = 2000, night_start_hour = 22, night_end_hour = 4");
+  // The server stores the premium with the booking.
+  await expectOk("server saves a night ride with its premium", "server",
+    `update public.bookings set total_price = ${night.totalCents / 100}, night_premium = ${night.nightCents / 100}, driver_payout = ${payNight / 100}
+      where id = '10000000-0000-0000-0000-000000000009'`);
+  await expectRows("admin sees the premium on the booking", "admin",
+    `select 1 from public.bookings where id = '10000000-0000-0000-0000-000000000009' and night_premium = ${night.nightCents / 100}`, 1);
+  await expectOk("server resets the test booking's price", "server",
+    "update public.bookings set total_price = 230, night_premium = 0, driver_payout = null where id = '10000000-0000-0000-0000-000000000009'");
+}
+
 // --- Report -----------------------------------------------------------------------------------
 console.log(`${passed} checks passed, ${failures.length} failed`);
 for (const f of failures) console.log("  ✗ " + f);

@@ -52,6 +52,9 @@ const FIELD_ES: Record<string, string> = {
   note: "Nota",
   season_id: "Temporada",
   cash_fee_percent: "Cargo por pago en efectivo",
+  night_premium_percent: "Recargo nocturno",
+  night_start_hour: "Desde (hora)",
+  night_end_hour: "Hasta (hora)",
   ride_base_fare: "Tarifa base",
   ride_per_km: "Por km",
   ride_per_hour: "Por hora de manejo",
@@ -383,6 +386,33 @@ async function saveDriverCommissionImpl(fd: FormData) {
 
 export async function saveDriverCommission(_prev: FormState, fd: FormData): Promise<FormState> {
   return run(() => saveDriverCommissionImpl(fd));
+}
+
+/**
+ * Night pickups (migration 0041): the premium as a percent (20 = 20%, stored as basis points)
+ * and the window's start and end hours in Costa Rica time (0–23; the window ends just before
+ * the end hour and may cross midnight; equal hours = no night window).
+ */
+async function saveNightPremiumImpl(fd: FormData) {
+  await requireRole("admin", "/admin/pricing");
+  const pct = decimal(fd, "night_premium_percent", 0, 100);
+  const hour = (key: string) => {
+    const n = decimal(fd, key, 0, 23);
+    if (!Number.isInteger(n)) throw new InputError(`${fieldEs(key)}: debe ser una hora entera de 0 a 23`, `${fieldEn(key)} must be a whole hour, 0–23`);
+    return n;
+  };
+  const supabase = (await createSupabaseServerClient())!;
+  const { data, error } = await supabase
+    .from("pricing_settings")
+    .upsert({ id: true, night_premium_bps: Math.round(pct * 100), night_start_hour: hour("night_start_hour"), night_end_hour: hour("night_end_hour") })
+    .select("id");
+  if (error) throw new Error(error.message);
+  if (!data?.length) throw NOTHING_SAVED;
+  done();
+}
+
+export async function saveNightPremium(_prev: FormState, fd: FormData): Promise<FormState> {
+  return run(() => saveNightPremiumImpl(fd));
 }
 
 /** Gulf of Nicoya ferry fares per crossing in colones, and the colones-per-dollar rate (migration 0015). */

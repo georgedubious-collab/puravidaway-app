@@ -46,7 +46,8 @@ export type ItemSpec =
       stopIds: string[];
       pax: number;
       /**
-       * Pickup time, Costa Rica time, "HH:MM" (04:00–22:00, quarter hours).
+       * Pickup time, Costa Rica time, "HH:MM" (any hour, quarter hours). A time in the night
+       * window costs the night premium (src/lib/nightPremium.ts).
        * Items saved before this field existed load with DEFAULT_PICKUP_TIME.
        */
       pickupTime: string;
@@ -162,6 +163,8 @@ export interface PricedItem {
   passThroughCents: number;
   /** Entrances, lunch and activities the company pays; deducted before the driver's share. */
   companyCostCents: number;
+  /** Night-pickup premium inside totalCents (0 by day, on tours, expeditions and custom offers). */
+  nightCents: number;
 }
 
 /**
@@ -215,16 +218,17 @@ export function priceItem(spec: ItemSpec, date: string, catalog: CatalogData, ro
       if (offer < MIN_OFFER_USD * 100 || offer > MAX_OFFER_USD * 100) {
         throw new Error(`Offers must be between $${MIN_OFFER_USD} and $${MAX_OFFER_USD}.`);
       }
-      return { totalCents: offer, referenceCents: quote.totalCents, passThroughCents: Math.min(offer, quote.ferryCents), companyCostCents: stopTourCosts };
+      // The reference (fixed) price includes the night premium; the offer itself is not marked up.
+      return { totalCents: offer, referenceCents: quote.totalCents, passThroughCents: Math.min(offer, quote.ferryCents), companyCostCents: stopTourCosts, nightCents: 0 };
     }
-    return { totalCents: quote.totalCents, referenceCents: quote.totalCents, passThroughCents: quote.ferryCents, companyCostCents: stopTourCosts };
+    return { totalCents: quote.totalCents, referenceCents: quote.totalCents, passThroughCents: quote.ferryCents, companyCostCents: stopTourCosts, nightCents: quote.nightCents };
   }
 
   if (spec.kind === "day_tour") {
     if (!catalog.dayTours.some((t) => t.id === spec.tourId)) throw new Error("That tour is no longer offered.");
     const total = quoteDayTour(spec.tourId, spec.upgrade, spec.pax, season, catalog);
     const tour = catalog.dayTours.find((t) => t.id === spec.tourId)!;
-    return { totalCents: total, referenceCents: total, passThroughCents: 0, companyCostCents: tour.costPerPersonCents * spec.pax };
+    return { totalCents: total, referenceCents: total, passThroughCents: 0, companyCostCents: tour.costPerPersonCents * spec.pax, nightCents: 0 };
   }
 
   if (!catalog.expeditions.some((e) => e.id === spec.expeditionId)) throw new Error("That expedition is no longer offered.");
@@ -233,5 +237,5 @@ export function priceItem(spec: ItemSpec, date: string, catalog: CatalogData, ro
     throw new Error("That lodging option is no longer offered.");
   }
   const total = quoteExpedition(spec.expeditionId, spec.tierId, season, catalog);
-  return { totalCents: total, referenceCents: total, passThroughCents: 0, companyCostCents: 0 };
+  return { totalCents: total, referenceCents: total, passThroughCents: 0, companyCostCents: 0, nightCents: 0 };
 }

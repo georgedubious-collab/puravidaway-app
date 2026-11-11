@@ -12,13 +12,16 @@
  *   {price:SJO>Arenal}  cheapest private car on that ride at the default (green) season ("$162")
  *   {boat}              the Sierpe → Drake Bay boat time
  *   {cashFee}           the cash booking fee ("10%")
+ *   {night}             the sentence about pickups at any hour and the night premium, with the
+ *                       live percentage and hours ("Pickups are available at any hour. Rides that
+ *                       start between 10:00 PM and 4:00 AM cost 20% more.")
  * See fillGuideText() in src/lib/guides/index.ts.
  *
  * Writing rules (docs/PROJECT.md §10, docs/SEO.md §6):
  * - Only facts that are true and checked. Things that change often (bus timetables,
  *   fares, flight routes, park prices) are described in general, with "check current times".
  * - Nothing about our service that the rest of the site doesn't already say (src/lib/trust.ts,
- *   src/lib/faq.ts). No "24/7". ICT permits are a per-driver badge, never a site-wide promise.
+ *   src/lib/faq.ts). No "24/7": pickups are at any hour ({night}), but never say the team answers at all hours. ICT permits are a per-driver badge, never a site-wide promise.
  * - Never name the owner or his other businesses. No hotel names, no affiliate links.
  * - Spanish: neutral Latin American, "usted", "conductor"; written natively.
  */

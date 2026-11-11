@@ -27,6 +27,11 @@ const PICKUP: L[] = [
     en: "In the last 3 hours before pickup, while your driver shares their location, you can see where they are on your trip page, and chat there with your driver and our team.",
     es: "En las últimas 3 horas antes de la recogida, mientras su conductor comparte su ubicación, puede ver dónde está en la página de su viaje, y chatear allí con su conductor y con nuestro equipo.",
   },
+  {
+    // {night}: the sentence and its numbers come from the pricing settings (src/lib/nightPremium.ts).
+    en: "{night} The price you see when you choose your pickup time already includes it.",
+    es: "{night} El precio que ve al elegir su hora de recogida ya lo incluye.",
+  },
 ];
 
 const SHUTTLE: OtherWay = {
@@ -74,6 +79,14 @@ const FAQ_DELAY = {
   a: {
     en: "On airport pickups we track your flight, so a delay doesn't leave you stranded. Your driver waits up to 60 minutes free after your flight lands.",
     es: "En las recogidas en el aeropuerto seguimos su vuelo, así que un atraso no lo deja sin transporte. Su conductor espera hasta 60 minutos gratis después de que aterriza su vuelo.",
+  },
+};
+
+const FAQ_NIGHT = {
+  q: { en: "Can you pick me up late at night or very early in the morning?", es: "¿Me pueden recoger tarde en la noche o muy temprano en la mañana?" },
+  a: {
+    en: "Yes. {night} The price you see when you choose your pickup time already includes it. On mountain routes, keep in mind that roads are slower and foggier in the dark.",
+    es: "Sí. {night} El precio que ve al elegir su hora de recogida ya lo incluye. En las rutas de montaña, tenga en cuenta que las carreteras son más lentas y con más neblina en la oscuridad.",
   },
 };
 
@@ -189,6 +202,7 @@ export const AIRPORT_GUIDES: AirportGuide[] = [
         },
       },
       FAQ_DELAY,
+      FAQ_NIGHT,
       FAQ_FIND_DRIVER,
       {
         q: { en: "How long is the drive from SJO to La Fortuna and to Manuel Antonio?", es: "¿Cuánto dura el viaje de SJO a La Fortuna y a Manuel Antonio?" },
@@ -295,6 +309,7 @@ export const AIRPORT_GUIDES: AirportGuide[] = [
         },
       },
       FAQ_DELAY,
+      FAQ_NIGHT,
       FAQ_FIND_DRIVER,
       {
         q: { en: "Is Liberia or San José the better airport?", es: "¿Qué aeropuerto conviene más, Liberia o San José?" },

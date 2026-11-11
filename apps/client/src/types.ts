@@ -93,6 +93,12 @@ export interface RideQuote {
   km: number | null;
   ferries: number;
   season: { name: string; percent: number };
+  /**
+   * Night pickups: the premium in percent, the window's hours (Costa Rica time, from startHour up
+   * to, not including, endHour) and whether it applies to the pickup time of this quote. When it
+   * applies, every vehicle's totalCents already includes it. Older servers don't send it.
+   */
+  night?: { percent: number; startHour: number; endHour: number; applies: boolean };
   cashFeeBps: number;
   /** Lowest "Driver bids" offer. Older servers don't send it. */
   minOfferCents?: number;
@@ -107,6 +113,8 @@ export interface RideQuote {
     allowsStops: boolean;
     spanishSpeakingDriver: boolean;
     totalCents: number;
+    /** Night-pickup premium inside totalCents (0 by day). Older servers don't send it. */
+    nightCents?: number;
     perPersonCents?: number;
     perPersonShare?: number;
   }[];

@@ -306,6 +306,9 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
               />
             )}
             <Item k={t("Precio", "Price")} v={`${usd(b.total_price)}${b.pricing_mode === "bid" ? t(" (oferta del cliente)", " (client's offer)") : ""}`} />
+            {Number(b.night_premium ?? 0) > 0 && (
+              <Item k={t("Recargo nocturno", "Night premium")} v={`${usd(b.night_premium ?? 0)} ${t("(incluido en el precio)", "(included in the price)")}`} />
+            )}
             <Item k={t("Pago", "Payment")} v={paymentText} />
             <Item
               k={t("Recibido", "Received")}

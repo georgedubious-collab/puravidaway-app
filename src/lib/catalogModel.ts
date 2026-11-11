@@ -27,6 +27,7 @@ import {
   type SightseeingStop,
   type VehicleClass,
 } from "./catalog";
+import { NIGHT_PREMIUM_DEFAULT, type NightPremium } from "./nightPremium";
 import { DRIVER_COMMISSION_BPS_DEFAULT } from "./payout";
 import { easterSunday } from "./pricing";
 
@@ -60,6 +61,8 @@ export interface CatalogData {
   driverCommissionBps: number;
   /** USD cents per hour of waiting at a stop. */
   waitPerHourCents: number;
+  /** Night-pickup premium and its hours (pricing_settings, migration 0041). */
+  nightPremium: NightPremium;
 }
 
 /** Season for a travel date: highest-priority range that contains it, else the default season. */
@@ -110,4 +113,5 @@ export const BUILT_IN_CATALOG: CatalogData = {
   crcPerUsd: CRC_PER_USD_DEFAULT,
   driverCommissionBps: DRIVER_COMMISSION_BPS_DEFAULT,
   waitPerHourCents: WAIT_PER_HOUR_CENTS_DEFAULT,
+  nightPremium: NIGHT_PREMIUM_DEFAULT,
 };

@@ -2,6 +2,7 @@
  * Destination and airport guides: look-ups, links and the token filler.
  * Content lives in ./destinations.ts and ./airports.ts (rules in ./types.ts).
  */
+import { nightSentence } from "../nightPremium";
 import { DRAKE_BOAT_MINUTES, HUB_IDS, routeMinutes, type HubId } from "../catalog";
 import type { CatalogData } from "../catalogModel";
 import { formatBpsPercent, formatDuration, formatUSD } from "../pricing";
@@ -55,13 +56,14 @@ const isHub = (v: string): v is HubId => (HUB_IDS as readonly string[]).includes
 
 /**
  * Fills the tokens of a guide text from the live catalog (see ./types.ts):
- * {time:A>B}, {price:A>B}, {pax:A>B}, {boat}, {cashFee}. An unknown token or town
+ * {time:A>B}, {price:A>B}, {pax:A>B}, {boat}, {cashFee}, {night}. An unknown token or town
  * throws, so a typo fails the build instead of reaching a traveller.
  */
 export function fillGuideText(text: string, catalog: CatalogData, lang: PublicLang): string {
   return text.replace(/\{([a-zA-Z]+)(?::([A-Za-z]+)>([A-Za-z]+))?\}/g, (token, kind: string, a?: string, b?: string) => {
     if (kind === "boat") return formatDuration(DRAKE_BOAT_MINUTES, lang);
     if (kind === "cashFee") return formatBpsPercent(catalog.cashFeeBps);
+    if (kind === "night") return nightSentence(catalog.nightPremium, lang);
     if (!a || !b || !isHub(a) || !isHub(b)) throw new Error(`Guide text: unknown token ${token}`);
     if (kind === "time") return formatDuration(routeMinutes(a, b), lang);
     if (kind === "price") return formatUSD(guideRidePrice(a, b, catalog).fromCents);

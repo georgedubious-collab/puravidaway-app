@@ -1,7 +1,7 @@
 import { MessageCircle } from "lucide-react";
 import Link from "next/link";
 import { whatsAppLink } from "@/lib/cart";
-import { FAQ_GROUPS, faqAnswer } from "@/lib/faq";
+import { FAQ_GROUPS, faqAnswer, type FaqValues } from "@/lib/faq";
 import { localizedHref, t, type PublicLang } from "@/lib/publicLang";
 import { JsonLd } from "../JsonLd";
 import { PublicPage } from "../PublicPage";
@@ -19,7 +19,7 @@ export function faqMeta(lang: PublicLang) {
   };
 }
 
-export function FaqPage({ lang, cashFeeBps }: { lang: PublicLang; cashFeeBps: number }) {
+export function FaqPage({ lang, values }: { lang: PublicLang; values: FaqValues }) {
   return (
     <PublicPage
       lang={lang}
@@ -67,7 +67,7 @@ export function FaqPage({ lang, cashFeeBps }: { lang: PublicLang; cashFeeBps: nu
                       <h3 className="text-base">{item.q[lang]}</h3>
                       <span aria-hidden className="text-emerald-700 text-2xl leading-none group-open:rotate-45 transition">+</span>
                     </summary>
-                    <p className="px-5 pb-5 -mt-1 leading-relaxed text-slate-600">{faqAnswer(item, lang, cashFeeBps)}</p>
+                    <p className="px-5 pb-5 -mt-1 leading-relaxed text-slate-600">{faqAnswer(item, lang, values)}</p>
                   </details>
                 ))}
               </div>
@@ -108,7 +108,7 @@ export function FaqPage({ lang, cashFeeBps }: { lang: PublicLang; cashFeeBps: nu
             g.items.map((item) => ({
               "@type": "Question",
               name: item.q[lang],
-              acceptedAnswer: { "@type": "Answer", text: faqAnswer(item, lang, cashFeeBps) },
+              acceptedAnswer: { "@type": "Answer", text: faqAnswer(item, lang, values) },
             })),
           ),
         }}

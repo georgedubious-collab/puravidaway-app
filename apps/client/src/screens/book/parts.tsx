@@ -4,7 +4,7 @@ import { Pressable, View } from "react-native";
 import { bagsFor, cents, luggageCapacity, useBooking } from "../../booking";
 import { useT } from "../../i18n";
 import { useNav } from "../../nav";
-import { driveTime } from "../../prices";
+import { driveTime, nightLabel } from "../../prices";
 import { C, R, S, SHADOW_UP, T } from "../../theme";
 import { Badge, BottomBar, Btn, Skeleton, Text, type IconName } from "../../ui";
 
@@ -153,11 +153,11 @@ export function FromBar({ onNext, canNext }: { onNext: () => void; canNext: bool
 }
 
 /**
- * Drive time, distance, ferry and season for the priced route; grey blocks while it loads.
+ * Drive time, distance, ferry, season and night pickup for the priced route; grey blocks while it loads.
  * `brief` leaves out the drive time (already on the map) and the placeholder.
  */
 export function QuoteFacts({ brief }: { brief?: boolean }) {
-  const { t } = useT();
+  const { lang, t } = useT();
   const { state, quote, quoteBusy } = useBooking();
   if (!quote) {
     if (brief || !quoteBusy || !state.from || !state.to) return null;
@@ -168,13 +168,16 @@ export function QuoteFacts({ brief }: { brief?: boolean }) {
       </View>
     );
   }
-  if (brief && quote.km == null && !quote.ferries && !quote.season.percent) return null;
+  // The vehicle step (brief) shows the night chip at the top, next to the date.
+  const night = !brief && quote.night?.applies ? quote.night : null;
+  if (brief && quote.km == null && !quote.ferries && !quote.season.percent && !night) return null;
   return (
     <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
       {brief ? null : <Badge text={t("About ", "Aprox. ") + driveTime(quote.minutes)} tone="grey" icon="time-outline" />}
       {quote.km != null ? <Badge text={quote.km + " km"} tone="grey" icon="speedometer-outline" /> : null}
       {quote.ferries ? <Badge text={t("Ferry fares included", "Tarifas de ferry incluidas")} tone="sky" icon="boat-outline" /> : null}
       {quote.season.percent ? <Badge text={quote.season.name + " " + (quote.season.percent > 0 ? "+" : "") + quote.season.percent + "%"} tone="gold" icon="sunny-outline" /> : null}
+      {night ? <Badge text={nightLabel(night, lang)} tone="gold" icon="moon-outline" /> : null}
     </View>
   );
 }
