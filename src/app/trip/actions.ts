@@ -483,6 +483,7 @@ interface PricedTripItem {
   passThroughCents: number;
   companyCostCents: number;
   nightCents: number;
+  boatCents: number;
   /** Rides: both ends as priced (typed places looked up again on the server) and the road route. */
   ride?: { origin: RidePlace; destination: RidePlace; route: RideRoute | null };
 }
@@ -524,7 +525,13 @@ async function priceTripItems(
 
 /** What the promo rules need from a priced item. */
 function promoItem(p: PricedTripItem): PromoItemInput {
-  return { kind: p.spec.kind, totalCents: p.totalCents, passThroughCents: p.passThroughCents, companyCostCents: p.companyCostCents };
+  return {
+    kind: p.spec.kind,
+    totalCents: p.totalCents,
+    passThroughCents: p.passThroughCents,
+    companyCostCents: p.companyCostCents,
+    boatCents: p.boatCents,
+  };
 }
 
 /** The visitor's network address, for the request and promo-code limits. */

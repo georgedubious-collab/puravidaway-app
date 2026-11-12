@@ -100,6 +100,26 @@ eq("ferry not discounted (10% of the $200 part)", res.totalDiscountCents, 2000);
 // Tour: $300 with $100 entrances/lunch the company pays: shared part $200.
 res = pr.applyPromo(code(), [tour(30000, 10000)], catalog);
 eq("company-paid costs not discounted (10% of $200)", res.totalDiscountCents, 2000);
+// The Drake Bay boat fee is never discounted: $375 with a $75 boat → 10% of $300.
+res = pr.applyPromo(code(), [{ ...ride(37500), boatCents: 7500 }], catalog);
+eq("boat fee not discounted (10% of the $300 part)", res.totalDiscountCents, 3000);
+{
+  const drake = catalog.vehicles.find((v) => v.extraFeeCents > 0);
+  if (drake) {
+    const spec = trip.parseSpec({ kind: "transfer", origin: "SJO", destination: drake.onlyForHubs?.[0] ?? "DrakeBay", vehicleId: drake.id, stopIds: [], pax: 2, pickupTime: "09:00" });
+    let p = null;
+    try {
+      p = trip.priceItem(spec, "2026-12-15", catalog, null);
+    } catch {
+      /* route not offered without a typed place */
+    }
+    // 15 Dec is high season (× 1.15): $75 → $86.25.
+    if (p) eq("priceItem reports the boat fee after the season", p.boatCents, Math.round((drake.extraFeeCents * 11500) / 10000));
+    else passed++;
+  } else passed++;
+  const tourPrice = trip.priceItem(trip.parseSpec({ kind: "day_tour", tourId: catalog.dayTours[0].id, upgrade: false, pax: 2 }), "2026-12-15", catalog, null);
+  eq("tours have no boat fee", tourPrice.boatCents, 0);
+}
 // Platform's half never above its commission: 50% off a $200 ride would be $100, capped at 2 × $40 = $80.
 res = pr.applyPromo(code({ value: 50 }), [ride(20000)], catalog);
 eq("50% capped at twice our commission", res.totalDiscountCents, 8000);

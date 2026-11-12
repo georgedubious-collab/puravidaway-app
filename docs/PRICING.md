@@ -285,3 +285,34 @@ it moves to the driver side.
 
 **Still open:** none for the job board. Drake Bay boat fares and 4x4-only areas (step 4b) are
 deferred by Jorge.
+
+## 9. Promo codes (built 2026-11-12, migration 0052)
+
+**Jorge's rule: the discount is split 50/50** between our share and the driver's payout ($20 off →
+we keep $10 less, the driver is paid $10 less). Drivers still see only their own payout, never the
+client's price or the code. The team creates codes at `/admin/promos` (link from Prices & catalog);
+travellers type them at checkout (website trip panel, app "Your ride" and the tour review).
+Rules (code: `src/lib/promo.ts`; tests: `npm run test:money`):
+
+1. **Order:** base → vehicle and area → season → night premium → ferries (§4, §6.6) → **then the
+   discount**. The cash booking fee is charged on what is left after the discount.
+2. **What is discounted:** only the part we and the driver share = price − ferries − costs the
+   company pays (park entrances, lunch, activities on tours and guided stops). Ferry tickets and
+   those costs are **never** discounted. Percent codes: that percent of the shared part of each
+   eligible booking, half-up to the cent. Fixed codes: the amount once per trip, taken from the
+   eligible bookings in trip order.
+3. **Limit:** our half never exceeds our commission on the booking, so a code never makes us pay
+   to run a trip. With the 20% commission a booking can get at most **40% off its shared part**
+   (a "50%" code gives 40%). A total never goes below zero.
+4. **Split and rounding:** the driver's part is **half the discount rounded DOWN to the cent**; we
+   take the odd cent ($10.01 off → driver $5.00 less, us $5.01 less). `driver_payout` and
+   `platform_fee` are stored already reduced; `bookings.promo_code` / `promo_discount` and one
+   `promo_redemptions` row per booking keep the details. If the team later accepts a driver's offer
+   on the job board, the offer becomes the payout as before.
+5. **Conditions:** active, between "valid from" and "valid until" (Costa Rica dates, inclusive),
+   rides / tours / both, minimum order (the eligible bookings before the discount), most uses in total
+   and per email (uses = trips, cancelled bookings don't count). One code per trip.
+6. **Checks:** always on the server, again when the trip is sent (with the real email). A wrong or
+   unusable code always gets the same answer, "This code isn't valid." / "Este código no es
+   válido.", never why. After **10 wrong codes in an hour from one network** the checks stop for
+   an hour. Older app builds that send no code book exactly as before.

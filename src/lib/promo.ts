@@ -8,8 +8,8 @@
  * Rules, all in whole cents:
  * - Order: season, night premium and ferries are priced first (priceItem); the discount comes last.
  * - Only the part of a booking the platform and the driver share is discounted: never the
- *   pass-through costs (ferry tickets) nor the costs the company pays (park entrances, lunch,
- *   activities on tours and guided stops).
+ *   pass-through costs (ferry tickets), the Drake Bay boat fee, nor the costs the company pays
+ *   (park entrances, lunch, activities on tours and guided stops).
  * - The platform's half never exceeds its commission on that booking, so a code never makes us
  *   pay to run a trip (with the 20% commission: at most 40% off the shared part). A total never
  *   goes below zero.
@@ -76,6 +76,8 @@ export interface PromoItemInput {
   passThroughCents: number;
   /** Park entrances, lunch, activities the company pays: never discounted. */
   companyCostCents: number;
+  /** The Drake Bay boat fee inside the price (rides): never discounted. */
+  boatCents?: number;
 }
 
 export interface PromoLine {
@@ -115,18 +117,21 @@ export function maxDiscountCents(item: PromoItemInput, catalog?: Pick<CatalogDat
   const total = Math.max(0, item.totalCents);
   const pass = Math.min(Math.max(0, item.passThroughCents), total);
   const costs = Math.min(Math.max(0, item.companyCostCents), total - pass);
-  const shared = total - pass - costs;
   const { feeCents } = splitPayout(total, pass, catalog, costs);
   const commission = Math.max(0, feeCents - costs);
-  return Math.max(0, Math.min(shared, 2 * commission));
+  return Math.max(0, Math.min(sharedCents(item), 2 * commission));
 }
 
-/** The part of an item a percent code is a percentage of: price minus ferries and company-paid costs. */
+/**
+ * The part of an item a code may discount (and a percent code is a percentage of): the price
+ * minus ferries, company-paid costs and the Drake Bay boat fee.
+ */
 export function sharedCents(item: PromoItemInput): number {
   const total = Math.max(0, item.totalCents);
   const pass = Math.min(Math.max(0, item.passThroughCents), total);
   const costs = Math.min(Math.max(0, item.companyCostCents), total - pass);
-  return total - pass - costs;
+  const boat = Math.min(Math.max(0, item.boatCents ?? 0), total - pass - costs);
+  return total - pass - costs - boat;
 }
 
 /** Sum the code's minimum order is checked against: the eligible items before the discount. */
