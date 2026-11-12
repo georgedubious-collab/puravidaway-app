@@ -25,7 +25,8 @@ export async function api<T = unknown>(path: string, body?: Record<string, unkno
     });
     const json = (await res.json().catch(() => null)) as (T & { ok?: boolean; error?: string }) | null;
     if (!json) return { ok: false, error: "We couldn't reach the server. Check your connection." };
-    return json.ok ? { ok: true, data: json } : { ok: false, error: json.error ?? "Something went wrong." };
+    // A refusal keeps its other fields too (e.g. promoInvalid on a trip request).
+    return json.ok ? { ok: true, data: json } : { ok: false, error: json.error ?? "Something went wrong.", data: json };
   } catch {
     return { ok: false, error: "We couldn't reach the server. Check your connection." };
   }
