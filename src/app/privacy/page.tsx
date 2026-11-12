@@ -22,7 +22,7 @@ export const metadata: Metadata = {
 export default function PrivacyPage() {
   return (
     <LegalPage
-      updated="2026-11-11"
+      updated="2026-11-12"
       title="Privacy Policy"
       intro={
         <p>
@@ -148,12 +148,20 @@ export default function PrivacyPage() {
           <li>
             <strong>Accounting, tax and legal records</strong> (legal obligation).
           </li>
+          <li>
+            <strong>One suggestion after a ride</strong> (legitimate interest): the morning after a
+            completed ride we may email you once with a link to book the ride back and, where there are
+            some, a few day tours nearby; every such email has an unsubscribe link, and if you use it we
+            keep your email address on a do-not-send list and send you no more suggestions (emails about
+            your bookings still arrive).
+          </li>
           <MeasurementPurpose lang="en" />
         </ul>
         <p>
           By sending a trip request or a driver application you give your informed consent, as required
-          by Ley 8968, to this use of your data. We don’t sell your data, and we don’t send marketing
-          messages unless you ask for them.
+          by Ley 8968, to this use of your data. We don’t sell your data, and apart from that one
+          suggestion after a ride, which you can switch off, we don’t send marketing messages unless you
+          ask for them.
         </p>
       </LegalSection>
 

@@ -20,7 +20,7 @@ export const metadata: Metadata = {
 export default function PrivacidadPage() {
   return (
     <LegalPage
-      updated="2026-11-11"
+      updated="2026-11-12"
       lang="es"
       title="Política de privacidad"
       intro={
@@ -167,12 +167,20 @@ export default function PrivacidadPage() {
           <li>
             <strong>Registros contables, tributarios y legales</strong> (obligación legal).
           </li>
+          <li>
+            <strong>Una sugerencia después de un traslado</strong> (interés legítimo): la mañana
+            siguiente a un traslado completado podemos enviarle un solo correo con un enlace para
+            reservar el regreso y, si los hay, algunos tours de un día cercanos; cada uno de esos correos
+            tiene un enlace para darse de baja, y si lo usa guardamos su correo electrónico en una lista
+            de no envío y no le enviamos más sugerencias (los correos de sus reservas siguen llegando).
+          </li>
           <MeasurementPurpose lang="es" />
         </ul>
         <p>
           Al enviar una solicitud de viaje o una solicitud para ser conductor, usted da su consentimiento
-          informado, como lo exige la Ley N.º 8968, para este uso de sus datos. No vendemos sus datos y
-          no enviamos mensajes de mercadeo a menos que usted los pida.
+          informado, como lo exige la Ley N.º 8968, para este uso de sus datos. No vendemos sus datos y,
+          aparte de esa única sugerencia después de un traslado, que usted puede desactivar, no enviamos
+          mensajes de mercadeo a menos que usted los pida.
         </p>
       </LegalSection>
 
