@@ -10,6 +10,7 @@ import { useNav } from "../../nav";
 import { driveTime, nightLabel, time12 } from "../../prices";
 import { C, S, SP, T } from "../../theme";
 import { Badge, Bar, Btn, RoundBtn, Skeleton, Text } from "../../ui";
+import { VehicleArt } from "../../VehicleArt";
 import { BagNote, ChipBtn, QuoteFacts, QuoteProblem, RouteDots } from "./parts";
 
 /**
@@ -117,9 +118,7 @@ export function BookRide() {
                   }}
                   style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: 10, minHeight: 68, paddingVertical: 8, paddingLeft: 8, paddingRight: 14, borderRadius: 16, borderWidth: 2, borderColor: on ? C.emerald : C.card, backgroundColor: on ? C.emeraldTint : C.card, opacity: pressed ? 0.75 : 1 })}
                 >
-                  <View style={{ width: 52, height: 40, alignItems: "center", justifyContent: "center" }}>
-                    <Ionicons name={v.maxPax > 5 ? "bus-outline" : "car-outline"} size={32} color={C.text} />
-                  </View>
+                  <VehicleArt id={v.id} name={v.name} maxPax={v.maxPax} width={64} height={46} />
                   <View style={{ flex: 1, gap: 2 }}>
                     <Text style={{ fontSize: 16, lineHeight: 21, fontWeight: "700", color: C.text }}>{v.name}</Text>
                     {similar ? <Text style={[T.caption, { fontWeight: "600", color: C.text }]}>{similar}</Text> : null}

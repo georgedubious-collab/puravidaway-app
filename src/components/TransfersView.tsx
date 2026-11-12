@@ -433,7 +433,7 @@ export function TransfersView({
                         lang={lang}
                         decorative
                         sizes="112px"
-                        className="w-24 sm:w-28 shrink-0 self-stretch min-h-24 rounded-lg"
+                        className="w-24 sm:w-28 shrink-0 self-start aspect-[4/3] rounded-lg"
                       />
                       <span className="min-w-0 flex-1 py-0.5">
                         {on && (
@@ -473,6 +473,8 @@ export function TransfersView({
                   );
                 })}
               </div>
+              {/* The pictures are stock photos of each body type until we have photos of our own vehicles (docs/PHOTOS.md). */}
+              <p className="mt-2 text-xs text-slate-500">{t("Photos show example vehicles.", "Las fotos muestran vehículos de ejemplo.")}</p>
               <LuggageHint luggage={selectedVehicle?.luggage} largeBags={largeBags} />
               <RidePromises airport={airportPickup} />
             </Card>

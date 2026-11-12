@@ -131,7 +131,7 @@ export function Home({ top }: { top: ReactNode }) {
                       onPress={() => planWith(v)}
                       style={({ pressed }) => [{ flexDirection: "row", alignItems: "center", gap: 12, minHeight: 84, backgroundColor: C.card, borderRadius: 18, paddingVertical: 12, paddingHorizontal: 14, opacity: pressed ? 0.85 : 1 }, SHADOW]}
                     >
-                      <VehicleArt id={v.id} maxPax={v.maxPax} />
+                      <VehicleArt id={v.id} name={v.name} maxPax={v.maxPax} width={92} height={66} />
                       <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
                         <Text style={{ fontSize: 16, lineHeight: 21, fontWeight: "800", color: C.text }}>{v.name}</Text>
                         {similar ? <Text style={{ fontSize: 13, lineHeight: 18, fontWeight: "500", color: C.text }}>{similar}</Text> : null}
@@ -148,14 +148,14 @@ export function Home({ top }: { top: ReactNode }) {
                 })
               : [0, 1, 2, 3].map((i) => (
                   <View key={i} style={[{ flexDirection: "row", alignItems: "center", gap: 12, minHeight: 84, backgroundColor: C.card, borderRadius: 18, paddingVertical: 12, paddingHorizontal: 14 }, SHADOW]}>
-                    <Skeleton width={68} height={52} radius={14} />
+                    <Skeleton width={92} height={66} radius={14} />
                     <View style={{ flex: 1, gap: 8 }}>
                       <Skeleton height={16} width="60%" />
                       <Skeleton height={12} width="80%" />
                     </View>
                   </View>
                 ))}
-            <Text style={[T.caption, { textAlign: "center", marginTop: 4 }]}>{t("The price is for the whole vehicle, not per person.", "El precio es por todo el vehículo, no por persona.")}</Text>
+            <Text style={[T.caption, { textAlign: "center", marginTop: 4 }]}>{t("The price is for the whole vehicle, not per person. Photos show example vehicles.", "El precio es por todo el vehículo, no por persona. Las fotos muestran vehículos de ejemplo.")}</Text>
           </View>
         )}
 

@@ -242,10 +242,16 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
 - **Photos (2026-11-10):** every picture goes through the registry `src/lib/photos.ts` (file, alt
   text in English and Spanish, focal point, credit) and the `Photo` component
   (`src/components/site/Photo.tsx`, `next/image`, AVIF / WebP). Files are in `public/photos/`,
-  metadata-free. An entry without a file shows a drawn placeholder (Arenal, Monteverde, Drake Bay,
-  Corcovado, Poás, all vehicle classes) until a real photo is added with one registry line. The
-  rules (own photos only, never shared with any other business, a photo shows what its caption
-  says, no people / plates / metadata) and the list of published photos are in `docs/PHOTOS.md`.
+  metadata-free. An entry without a file shows a drawn placeholder (Arenal Volcano, Corcovado,
+  Poás, the 4x4 + boat combo) until a real photo is added with one registry line. The
+  rules (own photos preferred and never shared with any other business, a photo shows what its
+  caption says, no people / plates / metadata) and the list of published photos are in
+  `docs/PHOTOS.md`. **Temporary stock photos (Jorge, 2026-11-11):** where we have no photo yet
+  (Monteverde, Drake Bay, the five vehicle classes) the site and the customer app use free
+  Pexels photos, each recorded with its source page so it can be replaced by an own photo;
+  vehicle photos are examples of the body type ("Photos show example vehicles"), never presented
+  as our cars. The customer app bundles the same pictures (`apps/client/src/images.ts`,
+  `apps/client/assets/photos/`, about 1.5 MB).
 - **Destination and airport guides (2026-11-11, docs/SEO.md §4 step 2):** `/destinations` (index)
   and `/destinations/<slug>` for La Fortuna / Arenal, Manuel Antonio, Monteverde, Tamarindo /
   Guanacaste, Puerto Viejo and Drake Bay & Sierpe; `/airports` (index) and `/airports/sjo`,

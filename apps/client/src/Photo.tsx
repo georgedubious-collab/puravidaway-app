@@ -37,7 +37,8 @@ export function Photo({
       accessibilityLabel={label}
       style={[{ overflow: "hidden", backgroundColor: placeholder.to }, style]}
     >
-      {source ? <Image source={source} resizeMode="cover" style={StyleSheet.absoluteFill} /> : <PlaceholderArt p={placeholder} id={id} />}
+      {/* A bundled photo brings its own pixel size; 100% makes it fill the slot instead. */}
+      {source ? <Image source={source} resizeMode="cover" style={[StyleSheet.absoluteFill, { width: "100%", height: "100%" }]} /> : <PlaceholderArt p={placeholder} id={id} />}
       {scrim ? (
         <Svg style={StyleSheet.absoluteFill} width="100%" height="100%" preserveAspectRatio="none" viewBox="0 0 10 10">
           <Defs>
