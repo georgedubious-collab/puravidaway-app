@@ -60,7 +60,9 @@ for (const p of TOUR_PAGES) {
   const answer = fillTourText(p.answer.en, p, tour, BUILT_IN_CATALOG, "en");
   const pp4 = `$${Math.round(tourPerPersonCents(tour, 4, 10000) / 100)}`;
   ok(`${name}: answer quotes the 4+ price ${pp4}`, answer.includes(pp4), answer);
-  ok(`${name}: answer is dated`, /Updated (January|February|March|April|May|June|July|August|September|October|November|December) \d{4}/.test(answer));
+  ok(`${name}: answer is dated`, /checked (January|February|March|April|May|June|July|August|September|October|November|December) \d{4}\)\.$/.test(answer), answer);
+  const answerEs = fillTourText(p.answer.es, p, tour, BUILT_IN_CATALOG, "es");
+  ok(`${name}: Spanish answer is dated`, /revisado en [a-z]+ de \d{4}\)\.$/.test(answerEs), answerEs);
 }
 
 // The travel guides link to tour pages, never to a tour page that doesn't exist.

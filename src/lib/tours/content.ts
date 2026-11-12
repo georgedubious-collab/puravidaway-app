@@ -54,8 +54,8 @@ export const TOUR_CONTENT: TourPageContent[] = [
       "Tour privado de un día en La Fortuna: senderos de lava de 1968 del Arenal, catarata de La Fortuna y aguas termales, con guía naturalista local, entradas y almuerzo incluidos. Precio por persona según el grupo.",
     ),
     answer: l(
-      "Updated {asof}: a private {hours} day around Arenal Volcano for your group only, starting in La Fortuna. It combines the 1968 lava trails, La Fortuna Waterfall and a hot springs soak, with a local naturalist guide, entrances and lunch included, from {pp4} per person for 4 or more travellers ({pp1} for one traveller, green season).",
-      "Actualizado en {asof}: un día privado de {hours} alrededor del volcán Arenal solo para su grupo, con inicio en La Fortuna. Combina los senderos de lava de 1968, la catarata de La Fortuna y un baño en aguas termales, con guía naturalista local, entradas y almuerzo incluidos, desde {pp4} por persona para 4 viajeros o más ({pp1} para un viajero, temporada verde).",
+      "A private day tour of {hours} around Arenal Volcano for your group only, starting in La Fortuna. It combines the 1968 lava trails, La Fortuna Waterfall and a hot springs soak, with a local naturalist guide, entrances and lunch included, from {pp4} per person for 4 or more travellers ({pp1} for one traveller, green season, checked {asof}).",
+      "Un día privado de {hours} alrededor del volcán Arenal solo para su grupo, con inicio en La Fortuna. Combina los senderos de lava de 1968, la catarata de La Fortuna y un baño en aguas termales, con guía naturalista local, entradas y almuerzo incluidos, desde {pp4} por persona para 4 viajeros o más ({pp1} para un viajero, temporada verde, revisado en {asof}).",
     ),
     intro: l(
       "The classic La Fortuna day in one go: walk across the lava fields of the 1968 eruption, go down to the waterfall in the forest, and soak in water warmed by the volcano. Your guide sets the pace for your group, and nobody else joins.",
@@ -142,8 +142,8 @@ export const TOUR_CONTENT: TourPageContent[] = [
       "Tour privado de un día en Manuel Antonio: caminata de vida silvestre en el parque nacional con guía naturalista y telescopio, y por la tarde catamarán con snorkel. Entradas y almuerzo incluidos. Precio por persona según el grupo.",
     ),
     answer: l(
-      "Updated {asof}: a private {hours} day in Manuel Antonio for your group only: a wildlife walk in Manuel Antonio National Park with a naturalist guide and spotting scope, then an afternoon catamaran with snorkelling. Entrances and lunch are included, from {pp4} per person for 4 or more travellers ({pp1} for one traveller, green season).",
-      "Actualizado en {asof}: un día privado de {hours} en Manuel Antonio solo para su grupo: una caminata de vida silvestre en el Parque Nacional Manuel Antonio con guía naturalista y telescopio, y por la tarde un catamarán con snorkel. Entradas y almuerzo incluidos, desde {pp4} por persona para 4 viajeros o más ({pp1} para un viajero, temporada verde).",
+      "A private day tour of {hours} in Manuel Antonio for your group only: a wildlife walk in Manuel Antonio National Park with a naturalist guide and spotting scope, then an afternoon catamaran with snorkelling. Entrances and lunch are included, from {pp4} per person for 4 or more travellers ({pp1} for one traveller, green season, checked {asof}).",
+      "Un día privado de {hours} en Manuel Antonio solo para su grupo: una caminata de vida silvestre en el Parque Nacional Manuel Antonio con guía naturalista y telescopio, y por la tarde un catamarán con snorkel. Entradas y almuerzo incluidos, desde {pp4} por persona para 4 viajeros o más ({pp1} para un viajero, temporada verde, revisado en {asof}).",
     ),
     intro: l(
       "Manuel Antonio packs forest and sea into one small park. A naturalist with a spotting scope finds the sloths, monkeys and toucans you would walk past, and the afternoon is on the water.",
@@ -224,8 +224,8 @@ export const TOUR_CONTENT: TourPageContent[] = [
       "Tour privado de un día en la región de Osa: safari en lancha por los manglares de Sierpe y snorkel en la Isla del Caño, con guía naturalista local, entradas y almuerzo incluidos. Precio por persona según el grupo.",
     ),
     answer: l(
-      "Updated {asof}: a private {hours} day in the Osa region for your group only: a boat safari through the Sierpe mangroves and snorkelling at Caño Island, with dolphins in season. A local naturalist guide, entrances and lunch are included, from {pp4} per person for 4 or more travellers ({pp1} for one traveller, green season).",
-      "Actualizado en {asof}: un día privado de {hours} en la región de Osa solo para su grupo: un safari en lancha por los manglares de Sierpe y snorkel en la Isla del Caño, con delfines en temporada. Guía naturalista local, entradas y almuerzo incluidos, desde {pp4} por persona para 4 viajeros o más ({pp1} para un viajero, temporada verde).",
+      "A private day tour of {hours} in the Osa region for your group only: a boat safari through the Sierpe mangroves and snorkelling at Caño Island, with dolphins in season. A local naturalist guide, entrances and lunch are included, from {pp4} per person for 4 or more travellers ({pp1} for one traveller, green season, checked {asof}).",
+      "Un día privado de {hours} en la región de Osa solo para su grupo: un safari en lancha por los manglares de Sierpe y snorkel en la Isla del Caño, con delfines en temporada. Guía naturalista local, entradas y almuerzo incluidos, desde {pp4} por persona para 4 viajeros o más ({pp1} para un viajero, temporada verde, revisado en {asof}).",
     ),
     intro: l(
       "Two sides of Osa in one day: the slow, green channels of the Térraba-Sierpe wetland, Costa Rica's largest mangrove forest, and the clear water around Caño Island, a biological reserve offshore.",
@@ -313,8 +313,8 @@ export const TOUR_CONTENT: TourPageContent[] = [
       "Tour privado de un día en Monteverde: puentes colgantes por el dosel del bosque nuboso, canopy (tirolesa) y caminata nocturna guiada, con guía naturalista local, entradas y almuerzo incluidos. Precio por persona según el grupo.",
     ),
     answer: l(
-      "Updated {asof}: a private {hours} day in Monteverde for your group only: hanging bridges through the cloud-forest canopy, a zipline and a guided night walk. A local naturalist guide, entrances and lunch are included, from {pp4} per person for 4 or more travellers ({pp1} for one traveller, green season).",
-      "Actualizado en {asof}: un día privado de {hours} en Monteverde solo para su grupo: puentes colgantes por el dosel del bosque nuboso, canopy (tirolesa) y una caminata nocturna guiada. Guía naturalista local, entradas y almuerzo incluidos, desde {pp4} por persona para 4 viajeros o más ({pp1} para un viajero, temporada verde).",
+      "A private day tour of {hours} in Monteverde for your group only: hanging bridges through the cloud-forest canopy, a zipline and a guided night walk. A local naturalist guide, entrances and lunch are included, from {pp4} per person for 4 or more travellers ({pp1} for one traveller, green season, checked {asof}).",
+      "Un día privado de {hours} en Monteverde solo para su grupo: puentes colgantes por el dosel del bosque nuboso, canopy (tirolesa) y una caminata nocturna guiada. Guía naturalista local, entradas y almuerzo incluidos, desde {pp4} por persona para 4 viajeros o más ({pp1} para un viajero, temporada verde, revisado en {asof}).",
     ),
     intro: l(
       "The cloud forest from three angles: walking through the treetops on suspension bridges, flying over them on a zipline, and after dark on foot with a guide, when a different set of animals comes out.",

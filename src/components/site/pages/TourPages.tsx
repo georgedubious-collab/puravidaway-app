@@ -148,28 +148,32 @@ export async function TourDetailPage({ page, lang }: { page: TourPage; lang: Pub
           <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
             <table className="w-full text-left text-sm">
               <caption className="sr-only">{t(lang, `Price per person of the ${tour.name} tour, by group size and season`, `Precio por persona del tour ${tour.name}, según el grupo y la temporada`)}</caption>
-              <thead className="bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-600">
+              <thead className="bg-slate-50 text-xs text-slate-600 align-bottom">
                 <tr>
-                  <th scope="col" className="px-3 sm:px-4 py-3">
-                    {t(lang, "Group", "Grupo")}
+                  <th scope="col" className="px-2.5 sm:px-4 py-3 font-bold uppercase tracking-wide">
+                    {t(lang, "Per person", "Por persona")}
                   </th>
-                  {seasons.map((s) => (
-                    <th key={s.id} scope="col" className="px-3 sm:px-4 py-3">
-                      {s.name}
-                    </th>
-                  ))}
+                  {seasons.map((s) => {
+                    // "High season (Dec–Apr)": the name on top, the dates in small type under it, so three seasons fit a phone.
+                    const [main, ...rest] = s.name.split(" (");
+                    return (
+                      <th key={s.id} scope="col" className="px-2.5 sm:px-4 py-3 font-normal">
+                        <span className="block font-bold text-slate-800">{main}</span>
+                        {rest.length > 0 && <span className="block">({rest.join(" (")}</span>}
+                      </th>
+                    );
+                  })}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
                 {tiers(lang).map((row) => (
                   <tr key={row.pax}>
-                    <th scope="row" className="px-3 sm:px-4 py-3 font-bold text-slate-900 whitespace-nowrap">
+                    <th scope="row" className="px-2.5 sm:px-4 py-3 font-bold text-slate-900">
                       {row.label}
                     </th>
                     {seasons.map((s) => (
-                      <td key={s.id} className="px-3 sm:px-4 py-3 whitespace-nowrap">
-                        <span className="font-extrabold text-emerald-700">{formatUSDWhole(tourPerPersonCents(tour, row.pax, s.multiplierBps))}</span>
-                        <span className="block text-xs text-slate-600">{t(lang, "per person", "por persona")}</span>
+                      <td key={s.id} className="px-2.5 sm:px-4 py-3 whitespace-nowrap font-extrabold text-emerald-700">
+                        {formatUSDWhole(tourPerPersonCents(tour, row.pax, s.multiplierBps))}
                       </td>
                     ))}
                   </tr>
