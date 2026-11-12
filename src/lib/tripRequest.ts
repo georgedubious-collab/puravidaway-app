@@ -19,6 +19,30 @@ export const LEGACY_MIN_OFFER_USD = 50;
 export const MAX_TRIP_ITEMS = 10;
 /** Most large suitcases, and most carry-ons, a traveller can enter (bookings.luggage_count / carry_on_count checks, migrations 0035 and 0037). */
 export const MAX_BAGS = 20;
+/** Longest day-tour pickup place (bookings_pickup_place_shape, migration 0045). */
+export const TOUR_PICKUP_MAX = 120;
+export const TOUR_PICKUP_ERROR_CONTACT = "Please keep phone numbers, emails and links out of the pickup place. You can message us in the trip chat once confirmed.";
+export const TOUR_PICKUP_ERROR_LONG = `The pickup place can be up to ${TOUR_PICKUP_MAX} characters.`;
+
+/**
+ * The "Don't send me suggestions after my trip" tickbox (docs/PROJECT.md §4.7). Only an explicit
+ * true counts: unticked, missing (older app builds and pages) or anything else = no change.
+ */
+export function optsOutOfSuggestions(v: unknown): boolean {
+  return v === true;
+}
+
+/** One line, single spaces, trimmed (same as the name sign). */
+export function cleanPickupPlace(v: unknown): string {
+  return cleanSignText(v);
+}
+
+/** Why a cleaned pickup place can't be used (a message for the traveller), or null when it is fine or empty. */
+export function pickupPlaceProblem(clean: string): string | null {
+  if (clean.length > TOUR_PICKUP_MAX) return TOUR_PICKUP_ERROR_LONG;
+  if (clean && hasContactDetails(clean)) return TOUR_PICKUP_ERROR_CONTACT;
+  return null;
+}
 
 /** A typed pickup / drop-off (Google place id + what the traveller saw). */
 export interface SpecPlace {
@@ -71,6 +95,12 @@ export type ItemSpec =
       upgrade: boolean;
       /** Travellers (per-person pricing). Items saved before 2026-11-09 load as 2. */
       pax: number;
+      /**
+       * Where to pick the travellers up: their hotel or address (bookings.pickup_place, up to
+       * TOUR_PICKUP_MAX characters, no contact details). Asked for on new bookings; older app
+       * builds and carts saved before 2026-11-12 don't send it.
+       */
+      pickupPlace?: string;
     };
 
 /**
@@ -191,7 +221,16 @@ export function parseSpec(raw: unknown): ItemSpec | null {
   if (o.kind === "day_tour") {
     if (!str(o.tourId) || typeof o.upgrade !== "boolean") return null;
     if (o.pax !== undefined && (!Number.isInteger(o.pax) || (o.pax as number) < 1 || (o.pax as number) > 60)) return null;
-    return { kind: "day_tour", tourId: o.tourId as string, upgrade: o.upgrade, pax: (o.pax as number | undefined) ?? 2 };
+    // Pickup place: a readable error for a long text or contact details comes from priceItem().
+    if (o.pickupPlace !== undefined && o.pickupPlace !== null && (typeof o.pickupPlace !== "string" || o.pickupPlace.length > 500)) return null;
+    const pickupPlace = cleanPickupPlace(o.pickupPlace);
+    return {
+      kind: "day_tour",
+      tourId: o.tourId as string,
+      upgrade: o.upgrade,
+      pax: (o.pax as number | undefined) ?? 2,
+      ...(pickupPlace ? { pickupPlace } : {}),
+    };
   }
   // "expedition" (retired multi-day trips) and anything else: not bookable.
   return null;
@@ -257,6 +296,8 @@ export function priceItem(spec: ItemSpec, date: string, catalog: CatalogData, ro
   }
 
   if (!catalog.dayTours.some((t) => t.id === spec.tourId)) throw new Error("That tour is no longer offered.");
+  const pickupProblem = pickupPlaceProblem(cleanPickupPlace(spec.pickupPlace));
+  if (pickupProblem) throw new Error(pickupProblem);
   const total = quoteDayTour(spec.tourId, spec.upgrade, spec.pax, season, catalog);
   const tour = catalog.dayTours.find((t) => t.id === spec.tourId)!;
   return { totalCents: total, passThroughCents: 0, companyCostCents: tour.costPerPersonCents * spec.pax, nightCents: 0 };

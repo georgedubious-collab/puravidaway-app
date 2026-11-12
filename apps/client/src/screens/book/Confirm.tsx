@@ -10,6 +10,7 @@ import { driveTime, nightLabel, time12 } from "../../prices";
 import { useSession } from "../../session";
 import { C, S, SP, T } from "../../theme";
 import { Badge, Bar, BottomBar, Btn, Card, Choice, FieldLabel, IconLine, Input, Page, Skeleton, Stepper, Text, Toggle } from "../../ui";
+import { NoSuggestions } from "./parts";
 import { validEmail, sendCode } from "../SignIn";
 import { ActionRow, BagNote, QuoteProblem, RouteDots } from "./parts";
 import { useSendRequest } from "./Review";
@@ -248,6 +249,7 @@ export function BookConfirm() {
         ) : (
           <IconLine small icon="mail-outline" text={t("Confirmations go to " + email + ".", "Las confirmaciones se envían a " + email + ".")} />
         )}
+        <NoSuggestions />
       </Card>
 
       {error ? (

@@ -20,6 +20,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
   MAX_TRIP_ITEMS,
   itemTime,
+  optsOutOfSuggestions,
   parseSpec,
   priceItem,
   retiredItemError,
@@ -38,6 +39,11 @@ export interface TripRequestInput {
   notes: string;
   /** Hidden field real people leave empty (spam trap). */
   website: string;
+  /**
+   * "Don't send me suggestions after my trip" was ticked: the email goes on the promotional
+   * unsubscribe list (email_optouts, source "booking"). Missing (older apps) = no change.
+   */
+  noSuggestions?: boolean;
   /**
    * Language the traveller is booking in: "es" from /es and the customer app in Spanish.
    * Saved with the trip; the confirmation email and everything sent later follow it.
@@ -217,6 +223,8 @@ async function saveTripRequest(input: TripRequestInput, team: TeamEntry | null):
       // first name + last initial. Older app builds send neither.
       sign_text: spec.kind === "transfer" ? (spec.signText ?? null) : null,
       sign_hide_name: spec.kind === "transfer" && !spec.signText && spec.signHideName === true,
+      // Day tours: the hotel or address to pick them up (migration 0045). Rides use origin.
+      pickup_place: spec.kind === "day_tour" ? (spec.pickupPlace ?? null) : null,
       // Door-to-door drive time for the driver's arrival estimate: Google's road route for typed
       // places, else our per-corridor table between two towns. Never a straight-line guess.
       drive_minutes: spec.kind === "transfer" ? driveMinutes(ride?.route ?? null, spec) : null,
@@ -261,12 +269,25 @@ async function saveTripRequest(input: TripRequestInput, team: TeamEntry | null):
         .insert(rows.map((row) => ({ ...row, night_premium: undefined })))
         .select("id, booking_ref, status");
     }
+    // And for the day-tour pickup place (migration 0045): the tour is saved without it.
+    if (saved.error && /pickup_place/.test(saved.error.message ?? "") && !/pickup_place_shape/.test(saved.error.message ?? "")) {
+      saved = await db
+        .from("bookings")
+        .insert(rows.map((row) => ({ ...row, pickup_place: undefined })))
+        .select("id, booking_ref, status");
+    }
     const { data, error } = saved;
     if (error) {
       console.error("[trip request]", error);
       return { ok: false, error: "We couldn't save your request. Please try again or send it on WhatsApp." };
     }
     const refs = (data ?? []).map((r) => r.booking_ref as string);
+    // "Don't send me suggestions after my trip": no promotional emails to this address. An
+    // address already on the list stays on it (unticked never removes anyone).
+    if (optsOutOfSuggestions(input.noSuggestions)) {
+      const out = await db.from("email_optouts").upsert({ email, source: "booking" }, { onConflict: "email", ignoreDuplicates: true });
+      if (out.error) console.error("[trip request] opt-out", out.error.message);
+    }
     const ids = (data ?? []).map((r) => r.id as string);
     if (team) {
       // Change history (migration 0044): who entered it, and whether the traveller got the link.
@@ -300,7 +321,8 @@ async function saveTripRequest(input: TripRequestInput, team: TeamEntry | null):
           what:
             spec.kind === "transfer"
               ? `${placeNameFor(ride?.origin.label ?? spec.origin, l)} → ${placeNameFor(ride?.destination.label ?? spec.destination, l)}`
-              : (names.dayTours.find((t) => t.id === spec.tourId)?.name ?? spec.tourId),
+              : (names.dayTours.find((t) => t.id === spec.tourId)?.name ?? spec.tourId) +
+                (spec.pickupPlace ? (l === "es" ? ` (recogida: ${spec.pickupPlace})` : ` (pickup: ${spec.pickupPlace})`) : ""),
         }),
       );
     };

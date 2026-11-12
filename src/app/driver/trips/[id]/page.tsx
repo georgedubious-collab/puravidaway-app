@@ -156,6 +156,7 @@ async function Trip({ params, searchParams }: { params: Promise<{ id: string }>;
               )}
             />
           )}
+          {b.service_type !== "transfer" && b.pickup_place && <Item k={tt("Recogida", "Pickup")} v={b.pickup_place} />}
           <Item k={tt("Cliente", "Traveller")} v={b.passenger_name || "—"} />
           <Item
             k={tt("Contacto", "Contact")}
