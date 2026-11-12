@@ -1281,7 +1281,7 @@ await expectOk("server removes the test booking", "server", "delete from public.
   await expectRows("drivers still read no booking rows", "driver", "select * from public.bookings", 0);
 }
 
-// --- Sign-in codes: rate limits and lookups (migration 0049) -----------------------------------
+// --- Sign-in codes: rate limits and lookups (migration 0050) -----------------------------------
 {
   for (const who of ["client", "driver", "admin", "anon"]) {
     await expectRows(`${who} cannot read sign-in code requests`, who, "select * from public.auth_code_requests", 0);
@@ -1322,7 +1322,7 @@ await expectOk("server removes the test booking", "server", "delete from public.
   await db.exec(`delete from auth.users where id = '00000000-0000-0000-0000-0000000000f1'`);
 }
 
-// --- One-time cleanup of bot sign-ups (migration 0050) ----------------------------------------
+// --- One-time cleanup of bot sign-ups (migration 0051) ----------------------------------------
 // The migration already ran on an empty database above; here it runs again over fixtures.
 {
   const J = (n) => `00000000-0000-0000-0000-00000000f${String(n).padStart(3, "0")}`;
@@ -1351,7 +1351,7 @@ await expectOk("server removes the test booking", "server", "delete from public.
   const same = (name, got, w) => (got === w ? passed++ : failures.push(`${name}: expected ${w}, got ${got}`));
   const users = "select count(*) n from auth.users where id::text like '00000000-0000-0000-0000-00000000f%'";
   same("cleanup fixtures in place", await count(users), 10);
-  await db.exec(readFileSync(join(dir, "20261112000050_cleanup_bot_signups.sql"), "utf8"));
+  await db.exec(readFileSync(join(dir, "20261112000051_cleanup_bot_signups.sql"), "utf8"));
   same("cleanup: only the two junk accounts are deleted", await count(users), 8);
   same("cleanup: junk accounts gone", await count(`select count(*) n from auth.users where id in ('${J(1)}', '${J(2)}')`), 0);
   await expectRows("cleanup: their profiles gone too", "server", `select * from public.profiles where id in ('${J(1)}', '${J(2)}')`, 0);

@@ -16,7 +16,7 @@
 --   3. public.auth_email_status(): for one email, whether an account exists (and is confirmed)
 --      and whether any trip was booked with it. Server only.
 --
--- Run after 0048. Safe to run once, in order. It changes no existing rows.
+-- Run after 0049. Safe to run once, in order. It changes no existing rows.
 
 create table if not exists public.auth_code_requests (
   id     bigserial primary key,
@@ -27,7 +27,7 @@ create table if not exists public.auth_code_requests (
 create index if not exists auth_code_requests_email_idx on public.auth_code_requests (email, at);
 create index if not exists auth_code_requests_ip_idx on public.auth_code_requests (ip, at);
 comment on table public.auth_code_requests is
-  'Sign-in codes sent, for rate limits (migration 0049). Server only; rows older than a day are removed.';
+  'Sign-in codes sent, for rate limits (migration 0050). Server only; rows older than a day are removed.';
 
 alter table public.auth_code_requests enable row level security;
 revoke all on public.auth_code_requests from anon, authenticated;

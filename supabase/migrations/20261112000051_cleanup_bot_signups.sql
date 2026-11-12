@@ -1,6 +1,6 @@
 -- One-time cleanup of the junk accounts bots created on 10–12 Nov 2026 (2026-11-12).
 --
--- Before the sign-in fix (migration 0049, src/app/api/auth/send-code), anyone could make
+-- Before the sign-in fix (migration 0050, src/app/api/auth/send-code), anyone could make
 -- Supabase create an account by asking for a sign-in code. About a dozen accounts were made
 -- that way: never confirmed, never signed in, nothing booked.
 --
@@ -18,7 +18,7 @@
 -- Its profile row goes too (deleted here, and it would also follow the account automatically).
 -- A notice reports how many accounts were removed.
 --
--- Run after 0049. Safe to run once, in order; running it again finds nothing new to delete
+-- Run after 0050. Safe to run once, in order; running it again finds nothing new to delete
 -- that the rules above don't allow.
 
 do $$

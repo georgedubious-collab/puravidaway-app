@@ -20,7 +20,7 @@
  *   "If this email …, we've sent a code".
  *
  * This file has no imports, so `npm run test:auth-code` runs it directly in Node.
- * The database side (rate-limit table and functions) is migration 0049.
+ * The database side (rate-limit table and functions) is migration 0050.
  */
 
 export const CODE_LIMITS = {
