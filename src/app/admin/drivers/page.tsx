@@ -12,6 +12,7 @@ import {
   type DriverRecord,
   type VehicleRecord,
 } from "@/lib/driverKyc";
+import { scorecard, type ScoreTrip } from "@/lib/scorecard";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { makeT } from "@/lib/teamLang";
 import { getTeamLang } from "@/lib/teamLangServer";
@@ -42,6 +43,16 @@ export default async function DriversPage() {
     );
   const rows = data ?? [];
   const today = todayInCostaRica();
+  // Compact scorecard (CRM part 3): completed trips (all / 30 days), rating, lateness alerts.
+  const { data: doneTrips } = await supabase
+    .from("bookings")
+    .select("assigned_driver_id, status, scheduled_at, late_alert_at, driver_payout, driver_settled_at")
+    .eq("status", "completed")
+    .not("assigned_driver_id", "is", null)
+    .limit(20000)
+    .returns<(ScoreTrip & { assigned_driver_id: string })[]>();
+  const scoreOf = (driverId: string) =>
+    scorecard((doneTrips ?? []).filter((x) => x.assigned_driver_id === driverId), [], [], 0);
   const soon = addDays(today, 30);
 
   const groups: [string, Row[]][] = [
@@ -102,6 +113,7 @@ export default async function DriversPage() {
                 const issues = [...driverIssues(r, today, soon), ...r.driver_vehicles.flatMap((v) => vehicleIssues(v, today, soon))];
                 const nv = r.driver_vehicles.length;
                 const check = vehiclesToCheck(r);
+                const sc = r.kyc_status === "approved" ? scoreOf(r.id) : null;
                 return (
                   <li key={r.id}>
                     <Link href={`/admin/drivers/${r.id}`} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3.5 hover:bg-[#FAFBFA] sm:px-5">
@@ -115,6 +127,12 @@ export default async function DriversPage() {
                         </span>
                       </span>
                       <span className="flex flex-wrap items-center gap-1.5">
+                        {sc && (
+                          <span className="text-xs font-semibold text-[#33443C]" title={t("Viajes completados · en 30 días · calificación · alertas de retraso", "Trips completed · in 30 days · rating · lateness alerts")}>
+                            {sc.completedAll} {t("viajes", "trips")} ({sc.completed30} {t("en 30 d", "in 30 d")}) · {r.rating_count ? `★ ${Number(r.rating_avg).toFixed(1)}` : t("★ nuevo", "★ new")}
+                            {sc.alerts > 0 ? ` · ⚠ ${sc.alerts} ${t("alertas", "alerts")}` : ""}
+                          </span>
+                        )}
                         {todo > 0 ? (
                           <Chip tone="amber">
                             {lang === "en" ? `${todo} item${todo === 1 ? "" : "s"} missing` : `${todo} ${todo === 1 ? "dato pendiente" : "datos pendientes"}`}

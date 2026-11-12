@@ -11,7 +11,7 @@ import { PlaceInput } from "./PlaceInput";
 import { Photo } from "./site/Photo";
 import { usePublicLang, useT } from "./PublicLangContext";
 import { localizeServerMessage } from "@/lib/serverMessagesEs";
-import { hubPlace, isAirportPickup, isHubPlace, mapsDirectionsUrl, needsRoute, type RidePlace, type RideRoute } from "@/lib/places";
+import { hubPlace, isAirportPickup, isHubPlace, mapsDirectionsUrl, needsRoute, placeSpecFields, type RidePlace, type RideRoute } from "@/lib/places";
 import { trackQuoteView, trackVehicleSelect } from "@/lib/analytics";
 import { newItemId, whatsAppLink, type CartItem } from "@/lib/cart";
 import { DEFAULT_PICKUP_TIME, PICKUP_TIMES, addDays, formatShortDate, formatTime12h } from "@/lib/dates";
@@ -262,10 +262,7 @@ export function TransfersView({
       totalCents: quote.totalCents,
       spec: {
         kind: "transfer",
-        origin,
-        destination,
-        ...(isHubPlace(originPlace) ? {} : { originPlace: { id: originPlace.id, label: originPlace.label } }),
-        ...(isHubPlace(destPlace) ? {} : { destinationPlace: { id: destPlace.id, label: destPlace.label } }),
+        ...placeSpecFields(originPlace, destPlace),
         vehicleId: effectiveVehicleId,
         stopIds: effectiveStopIds,
         pax,

@@ -12,6 +12,8 @@ import { InputError, runAction, type FormState } from "@/lib/forms/formState";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { makeT } from "@/lib/teamLang";
 import { getTeamLang } from "@/lib/teamLangServer";
+import { alertTeamDriverRemoved, emailRemovedDriver, logBookingEvent } from "@/lib/crmNotices";
+import { driverChange } from "@/lib/driverChange";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const STATUS_IDS = new Set<string>(BOOKING_STATUSES.map(([s]) => s));
@@ -54,10 +56,10 @@ export async function acceptOffer(_prev: FormState, fd: FormData): Promise<FormS
 export async function updateBooking(_prev: FormState, fd: FormData): Promise<FormState> {
   const t = makeT(await getTeamLang());
   return runAction(async () => {
-    await requireRole("admin", "/admin/bookings");
+    const me = await requireRole("admin", "/admin/bookings");
     const id = String(fd.get("id") ?? "");
     if (!UUID.test(id)) throw new InputError(t("No se encontró la reserva.", "Booking not found."));
-    const status = String(fd.get("status") ?? "");
+    let status = String(fd.get("status") ?? "");
     if (!STATUS_IDS.has(status)) throw new InputError(t("Elija un estado.", "Pick a status."));
 
     // "driverId:vehicleId", or empty for nobody yet.
@@ -71,11 +73,7 @@ export async function updateBooking(_prev: FormState, fd: FormData): Promise<For
       driverId = d;
       vehicleId = v;
     }
-    if ((status === "confirmed" || status === "in_progress" || status === "completed") && !driverId) {
-      throw new InputError(
-        t("Asigne un conductor antes de marcar la reserva como confirmada.", "Assign a driver before marking the booking confirmed."),
-      );
-    }
+    // (The "assign a driver before confirming" check runs below, after the driver-removal rules.)
 
     // The dispatch calendar (/admin/dispatch) sends only status + assignment: a field that isn't
     // sent keeps its value (amount received, internal notes).
@@ -89,9 +87,39 @@ export async function updateBooking(_prev: FormState, fd: FormData): Promise<For
     const supabase = (await createSupabaseServerClient())!;
     const { data: before } = await supabase
       .from("bookings")
-      .select("status, assigned_driver_id, trip_id, booking_ref, review_requested_at, service_type, origin, destination")
+      .select("status, assigned_driver_id, assigned_vehicle_id, trip_id, booking_ref, review_requested_at, service_type, origin, destination")
       .eq("id", id)
       .maybeSingle();
+
+    // CRM part 3 (Jorge, 2026-11-12): cancelling goes through "Cancelar reserva" (refund by the policy).
+    if (status === "cancelled" && before && before.status !== "cancelled")
+      throw new InputError(
+        t("Para cancelar use la tarjeta «Cancelar reserva» (calcula el reembolso).", "To cancel, use the \"Cancel booking\" card (it works out the refund)."),
+      );
+    // Removing or replacing the assigned driver (src/lib/driverChange.ts): say why; the traveller
+    // is not told now; a confirmed booking left without a driver goes back to "Open for drivers".
+    // A form without the reason box (the dispatch calendar) counts as a team decision.
+    const removalReason = fd.has("removal_reason") ? String(fd.get("removal_reason") ?? "") : "team";
+    const beforeDriver = (before?.assigned_driver_id as string | null) ?? null;
+    const change = driverChange({
+      beforeDriver,
+      newDriver: driverId,
+      status,
+      reason: removalReason,
+    });
+    if (change.needsReason)
+      throw new InputError(
+        t("Diga por qué quita o cambia al conductor (debajo de «Conductor y vehículo»).", "Say why you're removing or changing the driver (below \"Driver and vehicle\")."),
+      );
+    const removedDriver = change.removed;
+    const reopened = change.reopened;
+    status = change.status;
+
+    if ((status === "confirmed" || status === "in_progress" || status === "completed") && !driverId) {
+      throw new InputError(
+        t("Asigne un conductor antes de marcar la reserva como confirmada.", "Assign a driver before marking the booking confirmed."),
+      );
+    }
     const { data, error } = await supabase
       .from("bookings")
       .update({
@@ -124,6 +152,26 @@ export async function updateBooking(_prev: FormState, fd: FormData): Promise<For
     // Trip just completed: ask the traveller to rate the driver (once per booking).
     if (status === "completed" && before && before.status !== "completed") {
       after(() => requestDriverReview(id));
+    }
+
+    // CRM part 3 (src/lib/driverChange.ts): a driver was removed or replaced. Recorded in the
+    // history, the team is emailed, the traveller hears nothing about the removal; the removed
+    // driver gets a neutral "reassigned" email only on a team decision. A new driver's messages
+    // come from the one assignment sender above (never a second "driver confirmed").
+    if (removedDriver) {
+      const reason = removalReason as "driver_dropped" | "team";
+      const tellDriver = change.emailRemovedDriver;
+      after(async () => {
+        const alerted = await alertTeamDriverRemoved(id, removedDriver, reason, driverId, reopened);
+        const driverEmailed = tellDriver ? await emailRemovedDriver(id, removedDriver) : false;
+        await logBookingEvent(
+          id,
+          me.id,
+          "driver_removed",
+          { reason, replaced_by: driverId, reopened, team_alerted: alerted, driver_emailed: driverEmailed },
+          { driver_id: removedDriver, vehicle_id: before?.assigned_vehicle_id ?? null },
+        );
+      });
     }
     if (hasNotes) {
       const n = await supabase

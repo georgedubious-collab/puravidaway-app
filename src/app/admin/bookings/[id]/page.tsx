@@ -21,6 +21,17 @@ import { compareRanks, nearHome, offerRank, ratingBand, returnMatch, townName, t
 import { makeT } from "@/lib/teamLang";
 import { getTeamLang } from "@/lib/teamLangServer";
 import { acceptOffer, updateBooking } from "../actions";
+// CRM part 3 (2026-11-12): customer link, WhatsApp card, cancel + refund, team name sign.
+import { customerHref, customerKey } from "@/lib/customers";
+import { localizeCatalog, placeNameFor } from "@/lib/catalogEs";
+import { formatScheduledAtFor } from "@/lib/dates";
+import { SITE_URL } from "@/lib/email";
+import { parsePublicLang } from "@/lib/publicLang";
+import { REFUND_METHODS, cancelledByText, isoToCrLocal, refundMethodText, ruleText, type CancelledBy, type RefundRule } from "@/lib/refundPolicy";
+import { SIGN_MAX, shortName } from "@/lib/sign";
+import { WA_KINDS, vehicleText, waButtonLabel, waLink, waMessage, waUnavailable } from "@/lib/whatsappMessages";
+import { markRefundPaid, setSignByTeam } from "../crmActions";
+import { CancelBookingForm, WhatsAppButtons } from "./CrmCards";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 type DriverRow = DriverRecord & { profiles: { full_name: string | null } | null; driver_vehicles: VehicleRecord[] };
@@ -43,9 +54,9 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
   const [{ data: b, error }, { data: drivers }, catalog] = await Promise.all([
     supabase
       .from("bookings")
-      .select("*, trips(guest_name, guest_email, guest_phone, language)")
+      .select("*, trips(guest_name, guest_email, guest_phone, language, access_token)")
       .eq("id", id)
-      .maybeSingle<BookingRow & { trips: TripContact | null }>(),
+      .maybeSingle<BookingRow & { en_route_at?: string | null; trips: (TripContact & { access_token?: string | null }) | null }>(),
     supabase
       .from("drivers")
       .select("*, profiles!drivers_id_fkey(full_name), driver_vehicles(*)")
@@ -159,6 +170,30 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
     return v ? `${v.make_model ?? ""} ${v.plate ?? ""}`.trim() || null : null;
   };
 
+  // ---- CRM part 3 data (2026-11-12) ----
+  type RefundRow = {
+    cancelled_by: CancelledBy;
+    cancelled_at: string;
+    asked_at: string | null;
+    amount_received: number | string;
+    refund_policy: number | string;
+    refund_rule: RefundRule;
+    refund_due: number | string;
+    refund_reason: string | null;
+    refund_paid_amount: number | string | null;
+    refund_paid_on: string | null;
+    refund_method: string | null;
+  };
+  const [{ data: refund }, { data: waVehicle }, { data: waDriver }] = await Promise.all([
+    supabase.from("booking_refunds").select("*").eq("booking_id", b.id).maybeSingle<RefundRow>(),
+    b.assigned_vehicle_id
+      ? supabase.from("driver_vehicles").select("make_model, year, color, plate").eq("id", b.assigned_vehicle_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    b.assigned_driver_id ? supabase.from("profiles").select("full_name").eq("id", b.assigned_driver_id).maybeSingle() : Promise.resolve({ data: null }),
+  ]);
+  const signSetBy = [...events].reverse().find((e) => e.action === "sign");
+  // ---- end CRM part 3 data ----
+
   const today = todayInCostaRica();
   const seats = b.passenger_count ?? 1;
   // Approved drivers and their approved vehicles that can legally take trips and fit the group.
@@ -239,14 +274,30 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
   const phoneDigits = guest.guest_phone?.replace(/\D/g, "") ?? "";
   const asked = prefsSummary(b.preferences, lang);
 
-  const cancelWarning = t(
-    `La reserva ${b.booking_ref} quedará cancelada. Nadie recibe un aviso automático: avise al viajero${b.assigned_driver_id ? " y al conductor" : ""}.${
-      Number(b.amount_paid) > 0 ? ` Ya se recibieron ${usd(b.amount_paid)}: revise el reembolso.` : ""
-    }`,
-    `Booking ${b.booking_ref} will be cancelled. Nobody is told automatically: let the traveller${b.assigned_driver_id ? " and the driver" : ""} know.${
-      Number(b.amount_paid) > 0 ? ` ${usd(b.amount_paid)} was already received: check the refund.` : ""
-    }`,
-  );
+  // ---- CRM part 3: one-tap WhatsApp messages, in the traveller's booking language ----
+  const glang = parsePublicLang(guest.language);
+  const waFacts = {
+    lang: glang,
+    guestName: guest.guest_name,
+    ref: b.booking_ref,
+    what:
+      b.service_type === "transfer"
+        ? `${placeNameFor(b.origin, glang)} → ${placeNameFor(b.destination, glang)}`
+        : (bookedItemName(localizeCatalog(catalog, glang).dayTours, b.catalog_item_id, glang) ?? b.catalog_item_id ?? ""),
+    when: formatScheduledAtFor(b.scheduled_at, glang),
+    tripUrl: b.trips?.access_token ? `${SITE_URL}/trip/${b.trips.access_token}` : null,
+    driver: b.assigned_driver_id ? (waDriver?.full_name ?? "").trim().split(/\s+/)[0] || null : null,
+    vehicle: vehicleText(waVehicle, glang),
+    sign: b.service_type === "transfer" ? signShown(b, guest.guest_name) : null,
+    amountDue: b.payment_mode === "cash_driver" ? 0 : Math.max(0, Math.round((due - Number(b.amount_paid ?? 0)) * 100) / 100),
+  };
+  const waButtons = WA_KINDS.map((k) => {
+    const text = waMessage(k, waFacts);
+    return { kind: k, label: waButtonLabel(k, lang), href: waLink(guest.guest_phone, text), unavailable: waUnavailable(k, waFacts, lang), text };
+  });
+  const hasWaNumber = waButtons.some((x) => x.href);
+  const custKey = b.trips ? customerKey(guest.guest_email, guest.guest_phone, b.trip_id) : null;
+  // ---- end CRM part 3 ----
 
   return (
     <div className="space-y-5">
@@ -286,7 +337,18 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card title={t("Cliente", "Client")}>
           <DetailList>
-            <Detail k={t("Nombre", "Name")} v={guest.guest_name} />
+            <Detail
+              k={t("Nombre", "Name")}
+              v={
+                custKey ? (
+                  <Link href={customerHref(custKey)} className={link}>
+                    {guest.guest_name ?? t("(sin nombre)", "(no name)")} · {t("ver cliente", "see customer")}
+                  </Link>
+                ) : (
+                  guest.guest_name
+                )
+              }
+            />
             <Detail k={t("Correo", "Email")} v={guest.guest_email} />
             <Detail k="WhatsApp" v={guest.guest_phone} />
             <Detail
@@ -300,17 +362,8 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
             <Detail k={t("Sus notas", "Their notes")} v={b.client_notes} />
           </DetailList>
           {phoneDigits && (
-            <a
-              href={`https://wa.me/${phoneDigits}?text=${encodeURIComponent(
-                guest.language === "es"
-                  ? `¡Hola ${guest.guest_name ?? ""}! Le escribimos de Costa Rica Private Transfers sobre su solicitud de viaje ${b.booking_ref}.`
-                  : `Hi ${guest.guest_name ?? ""}! This is Costa Rica Private Transfers about your trip request ${b.booking_ref}.`,
-              )}`}
-              target="_blank"
-              rel="noreferrer"
-              className={`mt-4 ${btn.primary}`}
-            >
-              {t("Escribir por WhatsApp", "Message on WhatsApp")}
+            <a href="#whatsapp" className={`mt-4 ${btn.primary}`}>
+              {t("Mensajes de WhatsApp", "WhatsApp messages")}
             </a>
           )}
           {siblings && siblings.length > 0 && (
@@ -377,7 +430,12 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
               <Detail
                 k={t("Rótulo", "Name sign")}
                 v={`“${signShown(b, guest.guest_name)}” ${
-                  b.sign_text
+                  signSetBy
+                    ? t(
+                        `(último cambio: ${personName(signSetBy.actor_id) ?? "el viajero"}, ${formatScheduledAt(signSetBy.at, lang)})`,
+                        `(last changed by ${personName(signSetBy.actor_id) ?? "the traveller"}, ${formatScheduledAt(signSetBy.at, lang)})`,
+                      )
+                    : b.sign_text
                     ? t("(texto del cliente)", "(the client's own text)")
                     : b.sign_hide_name
                       ? t("(el cliente pidió no mostrar su nombre)", "(the client asked not to show their name)")
@@ -479,11 +537,24 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
             lang={lang}
             className="space-y-4"
             confirm={[
-              { kind: "equals", field: "status", values: ["cancelled"], unlessInitial: true, message: cancelWarning },
               {
                 kind: "changed",
                 fields: ["amount_paid"],
                 message: t("El monto recibido cambiará de {from} a {to} USD.", "The amount received will change from {from} to {to} USD."),
+              },
+              // Setting, removing or replacing the driver: say who gets a message.
+              {
+                kind: "changed" as const,
+                fields: ["assignment"],
+                message: b.assigned_driver_id
+                  ? t(
+                      "Se quita al conductor actual. Al viajero NO se le avisa del cambio. Si elige otro conductor, el viajero recibe «conductor confirmado» y el nuevo conductor «tiene el viaje» (correo y app). Si deja «Nadie todavía» en una reserva confirmada, vuelve a «Abierta para conductores». Se avisa al equipo por correo; si fue decisión del equipo, el conductor quitado recibe un correo breve de que el viaje fue reasignado.",
+                      "The current driver is removed. The traveller is NOT told about the change. If you pick another driver, the traveller gets \"driver confirmed\" and the new driver \"you've got the ride\" (email and app). If you leave \"Nobody yet\" on a confirmed booking, it goes back to \"Open for drivers\". The team is emailed; on a team decision, the removed driver gets a short email that the trip was reassigned.",
+                    )
+                  : t(
+                      "Se asigna el conductor: el viajero recibe «conductor confirmado» y el conductor «tiene el viaje» (correo y app), una vez por asignación.",
+                      "The driver is set: the traveller gets \"driver confirmed\" and the driver \"you've got the ride\" (email and app), once per assignment.",
+                    ),
               },
             ]}
           >
@@ -492,7 +563,8 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
               <label className={field.label}>
                 {t("Estado", "Status")}
                 <select name="status" defaultValue={b.status} className={field.input}>
-                  {BOOKING_STATUSES.map(([s]) => (
+                  {/* Cancelling goes through the "Cancelar reserva" card (refund by the policy). */}
+                  {BOOKING_STATUSES.filter(([s]) => s !== "cancelled" || b.status === "cancelled").map(([s]) => (
                     <option key={s} value={s}>
                       {bookingStatusLabel(s, lang)}
                     </option>
@@ -520,6 +592,17 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
                   </span>
                 )}
               </label>
+              {b.assigned_driver_id && (
+                <label className={field.label}>
+                  {t("Si quita o cambia al conductor: ¿por qué?", "If you remove or change the driver: why?")}
+                  <select name="removal_reason" defaultValue="" className={field.input}>
+                    <option value="">{t("— (no cambio al conductor)", "— (not changing the driver)")}</option>
+                    <option value="driver_dropped">{t("El conductor canceló o se retiró", "The driver cancelled or dropped out")}</option>
+                    <option value="team">{t("Decisión del equipo", "Team decision")}</option>
+                  </select>
+                  <span className={field.hint}>{t("Queda en el historial y en la ficha del conductor.", "Recorded in the history and on the driver's scorecard.")}</span>
+                </label>
+              )}
               <label className={field.label}>
                 {t("Monto recibido (USD)", "Amount received (USD)")}
                 <input name="amount_paid" inputMode="decimal" defaultValue={b.amount_paid} className={field.input} />
@@ -545,6 +628,186 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
           )}
         </Card>
       </div>
+
+      {/* ================= CRM part 3 (2026-11-12): WhatsApp, name sign, cancel + refund ================= */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div id="whatsapp" className="scroll-mt-20">
+          <Card title="WhatsApp">
+            {hasWaNumber ? (
+              <>
+                <p className="mb-3 text-sm text-[#5F6F67]">
+                  {t(
+                    `Cada botón abre WhatsApp con el mensaje listo, en ${glang === "es" ? "español" : "inglés"} (el idioma de su reserva). Revíselo y presione enviar. Solo para el equipo.`,
+                    `Each button opens WhatsApp with the message ready, in ${glang === "es" ? "Spanish" : "English"} (their booking language). Check it and press send. Team only.`,
+                  )}
+                </p>
+                <WhatsAppButtons bookingId={b.id} buttons={waButtons} lang={lang} />
+              </>
+            ) : (
+              <p className="text-sm text-[#5F6F67]">
+                {t(
+                  "No hay número de WhatsApp para este viajero. Escríbale por el chat del viaje o por correo.",
+                  "No WhatsApp number for this traveller. Write to them in the trip chat or by email.",
+                )}
+              </p>
+            )}
+          </Card>
+        </div>
+
+        {b.service_type === "transfer" && b.status !== "cancelled" && b.status !== "completed" && (
+          <Card title={t("Rótulo de recogida (equipo)", "Name sign (team)")}>
+            <p className="mb-3 text-sm text-[#5F6F67]">
+              {t("Ahora dice:", "It says now:")} <strong className="text-[#14231C]">“{signShown(b, guest.guest_name)}”</strong>.{" "}
+              {t(
+                "Mismas reglas que para el viajero: hasta 40 caracteres, sin teléfonos, correos ni enlaces. Queda en el historial con su nombre.",
+                "Same rules as the traveller's: up to 40 characters, no phone numbers, emails or links. Recorded in the history with your name.",
+              )}
+            </p>
+            <AdminActionForm
+              action={setSignByTeam}
+              lang={lang}
+              className="space-y-3"
+              confirm={[
+                b.en_route_at
+                  ? {
+                      kind: "always",
+                      message: t(
+                        "El conductor ya va en camino: el cambio le llega al actualizar su app. Avísele también por el chat o WhatsApp.",
+                        "The driver is already on the way: they see the change when their app refreshes. Tell them in the chat or on WhatsApp too.",
+                      ),
+                    }
+                  : {
+                      kind: "changed",
+                      fields: ["sign_choice", "sign_text"],
+                      message: t("El rótulo cambiará. El viajero y el conductor lo ven en su página y su app.", "The sign will change. The traveller and the driver see it on their page and app."),
+                    },
+              ]}
+            >
+              <input type="hidden" name="id" value={b.id} />
+              <fieldset className="space-y-1 text-sm">
+                <legend className="sr-only">{t("Qué dice el rótulo", "What the sign says")}</legend>
+                <label className="flex min-h-10 items-center gap-2">
+                  <input type="radio" name="sign_choice" value="name" defaultChecked={!b.sign_text && !b.sign_hide_name} />
+                  {t("Nombre e inicial del apellido", "First name + last initial")} ({shortName(guest.guest_name) ?? "—"})
+                </label>
+                <label className="flex min-h-10 items-center gap-2">
+                  <input type="radio" name="sign_choice" value="brand" defaultChecked={Boolean(b.sign_hide_name)} />
+                  {t("Sin nombre: la marca", "No name: the brand")}
+                </label>
+                <label className="flex min-h-10 items-center gap-2">
+                  <input type="radio" name="sign_choice" value="text" defaultChecked={Boolean(b.sign_text)} />
+                  {t("Este texto:", "This text:")}
+                </label>
+              </fieldset>
+              <input name="sign_text" maxLength={SIGN_MAX} defaultValue={b.sign_text ?? ""} aria-label={t("Texto del rótulo", "Sign text")} className={field.input} />
+            </AdminActionForm>
+          </Card>
+        )}
+      </div>
+
+      <div id="cancel" className="scroll-mt-20">
+        {b.status !== "cancelled" ? (
+          <Card title={t("Cancelar reserva", "Cancel booking")}>
+            <CancelBookingForm
+              bookingId={b.id}
+              bookingRef={b.booking_ref}
+              pickupAt={b.scheduled_at}
+              pickupText={formatScheduledAt(b.scheduled_at, lang)}
+              amountReceived={Number(b.amount_paid ?? 0)}
+              hasDriver={Boolean(b.assigned_driver_id)}
+              testPaid={testPaid}
+              nowLocal={isoToCrLocal(new Date().toISOString())}
+              nowIso={new Date().toISOString()}
+              lang={lang}
+            />
+          </Card>
+        ) : (
+          <Card title={t("Cancelación y reembolso", "Cancellation & refund")}>
+            {refund ? (
+              <div className="space-y-4">
+                <DetailList>
+                  <Detail k={t("Cancelada por", "Cancelled by")} v={cancelledByText(refund.cancelled_by, lang)} />
+                  <Detail k={t("Cuándo", "When")} v={formatScheduledAt(refund.cancelled_at, lang)} />
+                  {refund.asked_at && <Detail k={t("Mensaje del viajero", "Traveller's message")} v={formatScheduledAt(refund.asked_at, lang)} />}
+                  <Detail k={t("Recibido", "Received")} v={usd(refund.amount_received)} />
+                  <Detail k={t("Según la política", "By the policy")} v={`${usd(refund.refund_policy)} · ${ruleText(refund.refund_rule, lang)}`} />
+                  <Detail
+                    k={t("Reembolso a deber", "Refund owed")}
+                    v={`${usd(refund.refund_due)}${refund.refund_reason ? ` · “${refund.refund_reason}”` : ""}`}
+                  />
+                  <Detail
+                    k={t("Reembolso pagado", "Refund paid")}
+                    v={
+                      refund.refund_paid_amount
+                        ? `${usd(refund.refund_paid_amount)} · ${refund.refund_paid_on} · ${refundMethodText(refund.refund_method ?? "", lang)}`
+                        : Number(refund.refund_due) > 0
+                          ? t("todavía no", "not yet")
+                          : t("nada que devolver", "nothing to return")
+                    }
+                  />
+                </DetailList>
+                {Number(refund.refund_due) > 0 && !refund.refund_paid_amount && (
+                  <AdminActionForm
+                    action={markRefundPaid}
+                    lang={lang}
+                    className="space-y-3"
+                    submitLabel={t("Marcar reembolso como pagado", "Mark refund as paid")}
+                    confirm={[{ kind: "changed", fields: ["amount"], message: t("El monto pagado ({to}) es distinto al reembolso a deber ({from}).", "The amount paid ({to}) differs from the refund owed ({from}).") }]}
+                  >
+                    <input type="hidden" name="id" value={b.id} />
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      <label className={field.label}>
+                        {t("Monto devuelto (USD)", "Amount refunded (USD)")}
+                        <input name="amount" inputMode="decimal" defaultValue={Number(refund.refund_due).toFixed(2)} className={field.input} />
+                      </label>
+                      <label className={field.label}>
+                        {t("Fecha", "Date")}
+                        <input name="paid_on" type="date" defaultValue={today} max={today} className={field.input} />
+                      </label>
+                      <label className={field.label}>
+                        {t("Medio", "Method")}
+                        <select name="method" defaultValue="card" className={field.input}>
+                          {REFUND_METHODS.map((m) => (
+                            <option key={m} value={m}>
+                              {refundMethodText(m, lang)}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+                  </AdminActionForm>
+                )}
+                {refund.refund_paid_amount && (
+                  <AdminActionForm
+                    action={markRefundPaid}
+                    lang={lang}
+                    submitLabel={t("Deshacer «pagado»", "Undo \"paid\"")}
+                    buttonClassName={btn.secondary}
+                    confirm={[{ kind: "always", message: t("El reembolso vuelve a quedar sin pagar.", "The refund goes back to not paid.") }]}
+                  >
+                    <input type="hidden" name="id" value={b.id} />
+                    <input type="hidden" name="undo" value="1" />
+                  </AdminActionForm>
+                )}
+                <p className="text-xs text-[#5F6F67]">
+                  {t(
+                    "Los reembolsos con tarjeta aún se hacen a mano (Green Pay no está conectado). Para reabrir la reserva, cambie su estado arriba.",
+                    "Card refunds are still done by hand (Green Pay isn't connected). To reopen the booking, change its status above.",
+                  )}
+                </p>
+              </div>
+            ) : (
+              <p className="text-sm text-[#5F6F67]">
+                {t(
+                  "Esta reserva se canceló antes de que existiera la calculadora de reembolsos: no hay reembolso registrado.",
+                  "This booking was cancelled before the refund calculator existed: no refund recorded.",
+                )}
+              </p>
+            )}
+          </Card>
+        )}
+      </div>
+      {/* ================= end CRM part 3 ================= */}
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <Card title={t("Chat del viaje", "Trip chat")}>
