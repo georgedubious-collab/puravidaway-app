@@ -57,12 +57,13 @@ const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) 
 /** "lun 17" / "Mon 17" for a YYYY-MM-DD day. */
 function dayName(ymd: string, lang: TeamLang, style: "short" | "long" = "short"): string {
   const [y, m, d] = ymd.split("-").map(Number);
-  return new Intl.DateTimeFormat(lang === "en" ? "en-US" : "es-CR", {
+  const s = new Intl.DateTimeFormat(lang === "en" ? "en-US" : "es-CR", {
     timeZone: "UTC",
     weekday: style,
     day: "numeric",
     ...(style === "long" ? { month: "long" } : {}),
   }).format(new Date(Date.UTC(y, m - 1, d)));
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 /**
@@ -182,7 +183,7 @@ export default async function DispatchPage({ searchParams }: { searchParams: Pro
       <div className="hidden md:block">
         <Card
           padded={false}
-          title={<span className="capitalize">{weekTitle}</span>}
+          title={weekTitle}
           actions={
             <nav aria-label={t("Semanas", "Weeks")} className="flex flex-wrap items-center gap-2">
               <Link href={href(addDays(day, -7))} className={btn.secondary}>
@@ -290,7 +291,7 @@ export default async function DispatchPage({ searchParams }: { searchParams: Pro
             ←
           </Link>
           <div className="min-w-0 text-center">
-            <p className="font-extrabold capitalize text-[#14231C]">{dayName(day, lang, "long")}</p>
+            <p className="font-extrabold text-[#14231C]">{dayName(day, lang, "long")}</p>
             {day !== today && (
               <Link href="/admin/dispatch" className={`text-sm ${link}`}>
                 {t("Ir a hoy", "Go to today")}
@@ -411,7 +412,7 @@ function BookingBlock({
         {route}
       </span>
       <span className="block truncate text-[#5F6F67]">
-        {[b.vehicle_class ? jobClassLabel(b.vehicle_class, lang) : null, b.passenger_count ? t(`${b.passenger_count} pers.`, `${b.passenger_count} pax`) : null].filter(Boolean).join(" · ")}
+        {[b.passenger_count ? t(`${b.passenger_count} pers.`, `${b.passenger_count} pax`) : null, b.vehicle_class ? jobClassLabel(b.vehicle_class, lang) : null].filter(Boolean).join(" · ")}
       </span>
       {b.trips?.guest_name && <span className="block truncate text-[#5F6F67]">{b.trips.guest_name}</span>}
       {span && (
@@ -588,7 +589,7 @@ function AssignPanel({
             <Card>
               <p className="font-extrabold text-[#14231C]">{route}</p>
               <p className="mt-1 text-sm text-[#33443C]">
-                <span className="capitalize">{dayName(tripDay, lang, "long")}</span> · {span ? `${span.estimated ? "≈ " : ""}${spanLabel(span, lang)}` : t("sin hora", "no time")}
+                {dayName(tripDay, lang, "long")} · {span ? `${span.estimated ? "≈ " : ""}${spanLabel(span, lang)}` : t("sin hora", "no time")}
               </p>
               <p className="mt-1 text-sm text-[#5F6F67]">
                 {[b.vehicle_class ? jobClassLabel(b.vehicle_class, lang) : null, b.passenger_count ? t(`${b.passenger_count} pasajeros`, `${b.passenger_count} passengers`) : null, b.trips?.guest_name]
