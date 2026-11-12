@@ -4,12 +4,22 @@
  */
 import { HUB_IDS, routeMinutes, type HubId } from "../catalog";
 import { BUILT_IN_CATALOG, type CatalogData } from "../catalogModel";
-import { AIRPORT_GUIDES, AIRPORTS_PATH, DESTINATION_GUIDES, DESTINATIONS_PATH, airportPath, destinationPath, fillGuideText } from "../guides/index";
+import {
+  AIRPORT_GUIDES,
+  AIRPORTS_PATH,
+  DESTINATION_GUIDES,
+  DESTINATIONS_PATH,
+  FORBIDDEN_PUBLIC_WORDS,
+  airportPath,
+  destinationPath,
+  fillGuideText,
+} from "../guides/index";
 import { formatUSD } from "../pricing";
 import { BILINGUAL_PATHS, type PublicLang } from "../publicLang";
 import { ROUTE_PAGES, TRANSFERS_PATH, routePath } from "../routePages";
 import { pageFromPrices } from "../routePrices";
 import { LEGAL_PATHS } from "../site";
+import { TOUR_SLUGS, TOURS_PATH, tourPathFor } from "../tours/slugs";
 import { ARTICLES_PLANNING } from "./articlesPlanning";
 import { ARTICLES_ROUTES } from "./articlesRoutes";
 import type { Article, ArticleBlock } from "./types";
@@ -98,6 +108,8 @@ export function knownPaths(): Set<string> {
     ...AIRPORT_GUIDES.map((g) => airportPath(g)),
     BLOG_PATH,
     ...ARTICLES.map((a) => articlePath(a)),
+    TOURS_PATH,
+    ...Object.keys(TOUR_SLUGS).map((id) => tourPathFor(id)!),
   ]);
 }
 
@@ -128,8 +140,6 @@ export function articleTexts(a: Article): { where: string; en: string; es: strin
   });
   return out;
 }
-
-const FORBIDDEN = /24\/7|Jorge|Travel Planner|Familia M[aá]gica|costaricatravelplanner|multi-day|expedition|varios días|expedici[oó]n/i;
 
 /**
  * Build-time check, like the route pages': unique slugs, required fields, a dated answer,
@@ -167,7 +177,7 @@ export function assertArticles(articles: Article[], catalog: CatalogData): void 
       for (const lang of ["en", "es"] as const) {
         const raw = t[lang];
         if (!raw.trim()) throw new Error(`${name}: empty ${lang} text at ${t.where}`);
-        if (FORBIDDEN.test(raw)) throw new Error(`${name}: forbidden word in ${lang} text at ${t.where}`);
+        if (FORBIDDEN_PUBLIC_WORDS.test(raw)) throw new Error(`${name}: forbidden word in ${lang} text at ${t.where}`);
         for (const part of splitLinks(raw)) {
           if ("href" in part && !paths.has(part.href)) throw new Error(`${name}: link to unknown page ${part.href} (${lang}, ${t.where})`);
         }

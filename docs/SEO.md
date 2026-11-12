@@ -52,7 +52,7 @@ apps are in the stores).
 
 **Languages:** English at the root, Spanish under `/es` with hreflang (Jorge, 2026-11-09:
 Spanish now). Since 2026-11-10 every public page has its Spanish version (storefront `/es`, route
-pages `/es/traslados/<slug>` and their index `/es/traslados`, destination guides `/es/destinos/<slug>`, airport guides `/es/aeropuertos/<code>`, travel guides `/es/guias/<slug>` (since 2026-11-11), info and legal pages); every new page must ship in both languages. More languages later (Daytrip and the Rezdy operators win partly through them).
+pages `/es/traslados/<slug>` and their index `/es/traslados`, destination guides `/es/destinos/<slug>`, airport guides `/es/aeropuertos/<code>`, travel guides `/es/guias/<slug>` (since 2026-11-11), day tours `/es/tours` and `/es/tours/<slug>` (since 2026-11-12), info and legal pages); every new page must ship in both languages. More languages later (Daytrip and the Rezdy operators win partly through them).
 
 ## 4. Build order (one PR each)
 
@@ -106,6 +106,22 @@ pages `/es/traslados/<slug>` and their index `/es/traslados`, destination guides
    notes are general on purpose (no timetables, fares, terminals or boat times); re-check them
    and bump `ROUTES_UPDATED` in `src/lib/routes/make.ts` about twice a year.
 5. **Day tour pages** (TouristTrip schema, permits where they apply: Poás timed entry).
+   **Built 2026-11-12:** `/tours` (index by region) and `/tours/<slug>` for the four catalog tours
+   (`arenal-volcano-waterfall-hot-springs`, `manuel-antonio-park-catamaran`,
+   `sierpe-mangroves-cano-island`, `monteverde-hanging-bridges-zipline-night-walk`); Spanish
+   `/es/tours` and `/es/tours/<slug>` (same slugs; Spanish keeps the word "tours", as the site's
+   "Tours de un día" does). Text is data in `src/lib/tours/`: **to add a page for a new tour, give
+   its catalog id a slug in `slugs.ts` and add one object to `content.ts`**; the page, index,
+   sitemap, `llms.txt` and links follow. Name, region, length, highlights and every price come from
+   the catalog (tokens `{pp1}`, `{pp2}`, `{pp4}`, `{hours}`, `{enRoute}`, `{asof}` plus the guide
+   tokens). Included items are only what the site already states (private vehicle, local naturalist
+   guide, entrances, lunch); no clock times (the build rejects them); park rules are the
+   destination guides' own lines (`guideNote()`). No tour touches Poás today, so no Poás text.
+   Schema: WebPage + TouristTrip (AggregateOffer of the per-person green-season prices, USD; no
+   ratings, reviews or availability), FAQPage, BreadcrumbList; the index carries an ItemList. The
+   top menu's "Day tours" still opens the booking app's tab (like "Transfers": on wide screens these
+   two entries are the builder's tab switch); `/tours` is in the footer and linked from the pages.
+   A tour switched off in /admin/pricing loses its page (404) and leaves the sitemap and `llms.txt`.
    Multi-day trips were retired on 2026-11-11: no multi-day pages, schema or links; the old
    `/?tab=multiday` address redirects (308) to `/?tab=tours`. Corcovado is mentioned only as
    travel advice (SINAC permit and guide booked separately), never as something we sell.

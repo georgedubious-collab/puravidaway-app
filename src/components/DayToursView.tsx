@@ -1,7 +1,10 @@
 "use client";
 
 import { ArrowDown, Clock, PlusCircle } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useState } from "react";
+import { localizedHref } from "@/lib/publicLang";
+import { tourPathFor } from "@/lib/tours/slugs";
 import { EN_ROUTE_UPGRADE_CENTS, REGION_NAMES, perPersonTierCents, type Region } from "@/lib/catalog";
 import { regionName } from "@/lib/catalogEs";
 import { usePublicLang, useT } from "./PublicLangContext";
@@ -136,6 +139,14 @@ export function DayToursView({
                     {regionName(t.region, lang)}
                   </span>
                   <h3 className="text-lg font-extrabold text-slate-900 mt-2 leading-snug">{t.name}</h3>
+                  {tourPathFor(t.id) && (
+                    <Link
+                      href={localizedHref(tourPathFor(t.id)!, lang)}
+                      className="mt-1 inline-flex min-h-11 items-center self-start text-sm font-semibold text-emerald-700 underline underline-offset-2 hover:text-emerald-800"
+                    >
+                      {tr("Tour details: the day, what to bring, FAQ", "Detalles del tour: el día, qué llevar, preguntas")}
+                    </Link>
+                  )}
                   <p className="text-sm text-slate-600 mt-1 flex items-start gap-1.5">
                     <Clock className="w-4 h-4 mt-0.5 shrink-0" aria-hidden />
                     {tr(

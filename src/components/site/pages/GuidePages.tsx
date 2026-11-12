@@ -22,6 +22,7 @@ import { applyMultiplier, formatDuration, formatUSD, formatUSDWhole } from "@/li
 import { localizedHref, t, type PublicLang } from "@/lib/publicLang";
 import { builderHref } from "@/lib/routePages";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
+import { TOURS_PATH, tourBookHref, tourPathFor } from "@/lib/tours/slugs";
 import { ridePromises } from "@/lib/trust";
 import { GuideCta, GuideFaqs, LinkPills, OtherWays, RidesTable, formatGuideDate, shortHubName, type RideRow } from "../GuideParts";
 import { JsonLd } from "../JsonLd";
@@ -241,7 +242,7 @@ export async function DestinationGuidePage({ guide, lang }: { guide: Destination
           {tours.length === 0 ? (
             <p className="mt-2 text-slate-600">
               {t(lang, "We don't have a day tour that starts here yet. ", "Todavía no tenemos un tour de un día que empiece aquí. ")}
-              <Link href={localizedHref("/?tab=tours", lang)} className="font-semibold text-emerald-700 underline underline-offset-2">
+              <Link href={localizedHref(TOURS_PATH, lang)} className="font-semibold text-emerald-700 underline underline-offset-2">
                 {t(lang, "See all our day tours", "Ver todos nuestros tours de un día")}
               </Link>
               .
@@ -264,10 +265,11 @@ export async function DestinationGuidePage({ guide, lang }: { guide: Destination
                     {t(lang, "per person (4 or more travellers, green season)", "por persona (4 viajeros o más, temporada verde)")}
                   </span>
                   <Link
-                    href={localizedHref("/?tab=tours", lang)}
+                    href={localizedHref(tourPathFor(x.id) ?? tourBookHref(x.id), lang)}
                     className="mt-3 inline-flex min-h-11 items-center gap-1.5 text-sm font-bold text-emerald-700 underline underline-offset-2 hover:text-emerald-800"
                   >
-                    {t(lang, "See day tours and prices", "Ver tours de un día y precios")} <ArrowRight className="w-4 h-4" aria-hidden />
+                    {tourPathFor(x.id) ? t(lang, "See the tour and prices", "Ver el tour y los precios") : t(lang, "See day tours and prices", "Ver tours de un día y precios")}{" "}
+                    <ArrowRight className="w-4 h-4" aria-hidden />
                   </Link>
                 </li>
               ))}
