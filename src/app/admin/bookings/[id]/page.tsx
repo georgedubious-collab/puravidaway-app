@@ -414,6 +414,15 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
                 })${b.claimed_at ? t(" · oferta aceptada de la bolsa de trabajos", " · offer accepted from the job board") : t(" · sugerido", " · suggested")}`}
               />
             )}
+            {b.promo_code && Number(b.promo_discount ?? 0) > 0 && (
+              <Detail
+                k={t("Código promocional", "Promo code")}
+                v={t(
+                  `${b.promo_code} −${usd(b.promo_discount ?? 0)} (precio antes: ${usd(Number(b.total_price) + Number(b.promo_discount ?? 0))}; mitad de nuestra parte, mitad del pago al conductor)`,
+                  `${b.promo_code} −${usd(b.promo_discount ?? 0)} (price before: ${usd(Number(b.total_price) + Number(b.promo_discount ?? 0))}; half from our share, half from the driver's payout)`,
+                )}
+              />
+            )}
             {b.driver_notes && <Detail k={t("Mensaje para el conductor", "Message for driver")} v={b.driver_notes} />}
             {b.service_type !== "transfer" && (
               <Detail k={t("Lugar de recogida", "Pickup place")} v={b.pickup_place || t("(no indicado)", "(not given)")} />

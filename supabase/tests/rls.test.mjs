@@ -1670,6 +1670,100 @@ await expectOk("server removes the test booking", "server", "delete from public.
   await expectRows("drivers cannot read the calendar's bookings", "driver", `select * from public.bookings where id in ('${PAGE}', '${CAL}')`, 0);
 }
 
+// --- Promo codes and the money report (migration 0052) ------------------------------------------
+{
+  const T1 = "40000000-0000-0000-0000-0000000005a1";
+  const T2 = "40000000-0000-0000-0000-0000000005a2";
+  const BK = (n) => `10000000-0000-0000-0000-0000000005b${n}`;
+  // The tables: admins only; nobody else reads or writes them.
+  for (const who of ["anon", "client", "driver"]) {
+    await expectRows(`${who} cannot read promo codes`, who, "select * from public.promo_codes", 0);
+    await expectBlocked(`${who} cannot create a promo code`, who,
+      "insert into public.promo_codes (code, discount_type, value) values ('HACK50', 'percent', 50)");
+    await expectRows(`${who} cannot read promo redemptions`, who, "select * from public.promo_redemptions", 0);
+    await expectRows(`${who} cannot read failed code checks`, who, "select * from public.promo_code_checks", 0);
+  }
+  await expectOk("admin creates a code (lower case is stored upper case)", "admin",
+    "insert into public.promo_codes (code, discount_type, value, max_uses, max_uses_per_email) values ('summer10', 'percent', 10, 2, 1)");
+  await expectRows("code stored upper-case, creator from the session", "admin",
+    `select * from public.promo_codes where code = 'SUMMER10' and created_by = '${U.admin}'`, 1);
+  await expectBlocked("same code in another case refused", "admin",
+    "insert into public.promo_codes (code, discount_type, value) values ('Summer10', 'fixed', 5)");
+  await expectBlocked("percent above 100 refused", "admin",
+    "insert into public.promo_codes (code, discount_type, value) values ('TOOMUCH', 'percent', 150)");
+  await expectBlocked("zero discount refused", "admin",
+    "insert into public.promo_codes (code, discount_type, value) values ('ZERO', 'fixed', 0)");
+  await expectBlocked("code with spaces refused", "admin",
+    "insert into public.promo_codes (code, discount_type, value) values ('TWO WORDS', 'fixed', 5)");
+  await expectBlocked("end before start refused", "admin",
+    "insert into public.promo_codes (code, discount_type, value, valid_from, valid_to) values ('BACKWARDS', 'fixed', 5, '2026-12-10', '2026-12-01')");
+  await expectOk("an update that tries to change created_by…", "admin",
+    `update public.promo_codes set created_by = '${U.client}', description = 'Summer' where code = 'SUMMER10'`);
+  await expectRows("…keeps the admin as creator", "admin", `select * from public.promo_codes where code = 'SUMMER10' and created_by = '${U.admin}'`, 1);
+  await expectOk("admin switches a code off", "admin", "update public.promo_codes set active = false where code = 'SUMMER10'");
+  await expectOk("…and on again", "admin", "update public.promo_codes set active = true where code = 'SUMMER10'");
+  await expectBlocked("a client can't switch a code off", "client", "update public.promo_codes set active = false where code = 'SUMMER10'", { affected: true });
+
+  // The server saves two discounted bookings on one trip (the client's), one booking on another trip.
+  await db.exec(`insert into public.trips (id, access_token, guest_email) values
+    ('${T1}', '${"a".repeat(64)}', 'client@example.com'), ('${T2}', '${"b".repeat(64)}', 'other@example.com')`);
+  await expectOk("server saves discounted bookings with the promo columns", "server", `
+    insert into public.bookings (id, trip_id, client_id, service_type, total_price, driver_payout, platform_fee, pass_through, promo_code, promo_discount, status) values
+      ('${BK(1)}', '${T1}', '${U.client}', 'transfer', 180, 150, 30, 30, 'SUMMER10', 20, 'pending_payment'),
+      ('${BK(2)}', '${T1}', '${U.client}', 'transfer', 90.99, 70, 20.99, 0, 'SUMMER10', 10.01, 'pending_payment'),
+      ('${BK(3)}', '${T2}', null, 'transfer', 100, 80, 20, null, 'SUMMER10', 10, 'pending_payment')`);
+  await expectBlocked("negative promo discount refused", "server",
+    `update public.bookings set promo_discount = -1 where id = '${BK(1)}'`);
+  const code = (await as("server", "select id from public.promo_codes where code = 'SUMMER10'")).rows[0].id;
+  for (const who of ["anon", "client", "driver", "admin"]) {
+    await expectBlocked(`${who} cannot record a redemption (only the server does)`, who,
+      `insert into public.promo_redemptions (booking_id, trip_id, promo_code_id, code, email, discount, platform_part, driver_part)
+       values ('${BK(1)}', '${T1}', '${code}', 'SUMMER10', 'x@example.com', 1, 0.5, 0.5)`);
+  }
+  await expectOk("server records the redemptions (driver's half rounded down)", "server", `
+    insert into public.promo_redemptions (booking_id, trip_id, promo_code_id, code, email, discount, platform_part, driver_part) values
+      ('${BK(1)}', '${T1}', '${code}', 'SUMMER10', 'client@example.com', 20, 10, 10),
+      ('${BK(2)}', '${T1}', '${code}', 'SUMMER10', 'client@example.com', 10.01, 5.01, 5.00),
+      ('${BK(3)}', '${T2}', '${code}', 'SUMMER10', 'other@example.com', 10, 5, 5)`);
+  await expectBlocked("a split that doesn't add up is refused", "server", `
+    insert into public.promo_redemptions (booking_id, trip_id, promo_code_id, code, email, discount, platform_part, driver_part)
+    values ('${BK(3)}', '${T2}', '${code}', 'SUMMER10', 'other@example.com', 10, 6, 5)`);
+  await expectBlocked("a code that was used can't be deleted (history kept)", "server", `delete from public.promo_codes where id = '${code}'`);
+  await expectRows("admin reads the redemptions", "admin", "select * from public.promo_redemptions", 3);
+  await expectRows("the traveller can't read the redemption of their own booking", "client", "select * from public.promo_redemptions", 0);
+  await expectRows("the traveller reads their own booking's discount", "client",
+    `select * from public.bookings where id = '${BK(1)}' and promo_code = 'SUMMER10' and promo_discount = 20`, 1);
+
+  // Usage: trips (not bookings), cancelled left out, per email.
+  const usage = async (email) => (await as("server", `select * from public.promo_usage('${code}', $1)`, [email])).rows[0];
+  let u = await usage("Client@Example.com ");
+  if (u.total === 2 && u.by_email === 1) passed++;
+  else failures.push(`promo usage counts trips (2) and this email's trips (1): got ${JSON.stringify(u)}`);
+  await db.exec(`update public.bookings set status = 'cancelled' where id = '${BK(3)}'`);
+  u = await usage("other@example.com");
+  if (u.total === 1 && u.by_email === 0) passed++;
+  else failures.push(`a cancelled booking no longer counts as a use: got ${JSON.stringify(u)}`);
+
+  // Drivers: no rows, and my_trips() never carries the client's price, the code or the discount.
+  await db.exec(`update public.bookings set assigned_driver_id = '${U.driver}', status = 'confirmed' where id = '${BK(1)}'`);
+  await expectRows("drivers read no bookings rows (promo bookings included)", "driver", `select * from public.bookings where id = '${BK(1)}'`, 0);
+  const cols = (await as("driver", "select * from public.my_trips()")).fields.map((f) => f.name);
+  if (!cols.some((c) => /promo|total_price|platform_fee|pass_through/.test(c)) && cols.includes("driver_payout")) passed++;
+  else failures.push(`my_trips() must not return promo or price columns: ${cols.join(", ")}`);
+  const mine = (await as("driver", `select driver_payout from public.my_trips() where id = '${BK(1)}'`)).rows[0];
+  if (mine && Number(mine.driver_payout) === 150) passed++;
+  else failures.push(`the driver sees their reduced payout only: got ${JSON.stringify(mine)}`);
+
+  // Failed-check limit: counted per network for an hour.
+  const allowed = async (ip) => (await as("server", "select public.promo_check_allowed($1, 3) as ok", [ip])).rows[0].ok;
+  for (let i = 0; i < 3; i++) await as("server", "select public.promo_check_failed($1)", ["198.51.100.7"]);
+  if ((await allowed("198.51.100.7")) === false && (await allowed("198.51.100.8")) === true) passed++;
+  else failures.push("three failed checks block that network only");
+  await db.exec("update public.promo_code_checks set at = now() - interval '2 hours' where ip = '198.51.100.7'");
+  if ((await allowed("198.51.100.7")) === true) passed++;
+  else failures.push("the block lifts after an hour");
+}
+
 // --- Report -----------------------------------------------------------------------------------
 console.log(`${passed} checks passed, ${failures.length} failed`);
 for (const f of failures) console.log("  ✗ " + f);
