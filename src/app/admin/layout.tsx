@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Suspense } from "react";
 import { AdminNav, type NavItem } from "@/components/admin/AdminNav";
 import { requireRole } from "@/lib/auth";
@@ -10,6 +11,10 @@ import { getTeamLang } from "@/lib/teamLangServer";
 export const metadata: Metadata = {
   title: "Admin | Costa Rica Private Transfers",
   robots: { index: false, follow: false },
+  // "CRPT Admin" on the team's home screens, for alerts on their phones (/admin/alerts).
+  manifest: "/admin-app/manifest.webmanifest",
+  appleWebApp: { capable: true, title: "CRPT Admin", statusBarStyle: "default" },
+  icons: { apple: "/admin-app/apple-touch-icon.png" },
 };
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -107,6 +112,15 @@ function MenuFooter({ lang, email }: { lang: TeamLang; email: string | null }) {
           </button>
         ))}
       </form>
+      <Link
+        href="/admin/alerts"
+        className="inline-flex min-h-10 items-center gap-2 self-start rounded-xl px-1 text-sm font-bold text-[#D6E9DF] hover:text-white focus-visible:outline-2 focus-visible:outline-[#F5B301]"
+      >
+        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-[18px] w-[18px] text-[#F5B301]">
+          <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+        </svg>
+        {t("Alertas en este teléfono", "Alerts on this phone")}
+      </Link>
       {email && <span className="break-all text-xs text-[#9DBFAF]">{email}</span>}
       <form action="/auth/signout" method="post">
         <button
