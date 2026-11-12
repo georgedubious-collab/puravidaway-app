@@ -1,7 +1,7 @@
 import { townName } from "@/lib/matching";
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ActionForm } from "@/components/ActionForm";
+import { AdminActionForm, type ConfirmRule } from "@/components/admin/AdminActionForm";
+import { Card, Chip, Notice, PageHeader, field, link } from "@/components/admin/ui";
 import { requireRole } from "@/lib/auth";
 import { addDays, todayInCostaRica } from "@/lib/dates";
 import {
@@ -47,9 +47,9 @@ export default async function DriverDetail({ params }: { params: Promise<{ id: s
     .maybeSingle<Row>();
   if (error)
     return (
-      <p className="font-semibold text-red-700">
+      <Notice tone="red" role="alert">
         {t("No se pudo cargar este conductor", "Couldn't load this driver")}: {error.message}
-      </p>
+      </Notice>
     );
   if (!d) notFound();
   const { data: reviews } = await supabase.from("driver_reviews").select("id, stars, comment, created_at").eq("driver_id", d.id).order("created_at", { ascending: false }).limit(50).returns<{ id: string; stars: number; comment: string | null; created_at: string }[]>();
@@ -77,81 +77,96 @@ export default async function DriverDetail({ params }: { params: Promise<{ id: s
   const issues = driverIssues(d, today, soon, lang);
   const missing = missingDriverDetails(d, lang);
   const phoneDigits = d.profiles?.phone?.replace(/\D/g, "") ?? "";
+  const who = d.profiles?.full_name || t("este conductor", "this driver");
+  const driverConfirm: ConfirmRule[] = [
+    {
+      kind: "equals",
+      field: "decision",
+      values: ["reject"],
+      message: t(
+        `${who} quedará rechazado: no recibe trabajos y recibe un aviso con su mensaje (app y correo).`,
+        `${who} will be rejected: no jobs, and they get a notice with your message (app and email).`,
+      ),
+    },
+    {
+      kind: "equals",
+      field: "decision",
+      values: ["suspend"],
+      message: t(
+        `${who} quedará suspendido: deja de recibir trabajos desde ya y ve su mensaje en el portal. Los viajes que ya tiene asignados no se quitan solos: revíselos en Reservas.`,
+        `${who} will be suspended: no new jobs from now on, and they see your message in the portal. Trips already assigned to them are not removed: check them in Bookings.`,
+      ),
+    },
+  ];
+  const vehicleConfirm = (name: string): ConfirmRule[] => [
+    {
+      kind: "equals",
+      field: "decision",
+      values: ["reject", "suspend"],
+      message: t(
+        `El vehículo ${name} no podrá usarse para trabajos nuevos y el conductor recibe un aviso con su mensaje. Los viajes ya asignados con él no se quitan solos: revíselos en Reservas.`,
+        `The vehicle ${name} can't be used for new jobs, and the driver gets a notice with your message. Trips already assigned with it are not removed: check them in Bookings.`,
+      ),
+    },
+  ];
+  const categoryConfirm: ConfirmRule[] = [
+    {
+      kind: "changed",
+      fields: ["vehicle_class"],
+      message: t(
+        "La categoría pasa de «{from}» a «{to}»: cambia desde ya qué trabajos recibe este vehículo.",
+        'The category changes from "{from}" to "{to}": it changes which jobs this vehicle receives, from now on.',
+      ),
+    },
+  ];
 
   return (
-    <div className="space-y-6">
-      <Link href="/admin/drivers" className="text-sm font-bold text-emerald-700 underline">
-        ← {t("Todos los conductores", "All drivers")}
-      </Link>
-      <div>
-        <h1 className="text-2xl font-extrabold text-slate-900">{d.profiles?.full_name || t("(aún sin nombre)", "(no name yet)")}</h1>
-        <p className="text-sm text-slate-600">
-          {d.profiles?.email}
-          {d.profiles?.phone && (
-            <>
-              {" · "}
-              <a href={`https://wa.me/${phoneDigits}`} className="font-bold text-emerald-700 underline" target="_blank" rel="noreferrer">
-                WhatsApp {d.profiles.phone}
-              </a>
-            </>
-          )}
-        </p>
-        <p className="mt-1 text-sm">
-          <strong>{kycStatusLabel(d.kyc_status, lang)}</strong>
-          {d.needs_review && (
-            <span className="ml-2 rounded bg-amber-100 px-2 py-0.5 text-amber-900 font-bold">
-              {t("Cambió desde la última revisión", "Changed since last review")}
-            </span>
-          )}
-          {d.review_hold && (
-            <span className="ml-2 rounded bg-red-100 px-2 py-0.5 text-red-900 font-bold">
-              {t(
-                "Pausado para trabajos nuevos hasta que revise los documentos nuevos",
-                "Paused from new jobs until you check the new documents",
-              )}
-            </span>
-          )}
-          {d.submitted_at && (
-            <span className="text-slate-500">
-              {" "}
-              · {t("se postuló el", "applied")} {d.submitted_at.slice(0, 10)}
-            </span>
-          )}
-          {d.reviewed_at && (
-            <span className="text-slate-500">
-              {" "}
-              · {t("última revisión", "last reviewed")} {d.reviewed_at.slice(0, 10)}
-            </span>
-          )}
-          {d.kyc_status === "approved" && !canTakeTrips(d, vehicles, today) && (
-            <span className="ml-2 rounded bg-red-100 px-2 py-0.5 text-red-900 font-bold">
-              {t(
-                "No puede tomar viajes: documentos vencidos o ningún vehículo aprobado",
-                "Can't take trips: expired documents or no approved vehicle",
-              )}
-            </span>
-          )}
-          {d.ict_permit_number && (
-            <span className="ml-2 rounded bg-emerald-100 px-2 py-0.5 text-emerald-900 font-bold">{t("Permiso ICT", "ICT permit")}</span>
-          )}
-        </p>
+    <div className="space-y-5">
+      <PageHeader
+        back={{ href: "/admin/drivers", label: t("Todos los conductores", "All drivers") }}
+        title={d.profiles?.full_name || t("(aún sin nombre)", "(no name yet)")}
+        subtitle={
+          <>
+            <span className="break-all">{d.profiles?.email}</span>
+            {d.profiles?.phone && (
+              <>
+                {" · "}
+                <a href={`https://wa.me/${phoneDigits}`} className={link} target="_blank" rel="noreferrer">
+                  WhatsApp {d.profiles.phone}
+                </a>
+              </>
+            )}
+            {d.submitted_at && <> · {t("se postuló el", "applied")} {d.submitted_at.slice(0, 10)}</>}
+            {d.reviewed_at && <> · {t("última revisión", "last reviewed")} {d.reviewed_at.slice(0, 10)}</>}
+          </>
+        }
+      />
+      <div className="flex flex-wrap gap-1.5">
+        <Chip tone={d.kyc_status === "approved" ? "green" : d.kyc_status === "pending" ? "amber" : "red"}>{kycStatusLabel(d.kyc_status, lang)}</Chip>
+        {d.needs_review && <Chip tone="amber">{t("Cambió desde la última revisión", "Changed since last review")}</Chip>}
+        {d.review_hold && (
+          <Chip tone="red">{t("Pausado para trabajos nuevos hasta que revise los documentos nuevos", "Paused from new jobs until you check the new documents")}</Chip>
+        )}
+        {d.kyc_status === "approved" && !canTakeTrips(d, vehicles, today) && (
+          <Chip tone="red">{t("No puede tomar viajes: documentos vencidos o ningún vehículo aprobado", "Can't take trips: expired documents or no approved vehicle")}</Chip>
+        )}
+        {d.ict_permit_number && <Chip tone="green">{t("Permiso ICT", "ICT permit")}</Chip>}
       </div>
 
       {(issues.length > 0 || missing.length > 0) && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+        <Notice tone="red">
           <IssueList issues={issues} />
           {missing.length > 0 && (
             <p>
               {t("Datos pendientes", "Missing details")}: {missing.join(", ")}
             </p>
           )}
-        </div>
+        </Notice>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <section className="rounded-xl border border-slate-200 bg-white p-5">
-          <h2 className="font-extrabold text-slate-900">{t("Datos (tal como los ingresó el conductor)", "Details (as entered by the driver)")}</h2>
-          <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card title={t("Datos (tal como los ingresó el conductor)", "Details (as entered by the driver)")}>
+          <dl className=" grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
             <Item k={t("Cédula / pasaporte", "Cédula / passport")} v={d.cedula_number} />
             <Item k={t("Licencia", "Licence")} v={d.license_number} />
             <Item k={t("Vencimiento de la licencia", "Licence expiry")} v={d.license_expiry} />
@@ -160,12 +175,12 @@ export default async function DriverDetail({ params }: { params: Promise<{ id: s
             <Item k={t("Inglés", "English")} v={d.english_level ? englishLevelLabel(d.english_level, lang) : null} />
             <Item k={t("Vive en", "Based in")} v={d.home_hub ? townName(d.home_hub, lang) : null} />
           </dl>
-          <p className="mt-3 text-xs text-slate-500">
+          <p className="mt-3 text-xs text-[#5F6F67]">
             {t("Compare cada dato con el documento antes de aprobar.", "Check each one against the document before approving.")}
           </p>
-          <h3 className="mt-4 text-sm font-extrabold text-slate-900">{t("Presentación que ven los clientes", "Bio shown to travellers")}</h3>
-          <p className="mt-1 whitespace-pre-line text-sm text-slate-700">{d.bio || "—"}</p>
-          <h3 className="mt-4 text-sm font-extrabold text-slate-900">
+          <h3 className="mt-4 text-sm font-extrabold text-[#14231C]">{t("Presentación que ven los clientes", "Bio shown to travellers")}</h3>
+          <p className="mt-1 whitespace-pre-line text-sm text-[#33443C]">{d.bio || "—"}</p>
+          <h3 className="mt-4 text-sm font-extrabold text-[#14231C]">
             {t("Calificaciones de los clientes", "Travellers' ratings")}
             {d.rating_count
               ? lang === "en"
@@ -174,7 +189,7 @@ export default async function DriverDetail({ params }: { params: Promise<{ id: s
               : ""}
           </h3>
           {(reviews ?? []).length === 0 ? (
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="mt-1 text-sm text-[#5F6F67]">
               {t(
                 "Aún no hay calificaciones. A los clientes se les pide calificar después de cada viaje completado; una calificación con comentario cuenta doble.",
                 "No ratings yet. Travellers are asked to rate after each completed trip; a rating with a comment counts double.",
@@ -183,31 +198,29 @@ export default async function DriverDetail({ params }: { params: Promise<{ id: s
           ) : (
             <ul className="mt-1 space-y-1.5 text-sm">
               {(reviews ?? []).map((r) => (
-                <li key={r.id} className="text-slate-700">
+                <li key={r.id} className="text-[#33443C]">
                   <span className="font-bold text-amber-600">{"★".repeat(r.stars)}</span>
-                  <span className="text-slate-400">{"★".repeat(5 - r.stars)}</span> <span className="text-xs text-slate-500">{r.created_at.slice(0, 10)}</span>
+                  <span className="text-[#9AA8A1]">{"★".repeat(5 - r.stars)}</span> <span className="text-xs text-[#5F6F67]">{r.created_at.slice(0, 10)}</span>
                   {r.comment && <span className="block italic">&ldquo;{r.comment}&rdquo;</span>}
                 </li>
               ))}
             </ul>
           )}
-        </section>
+        </Card>
 
-        <section className="rounded-xl border border-slate-200 bg-white p-5">
-          <h2 className="font-extrabold text-slate-900">{t("Documentos", "Documents")}</h2>
+        <Card title={t("Documentos", "Documents")}>
           <DocLinks specs={DRIVER_DOCS} docs={d.documents} links={links} lang={lang} />
-          <p className="mt-3 text-xs text-slate-500">
+          <p className="mt-3 text-xs text-[#5F6F67]">
             {t(
               "Los enlaces funcionan por 10 minutos; recargue la página para obtener nuevos.",
               "Links work for 10 minutes; reload the page for new ones.",
             )}
           </p>
-        </section>
+        </Card>
       </div>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-5">
-        <h2 className="font-extrabold text-slate-900">{t("Decisión sobre el conductor", "Decision on the driver")}</h2>
-        <ActionForm action={reviewDriver} lang={lang} className="mt-3 space-y-4">
+      <Card title={t("Decisión sobre el conductor", "Decision on the driver")}>
+        <AdminActionForm action={reviewDriver} lang={lang} className="space-y-4" confirm={driverConfirm}>
           <input type="hidden" name="id" value={d.id} />
           <fieldset className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
             <legend className="sr-only">{t("Decisión", "Decision")}</legend>
@@ -218,36 +231,36 @@ export default async function DriverDetail({ params }: { params: Promise<{ id: s
             <Radio value="reject" label={t("Rechazar", "Reject")} />
             <Radio value="suspend" label={t("Suspender", "Suspend")} />
           </fieldset>
-          <label className="block text-sm font-bold text-slate-700">
+          <label className={field.label}>
             {t(
               "Mensaje para el conductor (se muestra en su portal; obligatorio para rechazar o suspender)",
               "Message to the driver (shown in their portal; required to reject or suspend)",
             )}
-            <textarea name="note" rows={2} maxLength={500} defaultValue={d.kyc_note ?? ""} className="mt-1 block w-full rounded-lg border border-slate-300 p-2 font-normal" />
+            <textarea name="note" rows={2} maxLength={500} defaultValue={d.kyc_note ?? ""} className={field.textarea} />
           </label>
-        </ActionForm>
-        <p className="mt-3 text-xs text-slate-500">
+        </AdminActionForm>
+        <p className="mt-3 text-xs text-[#5F6F67]">
           {t(
             "Antes de aprobar: entrevístelo (incluido su nivel de inglés) y compare cada documento con los datos de arriba. La hoja de delincuencia debe tener como máximo 30 días de emitida (el sistema lo revisa). Apruebe cada vehículo por separado abajo.",
             "Before approving: interview them (English level included), compare every document with the details above. The criminal record certificate must be issued no more than 30 days ago (the app checks this). Approve each vehicle separately below.",
           )}
         </p>
-      </section>
+      </Card>
 
-      <h2 className="pt-2 text-xl font-extrabold text-slate-900">
+      <h2 className="pt-2 text-xl font-extrabold text-[#14231C]">
         {t("Vehículos", "Vehicles")} ({vehicles.length})
       </h2>
-      {vehicles.length === 0 && <p className="text-sm text-slate-500">{t("Aún no ha agregado vehículos.", "No vehicles added yet.")}</p>}
+      {vehicles.length === 0 && <p className="text-sm text-[#5F6F67]">{t("Aún no ha agregado vehículos.", "No vehicles added yet.")}</p>}
       {vehicles.map((v) => {
         const vIssues = vehicleIssues(v, today, soon, lang);
         const todo = missingVehicleItems(v, lang);
         return (
-          <section key={v.id} className="rounded-xl border border-slate-200 bg-white p-5 space-y-4">
+          <section key={v.id} className="space-y-4 rounded-2xl border border-[#E3E8E5] bg-white p-4 sm:p-5">
             <div className="flex flex-wrap items-center gap-2">
-              <h3 className="text-lg font-extrabold text-slate-900">
+              <h3 className="text-lg font-extrabold text-[#14231C]">
                 {v.make_model || t("Vehículo", "Vehicle")} {v.year ? `(${v.year})` : ""}
               </h3>
-              {v.plate && <span className="rounded bg-slate-100 px-2 py-0.5 text-sm font-bold">{v.plate}</span>}
+              {v.plate && <span className="rounded bg-[#F1F4F2] px-2 py-0.5 text-sm font-bold">{v.plate}</span>}
               <strong className="text-sm">{kycStatusLabel(v.status, lang)}</strong>
               {v.needs_review && (
                 <span className="rounded bg-amber-100 px-2 py-0.5 text-sm text-amber-900 font-bold">
@@ -275,19 +288,20 @@ export default async function DriverDetail({ params }: { params: Promise<{ id: s
               )}
             </div>
             {/* Which jobs this vehicle receives (migrations 0038 and 0039). Saved on its own, without a new approval decision. */}
-            <ActionForm
+            <AdminActionForm
               action={setVehicleCategory}
               lang={lang}
               submitLabel={t("Guardar categoría y eléctrico", "Save category and electric")}
-              className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-3"
+              className="space-y-2 rounded-xl border border-[#E3E8E5] bg-[#FAFBFA] p-3.5"
+              confirm={categoryConfirm}
             >
               <input type="hidden" name="vehicle_id" value={v.id} />
-              <label className="block text-sm font-bold text-slate-700">
+              <label className={field.label}>
                 {t("Categoría del vehículo", "Vehicle category")}
                 <select
                   name="vehicle_class"
                   defaultValue={isVehicleCategory(v.vehicle_class) ? v.vehicle_class : ""}
-                  className="mt-1 block w-full min-h-10 rounded-lg border border-slate-300 bg-white px-2 font-normal sm:max-w-md"
+                  className={`${field.input} sm:max-w-md`}
                 >
                   <option value="">{categoryLabel(null, lang)}</option>
                   {VEHICLE_CATEGORY_IDS.map((c) => (
@@ -298,11 +312,11 @@ export default async function DriverDetail({ params }: { params: Promise<{ id: s
                 </select>
               </label>
               {/* Not a category and no price change (migration 0042): a badge for travellers and a match for their free request. */}
-              <label className="flex items-start gap-2 text-sm font-bold text-slate-700">
+              <label className="flex items-start gap-2 text-sm font-bold text-[#33443C]">
                 <input type="checkbox" name="is_electric" defaultChecked={Boolean(v.is_electric)} className="mt-0.5 h-5 w-5 rounded border-slate-300" />
                 <span>
                   {t("Vehículo eléctrico", "Electric vehicle")}
-                  <span className="block text-xs font-normal text-slate-500">
+                  <span className="block text-xs font-normal text-[#5F6F67]">
                     {t(
                       "No cambia la categoría ni el precio. El viajero ve la insignia «Vehículo eléctrico» y puede pedir uno gratis, si hay disponible.",
                       "Doesn't change the category or the price. The traveller sees an \"Electric vehicle\" badge and can ask for one for free, if available.",
@@ -310,32 +324,32 @@ export default async function DriverDetail({ params }: { params: Promise<{ id: s
                   </span>
                 </span>
               </label>
-              <p className="text-sm text-slate-700">
+              <p className="text-sm text-[#33443C]">
                 <strong>{t("Ahora", "Now")}:</strong> {categoryHint(v.vehicle_class, lang)}
               </p>
-              <ul className="text-xs text-slate-500">
+              <ul className="text-xs text-[#5F6F67]">
                 {VEHICLE_CATEGORY_IDS.map((c) => (
                   <li key={c}>
                     <strong>{categoryLabel(c, lang)}</strong>: {categoryHint(c, lang)}
                   </li>
                 ))}
               </ul>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-[#5F6F67]">
                 {t(
                   "Un SUV compacto (RAV4, Aion V) va como Sedán: su cajuela es de sedán. Minivan (MPV) es para 4 viajeros con 4 maletas (Xpander, Avanza, Carnival). Una van no recibe trabajos de 4x4; si la van también es 4x4, use Van 4x4: recibe los trabajos de van y los de 4x4 (incluida la lancha de Sierpe). Además de la categoría, el vehículo solo recibe trabajos para los que tiene asientos suficientes.",
                   "A compact SUV (RAV4, Aion V) goes as Sedan: its boot is sedan-size. Minivan (MPV) is for 4 travellers with 4 suitcases (Xpander, Avanza, Carnival). A van doesn't receive 4x4 jobs; if the van is also a 4x4, use Van 4x4: it receives van jobs and 4x4 jobs (Sierpe boat included). Besides the category, a vehicle only receives jobs it has enough seats for.",
                 )}
               </p>
-            </ActionForm>
+            </AdminActionForm>
             {(vIssues.length > 0 || todo.length > 0) && (
-              <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-900">
+              <Notice tone="red">
                 <IssueList issues={vIssues} />
                 {todo.length > 0 && (
                   <p>
                     {t("Falta", "Missing")}: {todo.join(", ")}
                   </p>
                 )}
-              </div>
+              </Notice>
             )}
             {(v.photos ?? []).length > 0 && (
               <ul className="grid grid-cols-3 gap-2 sm:grid-cols-6">
@@ -375,13 +389,18 @@ export default async function DriverDetail({ params }: { params: Promise<{ id: s
               </dl>
               <DocLinks specs={VEHICLE_DOCS} docs={v.documents} links={links} lang={lang} />
             </div>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-[#5F6F67]">
               {t(
                 "Antes de aprobar: una foto debe mostrar la placa, y debe coincidir con la tarjeta de circulación, el seguro, la Dekra y el Marchamo.",
                 "Before approving: one photo must show the plate, and it must match the registration, insurance, Dekra and Marchamo.",
               )}
             </p>
-            <ActionForm action={reviewVehicle} lang={lang} className="space-y-3 border-t border-slate-100 pt-4">
+            <AdminActionForm
+              action={reviewVehicle}
+              lang={lang}
+              className="space-y-3 border-t border-[#EDF1EE] pt-4"
+              confirm={vehicleConfirm(`${v.make_model ?? ""} ${v.plate ?? ""}`.trim() || "—")}
+            >
               <input type="hidden" name="vehicle_id" value={v.id} />
               <fieldset className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
                 <legend className="sr-only">{t("Decisión sobre este vehículo", "Decision on this vehicle")}</legend>
@@ -392,11 +411,11 @@ export default async function DriverDetail({ params }: { params: Promise<{ id: s
                 <Radio value="reject" label={t("Rechazar", "Reject")} />
                 <Radio value="suspend" label={t("Suspender", "Suspend")} />
               </fieldset>
-              <label className="block text-sm font-bold text-slate-700">
+              <label className={field.label}>
                 {t("Mensaje para el conductor sobre este vehículo", "Message to the driver about this vehicle")}
-                <textarea name="note" rows={2} maxLength={500} defaultValue={v.note ?? ""} className="mt-1 block w-full rounded-lg border border-slate-300 p-2 font-normal" />
+                <textarea name="note" rows={2} maxLength={500} defaultValue={v.note ?? ""} className={field.textarea} />
               </label>
-            </ActionForm>
+            </AdminActionForm>
           </section>
         );
       })}
@@ -438,16 +457,16 @@ function DocLinks({
           <li key={doc.key} className="flex items-center justify-between gap-3">
             <span>
               {docLabel(doc, lang)}
-              {!doc.required && <span className="text-slate-400"> ({t("opcional", "optional")})</span>}
+              {!doc.required && <span className="text-[#9AA8A1]"> ({t("opcional", "optional")})</span>}
             </span>
             {url ? (
-              <a href={url} target="_blank" rel="noreferrer" className="font-bold text-emerald-700 underline whitespace-nowrap">
+              <a href={url} target="_blank" rel="noreferrer" className={`whitespace-nowrap ${link}`}>
                 {t("Abrir", "Open")}
               </a>
             ) : path ? (
-              <span className="text-red-700">{t("Falta el archivo", "File missing")}</span>
+              <span className="text-[#B91C1C]">{t("Falta el archivo", "File missing")}</span>
             ) : (
-              <span className="text-slate-400">{t("No subido", "Not uploaded")}</span>
+              <span className="text-[#9AA8A1]">{t("No subido", "Not uploaded")}</span>
             )}
           </li>
         );
@@ -459,8 +478,8 @@ function DocLinks({
 function Item({ k, v }: { k: string; v: string | number | null | undefined }) {
   return (
     <>
-      <dt className="text-slate-500">{k}</dt>
-      <dd className="font-semibold text-slate-900">{v || v === 0 ? v : "—"}</dd>
+      <dt className="text-[#5F6F67]">{k}</dt>
+      <dd className="font-semibold text-[#14231C]">{v || v === 0 ? v : "—"}</dd>
     </>
   );
 }

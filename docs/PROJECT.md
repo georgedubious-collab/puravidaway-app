@@ -410,6 +410,40 @@ Legal pages (`/terms`, `/privacy`, `/cancellation`) are linked from every footer
    or booking note where contact details were hidden, with the original text (admins only), a
    "N times" mark for repeat senders and "Mark reviewed". See §4.5.
 
+**Built today (redesign approved 2026-11-12, Spanish by default with ES | EN).** Every admin page
+shares one look (`src/components/admin/*`: page header, cards, status / payment chips, tables, empty
+and error states, `AdminActionForm`).
+- **Side menu**: dark green, with live counters (bookings not yet confirmed, live trips, drivers to
+  review, flagged messages), language switch, signed-in email, sign out. On phones it hides behind
+  ☰ (focus stays inside, Escape closes). `src/app/admin/error.tsx` / `loading.tsx` show a clear
+  Spanish/English message with "Try again"; actions return readable errors instead of a blank page.
+- **Panel** (`/admin`): greeting with the Costa Rica date; search (goes to Bookings); "Nueva reserva";
+  KPIs: pickups today (and how many lack a driver), new requests waiting for payment, **revenue this
+  month** (= amount received on bookings whose pickup is in this Costa Rica calendar month, cancelled
+  bookings and test payments left out) vs last month, average driver rating; upcoming pickups (Hoy /
+  Mañana / 7 días) with "Asignar"; **Necesita atención** (no driver within 48 h, documents expiring
+  ≤ 30 days, new applications / changes to check, flagged messages not reviewed, waiting for payment
+  > 24 h, approved vehicles without a category or seats); bookings received per week (8 weeks).
+- **Bookings** (`/admin/bookings`): server-side search (code, traveller name/email, driver name; a
+  search covers all dates), status tabs with counts, pickup-date presets or exact dates, type and
+  driver filters, sorted by pickup time, 25 per page with real pagination, colour status and payment
+  chips. **Export CSV** (`/admin/bookings/export`, same filters, UTF-8 with BOM for Excel) — includes
+  the traveller's name, email and phone (the team's own export; see §7.7), never card data.
+- **Nueva reserva** (`/admin/bookings/new`): a booking that came by WhatsApp/phone, priced by the
+  server exactly like the website (same catalog, season, night premium, stops, sign, bags) and saved
+  through the website's own request path (`submitTripRequestAsTeam`, `src/app/trip/actions.ts`):
+  same `trips`/`bookings` rows, status "Esperando pago", fixed price, online or cash; optional email
+  of the trip link to the traveller. Rides between our towns (typed addresses: on the website).
+- **Booking page**: change history ("Historial de cambios", §7.3 `booking_events`) as a timeline.
+- **Confirmations in the page** (never a browser pop-up), saying what will happen: cancel a booking,
+  change the amount received, accept a driver's offer (sets the payout), mark trips settled,
+  reject/suspend a driver or vehicle, change a vehicle's category, change prices / fees / season
+  multipliers / commission, add or remove season dates, change a user's role.
+- **Drivers are told** (push to the driver app + email, in their language, `profiles.app_lang`) when
+  the team approves or rejects their application, approves / rejects / puts on hold one of their
+  vehicles, or sets a vehicle's category for the first time — once per decision, only about their own
+  account (`src/lib/driverReviewNotices.ts`).
+
 ### 4.3 Driver portal (`/driver`, driver role)
 KYC document upload, view open booking requests, submit and manage bids, assigned trips,
 on-duty toggle (Phase 3), trip chat (Phase 4).
@@ -946,6 +980,14 @@ only) · `cash_fee` numeric(10,2) (cash booking fee snapshot, 0 unless `cash_dri
 `source` (`link` | `one_click` | `team`) · `created_at`. Addresses that unsubscribed from
 promotional emails (§4.7). **`driver_reviews.team_alerted_at`**: low-rating email sent.
 
+**`booking_events`** (change history, migration 0044): `id` · `booking_id` → `bookings.id` · `at` ·
+`actor_id` → `profiles.id` (who did it; empty for the website's server and scheduled jobs) · `action`
+(`status` | `assignment` | `amount_paid` | `price` | `payout` | `payment_mode` | `schedule` |
+`settled` | `sign` | `notes` | `created_by_team` | `trip_link_emailed`) · `before` / `after` jsonb
+(only the changed fields). Written by triggers on `bookings` and `booking_admin_notes` (so every path
+is covered: admin pages, accepting an offer, the driver app, the traveller's sign) and by the server
+for bookings entered by the team. Never card data, never chat messages.
+
 ### 7.4 `bids`
 `id` uuid PK · `booking_id` → `bookings.id` · `driver_id` → `drivers.id` · `bid_amount` numeric ·
 `vehicle_snapshot` jsonb · `status` (`submitted` | `accepted` | `declined` | `withdrawn`) ·
@@ -1057,6 +1099,13 @@ and `season_for_date(date)` returns the season for a travel date.
 - **payments:** written only by the server (service role); clients read their own; admins read all.
 - **email_optouts:** written only by the server (the unsubscribe page and one-click route); admins
   read; logged-out visitors, travellers and drivers can't read or write it (`npm run test:db`).
+- **booking_events:** admins read; nobody writes from a browser or app (no insert/update/delete
+  policies) — only the triggers and the server (service role). Travellers, drivers and visitors read
+  nothing. `npm run test:db` checks this.
+- **Admin CSV export (privacy):** `/admin/bookings/export` is admins only and reads with the admin's
+  own session (RLS applies). It holds travellers' names, emails and phones because it is the team's
+  own working copy: keep downloaded files private, don't share them outside the team, and delete them
+  when no longer needed. It never contains card data (bookings hold none) or chat messages.
 
 ---
 

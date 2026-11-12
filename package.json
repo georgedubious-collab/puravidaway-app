@@ -19,6 +19,7 @@
     "test:reviews": "node --no-warnings scripts/test-review-reminder.mjs",
     "test:consent-region": "node --no-warnings scripts/test-consent-region.mjs",
     "test:automations": "node --no-warnings scripts/test-automations.mjs",
+    "test:admin": "node --no-warnings scripts/test-admin-bookings.mjs",
     "db:seed": "node scripts/generate-catalog-seed.mjs"
   },
   "dependencies": {
