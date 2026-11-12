@@ -39,7 +39,7 @@ export async function logWhatsAppOpened(bookingId: string, kind: string): Promis
 /**
  * Cancel a booking with the refund worked out from the policy (src/lib/refundPolicy.ts). The server
  * works the policy out again and never trusts the page's number; the team may change the refund
- * owed, with a reason. Status + refund row are written together (cancel_booking(), migration 0046).
+ * owed, with a reason. Status + refund row are written together (cancel_booking(), migration 0049).
  * With "notify" ticked, the traveller and the assigned driver are emailed.
  */
 export async function cancelWithRefund(_prev: FormState, fd: FormData): Promise<FormState> {

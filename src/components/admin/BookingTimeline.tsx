@@ -59,7 +59,7 @@ export function describeEvent(e: BookingEvent, lang: TeamLang, who: { driver: Lo
       return { title: t("Reserva ingresada por el equipo", "Booking entered by the team"), detail: a.source ? String(a.source) : undefined };
     case "trip_link_emailed":
       return { title: t("Enlace del viaje enviado al viajero por correo", "Trip link emailed to the traveller") };
-    // CRM part 3 (migration 0046).
+    // CRM part 3 (migration 0049).
     case "cancellation":
       return {
         title: `${t("Cancelada por", "Cancelled by")}: ${cancelledByText(String(a.cancelled_by) as CancelledBy, lang)}`,

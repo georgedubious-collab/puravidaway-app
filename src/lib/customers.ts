@@ -2,7 +2,7 @@
  * Customer profiles (/admin/customers), team only. Travellers have no accounts, so a customer is
  * every trip with the same email (lower-case, trimmed), or with no email the same phone digits,
  * or with neither, the single trip. The database does the grouping (customer_key() and
- * admin_customers(), migration 0046); customerKey() below is the same rule for links.
+ * admin_customers(), migration 0049); customerKey() below is the same rule for links.
  *
  * Plain TypeScript without imports, so `npm run test:crm` runs it with Node.
  */
@@ -12,7 +12,7 @@ export const TAG_MAX = 30;
 export const TAGS_MAX = 12;
 export const NOTE_MAX = 4000;
 
-/** Mirrors public.customer_key() (migration 0046). */
+/** Mirrors public.customer_key() (migration 0049). */
 export function customerKey(email: string | null | undefined, phone: string | null | undefined, tripId: string | null | undefined): string {
   const e = (email ?? "").trim();
   if (e) return e.toLowerCase();

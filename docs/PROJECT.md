@@ -443,7 +443,7 @@ and error states, `AdminActionForm`).
   change the amount received, accept a driver's offer (sets the payout), mark trips settled,
   reject/suspend a driver or vehicle, change a vehicle's category, change prices / fees / season
   multipliers / commission, add or remove season dates, change a user's role.
-- **CRM part 3 (2026-11-12, migration 0046, `npm run test:crm`):**
+- **CRM part 3 (2026-11-12, migration 0049, `npm run test:crm`):**
   - **Clientes** (`/admin/customers`): travellers grouped by email (lower-case, trimmed; with no
     email, by phone digits). Search (name, email, phone, tag), columns name / email / phone /
     bookings / completed / spent (= amount received, cancelled bookings and test payments left out) /
@@ -964,14 +964,14 @@ only) · `cash_fee` numeric(10,2) (cash booking fee snapshot, 0 unless `cash_dri
 **`booking_events`** (change history, migration 0044): `id` · `booking_id` → `bookings.id` · `at` ·
 `actor_id` → `profiles.id` (who did it; empty for the website's server and scheduled jobs) · `action`
 (`status` | `assignment` | `amount_paid` | `price` | `payout` | `payment_mode` | `schedule` |
-`settled` | `sign` | `notes` | `created_by_team` | `trip_link_emailed`; since migration 0046 also
+`settled` | `sign` | `notes` | `created_by_team` | `trip_link_emailed`; since migration 0049 also
 `cancellation` | `refund` | `refund_paid` (trigger on `booking_refunds`) and `driver_removed` |
 `whatsapp_opened` | `notified` (written by the server)) · `before` / `after` jsonb
 (only the changed fields). Written by triggers on `bookings` and `booking_admin_notes` (so every path
 is covered: admin pages, accepting an offer, the driver app, the traveller's sign) and by the server
 for bookings entered by the team. Never card data, never chat messages.
 
-**`booking_refunds`** (migration 0046, admins only; one row per cancelled booking): `booking_id` ·
+**`booking_refunds`** (migration 0049, admins only; one row per cancelled booking): `booking_id` ·
 `cancelled_by` (`traveller` | `team` | `driver` | `weather`) · `cancelled_at` · `asked_at` (when the
 traveller's message arrived) · `hours_before` · `amount_received` · `refund_policy` · `refund_rule`
 (`free_24h` | `late_or_no_show` | `we_cancelled` | `weather`) · `refund_due` (≤ received) ·
@@ -981,7 +981,7 @@ traveller's message arrived) · `hours_before` · `amount_received` · `refund_p
 rows, and the team's reason must stay internal. Written with `cancel_booking()` (status + refund row in
 one step, admins only).
 
-**Customers** (migration 0046): no table of their own. `customer_key(email, phone, trip)` = the
+**Customers** (migration 0049): no table of their own. `customer_key(email, phone, trip)` = the
 email lower-cased and trimmed, else `tel:<digits>`, else `trip:<id>`; `admin_customers()` and
 `admin_customer_trips()` compute the list from `trips` + `bookings` + `driver_reviews` and return
 nothing to non-admins. **`customer_notes`**: `customer_key` PK · `tags` text[] (≤ 12; "VIP" = the VIP
@@ -1100,7 +1100,7 @@ and `season_for_date(date)` returns the season for a travel date.
 - **booking_events:** admins read; nobody writes from a browser or app (no insert/update/delete
   policies) — only the triggers and the server (service role). Travellers, drivers and visitors read
   nothing. `npm run test:db` checks this.
-- **CRM part 3 (migration 0046):** `customer_notes`, `customer_note_events` and `booking_refunds`
+- **CRM part 3 (migration 0049):** `customer_notes`, `customer_note_events` and `booking_refunds`
   are admins only (read and write; history read-only); `admin_customers()` /
   `admin_customer_trips()` return nothing to anyone else; `cancel_booking()` refuses non-admins.
   Travellers, drivers and visitors read none of it. The cancellation email to a driver never holds

@@ -1280,7 +1280,7 @@ await expectOk("server removes the test booking", "server", "delete from public.
   await expectRows("drivers still read no booking rows", "driver", "select * from public.bookings", 0);
 }
 
-// --- CRM part 3 (migration 0046): customers, refunds, new history entries ------------------------
+// --- CRM part 3 (migration 0049): customers, refunds, new history entries ------------------------
 {
   const T = (n) => `20000000-0000-0000-0000-0000000000c${n}`;
   const BK = (n) => `10000000-0000-0000-0000-0000000000c${n}`;

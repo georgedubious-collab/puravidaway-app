@@ -4,7 +4,7 @@ import type { createSupabaseServerClient } from "./supabase/server";
 
 type Db = NonNullable<Awaited<ReturnType<typeof createSupabaseServerClient>>>;
 
-/** One row of public.admin_customers() (migration 0046). */
+/** One row of public.admin_customers() (migration 0049). */
 export interface CustomerRow {
   customer_key: string;
   name: string | null;

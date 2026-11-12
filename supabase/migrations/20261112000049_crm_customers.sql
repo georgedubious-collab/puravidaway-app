@@ -25,7 +25,7 @@
 --      assigned driver, and why), 'whatsapp_opened' (a one-tap WhatsApp message was opened) and
 --      'notified' (who was emailed about a cancellation). The last three are written by the server.
 -- It changes no existing row, price or policy.
--- Run after 0045 (crm_automations) or, if that is not merged yet, after 0044. Safe to run once, in order.
+-- Run after 0048 (vehicle_photo_minimum). Safe to run once, in order.
 
 -- 1. Customer key ------------------------------------------------------------------------------
 create or replace function public.customer_key(p_email text, p_phone text, p_trip uuid)
