@@ -81,7 +81,6 @@ const quote: RideQuote = {
   ferries: 0,
   season: { name: "High season", percent: 10 },
   cashFeeBps: 1000,
-  minOfferCents: 5000,
   vehicles: [
     { id: "economy", name: "Economy Sedan", exampleModels: "Toyota Yaris", badge: "Spanish-speaking driver · direct ride", maxPax: 3, luggage: "3 suitcases", allowsStops: false, spanishSpeakingDriver: true, totalCents: 14600, perPersonCents: 4900, perPersonShare: 3 },
     { id: "sedan", name: "Standard Sedan", exampleModels: "Toyota Corolla", badge: "Best value", maxPax: 3, luggage: "3 suitcases", allowsStops: true, spanishSpeakingDriver: false, totalCents: 16200, perPersonCents: 5400, perPersonShare: 3 },
@@ -181,7 +180,8 @@ const SCREENS: Record<string, Setup> = {
   "confirm-sign": { routes: steps("BookWhere", "BookRide", "BookConfirm"), state: { ...ride, name: "Sarah Miller", phone: "+1 555 123 4567", signText: "The Miller Family" } },
   "confirm-electric": { routes: steps("BookWhere", "BookRide", "BookConfirm"), state: { ...ride, name: "Sarah Miller", phone: "+1 555 123 4567", prefs: { language: "english", wifi: false, stroller: false, childSeats: 0, pets: false, electric: true } } },
   "ride-new": { routes: steps("BookWhere", "BookRide"), email: null, state: { ...ride, whenSet: false } },
-  "ride-bid": { routes: steps("BookWhere", "BookRide"), email: null, state: { ...ride, mode: "bid", offer: "120" } },
+  // "Driver offers" is gone (fixed prices only, 2026-11-11); the old name opens the vehicle screen.
+  "ride-bid": { routes: steps("BookWhere", "BookRide"), email: null, state: ride },
   "ride-loading": { routes: steps("BookWhere", "BookRide"), email: null, state: ride, quote: null, quoteBusy: true },
   stops: { routes: [...steps("BookWhere", "BookRide", "BookConfirm"), { name: "BookStops" }], email: null, state: { ...ride, stopIds: ["sloth"] } },
   extras: { routes: [...steps("BookWhere", "BookRide", "BookConfirm"), { name: "BookExtras" }], email: null, state: { ...ride, stopIds: ["sloth"], prefs: { language: "english", wifi: true, stroller: false, childSeats: 1, pets: false } } },

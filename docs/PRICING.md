@@ -16,8 +16,8 @@ distance. Compared with Daytrip's Sedan:
 | SJO → La Fortuna (116 km, 2 h 30) | $161 | $175 | $14 too expensive |
 | SJO → Tamarindo (273 km, 4 h 40) | $338 | $175 | **$163 too cheap**: the driver loses a whole day for less than a short ride pays |
 
-Short rides lose customers, long rides lose money or drivers. The bid "reference price" is
-built from the same number, so it is wrong too.
+Short rides lose customers, long rides lose money or drivers. The bid "reference price" was
+built from the same number, so it was wrong too (traveller bids were removed on 2026-11-11, §6).
 
 ## 2. What travellers should experience
 
@@ -189,6 +189,11 @@ gate" on the card.
 
 ## 6. Bidding vs flat rates — my recommendation
 
+> **Decided (Jorge, 2026-11-11): "Let's do fixed prices only for now."** Travellers always book
+> at the fixed price; the storefront's and the app's "Driver offers" / "name your price" mode
+> (offers from $50) is removed. Drivers still send offers on their payout on the job board (7a)
+> and the team picks the driver. "Request a custom quote" (7b) stays deferred.
+
 **Fixed prices for travellers. Let drivers compete behind the scenes. Keep "name your price"
 only as a custom quote.**
 
@@ -231,8 +236,8 @@ it moves to the driver side.
 | 5b ✅ | **Built 2026-11-09** (migration 0022). **Day tours priced per person, tiered by group size** (1 / 2–3 / 4+), like costaricatravelplanner.com (e.g. Arenal full day $350 / $295 / $275 pp); the tour builder has a travellers selector and shows the total and the per-person rate. Replaces the flat per-group tour prices | Confirm the per-person tiers for our 4 tours (PROJECT.md §5.4) |
 | 6 | **Zone prices** for the busiest pairs (optional) | Prices for those pairs |
 | 7a ✅ | **Built 2026-11-09** (migration 0017). **Driver job board with offers**: the team posts a booking ("Open for drivers"); approved drivers see it at `/driver/jobs` with a **suggested payout only** (never the client's price; route town to town until assigned) and send an offer at that amount or their own (70–130%), with a note. The team compares offers on the booking page, ranked for it (a driver with a same-day **return trip** ending where this job starts first, then the **better-rated** driver (travellers rate after every completed trip; a rating with a comment counts double; new drivers count as 4.0), then drivers **based near the pickup**, then the lower offer, then fewer trips with us; new offers appear live) and accepts one: driver + vehicle assigned, booking confirmed, the offer becomes the payout, other offers declined. Suggested payout = (price − pass-through costs such as ferry tickets) × (1 − commission) + pass-through; commission 20% at `/admin/pricing` → Drivers' payout | Commission ✅ (20%) |
-| 7a+ ✅ | **Built 2026-11-09.** **"Driver bids" wired end to end** (Jorge kept the mode): a traveller's offer of 70%+ of the fixed price is posted to the job board at once (lower offers wait for the team); approved drivers are emailed each new job (town-level route, time, suggested payout; never the client's price), also when the team opens a booking by hand; accepting an offer emails the traveller that the ride is confirmed with that driver | — |
-| 7b | *Deferred by Jorge.* **"Request a custom quote"** replaces the storefront's "Driver bids" mode (groups, charters, unusual routes) | — |
+| 7a+ ✅ | **Built 2026-11-09; traveller side removed 2026-11-11.** Still running: approved drivers are emailed each new job when the team opens a booking for drivers (town-level route, time, suggested payout; never the client's price), and accepting an offer emails the traveller that the ride is confirmed with that driver. **Removed (Jorge, 2026-11-11, fixed prices only):** the traveller's "Driver bids" / "Driver offers" mode, where an offer of 70%+ of the fixed price was posted to the job board at once and lower offers waited for the team. Requests from older pages or app builds that still carry an offer are refused with a clear message (EN/ES) | — |
+| 7b | *Deferred by Jorge.* **"Request a custom quote"** for groups, charters and unusual routes (the storefront's "Driver bids" mode it was meant to replace is already gone, 2026-11-11) | — |
 
 ## 8. Decisions
 
@@ -244,7 +249,8 @@ it moves to the driver side.
 2. **Economy class: 10% cheaper** than Standard (factor 0.90).
 3. **Google Maps Platform** (Places + Routes) for place search and road distance/time.
 4. **Fixed prices for travellers; drivers claim jobs** at a fixed payout behind the scenes;
-   "name your price" becomes "request a custom quote" (§6).
+   "name your price" becomes "request a custom quote" (§6). **2026-11-11: fixed prices only** —
+   the traveller "name your price" mode is removed; drivers still offer on payouts.
 
 **Starting defaults, not yet confirmed (editable in the admin, change any time):**
 5. Park entrance fees are shown as "paid at the gate, ~$X" unless a stop is marked as included

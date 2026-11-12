@@ -51,7 +51,7 @@ export function AboutPage({ lang }: { lang: PublicLang }) {
     ? [
         ["Qué hacemos", "Traslados privados y tours de un día en Costa Rica"],
         ["Quién conduce", "Conductores locales independientes, entrevistados y verificados por nuestro equipo"],
-        ["Precios", "Precio fijo por vehículo antes de reservar, o la opción de ofertas de conductores"],
+        ["Precios", "Precio fijo por vehículo, visible antes de reservar"],
         ["Pago", "En línea completo, o en efectivo al conductor en traslados y tours de un día"],
         ["Atención", "Por WhatsApp y correo, con nuestro equipo en Costa Rica"],
         ["Idiomas", "Inglés y español"],
@@ -59,7 +59,7 @@ export function AboutPage({ lang }: { lang: PublicLang }) {
     : [
         ["What we do", "Private transfers and 1-day tours in Costa Rica"],
         ["Who drives", "Independent local drivers, interviewed and checked by our team"],
-        ["Prices", "A fixed price per vehicle before you book, or the option of driver bids"],
+        ["Prices", "A fixed price per vehicle, shown before you book"],
         ["Payment", "Online in full, or cash to the driver on rides and 1-day tours"],
         ["Support", "WhatsApp and email, answered by our team in Costa Rica"],
         ["Languages", "English and Spanish"],
@@ -143,7 +143,6 @@ export function AboutPage({ lang }: { lang: PublicLang }) {
           {(es
             ? [
                 "Precio fijo por vehículo, confirmado antes de pagar: sin recargos en la puerta del hotel.",
-                "O elija \"ofertas de conductores\" y proponga su propio precio.",
                 "Tiempos de viaje realistas para carreteras de montaña, no estimaciones en línea recta.",
                 "Cancelación gratuita hasta 24 horas antes de la recogida en traslados y tours de un día.",
                 "Su página privada del viaje con el perfil del conductor, el vehículo y el chat.",
@@ -151,7 +150,6 @@ export function AboutPage({ lang }: { lang: PublicLang }) {
               ]
             : [
                 "A fixed price per vehicle, confirmed before you pay: nothing extra at the hotel door.",
-                "Or choose \"driver bids\" and name your own price.",
                 "Realistic mountain-road drive times, never straight-line estimates.",
                 "Free cancellation up to 24 hours before pickup on rides and 1-day tours.",
                 "Your private trip page with the driver's profile, the vehicle and a chat.",

@@ -236,7 +236,7 @@ What the exact point does to price (Daytrip, Sedan, from SJO):
 
 - **GetTransfer: driver cancellations, no-shows, slow refunds, late driver payments.** Our
   answer: Jorge or a vetted partner is accountable for every ride; KYC vault; instant WhatsApp
-  line; clear refund rule.
+  line; clear refund rule; and since 2026-11-11 one fixed price, never a traveller's bid (PROJECT.md §6.3).
 - **Daytrip / Welcome: generic drivers, not guides.** Our drivers are naturalist-level guides;
   stops are guided, not just a drop-off.
 - **Welcome Pickups is airport-only.** It does operate at SJO (flat airport-taxi prices, English-speaking drivers, ~45 min free waiting, mostly San José / Jacó), but doesn't do long intercity routes, stops or tours.
@@ -264,7 +264,11 @@ Status as of 2026-11-08 in brackets.
    blanket promise: a cheaper Spanish-speaking Economy class is planned.
 3. Sightseeing stops show duration and whether entrance fees are included. **[Done: free /
    included / paid at the gate (`entrance`), edited in /admin/pricing.]**
-4. Bid mode shows the fixed price as reference and warns on unrealistic offers. **[Done.]**
+4. ~~Bid mode shows the fixed price as reference and warns on unrealistic offers.~~ **[Retired
+   2026-11-11 (Jorge): fixed prices only.]** Travellers always book at the fixed price, like
+   Daytrip and Welcome Pickups; there is no traveller bid mode any more (GetTransfer's model,
+   whose worst reviews are about low bids followed by cancellations, §4). Drivers still compete
+   on their payout on the job board, which travellers never see (PROJECT.md §6.3).
 5. Cancellation and refund policy visible before payment. **[Done: `/cancellation` page live,
    linked from the footer, under "Send trip request" and in the trip panel's guarantees; the
    24 h free-cancellation window is in each ride's "Every ride includes" list.]**

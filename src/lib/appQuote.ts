@@ -9,7 +9,7 @@ import { MapsError, resolvePlace, rideRoute } from "./googleMaps";
 import { isAirportPickup, isHubPlace } from "./places";
 import { applyMultiplier, perPersonCents, perPersonShare, quoteDayTour, quoteTransfer } from "./pricing";
 import type { PublicLang } from "./publicLang";
-import { MIN_OFFER_USD } from "./tripRequest";
+import { LEGACY_MIN_OFFER_USD } from "./tripRequest";
 
 /**
  * Prices for the traveller app. The app never calculates a price itself: it
@@ -41,7 +41,10 @@ export interface RideQuote {
    */
   night: { percent: number; startHour: number; endHour: number; applies: boolean };
   cashFeeBps: number;
-  /** Lowest offer for "Driver bids" (same rule as the website). */
+  /**
+   * Kept only for customer-app builds from before 2026-11-11, which still read it (their offer
+   * input). Travellers book at the fixed price only; the server refuses offers.
+   */
   minOfferCents: number;
   vehicles: {
     id: string;
@@ -139,7 +142,7 @@ export async function rideQuote(input: {
       applies: isNightPickup(pickupTime, catalog.nightPremium),
     },
     cashFeeBps: catalog.cashFeeBps,
-    minOfferCents: MIN_OFFER_USD * 100,
+    minOfferCents: LEGACY_MIN_OFFER_USD * 100,
     vehicles: quotes.map(({ v, q }) => ({
       id: v.id,
       name: v.name,

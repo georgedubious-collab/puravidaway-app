@@ -11,7 +11,6 @@ import { ADMIN_EMAIL, SITE_URL, sendEmail } from "@/lib/email";
 import { routeMinutes, stopTotalCents } from "@/lib/catalog";
 import { resolveTransfer } from "@/lib/googleMaps";
 import type { RidePlace, RideRoute } from "@/lib/places";
-import { notifyDriversOfJobs } from "@/lib/jobAlerts";
 import { hasDriverPayout, splitPayout } from "@/lib/payout";
 import { cashFeeCents, formatBpsPercent } from "@/lib/pricing";
 import { parsePublicLang, type PublicLang } from "@/lib/publicLang";
@@ -19,16 +18,12 @@ import { clientLanguageNote, requestItemLine, requestPaymentLine, tripRequestEma
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
   MAX_TRIP_ITEMS,
-  RETIRED_EXPEDITION_ERROR,
-  isRetiredExpeditionSpec,
   itemTime,
   parseSpec,
   priceItem,
+  retiredItemError,
   type ItemSpec,
 } from "@/lib/tripRequest";
-
-/** A traveller's offer at or above this share of the fixed price is posted to drivers automatically. */
-const BOARD_MIN_SHARE = 0.7;
 
 export interface TripRequestInput {
   items: { id: string; date: string; totalCents: number; spec: unknown }[];
@@ -84,6 +79,11 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
     const items = Array.isArray(input.items) ? input.items : [];
     if (items.length === 0) return { ok: false, error: "Your trip is empty." };
     if (items.length > MAX_TRIP_ITEMS) return { ok: false, error: `Up to ${MAX_TRIP_ITEMS} items per request, please.` };
+    // Things an older page or app build may still send, refused before anything is looked up:
+    // multi-day trips (retired 2026-11-11) and a traveller's own offer on a ride ("name your
+    // price"; travellers book at the fixed price only since 2026-11-11).
+    const retired = retiredItemError(items);
+    if (retired) return { ok: false, error: retired };
 
     const db = createSupabaseAdminClient();
     if (!db) return { ok: false, error: "Online requests aren't switched on yet. Please send your trip on WhatsApp." };
@@ -94,7 +94,6 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
       spec: ItemSpec;
       date: string;
       totalCents: number;
-      referenceCents: number;
       passThroughCents: number;
       companyCostCents: number;
       nightCents: number;
@@ -103,8 +102,6 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
     }[] = [];
     const repriced: Record<string, number> = {};
     for (const item of items) {
-      // Multi-day trips were retired on 2026-11-11; an older page or app build may still send one.
-      if (isRetiredExpeditionSpec(item?.spec)) return { ok: false, error: RETIRED_EXPEDITION_ERROR };
       let spec = parseSpec(item.spec);
       if (!spec) return { ok: false, error: "One item was added on an older version of the site. Please remove it and add it again." };
       if (typeof item.date !== "string" || item.date < today) {
@@ -164,7 +161,7 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
     // and company-paid costs (entrances, lunch, activities) come off before the driver's share.
     const payoutFor = (kind: string, totalCents: number, passThroughCents: number, companyCostCents: number) =>
       hasDriverPayout(kind) ? splitPayout(totalCents, passThroughCents, catalog, companyCostCents) : null;
-    const rows = priced.map(({ spec, date, totalCents, referenceCents, passThroughCents, companyCostCents, nightCents, ride }) => ({
+    const rows = priced.map(({ spec, date, totalCents, passThroughCents, companyCostCents, nightCents, ride }) => ({
       trip_id: tripId,
       service_type: spec.kind,
       catalog_item_id: spec.kind === "day_tour" ? spec.tourId : null,
@@ -201,7 +198,9 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
       // Door-to-door drive time for the driver's arrival estimate: Google's road route for typed
       // places, else our per-corridor table between two towns. Never a straight-line guess.
       drive_minutes: spec.kind === "transfer" ? driveMinutes(ride?.route ?? null, spec) : null,
-      pricing_mode: spec.kind === "transfer" && spec.pricing === "bid" ? "bid" : "fixed",
+      // Always the fixed price. "bid" stays in the schema only for rides booked as a traveller's
+      // offer before 2026-11-11 (still shown as such in admin).
+      pricing_mode: "fixed",
       total_price: totalCents / 100,
       // Night-pickup premium inside total_price (migration 0041); 0 by day. The driver's payout
       // below is a share of total_price, so it rises with the premium.
@@ -212,16 +211,9 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
       currency: "USD",
       payment_mode: itemPaymentMode(spec.kind, mode),
       cash_fee: feeFor(spec, totalCents) / 100,
-      // "Driver bids" rides with a realistic offer (70%+ of the fixed price) go straight to the
-      // drivers' job board; lower offers wait for the team to look first.
-      status:
-        spec.kind === "transfer" && spec.pricing === "bid" && totalCents >= referenceCents * BOARD_MIN_SHARE
-          ? "pending_bids"
-          : "pending_payment",
-      client_notes:
-        [notes, spec.kind === "transfer" && spec.pricing === "bid" ? `Offer; fixed price was $${(referenceCents / 100).toFixed(2)}` : ""]
-          .filter(Boolean)
-          .join(" · ") || null,
+      // The team confirms, then posts the ride to the drivers' job board from the booking page.
+      status: "pending_payment",
+      client_notes: notes || null,
     }));
 
     let saved = await db.from("bookings").insert(rows).select("id, booking_ref, status");
@@ -253,8 +245,6 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
       return { ok: false, error: "We couldn't save your request. Please try again or send it on WhatsApp." };
     }
     const refs = (data ?? []).map((r) => r.booking_ref as string);
-    const onBoard = (data ?? []).filter((r) => r.status === "pending_bids").map((r) => r.id as string);
-    if (onBoard.length) after(() => notifyDriversOfJobs(onBoard));
     const feeTotalCents = priced.reduce((n, p) => n + feeFor(p.spec, p.totalCents), 0);
     const tripCents = priced.reduce((n, p) => n + p.totalCents, 0) + feeTotalCents;
     const total = tripCents / 100;

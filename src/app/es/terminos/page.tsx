@@ -78,10 +78,6 @@ export default function TerminosPage() {
             Su confirmación muestra los servicios, las fechas, las horas de recogida, los lugares y el
             precio. Por favor revísela y avísenos de inmediato si algo está mal.
           </li>
-          <li>
-            Si usted propone su propio precio (ofertas de conductores), el viaje queda reservado solo
-            cuando se acepta una oferta y nosotros lo confirmamos.
-          </li>
         </ul>
       </LegalSection>
 

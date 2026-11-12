@@ -1070,9 +1070,8 @@ await expectRows("drivers' functions never return the night premium (it is part 
   const sDay = priceItem(parseSpec({ ...ride("09:00"), stopIds: ["tarcoles", "carara"] }), DATE, catalog);
   const sNight = priceItem(parseSpec({ ...ride("23:30"), stopIds: ["tarcoles", "carara"] }), DATE, catalog);
   expectEq("stops and their entrances not marked up at night", sNight.totalCents - sDay.totalCents, night.nightCents);
-  // "Name your price": the reference fixed price includes the premium.
-  expectEq("bid reference price includes the night premium",
-    priceItem(parseSpec({ ...ride("23:30"), pricing: "bid", offerCents: 15000 }), DATE, catalog).referenceCents, night.totalCents);
+  // Travellers book at the fixed price only (2026-11-11): an offer is never parsed, so never priced.
+  expectEq("a traveller's offer is not parsed", parseSpec({ ...ride("23:30"), pricing: "bid", offerCents: 15000 }), null);
   console.log(`  night pickups (values from the database): ${shown.join(" · ")}; driver payout ${usd(payDay)} → ${usd(payNight)}`);
 
   // The team changes the settings in /admin/pricing: prices follow the database.

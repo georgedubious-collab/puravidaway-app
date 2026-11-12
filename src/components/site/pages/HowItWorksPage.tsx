@@ -17,8 +17,8 @@ export function howMeta(lang: PublicLang) {
     title: t(lang, "How it works", "Cómo funciona"),
     description: t(
       lang,
-      "How booking a private transfer or tour in Costa Rica works: plan your trip, get a fixed price or driver bids, confirm, meet your driver, follow them in the last hours and rate the ride.",
-      "Cómo funciona reservar un traslado o tour privado en Costa Rica: planee su viaje, reciba un precio fijo u ofertas de conductores, confirme, conozca a su conductor y califique el viaje.",
+      "How booking a private transfer or tour in Costa Rica works: plan your trip, see a fixed price, confirm, meet your driver, follow them in the last hours and rate the ride.",
+      "Cómo funciona reservar un traslado o tour privado en Costa Rica: planee su viaje, vea un precio fijo, confirme, conozca a su conductor y califique el viaje.",
     ),
   };
 }
@@ -33,8 +33,8 @@ export function HowItWorksPage({ lang, cashFeeBps }: { lang: PublicLang; cashFee
         text: "Type your pickup and drop-off (airport, hotel, address or town), the date, time and travellers. Add sightseeing stops on the way and 1-day tours, all in one trip.",
       },
       {
-        title: "Fixed price or driver bids",
-        text: "See a fixed price per vehicle, with the season already included, before you book. Or choose \"Driver bids\" and name your own offer; the fixed price is shown as a reference.",
+        title: "See a fixed price",
+        text: "See a fixed price per vehicle, with the season already included, before you book. The price you see is the price you pay: no surge and no fuel surcharge.",
       },
       {
         title: "Send your request and choose how to pay",
@@ -59,8 +59,8 @@ export function HowItWorksPage({ lang, cashFeeBps }: { lang: PublicLang; cashFee
         text: "Escriba el punto de recogida y de destino (aeropuerto, hotel, dirección o pueblo), la fecha, la hora y los viajeros. Agregue paradas turísticas en el camino y tours de un día, todo en un mismo viaje.",
       },
       {
-        title: "Precio fijo u ofertas de conductores",
-        text: "Vea un precio fijo por vehículo, con la temporada ya incluida, antes de reservar. O elija \"Ofertas de conductores\" y proponga su propio precio; el precio fijo aparece como referencia.",
+        title: "Vea un precio fijo",
+        text: "Vea un precio fijo por vehículo, con la temporada ya incluida, antes de reservar. El precio que ve es el que paga: sin tarifas dinámicas ni recargo por combustible.",
       },
       {
         title: "Envíe su solicitud y elija cómo pagar",
@@ -109,8 +109,8 @@ export function HowItWorksPage({ lang, cashFeeBps }: { lang: PublicLang; cashFee
         <p>
           {t(
             lang,
-            "Plan your ride, see a fixed price (or ask drivers to bid), send your request, and pay online or in cash to the driver. You meet your driver's profile before the trip, follow them in the last hours before pickup, and rate the ride afterwards.",
-            "Planee su viaje, vea un precio fijo (o pida ofertas a los conductores), envíe su solicitud y pague en línea o en efectivo al conductor. Conoce el perfil de su conductor antes del viaje, lo sigue en las últimas horas antes de la recogida y califica el viaje al final.",
+            "Plan your ride, see a fixed price, send your request, and pay online or in cash to the driver. You meet your driver's profile before the trip, follow them in the last hours before pickup, and rate the ride afterwards.",
+            "Planee su viaje, vea un precio fijo, envíe su solicitud y pague en línea o en efectivo al conductor. Conoce el perfil de su conductor antes del viaje, lo sigue en las últimas horas antes de la recogida y califica el viaje al final.",
           )}
         </p>
       }
