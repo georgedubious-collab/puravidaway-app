@@ -11,8 +11,11 @@ import { hasContactDetails, parsePrefs, type RidePrefs } from "./preferences";
 import { quoteDayTour, quoteTransfer } from "./pricing";
 import { cleanSignText, signTextProblem } from "./sign";
 
-export const MIN_OFFER_USD = 50;
-export const MAX_OFFER_USD = 5000;
+/**
+ * Lowest traveller offer older customer-app builds still read from /api/v1/client/quote
+ * (minOfferCents). Travellers book at the fixed price only since 2026-11-11; nothing new uses it.
+ */
+export const LEGACY_MIN_OFFER_USD = 50;
 export const MAX_TRIP_ITEMS = 10;
 /** Most large suitcases, and most carry-ons, a traveller can enter (bookings.luggage_count / carry_on_count checks, migrations 0035 and 0037). */
 export const MAX_BAGS = 20;
@@ -45,9 +48,6 @@ export type ItemSpec =
        * Items saved before this field existed load with DEFAULT_PICKUP_TIME.
        */
       pickupTime: string;
-      /** "bid": the traveller's own offer replaces the fixed price. */
-      pricing: "fixed" | "bid";
-      offerCents?: number;
       /** Flight number or hotel. */
       notes?: string;
       prefs?: RidePrefs;
@@ -86,6 +86,33 @@ export function isRetiredExpeditionSpec(raw: unknown): boolean {
   return Boolean(raw && typeof raw === "object" && (raw as Record<string, unknown>).kind === "expedition");
 }
 
+/**
+ * Travellers book at the fixed price only (decided 2026-11-11). A page or app build opened before
+ * then can still send a "name your price" ride (pricing: "bid"); the server refuses it with this
+ * message (Spanish in src/lib/serverMessagesEs.ts). Drivers' offers on their payout (job board,
+ * offer_job()) are a different thing and are unchanged.
+ */
+export const TRAVELLER_OFFER_ERROR = "Please book at the fixed price shown; offers are no longer available.";
+
+/** True for a ride sent as a traveller's own offer ("Driver bids") by an older page or app. */
+export function isTravellerOfferSpec(raw: unknown): boolean {
+  if (!raw || typeof raw !== "object") return false;
+  const o = raw as Record<string, unknown>;
+  return o.kind === "transfer" && (o.pricing === "bid" || o.offerCents !== undefined);
+}
+
+/**
+ * A ride saved in the website cart as an offer before 2026-11-11, turned into the same ride at the
+ * fixed price. The server then answers "prices have changed" and the cart shows the fixed total.
+ */
+export function withoutTravellerOffer(raw: unknown): unknown {
+  if (!isTravellerOfferSpec(raw)) return raw;
+  const rest = { ...(raw as Record<string, unknown>) };
+  delete rest.pricing;
+  delete rest.offerCents;
+  return rest;
+}
+
 /** Start time stored with the booking: the ride's pickup time, or the default for tours. */
 export function itemTime(spec: ItemSpec): string {
   return spec.kind === "transfer" ? spec.pickupTime : DEFAULT_TOUR_TIME;
@@ -113,8 +140,10 @@ export function parseSpec(raw: unknown): ItemSpec | null {
     if (!Array.isArray(o.stopIds) || o.stopIds.length > 10 || !o.stopIds.every((s) => str(s))) return null;
     if (!Number.isInteger(o.pax) || (o.pax as number) < 1 || (o.pax as number) > 60) return null;
     if (o.pickupTime !== undefined && !isValidPickupTime(o.pickupTime)) return null;
-    if (o.pricing !== "fixed" && o.pricing !== "bid") return null;
-    if (o.pricing === "bid" && (!Number.isInteger(o.offerCents) || (o.offerCents as number) <= 0)) return null;
+    // Fixed price only. "fixed" is still accepted (the apps and older pages send it); an offer is
+    // never parsed (isTravellerOfferSpec / TRAVELLER_OFFER_ERROR above).
+    if (o.pricing !== undefined && o.pricing !== "fixed") return null;
+    if (o.offerCents !== undefined) return null;
     if (o.notes !== undefined && (typeof o.notes !== "string" || o.notes.length > 500)) return null;
     const prefs = o.prefs === undefined ? undefined : parsePrefs(o.prefs);
     if (prefs === null) return null;
@@ -138,8 +167,6 @@ export function parseSpec(raw: unknown): ItemSpec | null {
       stopIds: o.stopIds as string[],
       pax: o.pax as number,
       pickupTime: (o.pickupTime as string | undefined) ?? DEFAULT_PICKUP_TIME,
-      pricing: o.pricing,
-      offerCents: o.pricing === "bid" ? (o.offerCents as number) : undefined,
       notes: (o.notes as string | undefined) || undefined,
       prefs,
       driverNotes: (o.driverNotes as string | undefined) || undefined,
@@ -159,13 +186,11 @@ export function parseSpec(raw: unknown): ItemSpec | null {
 
 export interface PricedItem {
   totalCents: number;
-  /** Fixed catalog price, for reference when the traveller made an offer. */
-  referenceCents: number;
   /** Costs the driver pays out of pocket and gets back in full (ferry tickets); see src/lib/payout.ts. */
   passThroughCents: number;
   /** Entrances, lunch and activities the company pays; deducted before the driver's share. */
   companyCostCents: number;
-  /** Night-pickup premium inside totalCents (0 by day, on tours and custom offers). */
+  /** Night-pickup premium inside totalCents (0 by day and on tours). */
   nightCents: number;
 }
 
@@ -215,19 +240,11 @@ export function priceItem(spec: ItemSpec, date: string, catalog: CatalogData, ro
       (n, id) => n + (catalog.stops.find((s) => s.id === id)?.tourPerPersonCents ?? 0) * spec.pax,
       0,
     );
-    if (spec.pricing === "bid") {
-      const offer = spec.offerCents ?? 0;
-      if (offer < MIN_OFFER_USD * 100 || offer > MAX_OFFER_USD * 100) {
-        throw new Error(`Offers must be between $${MIN_OFFER_USD} and $${MAX_OFFER_USD}.`);
-      }
-      // The reference (fixed) price includes the night premium; the offer itself is not marked up.
-      return { totalCents: offer, referenceCents: quote.totalCents, passThroughCents: Math.min(offer, quote.ferryCents), companyCostCents: stopTourCosts, nightCents: 0 };
-    }
-    return { totalCents: quote.totalCents, referenceCents: quote.totalCents, passThroughCents: quote.ferryCents, companyCostCents: stopTourCosts, nightCents: quote.nightCents };
+    return { totalCents: quote.totalCents, passThroughCents: quote.ferryCents, companyCostCents: stopTourCosts, nightCents: quote.nightCents };
   }
 
   if (!catalog.dayTours.some((t) => t.id === spec.tourId)) throw new Error("That tour is no longer offered.");
   const total = quoteDayTour(spec.tourId, spec.upgrade, spec.pax, season, catalog);
   const tour = catalog.dayTours.find((t) => t.id === spec.tourId)!;
-  return { totalCents: total, referenceCents: total, passThroughCents: 0, companyCostCents: tour.costPerPersonCents * spec.pax, nightCents: 0 };
+  return { totalCents: total, passThroughCents: 0, companyCostCents: tour.costPerPersonCents * spec.pax, nightCents: 0 };
 }

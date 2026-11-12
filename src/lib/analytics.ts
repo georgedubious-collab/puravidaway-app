@@ -428,15 +428,10 @@ function gaItem(item: CartItem): GaItem {
   if (s?.kind === "transfer") {
     const from = s.originPlace ? "custom" : s.origin;
     const to = s.destinationPlace ? "custom" : s.destination;
-    return { ...base, item_id: `transfer:${from}>${to}`, item_variant: s.pricing === "bid" ? "bid" : s.vehicleId };
+    return { ...base, item_id: `transfer:${from}>${to}`, item_variant: s.vehicleId };
   }
   if (s?.kind === "day_tour") return { ...base, item_id: `tour:${s.tourId}` };
   return { ...base, item_id: item.kind };
-}
-
-function pricingOf(items: CartItem[]): "fixed" | "bid" | "mixed" {
-  const bids = items.filter((i) => i.spec?.kind === "transfer" && i.spec.pricing === "bid").length;
-  return bids === 0 ? "fixed" : bids === items.length ? "bid" : "mixed";
 }
 
 interface QuoteView {
@@ -490,7 +485,6 @@ export function trackAddToCart(item: CartItem): void {
   send("add_to_cart", {
     currency: "USD",
     value: usd(item.totalCents),
-    pricing: pricingOf([item]),
     items: [gaItem(item)],
   });
 }
@@ -503,7 +497,6 @@ export function trackBeginCheckout(items: CartItem[], totalCents: number, mode: 
     currency: "USD",
     value: usd(totalCents),
     payment_mode: mode,
-    pricing: pricingOf(items),
     item_count: items.length,
     items: items.map(gaItem),
   });
@@ -516,7 +509,6 @@ export function trackLead(items: CartItem[], totalCents: number, mode: PaymentMo
     currency: "USD",
     value: usd(totalCents),
     payment_mode: mode,
-    pricing: pricingOf(items),
     item_count: items.length,
     items: items.map(gaItem),
   });

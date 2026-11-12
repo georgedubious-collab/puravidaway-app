@@ -6,7 +6,7 @@
 import { WHATSAPP_NUMBER } from "./catalog";
 import { formatTime12h } from "./dates";
 import { cashFeeCents, formatBpsPercent, formatUSD } from "./pricing";
-import { parseSpec, type ItemSpec } from "./tripRequest";
+import { parseSpec, withoutTravellerOffer, type ItemSpec } from "./tripRequest";
 
 export interface CartItem {
   kind: "transfer" | "day_tour";
@@ -106,7 +106,8 @@ export function parseStoredCart(raw: string): CartItem[] {
       Number.isInteger(o.totalCents) &&
       (o.totalCents as number) >= 0
     ) {
-      const spec = parseSpec(o.spec);
+      // A ride saved as an offer before 2026-11-11 comes back at the fixed price (re-priced on send).
+      const spec = parseSpec(withoutTravellerOffer(o.spec));
       out.push({
         kind: o.kind as CartItem["kind"],
         id: o.id,
