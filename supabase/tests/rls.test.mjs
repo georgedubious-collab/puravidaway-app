@@ -453,8 +453,9 @@ await expectRows("the refused changes left 'no name' in place", "driver",
   `select 1 from public.my_trips() where id = ${BAGS} and sign_text = 'Costa Rica Private Transfers'`, 1);
 await expectRows("the driver's trip never carries the full name, phone or email", "driver",
   `select 1 from public.my_trips() m where m.id = ${BAGS} and (m::text ~* 'Rose|Smith|ana@example|555 0100')`, 0);
-await expectRows("my_trips() returns sign_text last and no contact or price columns", "admin",
-  "select 1 from pg_proc where proname = 'my_trips' and pg_get_function_result(oid) ~ 'carry_on_count smallint, sign_text text\\)$' and pg_get_function_result(oid) !~ '(guest_|email|phone|total_price|platform_fee|amount_paid|client_notes|company_costs|pricing_mode|sign_hide_name)'", 1);
+// Migration 0045 adds pickup_place after sign_text (still after every older column).
+await expectRows("my_trips() returns sign_text (then pickup_place) last and no contact or price columns", "admin",
+  "select 1 from pg_proc where proname = 'my_trips' and pg_get_function_result(oid) ~ 'carry_on_count smallint, sign_text text, pickup_place text\\)$' and pg_get_function_result(oid) !~ '(guest_|email|phone|total_price|platform_fee|amount_paid|client_notes|company_costs|pricing_mode|sign_hide_name)'", 1);
 await expectRows("assigned driver still reads 0 rows from bookings (sign columns included)", "driver",
   `select sign_text, sign_hide_name from public.bookings`, 0);
 await expectRows("assigned driver still reads 0 rows from trips (full name, phone, email)", "driver",
@@ -1234,6 +1235,93 @@ await expectOk("server removes the test booking", "server", "delete from public.
   eq("a day tour name still wins", bookedItemName([{ id: "dt1", name: "Tour" }], "dt1"), "Tour");
 }
 
+// --- Automations (migration 0045): reminders, low-rating alert, follow-up, unsubscribe list -----
+{
+  const B = "10000000-0000-0000-0000-0000000000a4";
+  await expectOk("server stores a confirmed ride", "server", `
+    insert into public.bookings (id, client_id, service_type, total_price, status, assigned_driver_id, assigned_vehicle_id, scheduled_at) values
+      ('${B}', '${U.client}', 'transfer', 120, 'confirmed', '${U.driver}', '30000000-0000-0000-0000-000000000001', now() + interval '24 hours')`);
+  await expectRows("confirmed_at is stamped when a booking is confirmed", "admin", `select * from public.bookings where id = '${B}' and confirmed_at is not null`, 1);
+  await expectRows("…and the three message columns start empty", "admin",
+    `select * from public.bookings where id = '${B}' and reminder_traveller_at is null and reminder_driver_at is null and followup_sent_at is null`, 1);
+  // Mark first: only the first of two checks running at once gets the row (and sends).
+  await expectRows("traveller reminder: first mark wins", "server",
+    `update public.bookings set reminder_traveller_at = now() where id = '${B}' and reminder_traveller_at is null returning id`, 1);
+  await expectRows("traveller reminder: second mark gets nothing (never sent twice)", "server",
+    `update public.bookings set reminder_traveller_at = now() where id = '${B}' and reminder_traveller_at is null returning id`, 0);
+  await expectRows("driver reminder: first mark wins", "server",
+    `update public.bookings set reminder_driver_at = now() where id = '${B}' and reminder_driver_at is null returning id`, 1);
+  await expectRows("driver reminder: second mark gets nothing", "server",
+    `update public.bookings set reminder_driver_at = now() where id = '${B}' and reminder_driver_at is null returning id`, 0);
+  await expectOk("team takes the driver off the ride", "server", `update public.bookings set assigned_driver_id = null, assigned_vehicle_id = null where id = '${B}'`);
+  await expectRows("a new driver gets their own reminder (driver column cleared)…", "admin",
+    `select * from public.bookings where id = '${B}' and reminder_driver_at is null`, 1);
+  await expectRows("…the traveller's stays sent", "admin", `select * from public.bookings where id = '${B}' and reminder_traveller_at is not null`, 1);
+  await expectRows("follow-up: first mark wins", "server",
+    `update public.bookings set followup_sent_at = now() where id = '${B}' and followup_sent_at is null returning id`, 1);
+  await expectRows("follow-up: never twice", "server",
+    `update public.bookings set followup_sent_at = now() where id = '${B}' and followup_sent_at is null returning id`, 0);
+  await expectRows("drivers' functions never expose the message columns", "admin",
+    "select 1 from pg_proc where proname in ('driver_jobs','my_trips') and pg_get_function_result(oid) ~ '(reminder_|followup_|confirmed_at)'", 0);
+
+  // Low-rating alert: once per rating.
+  await expectOk("the ride is done", "server", `update public.bookings set status = 'completed', assigned_driver_id = '${U.driver}' where id = '${B}'`);
+  await expectOk("server stores a 2-star rating", "server",
+    `insert into public.driver_reviews (booking_id, driver_id, stars, comment) values ('${B}', '${U.driver}', 2, 'Late')`);
+  await expectRows("low-rating alert: first mark wins", "server",
+    `update public.driver_reviews set team_alerted_at = now() where booking_id = '${B}' and team_alerted_at is null returning id`, 1);
+  await expectRows("low-rating alert: never twice", "server",
+    `update public.driver_reviews set team_alerted_at = now() where booking_id = '${B}' and team_alerted_at is null returning id`, 0);
+
+  // The unsubscribe list: written by the server only, read by admins only.
+  await expectOk("server adds an address to the unsubscribe list", "server",
+    "insert into public.email_optouts (email, source) values ('emily.smith@example.com', 'link')");
+  await expectBlocked("addresses are stored lower-case only", "server", "insert into public.email_optouts (email) values ('Someone@Example.com')");
+  for (const who of ["anon", "client", "client2", "driver", "pending"]) {
+    await expectRows(`${who} cannot read the unsubscribe list`, who, "select * from public.email_optouts", 0);
+    await expectBlocked(`${who} cannot add to the unsubscribe list`, who, "insert into public.email_optouts (email) values ('x@example.com')");
+    await expectBlocked(`${who} cannot remove from the unsubscribe list`, who, "delete from public.email_optouts", { affected: 0 });
+  }
+  await expectRows("admin reads the unsubscribe list", "admin", "select * from public.email_optouts", 1);
+  await expectBlocked("even an admin cannot write it from the browser (server only)", "admin", "insert into public.email_optouts (email) values ('y@example.com')");
+  // The "Don't send me suggestions after my trip" tickbox when booking.
+  await expectOk("server adds an address from the booking tickbox", "server",
+    "insert into public.email_optouts (email, source) values ('ticked@example.com', 'booking')");
+  await expectBlocked("unknown sources refused", "server", "insert into public.email_optouts (email, source) values ('z@example.com', 'web')");
+  await expectRows("travellers still cannot read it", "client", "select * from public.email_optouts", 0);
+
+  // Day-tour pickup place (bookings.pickup_place).
+  const T = "10000000-0000-0000-0000-0000000000a5";
+  await expectOk("server stores a confirmed day tour with its pickup place", "server", `
+    insert into public.bookings (id, client_id, service_type, catalog_item_id, total_price, status, assigned_driver_id, assigned_vehicle_id, scheduled_at, pickup_place) values
+      ('${T}', '${U.client}', 'day_tour', 'dt1', 590, 'confirmed', '${U.driver}', '30000000-0000-0000-0000-000000000001', now() + interval '3 days', 'Hotel Lomas del Volcán, La Fortuna')`);
+  await expectRows("the assigned driver sees the pickup place in my_trips()", "driver",
+    `select 1 from public.my_trips() where id = '${T}' and pickup_place = 'Hotel Lomas del Volcán, La Fortuna'`, 1);
+  await expectRows("another driver does not see the trip", "pending", `select 1 from public.my_trips() where id = '${T}'`, 0);
+  await expectRows("travellers' own booking shows it", "client", `select 1 from public.bookings where id = '${T}' and pickup_place is not null`, 1);
+  await expectRows("drivers still read 0 rows from bookings", "driver", "select pickup_place from public.bookings", 0);
+  await expectRows("the job board never carries the pickup place", "admin",
+    "select 1 from pg_proc where proname in ('driver_jobs','open_trip_requests') and pg_get_function_result(oid) ~ 'pickup_place'", 0);
+  await expectBlocked("pickup place with a phone number refused", "server", `update public.bookings set pickup_place = 'Call me +506 8888 7777' where id = '${T}'`);
+  await expectBlocked("pickup place with an email refused", "server", `update public.bookings set pickup_place = 'ana@example.com' where id = '${T}'`);
+  await expectBlocked("pickup place with a link refused", "server", `update public.bookings set pickup_place = 'www.hotel.com' where id = '${T}'`);
+  await expectBlocked("pickup place over 120 characters refused", "server", `update public.bookings set pickup_place = '${"a".repeat(121)}' where id = '${T}'`);
+  await expectOk("pickup place of exactly 120 characters is fine", "server", `update public.bookings set pickup_place = '${"a".repeat(120)}' where id = '${T}'`);
+  await expectBlocked("pickup place with leading spaces refused", "server", `update public.bookings set pickup_place = ' Hotel' where id = '${T}'`);
+  // The change history (migration 0044) logs only its listed columns: the message stamps and the
+  // pickup place never add history rows.
+  await expectRows("message stamps and pickup place never add history rows", "admin",
+    `select count(*) as n from public.booking_events where booking_id in ('${B}', '${T}') and (before::text || after::text) ~ '(reminder_|followup_|confirmed_at|pickup_place|team_alerted)'`, 0);
+  await expectOk("server stamps the tour's reminders", "server",
+    `update public.bookings set reminder_traveller_at = now(), reminder_driver_at = now(), followup_sent_at = now() where id = '${T}'`);
+  await expectRows("…and the history stays empty for the tour", "admin", `select count(*) as n from public.booking_events where booking_id = '${T}'`, 0);
+  await expectOk("server cleans up the tour", "server", `delete from public.bookings where id = '${T}'`);
+
+  await expectOk("server cleans up the list", "server", "delete from public.email_optouts");
+  await expectOk("server cleans up the rating", "server", `delete from public.driver_reviews where booking_id = '${B}'`);
+  await expectOk("server cleans up the booking", "server", `delete from public.bookings where id = '${B}'`);
+}
+
 // --- Booking change history (migration 0044) -----------------------------------------------------
 {
   const B9 = "10000000-0000-0000-0000-000000000009";
@@ -1387,6 +1475,36 @@ await expectOk("server removes the test booking", "server", "delete from public.
     "select 1 from information_schema.routines r join information_schema.parameters p on p.specific_name = r.specific_name where r.routine_name = 'my_trips' and p.parameter_mode = 'OUT' and p.parameter_name ~ '(email|phone|guest_name|total_price|amount_paid|refund)'", 0);
   await expectRows("refund columns are not on bookings (travellers can read their rows)", "admin",
     "select 1 from information_schema.columns where table_name = 'bookings' and column_name ~ '^(refund|cancelled_by)'", 0);
+}
+
+// --- Dispatch calendar assigns like the booking page (2026-11-12) ---------------------------------
+// Both pages call the same server action, updateBooking (src/app/admin/bookings/actions.ts). The
+// booking page sends status + driver/vehicle + amount received; the calendar sends status +
+// driver/vehicle only (the action then leaves the amount alone). Both updates run as the admin
+// here, exactly as the action sends them, and must leave the same change history.
+{
+  const PAGE = "10000000-0000-0000-0000-0000000000a1";
+  const CAL = "10000000-0000-0000-0000-0000000000a2";
+  const V = "30000000-0000-0000-0000-000000000001";
+  await expectOk("server saves two bookings waiting for a driver", "server", `
+    insert into public.bookings (id, trip_id, service_type, total_price, status, amount_paid) values
+      ('${PAGE}', '40000000-0000-0000-0000-000000000001', 'transfer', 150, 'pending_bids', 0),
+      ('${CAL}',  '40000000-0000-0000-0000-000000000001', 'transfer', 150, 'pending_bids', 0)`);
+  await expectOk("booking page assigns (status + driver + vehicle + amount received)", "admin",
+    `update public.bookings set status = 'confirmed', assigned_driver_id = '${U.driver}', assigned_vehicle_id = '${V}', amount_paid = 0 where id = '${PAGE}'`);
+  await expectOk("calendar assigns (status + driver + vehicle)", "admin",
+    `update public.bookings set status = 'confirmed', assigned_driver_id = '${U.driver}', assigned_vehicle_id = '${V}' where id = '${CAL}'`);
+  const hist = async (id) =>
+    (await as("admin", `select action, actor_id, before, after from public.booking_events where booking_id = '${id}' order by action`)).rows
+      .map((r) => JSON.stringify(r));
+  const [fromPage, fromCal] = [await hist(PAGE), await hist(CAL)];
+  if (fromCal.length === 2 && JSON.stringify(fromCal) === JSON.stringify(fromPage)) passed++;
+  else failures.push(`calendar and booking page write the same history: page ${fromPage.join(" | ")} vs calendar ${fromCal.join(" | ")}`);
+  await expectRows("calendar's assignment is logged with the admin as actor", "admin",
+    `select count(*) as n from public.booking_events where booking_id = '${CAL}' and action = 'assignment' and actor_id = '${U.admin}' and after->>'driver_id' = '${U.driver}' and after->>'vehicle_id' = '${V}'`, 1);
+  await expectRows("calendar leaves the amount received out of the history", "admin",
+    `select count(*) as n from public.booking_events where booking_id = '${CAL}' and action = 'amount_paid'`, 0);
+  await expectRows("drivers cannot read the calendar's bookings", "driver", `select * from public.bookings where id in ('${PAGE}', '${CAL}')`, 0);
 }
 
 // --- Report -----------------------------------------------------------------------------------

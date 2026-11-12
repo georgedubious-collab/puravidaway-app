@@ -155,6 +155,14 @@ export function TripDetail({
 
       <Section title={t("Ruta", "Route")}>
         {trip.service_type !== "transfer" ? <Text style={S.h2}>{tripTitle(trip, names)}</Text> : null}
+        {trip.service_type !== "transfer" && trip.pickup_place ? (
+          <Stop
+            kind="start"
+            title={trip.pickup_place}
+            sub={t("Recogida", "Pickup") + (trip.scheduled_at ? " · " + crTime(trip.scheduled_at, lang) : "")}
+            last
+          />
+        ) : null}
         <View style={{ gap: 0 }}>
           {pickup ? (
             <Stop

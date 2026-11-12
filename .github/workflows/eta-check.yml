@@ -2,7 +2,9 @@
 # (live traffic) and alert the team if one would be more than 20 minutes late, or isn't
 # sharing location close to the pickup. See src/lib/eta.ts.
 # Once an hour (second schedule below): send the single "please rate your driver" reminder
-# to travellers whose trip ended 24+ hours ago. See src/lib/reviewReminder.ts.
+# to travellers whose trip ended 24+ hours ago. See src/lib/reviewReminder.ts. The same hourly
+# job sends the day-before reminders (traveller + driver) and the "book your return" email the
+# morning after a ride. See src/lib/automationRules.ts.
 # Needs the repository secret CRON_SECRET (same value as in Vercel). GitHub's schedule can
 # run a few minutes late; the driver app also triggers the same check while it's reporting.
 name: Driver ETA check
@@ -69,3 +71,24 @@ jobs:
             exit 0
           fi
           curl --fail-with-body -sS --max-time 60 -H "Authorization: Bearer $CRON_SECRET" "$SITE_URL/api/cron/review-reminders"
+      # The day-before reminder: one to the traveller and one to the driver when a confirmed
+      # pickup is 20–28 hours away, never 9 PM–7 AM Costa Rica time (src/lib/dayBeforeReminders.ts).
+      # Also re-sends any low-rating alert to the team that didn't go out when the rating was saved.
+      - name: Send day-before reminders
+        if: always()
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          SITE_URL: ${{ vars.SITE_URL || 'https://www.costaricaprivatetransfers.com' }}
+        run: |
+          if [ -z "$CRON_SECRET" ]; then exit 0; fi
+          curl --fail-with-body -sS --max-time 60 -H "Authorization: Bearer $CRON_SECRET" "$SITE_URL/api/cron/trip-reminders"
+      # The "book your return / a day tour" email, the morning after a completed ride, with an
+      # unsubscribe link (src/lib/tripFollowup.ts).
+      - name: Send return-ride suggestions
+        if: always()
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          SITE_URL: ${{ vars.SITE_URL || 'https://www.costaricaprivatetransfers.com' }}
+        run: |
+          if [ -z "$CRON_SECRET" ]; then exit 0; fi
+          curl --fail-with-body -sS --max-time 60 -H "Authorization: Bearer $CRON_SECRET" "$SITE_URL/api/cron/trip-followups"

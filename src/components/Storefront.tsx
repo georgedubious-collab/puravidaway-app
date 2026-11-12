@@ -94,7 +94,7 @@ export function Storefront({
   const [cartOpen, setCartOpen] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [mode, setMode] = useState<PaymentMode>("full_100");
-  const [contact, setContact] = useState<TripContact>({ name: "", email: "", phone: "", notes: "" });
+  const [contact, setContact] = useState<TripContact>({ name: "", email: "", phone: "", notes: "", noSuggestions: false });
   const [sentRefs, setSentRefs] = useState<string[] | null>(null);
   const [sentTripToken, setSentTripToken] = useState<string | null>(null);
   const toast = useToast();
@@ -163,6 +163,10 @@ export function Storefront({
     onMode: setMode,
     contact,
     onContact: setContact,
+    onTourPickup: (id, place) =>
+      setItems((prev) =>
+        prev.map((i) => (i.id === id && i.spec?.kind === "day_tour" ? { ...i, spec: { ...i.spec, pickupPlace: place.slice(0, 120) } } : i)),
+      ),
     // The server re-priced some items (catalog changed since they were added).
     onReprice: (prices) =>
       setItems((prev) => prev.map((i) => (prices[i.id] !== undefined ? { ...i, totalCents: prices[i.id] } : i))),

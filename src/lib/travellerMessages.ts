@@ -348,3 +348,166 @@ export function chatMessagePush(lang: PublicLang, a: { from: string; snippet: st
     body: a.snippet,
   };
 }
+
+// --- Day-before reminder (docs/PROJECT.md §4.7) -----------------------------------
+
+export interface DayBefore {
+  guestName: string | null | undefined;
+  /** driverFirstName(lang, …). */
+  driver: string;
+  ref: string;
+  /** A ride (transfer), or a day tour. */
+  ride: boolean;
+  /** Ride: the ends, already in `lang` (placeNameFor). Tour: its name in `origin`, `destination` empty. */
+  origin: string;
+  destination: string;
+  /** formatScheduledAtFor(…, lang). */
+  when: string;
+  /**
+   * The car exactly as the trip page shows it: "Toyota Fortuner 2022", colour, plate.
+   * Null when no vehicle is assigned yet.
+   */
+  car: { name: string; color: string | null; plate: string | null } | null;
+  /** What the name sign says (signShown); rides only. */
+  sign: string | null;
+  /** Pickup at the SJO or LIR airport: the meeting promise, in the site's words. */
+  airport: boolean;
+  /** Day tours: the hotel or address they gave (bookings.pickup_place); null when not given. */
+  pickupPlace?: string | null;
+  tripUrl: string;
+}
+
+/** "Toyota Fortuner 2022 · white · plate BCD123". */
+function carLine(lang: PublicLang, car: NonNullable<DayBefore["car"]>): string {
+  return [car.name, car.color, car.plate ? t(lang, `plate ${car.plate}`, `placa ${car.plate}`) : ""].filter(Boolean).join(" · ");
+}
+
+export function dayBeforePush(lang: PublicLang, a: Pick<DayBefore, "ride" | "when" | "driver" | "sign">): TravellerPush {
+  return {
+    title: t(lang, `Reminder: your ${a.ride ? "ride" : "day tour"} · ${a.when}`, `Recordatorio: su ${a.ride ? "traslado" : "tour"} · ${a.when}`),
+    body: [
+      t(lang, `${a.driver} will pick you up`, `${a.driver} lo recogerá`),
+      a.sign ? t(lang, `sign: “${a.sign}”`, `rótulo: “${a.sign}”`) : "",
+      t(lang, "tap for your trip", "toque para ver su viaje"),
+    ]
+      .filter(Boolean)
+      .join(" · "),
+  };
+}
+
+export function dayBeforeEmail(lang: PublicLang, a: DayBefore): TravellerEmail {
+  const what = a.ride
+    ? t(lang, `your ride ${a.origin} → ${a.destination}`, `su traslado ${a.origin} → ${a.destination}`)
+    : t(lang, `your day tour: ${a.origin}`, `su tour de un día: ${a.origin}`);
+  return {
+    lang,
+    subject: t(
+      lang,
+      `Reminder: ${a.ride ? "your ride" : "your day tour"} ${a.when} (${a.ref})`,
+      `Recordatorio: ${a.ride ? "su traslado" : "su tour"} ${a.when} (${a.ref})`,
+    ),
+    lines: [
+      greeting(lang, a.guestName),
+      a.ride
+        ? t(
+            lang,
+            `A quick reminder of ${what}. Pickup: ${a.when} (Costa Rica time), at ${a.origin}.`,
+            `Un breve recordatorio de ${what}. Recogida: ${a.when} (hora de Costa Rica), en ${a.origin}.`,
+          )
+        : a.pickupPlace
+          ? t(
+              lang,
+              `A quick reminder of ${what}. Pickup: ${a.pickupPlace}, on ${a.when} (Costa Rica time), the time confirmed by our team.`,
+              `Un breve recordatorio de ${what}. Recogida: ${a.pickupPlace}, el ${a.when} (hora de Costa Rica), la hora que confirmó nuestro equipo.`,
+            )
+          : t(
+              lang,
+              `A quick reminder of ${what}. Pickup: ${a.when} (Costa Rica time), the time confirmed by our team. If we don't have your pickup place yet, please write it in the trip chat.`,
+              `Un breve recordatorio de ${what}. Recogida: ${a.when} (hora de Costa Rica), la hora que confirmó nuestro equipo. Si aún no tenemos su lugar de recogida, escríbalo en el chat del viaje, por favor.`,
+            ),
+      a.car
+        ? t(lang, `Your driver: ${a.driver}. Vehicle: ${carLine(lang, a.car)}.`, `Su conductor: ${a.driver}. Vehículo: ${carLine(lang, a.car)}.`)
+        : t(lang, `Your driver: ${a.driver}.`, `Su conductor: ${a.driver}.`),
+      a.airport
+        ? t(
+            lang,
+            "Your driver waits at arrivals holding a sign with your name, or with the text you chose when you booked. We follow your flight, and your driver waits up to 60 minutes after it lands.",
+            "Su conductor lo espera en la salida de llegadas con un rótulo con su nombre, o con el texto que usted eligió al reservar. Seguimos su vuelo, y su conductor espera hasta 60 minutos después del aterrizaje.",
+          )
+        : "",
+      a.ride && a.sign
+        ? t(
+            lang,
+            `The name sign will say: “${a.sign}”. You can change it on your trip page until your driver is on the way.`,
+            `El rótulo dirá: “${a.sign}”. Puede cambiarlo en la página de su viaje hasta que su conductor vaya en camino.`,
+          )
+        : "",
+      t(
+        lang,
+        "Your trip page shows your driver's profile and car photos, and has a chat with your driver and our team. If something changes, write in the chat or use “Call our team” on the trip page.",
+        "La página de su viaje muestra el perfil de su conductor y las fotos del vehículo, y tiene un chat con su conductor y con nuestro equipo. Si algo cambia, escriba en el chat o use “Llamar a nuestro equipo” en la página de su viaje.",
+      ),
+    ].filter(Boolean),
+    button: { label: t(lang, "Open your trip page", "Abrir la página de su viaje"), url: a.tripUrl },
+  };
+}
+
+// --- "Book your return / a day tour" (promotional; docs/PROJECT.md §4.7) -----------
+
+export interface FollowupTour {
+  /** In `lang` (localizeCatalog). */
+  name: string;
+  /** The site's "From $X per person" price: the 4+ travellers rate in the default season, whole dollars. */
+  fromPrice: string;
+  url: string;
+}
+
+export function followupEmail(
+  lang: PublicLang,
+  a: {
+    guestName: string | null | undefined;
+    /** Already in `lang` (placeNameFor). Origin = where the way back goes. */
+    origin: string;
+    destination: string;
+    returnUrl: string;
+    /** regionName(…, lang) when there are tours. */
+    region: string | null;
+    tours: FollowupTour[];
+  },
+): TravellerEmail & { links: { label: string; url: string }[]; linksIntro?: string } {
+  return {
+    lang,
+    subject: t(lang, `Your next ride from ${a.destination}`, `Su próximo traslado desde ${a.destination}`),
+    lines: [
+      greeting(lang, a.guestName),
+      t(
+        lang,
+        `We hope you're enjoying ${a.destination}. When it's time to move on, your ride back to ${a.origin} is ready to book: the route is already filled in, just choose the date, time and vehicle. You see the price before you send the request.`,
+        `Esperamos que esté disfrutando ${a.destination}. Cuando llegue el momento de seguir, su traslado de regreso a ${a.origin} está listo para reservar: la ruta ya está completa, solo elija la fecha, la hora y el vehículo. Usted ve el precio antes de enviar la solicitud.`,
+      ),
+    ],
+    button: { label: t(lang, `Book the ride back to ${a.origin}`, `Reservar el regreso a ${a.origin}`), url: a.returnUrl },
+    ...(a.tours.length && a.region
+      ? {
+          linksIntro: t(
+            lang,
+            `While you're in ${a.region}, these private day tours are nearby (prices per person, for 4 or more travellers, green season):`,
+            `Mientras está en ${a.region}, estos tours privados de un día están cerca (precios por persona, para 4 viajeros o más, temporada verde):`,
+          ),
+        }
+      : {}),
+    links: a.tours.map((x) => ({ label: t(lang, `${x.name} · from ${x.fromPrice} per person`, `${x.name} · desde ${x.fromPrice} por persona`), url: x.url })),
+  };
+}
+
+/** The small line at the bottom of the follow-up, next to the unsubscribe link. */
+export function followupUnsubscribeText(lang: PublicLang): { note: string; label: string } {
+  return {
+    note: t(
+      lang,
+      "We send one suggestion like this after a ride. Your booking emails are not affected.",
+      "Enviamos una sola sugerencia como esta después de un traslado. Los correos de sus reservas no cambian.",
+    ),
+    label: t(lang, "Unsubscribe from suggestions", "Darse de baja de las sugerencias"),
+  };
+}
