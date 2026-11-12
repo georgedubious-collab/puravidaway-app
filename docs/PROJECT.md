@@ -446,18 +446,23 @@ and error states, `AdminActionForm`).
 - **Despacho / Dispatch calendar** (`/admin/dispatch`, 2026-11-12): one week, Monday–Sunday in Costa
   Rica time (previous / next week, "Hoy"); phones see one day with ← / → buttons. A row per approved
   driver (name, home base, vehicle categories) plus a top row "Sin conductor" for bookings that still
-  need one (waiting for payment, open for offers). Each booking shows pickup → estimated end, code,
+  need one (waiting for payment, open for offers). Each booking shows pickup → estimated end in
+  a. m. / p. m. ("8:00–10:45 a. m.", like the rest of the admin), code,
   route, travellers, vehicle class and the traveller's name only (no email or phone). Days a driver
   blocked are striped "No disponible". Rules in `src/lib/dispatch.ts` (`npm run test:dispatch`):
   - **Busy span** = pickup + drive time (`bookings.drive_minutes`, which already includes the Paquera
     ferry / Drake Bay boat when Google's route has them; else the catalog's town-to-town minutes;
     else the saved road route; else 4 h, shown with "≈") + each stop's time and detour (the same sum
-    the driver app shows as "Llegada aprox."); day tours = the catalog length (8 h if unknown).
+    the driver app shows as "Llegada aprox."); day tours = the catalog length (8 h if unknown),
+    starting and ending in their region's town; the Osa tour (Sierpe mangroves & Caño Island)
+    starts and ends in **Puerto Jiménez** (Jorge, 2026-11-12), which is not one of our towns, so
+    travel to or from it shows "Revisar traslado" naming Puerto Jiménez.
   - **Clash** (red): two of a driver's bookings (not cancelled) overlap, or the free time between the
     end of one and the next pickup is shorter than the drive between them (catalog `ROUTE_MINUTES`,
-    both ends in our towns) + `CLASH_BUFFER_MINUTES` = 30. When a place can't be mapped to one of our
-    towns, "Revisar traslado" (yellow) instead of a guess, only when the free time is under the
-    longest drive in the country + 30 min.
+    both ends in our towns) + `CLASH_BUFFER_MINUTES` = **120 (2 hours, Jorge 2026-11-12: in case
+    the earlier trip runs late)**. When a place can't be mapped to one of our towns, "Revisar
+    traslado" (yellow) instead of a guess, only when the free time is under the longest drive in
+    the country (555 min) + 2 h.
   - Clicking a booking without a driver opens a side panel: every approved driver + approved vehicle
     with warnings (clash, blocked day, category can't serve, seats, documents expired on the trip
     day, review hold, the traveller's requests). Order: no warnings first, then drivers who offered,
@@ -467,6 +472,14 @@ and error states, `AdminActionForm`).
     otherwise "Asignar" (`updateBooking`, status unchanged or Confirmada), so the change history and
     notifications are identical. `updateBooking` now leaves the amount received and the internal notes
     alone when a form doesn't send them. Nothing new is shown to drivers.
+  - **A driver assigned by hand is announced like an accepted offer** (Jorge, 2026-11-12): when the
+    booking page or the calendar sets a new driver (none → driver, or another driver), the traveller
+    gets "your ride is confirmed" (push + email, in the language they booked in) and the driver gets
+    "you've got the ride" (push + email, Spanish unless their app is in English; route, pickup time
+    and their payout, never the traveller's contact or price). Once per assignment: saving the
+    booking again with the same driver sends nothing. Texts and the rule in
+    `src/lib/assignmentMessages.ts` (also used by "Aceptar oferta"), sending in
+    `src/lib/assignmentNotices.ts`.
 
 ### 4.3 Driver portal (`/driver`, driver role)
 KYC document upload, view open booking requests, submit and manage bids, assigned trips,
@@ -1299,13 +1312,11 @@ multi-day trips were retired (§1, §5.5) and are not on the roadmap.
     footer. For the lawyer: whether this is enough under Costa Rica's Ley 8968 (it asks for
     informed consent) and other non-European laws, and the "legitimate interest" basis now
     stated for visitors outside Europe in the Privacy Policy's section 4.
-20. **Dispatch calendar (open, from the build of 2026-11-12, §4.2).** (a) Is 30 minutes the right
-    margin between two jobs (`CLASH_BUFFER_MINUTES`, `src/lib/dispatch.ts`)? (b) A manual
-    assignment (calendar or booking page) still sends no automatic message to the driver or the
-    traveller; only accepting an offer does. Should it? (c) Osa day tours and Smart En-Route tours
-    have no known start/end town, so they show "Revisar traslado" instead of a computed drive.
-    (d) The calendar blocks use 24-hour times (08:00–10:45) to fit; the rest of the admin uses
-    a. m. / p. m.
+20. **Dispatch calendar (decided, Jorge, 2026-11-12, §4.2).** (a) Margin between two jobs: 2 hours
+    (`CLASH_BUFFER_MINUTES = 120`). (b) A manual assignment tells the traveller and the driver, with
+    the same messages as an accepted offer, once per assignment. (c) The Osa tour starts and ends in
+    Puerto Jiménez (travel to/from it: "Revisar traslado"); Smart En-Route tours still end in a town
+    the calendar doesn't know. (d) Times in a. m. / p. m.
 
 ---
 

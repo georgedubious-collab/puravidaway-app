@@ -30,7 +30,7 @@ export async function acceptOffer(_prev: FormState, fd: FormData): Promise<FormS
     if (!UUID.test(bidId) || !UUID.test(bookingId))
       throw new InputError(t("Esa oferta ya no está abierta.", "That offer isn't open any more."));
     const supabase = (await createSupabaseServerClient())!;
-    const { data: ref, error } = await supabase.rpc("accept_offer", { p_bid: bidId });
+    const { error } = await supabase.rpc("accept_offer", { p_bid: bidId });
     if (error) {
       if (/^(That offer|This booking|The offer|Only the team)/.test(error.message)) throw new InputError(error.message);
       throw new Error(error.message);

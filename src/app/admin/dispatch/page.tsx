@@ -357,6 +357,9 @@ export default async function DispatchPage({ searchParams }: { searchParams: Pro
   );
 }
 
+/** Never split "8:00 a. m." across two lines in a narrow block: line breaks only after the dash. */
+const keepTogether = (label: string) => label.replace(/ (a\.|p\.) m\./g, "\u00a0$1\u00a0m.").replace(/ (AM|PM)\b/g, "\u00a0$1");
+
 /* ---------- One booking on the calendar ---------- */
 
 function BookingBlock({
@@ -405,7 +408,7 @@ function BookingBlock({
     >
       <span className="flex items-baseline justify-between gap-1">
         <span className="font-extrabold tabular-nums">
-          {span ? `${span.estimated ? "≈ " : ""}${spanLabel(span, lang)}` : t("Sin hora", "No time")}
+          {span ? `${span.estimated ? "≈ " : ""}${keepTogether(spanLabel(span, lang))}` : t("Sin hora", "No time")}
         </span>
       </span>
       <span className="block font-mono text-[11px] font-bold text-[#33443C]">{b.booking_ref}</span>
@@ -590,7 +593,7 @@ function AssignPanel({
             <Card>
               <p className="font-extrabold text-[#14231C]">{route}</p>
               <p className="mt-1 text-sm text-[#33443C]">
-                {dayName(tripDay, lang, "long")} · {span ? `${span.estimated ? "≈ " : ""}${spanLabel(span, lang)}` : t("sin hora", "no time")}
+                {dayName(tripDay, lang, "long")} · {span ? `${span.estimated ? "≈ " : ""}${keepTogether(spanLabel(span, lang))}` : t("sin hora", "no time")}
               </p>
               <p className="mt-1 text-sm text-[#5F6F67]">
                 {[b.vehicle_class ? jobClassLabel(b.vehicle_class, lang) : null, b.passenger_count ? t(`${b.passenger_count} pasajeros`, `${b.passenger_count} passengers`) : null, b.trips?.guest_name]
@@ -696,8 +699,8 @@ function AssignPanel({
                                 {
                                   kind: "always",
                                   message: t(
-                                    `Se asigna ${b.booking_ref} a ${nameOf(d)} (${v.make_model ?? "vehículo"} ${v.plate ?? ""}). Igual que en la página de la reserva, nadie recibe un aviso automático: avise al conductor.${warnText.length ? ` Avisos: ${warnText.join("; ")}.` : ""}`,
-                                    `${b.booking_ref} goes to ${nameOf(d)} (${v.make_model ?? "vehicle"} ${v.plate ?? ""}). As on the booking page, nobody is notified automatically: tell the driver.${warnText.length ? ` Warnings: ${warnText.join("; ")}.` : ""}`,
+                                    `Se asigna ${b.booking_ref} a ${nameOf(d)} (${v.make_model ?? "vehículo"} ${v.plate ?? ""}). El conductor y el viajero reciben un aviso (el mismo que al aceptar una oferta).${warnText.length ? ` Avisos: ${warnText.join("; ")}.` : ""}`,
+                                    `${b.booking_ref} goes to ${nameOf(d)} (${v.make_model ?? "vehicle"} ${v.plate ?? ""}). The driver and the traveller are notified (the same messages as accepting an offer).${warnText.length ? ` Warnings: ${warnText.join("; ")}.` : ""}`,
                                   ),
                                 },
                               ]}
