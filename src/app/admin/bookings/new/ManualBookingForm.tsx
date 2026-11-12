@@ -67,7 +67,13 @@ export function ManualBookingForm({ lang, today, hubs, vehicles, stops, tours }:
             ...(String(fd.get("signText") ?? "").trim() ? { signText: String(fd.get("signText")).trim() } : {}),
             ...(fd.get("signHideName") === "on" ? { signHideName: true } : {}),
           }
-        : { kind: "day_tour", tourId: String(fd.get("tourId") ?? ""), upgrade: fd.get("upgrade") === "on", pax };
+        : {
+            kind: "day_tour",
+            tourId: String(fd.get("tourId") ?? ""),
+            upgrade: fd.get("upgrade") === "on",
+            pax,
+            ...(String(fd.get("pickupPlace") ?? "").trim() ? { pickupPlace: String(fd.get("pickupPlace")).trim() } : {}),
+          };
     return {
       spec,
       date,
@@ -78,6 +84,7 @@ export function ManualBookingForm({ lang, today, hubs, vehicles, stops, tours }:
       clientNotes: String(fd.get("clientNotes") ?? "").trim(),
       travellerLang: (fd.get("travellerLang") === "es" ? "es" : "en") as "es" | "en",
       emailTraveller: fd.get("emailTraveller") === "on",
+      noSuggestions: fd.get("noSuggestions") === "on",
     };
   }
 
@@ -104,6 +111,7 @@ export function ManualBookingForm({ lang, today, hubs, vehicles, stops, tours }:
           notes: r.clientNotes,
           website: "",
           lang: r.travellerLang,
+          noSuggestions: r.noSuggestions,
         },
         r.emailTraveller,
       );
@@ -303,6 +311,13 @@ export function ManualBookingForm({ lang, today, hubs, vehicles, stops, tours }:
               <label className="flex items-center gap-2 self-end pb-3 text-sm font-bold text-[#33443C]">
                 <input type="checkbox" name="upgrade" className="h-5 w-5" /> {t("Mejora en ruta", "En-route upgrade")}
               </label>
+              <label className={`${field.label} sm:col-span-2`}>
+                {t("Lugar de recogida (hotel o dirección)", "Pickup place (hotel or address)")}
+                <input name="pickupPlace" maxLength={120} className={field.input} />
+                <span className={field.hint}>
+                  {t("Sin teléfonos, correos ni enlaces. El conductor lo ve en su viaje.", "No phone numbers, emails or links. The driver sees it on their trip.")}
+                </span>
+              </label>
             </>
           )}
         </div>
@@ -330,6 +345,15 @@ export function ManualBookingForm({ lang, today, hubs, vehicles, stops, tours }:
                   "El mismo correo que recibe con una solicitud del sitio, en su idioma. Desmárquelo si prefiere enviarlo usted por WhatsApp.",
                   "The same email they get with a website request, in their language. Untick it if you'd rather send it on WhatsApp yourself.",
                 )}
+              </span>
+            </span>
+          </label>
+          <label className="flex items-start gap-2 text-sm font-bold text-[#33443C]">
+            <input type="checkbox" name="noSuggestions" className="mt-0.5 h-5 w-5" />
+            <span>
+              {t("El viajero no quiere sugerencias después del viaje", "The traveller doesn't want suggestions after the trip")}
+              <span className={field.hint}>
+                {t("No se le enviará el correo de “reserve su regreso”. Los correos de la reserva sí llegan.", "They won't get the “book your return” email. Booking emails still arrive.")}
               </span>
             </span>
           </label>

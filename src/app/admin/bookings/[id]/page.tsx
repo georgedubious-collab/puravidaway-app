@@ -354,6 +354,17 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
               />
             )}
             {b.driver_notes && <Detail k={t("Mensaje para el conductor", "Message for driver")} v={b.driver_notes} />}
+            {b.service_type !== "transfer" && (
+              <Detail k={t("Lugar de recogida", "Pickup place")} v={b.pickup_place || t("(no indicado)", "(not given)")} />
+            )}
+            <Detail
+              k={t("Mensajes automáticos", "Automatic messages")}
+              v={[
+                b.reminder_traveller_at ? t(`Recordatorio al cliente: ${formatScheduledAt(b.reminder_traveller_at, lang)}`, `Reminder to traveller: ${formatScheduledAt(b.reminder_traveller_at, lang)}`) : "",
+                b.reminder_driver_at ? t(`Recordatorio al conductor: ${formatScheduledAt(b.reminder_driver_at, lang)}`, `Reminder to driver: ${formatScheduledAt(b.reminder_driver_at, lang)}`) : "",
+                b.followup_sent_at ? t(`Sugerencia de regreso: revisada ${formatScheduledAt(b.followup_sent_at, lang)}`, `Return suggestion: checked ${formatScheduledAt(b.followup_sent_at, lang)}`) : "",
+              ].filter(Boolean).join(" · ") || t("Ninguno todavía", "None yet")}
+            />
             {b.service_type === "transfer" && (
               <Detail
                 k={t("Rótulo", "Name sign")}
