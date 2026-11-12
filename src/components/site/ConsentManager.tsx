@@ -6,8 +6,9 @@ import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } fro
 import {
   applyConsent,
   blockTracking,
-  parseConsent,
+  effectiveConsent,
   readConsentRaw,
+  readRegion,
   saveConsent,
   subscribeConsent,
   subscribeConsentOpen,
@@ -15,10 +16,12 @@ import {
   trackPageView,
 } from "@/lib/analytics";
 import { CLARITY_ID, GA_ID, GOOGLE_ADS_ID, HAS_ADS_TOOLS, HAS_ANALYTICS_TOOLS, META_PIXEL_ID, isPrivatePath } from "@/lib/analyticsConfig";
-import { langOfPath, localizedHref, t as pick } from "@/lib/publicLang";
+import { langOfPath, localizedHref, t as pick, type PublicLang } from "@/lib/publicLang";
 
 /** What the server (and the first paint) shows: no banner, whatever the visitor chose before. */
 const NOT_READ_YET = "not-read-yet";
+/** The region cookie only changes with a new page load, so there is nothing to listen to. */
+const noSubscribe = () => () => {};
 
 const BUTTON =
   "min-h-11 px-4 rounded-xl bg-emerald-800 hover:bg-emerald-700 text-white text-sm font-extrabold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500";
@@ -27,7 +30,12 @@ const BUTTON =
  * The cookie banner and the loader of the measurement tools (docs/SEO.md §7), mounted once
  * in the root layout and only when at least one tool id is set.
  *
- * - No choice yet: a small card at the bottom. "Accept" and "Reject" look the same; "Choose"
+ * - Region (the `crpt-region` cookie set by src/proxy.ts, src/lib/consentRegion.ts): visitors in
+ *   the EEA, the UK and Switzerland, or whose country is unknown, get the banner below and
+ *   nothing runs before they accept. Everyone else gets no banner and the tools on by default;
+ *   the footer's "Cookie settings" opens the same card to switch them off. A choice the visitor
+ *   already made (Accept, Reject or Choose) always wins, in every region.
+ * - No choice yet, in an ask-first region: a small card at the bottom. "Accept" and "Reject" look the same; "Choose"
  *   opens the groups, unticked. It is not a wall: the page works behind it. On phones it sits
  *   above the booking bar (globals.css, .consent-banner); on wide screens it is at the bottom
  *   right, away from the "Your trip" panel and its "Send trip request" button on the left.
@@ -39,8 +47,10 @@ const BUTTON =
 export function ConsentManager() {
   const pathname = usePathname() ?? "/";
   const raw = useSyncExternalStore(subscribeConsent, readConsentRaw, () => NOT_READ_YET);
+  const region = useSyncExternalStore(noSubscribe, readRegion, () => "consent" as const);
   const ready = raw !== NOT_READ_YET;
-  const choice = useMemo(() => (ready ? parseConsent(raw) : null), [ready, raw]);
+  const choice = useMemo(() => (ready ? effectiveConsent(raw, region) : null), [ready, raw, region]);
+  const askFirst = region === "consent";
   const isPrivate = isPrivatePath(pathname);
   const lang = langOfPath(pathname);
   const t = <T,>(en: T, es: T): T => pick(lang, en, es);
@@ -71,7 +81,7 @@ export function ConsentManager() {
   useEffect(
     () =>
       subscribeConsentOpen(() => {
-        const current = parseConsent(readConsentRaw());
+        const current = effectiveConsent(readConsentRaw(), readRegion());
         returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
         setAnalytics(Boolean(current?.analytics));
         setAds(Boolean(current?.ads));
@@ -83,7 +93,7 @@ export function ConsentManager() {
     [],
   );
 
-  const visible = ready && !isPrivate && (choice === null || reopened);
+  const visible = ready && !isPrivate && ((askFirst && choice === null) || reopened);
 
   function close() {
     setReopened(false);
@@ -125,27 +135,45 @@ export function ConsentManager() {
       className="consent-banner print:hidden fixed z-[35] inset-x-2 sm:inset-x-auto sm:right-4 sm:w-[26rem] max-h-[calc(100dvh-6rem)] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 text-slate-900 shadow-[0_8px_40px_rgba(2,44,34,0.28)]"
     >
       <h2 id={`${id}-title`} ref={titleRef} tabIndex={-1} className="text-base font-extrabold text-emerald-950 outline-none">
-        {t("Cookies: your choice", "Cookies: usted decide")}
+        {askFirst ? t("Cookies: your choice", "Cookies: usted decide") : t("Cookie settings", "Configuración de cookies")}
       </h2>
-      <p id={`${id}-text`} className="mt-1 text-sm leading-snug text-slate-700">
-        {HAS_ANALYTICS_TOOLS &&
-          t(
-            `With your OK we use ${analyticsTools} to see which pages and routes are useful. `,
-            `Con su permiso usamos ${analyticsTools} para saber qué páginas y rutas son útiles. `,
+      {askFirst ? (
+        <p id={`${id}-text`} className="mt-1 text-sm leading-snug text-slate-700">
+          {HAS_ANALYTICS_TOOLS &&
+            t(
+              `With your OK we use ${analyticsTools} to see which pages and routes are useful. `,
+              `Con su permiso usamos ${analyticsTools} para saber qué páginas y rutas son útiles. `,
+            )}
+          {HAS_ADS_TOOLS &&
+            t(
+              `${HAS_ANALYTICS_TOOLS ? "We also" : "With your OK we"} use ${adsTools} to measure our ads. `,
+              `${HAS_ANALYTICS_TOOLS ? "También usamos" : "Con su permiso usamos"} ${adsTools} para medir nuestros anuncios. `,
+            )}
+          {t(
+            "Nothing is switched on unless you accept, and booking works the same either way. ",
+            "Nada se activa si usted no acepta, y puede reservar igual en ambos casos. ",
           )}
-        {HAS_ADS_TOOLS &&
-          t(
-            `${HAS_ANALYTICS_TOOLS ? "We also" : "With your OK we"} use ${adsTools} to measure our ads. `,
-            `${HAS_ANALYTICS_TOOLS ? "También usamos" : "Con su permiso usamos"} ${adsTools} para medir nuestros anuncios. `,
+          <PrivacyLink lang={lang} />
+        </p>
+      ) : (
+        <p id={`${id}-text`} className="mt-1 text-sm leading-snug text-slate-700">
+          {HAS_ANALYTICS_TOOLS &&
+            t(
+              `We use ${analyticsTools} to see which pages and routes are useful. `,
+              `Usamos ${analyticsTools} para saber qué páginas y rutas son útiles. `,
+            )}
+          {HAS_ADS_TOOLS &&
+            t(
+              `${HAS_ANALYTICS_TOOLS ? "We also" : "We"} use ${adsTools} to measure our ads. `,
+              `${HAS_ANALYTICS_TOOLS ? "También usamos" : "Usamos"} ${adsTools} para medir nuestros anuncios. `,
+            )}
+          {t(
+            "You can switch these tools off here at any time, and booking works the same either way. ",
+            "Puede desactivar estas herramientas aquí en cualquier momento, y puede reservar igual en ambos casos. ",
           )}
-        {t(
-          "Nothing is switched on unless you accept, and booking works the same either way. ",
-          "Nada se activa si usted no acepta, y puede reservar igual en ambos casos. ",
-        )}
-        <Link href={localizedHref("/privacy", lang)} className="font-semibold text-emerald-800 underline">
-          {t("Privacy Policy", "Política de privacidad")}
-        </Link>
-      </p>
+          <PrivacyLink lang={lang} />
+        </p>
+      )}
 
       {choosing && (
         <fieldset className="mt-3 space-y-2">
@@ -205,6 +233,14 @@ export function ConsentManager() {
         </div>
       )}
     </section>
+  );
+}
+
+function PrivacyLink({ lang }: { lang: PublicLang }) {
+  return (
+    <Link href={localizedHref("/privacy", lang)} className="font-semibold text-emerald-800 underline">
+      {pick(lang, "Privacy Policy", "Política de privacidad")}
+    </Link>
   );
 }
 

@@ -7,8 +7,9 @@ import { t, type PublicLang } from "@/lib/publicLang";
  * page always describes what the site really does: with no tool set, it still says "We don't
  * use advertising or tracking cookies".
  *
- * Keep in line with src/lib/analytics.ts (what is loaded and sent) and with the settings in
- * each tool's own account (retention times below are the tools' defaults).
+ * Keep in line with src/lib/analytics.ts (what is loaded and sent), src/lib/consentRegion.ts
+ * (who is asked first: the EEA, the UK and Switzerland) and with the settings in each tool's
+ * own account (retention times below are the tools' defaults).
  * Pending legal review, like the rest of the legal pages.
  */
 
@@ -23,33 +24,33 @@ export function MeasurementCollected({ lang }: { lang: PublicLang }) {
     <>
       {GA_ID && (
         <li>
-          <strong>{t(lang, "Google Analytics, only if you accept:", "Google Analytics, solo si usted acepta:")}</strong>{" "}
+          <strong>{t(lang, "Google Analytics (in Europe, only if you accept):", "Google Analytics (en Europa, solo si usted acepta):")}</strong>{" "}
           {t(
             lang,
-            "if you choose “Accept” (or tick “Analytics”) in the cookie notice, Google Analytics 4 records which pages you view, roughly where you are (country and city, worked out from your IP address, which Google Analytics does not store), your device and browser, how you reached the site, and the booking steps you use (the route as town codes, the vehicle class, the price, and whether a request was sent). It uses cookies on your device (_ga and _ga_…, kept for up to two years) to tell a returning visitor from a new one. We never send it your name, email, phone number, notes, the places you type, booking references or trip links, and it never runs on your private trip page. Until you accept, Google Analytics is not loaded at all and sets no cookies.",
-            "si usted elige “Aceptar” (o marca “Analítica”) en el aviso de cookies, Google Analytics 4 registra qué páginas ve, dónde se encuentra de forma aproximada (país y ciudad, calculados a partir de su dirección IP, que Google Analytics no guarda), su dispositivo y navegador, cómo llegó al sitio y los pasos de la reserva que utiliza (la ruta como códigos de localidad, la categoría de vehículo, el precio y si se envió una solicitud). Usa cookies en su dispositivo (_ga y _ga_…, que se conservan hasta dos años) para distinguir a un visitante que regresa de uno nuevo. Nunca le enviamos su nombre, correo electrónico, número de teléfono, notas, los lugares que usted escribe, referencias de reserva ni enlaces de viaje, y nunca se ejecuta en la página privada de su viaje. Mientras usted no acepte, Google Analytics no se carga y no coloca ninguna cookie.",
+            "Google Analytics 4 records which pages you view, roughly where you are (country and city, worked out from your IP address, which Google Analytics does not store), your device and browser, how you reached the site, and the booking steps you use (the route as town codes, the vehicle class, the price, and whether a request was sent). It uses cookies on your device (_ga and _ga_…, kept for up to two years) to tell a returning visitor from a new one. We never send it your name, email, phone number, notes, the places you type, booking references or trip links, and it never runs on your private trip page. If you are in the European Economic Area, the United Kingdom or Switzerland, we ask you first in a cookie notice: Google Analytics runs only if you choose “Accept” (or tick “Analytics”), and until then it is not loaded at all and sets no cookies. Everywhere else it is on by default, and you can switch it off at any time with “Cookie settings” at the bottom of every page.",
+            "Google Analytics 4 registra qué páginas ve, dónde se encuentra de forma aproximada (país y ciudad, calculados a partir de su dirección IP, que Google Analytics no guarda), su dispositivo y navegador, cómo llegó al sitio y los pasos de la reserva que utiliza (la ruta como códigos de localidad, la categoría de vehículo, el precio y si se envió una solicitud). Usa cookies en su dispositivo (_ga y _ga_…, que se conservan hasta dos años) para distinguir a un visitante que regresa de uno nuevo. Nunca le enviamos su nombre, correo electrónico, número de teléfono, notas, los lugares que usted escribe, referencias de reserva ni enlaces de viaje, y nunca se ejecuta en la página privada de su viaje. Si usted se encuentra en el Espacio Económico Europeo, el Reino Unido o Suiza, primero se lo preguntamos en un aviso de cookies: Google Analytics solo funciona si usted elige “Aceptar” (o marca “Analítica”), y hasta entonces no se carga y no coloca ninguna cookie. En el resto del mundo está activado de forma predeterminada, y usted puede desactivarlo en cualquier momento con “Configuración de cookies”, al pie de cada página.",
           )}
         </li>
       )}
       {CLARITY_ID && (
         <li>
-          <strong>{t(lang, "Microsoft Clarity, only if you accept analytics:", "Microsoft Clarity, solo si usted acepta la analítica:")}</strong>{" "}
+          <strong>{t(lang, "Microsoft Clarity (analytics; in Europe, only if you accept):", "Microsoft Clarity (analítica; en Europa, solo si usted acepta):")}</strong>{" "}
           {t(
             lang,
-            "it records how the pages are used (clicks, scrolling and a replay of the visit, with the text on the page and anything typed into forms hidden) so we can find and fix confusing screens. It uses cookies (_clck, kept for up to one year, and _clsk, one day).",
-            "registra cómo se usan las páginas (clics, desplazamiento y una reproducción de la visita, con el texto de la página y lo que se escribe en los formularios ocultos) para que podamos encontrar y corregir pantallas confusas. Usa cookies (_clck, que se conserva hasta un año, y _clsk, un día).",
+            "it records how the pages are used (clicks, scrolling and a replay of the visit, with the text on the page and anything typed into forms hidden) so we can find and fix confusing screens. It uses cookies (_clck, kept for up to one year, and _clsk, one day). It follows your analytics choice: in the European Economic Area, the United Kingdom and Switzerland only if you accept, elsewhere on until you switch analytics off.",
+            "registra cómo se usan las páginas (clics, desplazamiento y una reproducción de la visita, con el texto de la página y lo que se escribe en los formularios ocultos) para que podamos encontrar y corregir pantallas confusas. Usa cookies (_clck, que se conserva hasta un año, y _clsk, un día). Sigue su elección sobre la analítica: en el Espacio Económico Europeo, el Reino Unido y Suiza solo si usted acepta; en el resto del mundo, activado hasta que usted desactive la analítica.",
           )}
         </li>
       )}
       {HAS_ADS_TOOLS && (
         <li>
           <strong>
-            {t(lang, "Advertising measurement, only if you accept advertising:", "Medición de publicidad, solo si usted acepta la publicidad:")}
+            {t(lang, "Advertising measurement (in Europe, only if you accept advertising):", "Medición de publicidad (en Europa, solo si usted acepta la publicidad):")}
           </strong>{" "}
           {t(
             lang,
-            `${adsNames(lang)} record that you visited the site, so we can tell whether our ads bring visits and trip requests, and may use it to show you our ads on their platforms. They use cookies (such as _gcl_au or _fbp, kept for up to 90 days). We don’t send them your name or contact details.`,
-            `${adsNames(lang)} registran que usted visitó el sitio, para que sepamos si nuestros anuncios traen visitas y solicitudes de viaje, y pueden usarlo para mostrarle nuestros anuncios en sus plataformas. Usan cookies (como _gcl_au o _fbp, que se conservan hasta 90 días). No les enviamos su nombre ni sus datos de contacto.`,
+            `${adsNames(lang)} record that you visited the site, so we can tell whether our ads bring visits and trip requests, and may use it to show you our ads on their platforms. They use cookies (such as _gcl_au or _fbp, kept for up to 90 days). We don’t send them your name or contact details. In the European Economic Area, the United Kingdom and Switzerland they run only if you accept advertising; elsewhere they are on by default and you can switch them off with “Cookie settings”.`,
+            `${adsNames(lang)} registran que usted visitó el sitio, para que sepamos si nuestros anuncios traen visitas y solicitudes de viaje, y pueden usarlo para mostrarle nuestros anuncios en sus plataformas. Usan cookies (como _gcl_au o _fbp, que se conservan hasta 90 días). No les enviamos su nombre ni sus datos de contacto. En el Espacio Económico Europeo, el Reino Unido y Suiza solo funcionan si usted acepta la publicidad; en el resto del mundo están activadas de forma predeterminada y usted puede desactivarlas con “Configuración de cookies”.`,
           )}
         </li>
       )}
@@ -72,8 +73,8 @@ export function CookieSentence({ lang }: { lang: PublicLang }) {
     <>
       {t(
         lang,
-        `Your cookie choice is saved there too, for six months, and then we ask again. We use ${kinds} cookies only if you accept them, and no cookie is needed to book. You can change or withdraw your choice at any time with “Cookie settings” at the bottom of every page: from that moment the tools are switched off and their cookies for this site are deleted from your browser.`,
-        `Allí también se guarda su elección sobre las cookies durante seis meses; después se la volvemos a preguntar. Usamos cookies de ${kinds} solo si usted las acepta, y no se necesita ninguna cookie para reservar. Usted puede cambiar o retirar su elección en cualquier momento con “Configuración de cookies”, al pie de cada página: desde ese momento las herramientas se desactivan y sus cookies de este sitio se eliminan de su navegador.`,
+        `Your cookie choice is saved there too. A small cookie of ours (crpt-region, kept for 30 days) remembers only whether you are visiting from the European Economic Area, the United Kingdom or Switzerland; we work this out from your IP address when a page loads and don’t keep the address. If you are, we use ${kinds} cookies only if you accept them, and we ask again after six months. Everywhere else they are on by default. No cookie is needed to book. You can change or withdraw your choice at any time with “Cookie settings” at the bottom of every page: from that moment the tools are switched off and their cookies for this site are deleted from your browser.`,
+        `Allí también se guarda su elección sobre las cookies. Una pequeña cookie nuestra (crpt-region, que se conserva 30 días) recuerda solo si usted nos visita desde el Espacio Económico Europeo, el Reino Unido o Suiza; lo calculamos a partir de su dirección IP al cargar una página y no guardamos la dirección. Si es así, usamos cookies de ${kinds} solo si usted las acepta, y se lo volvemos a preguntar después de seis meses. En el resto del mundo están activadas de forma predeterminada. No se necesita ninguna cookie para reservar. Usted puede cambiar o retirar su elección en cualquier momento con “Configuración de cookies”, al pie de cada página: desde ese momento las herramientas se desactivan y sus cookies de este sitio se eliminan de su navegador.`,
       )}
     </>
   );
@@ -91,8 +92,8 @@ export function MeasurementPurpose({ lang }: { lang: PublicLang }) {
       </strong>{" "}
       {t(
         lang,
-        "(your consent): the tools described in section 2 as “only if you accept”. Saying no changes nothing else on the site, and you can withdraw your consent at any time.",
-        "(su consentimiento): las herramientas descritas en la sección 2 como “solo si usted acepta”. Decir que no no cambia nada más en el sitio, y usted puede retirar su consentimiento en cualquier momento.",
+        "(in the European Economic Area, the United Kingdom and Switzerland, your consent; elsewhere, our legitimate interest in knowing how the site is used, which you can object to at any time with “Cookie settings”): the tools described in section 2. Saying no changes nothing else on the site, and you can withdraw your consent or switch the tools off at any time.",
+        "(en el Espacio Económico Europeo, el Reino Unido y Suiza, su consentimiento; en el resto del mundo, nuestro interés legítimo en saber cómo se usa el sitio, al que usted puede oponerse en cualquier momento con “Configuración de cookies”): las herramientas descritas en la sección 2. Decir que no no cambia nada más en el sitio, y usted puede retirar su consentimiento o desactivar las herramientas en cualquier momento.",
       )}
     </li>
   );
@@ -113,7 +114,7 @@ export function MeasurementRecipients({ lang }: { lang: PublicLang }) {
   ].filter(Boolean);
   return (
     <li>
-      <strong>{t(lang, "Measurement tools, only with your consent:", "Herramientas de medición, solo con su consentimiento:")}</strong>{" "}
+      <strong>{t(lang, "Measurement tools (section 2 says when they run):", "Herramientas de medición (la sección 2 indica cuándo funcionan):")}</strong>{" "}
       {who.join("; ")}.{" "}
       {t(
         lang,
@@ -150,8 +151,8 @@ export function MeasurementRetention({ lang }: { lang: PublicLang }) {
         )}
       {t(
         lang,
-        "The cookies themselves last as described in section 2, or until you withdraw your choice.",
-        "Las cookies duran lo indicado en la sección 2, o hasta que usted retire su elección.",
+        "The cookies themselves last as described in section 2, or until you switch the tools off.",
+        "Las cookies duran lo indicado en la sección 2, o hasta que usted desactive las herramientas.",
       )}
     </li>
   );

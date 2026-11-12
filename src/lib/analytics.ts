@@ -3,8 +3,11 @@
  * Server code must not import this file; shared settings are in analyticsConfig.ts.
  *
  * Rules this file keeps:
- * - Nothing is loaded before the visitor accepts. Google's tag is not on the page at all
- *   until then (Consent Mode v2 "basic": default denied, then the visitor's choice).
+ * - Visitors in the EEA, the UK and Switzerland (region "consent", src/lib/consentRegion.ts):
+ *   nothing is loaded before they accept. Google's tag is not on the page at all until then
+ *   (Consent Mode v2 "basic": default denied, then the visitor's choice).
+ * - Everyone else (region "open"): the tools are on by default, with no banner; the footer's
+ *   "Cookie settings" switches them off. A choice the visitor made always wins, in every region.
  * - Nothing is ever loaded or sent on private pages (/admin, /driver, /trip/<secret link>…).
  * - Events carry no personal data: town codes, page addresses without their "?…" part,
  *   vehicle class ids and prices only. Never names, emails, phones, notes, typed places,
@@ -23,6 +26,7 @@ import {
   isPrivatePath,
 } from "./analyticsConfig";
 import type { CartItem, PaymentMode } from "./cart";
+import { REGION_COOKIE, parseRegion, type ConsentRegion } from "./consentRegion";
 
 /* ───────────────────────── The visitor's choice ───────────────────────── */
 
@@ -49,19 +53,52 @@ export function readConsentRaw(): string {
   }
 }
 
-/** The choice, or null when there is none, it is older than six months, or a new group was added since. */
-export function parseConsent(raw: string, now: number = Date.now()): ConsentChoice | null {
+/**
+ * The choice, or null when there is none, it is older than six months, or a new group was added since.
+ * With `expires: false` (visitors outside Europe, who opted out rather than in) a stored choice
+ * never runs out and a group added later stays off until they switch it on.
+ */
+export function parseConsent(raw: string, now: number = Date.now(), { expires = true }: { expires?: boolean } = {}): ConsentChoice | null {
   if (!raw) return null;
   try {
     const v = JSON.parse(raw) as { v?: unknown; a?: unknown; m?: unknown; s?: unknown; t?: unknown };
     if (v.v !== 1 || typeof v.t !== "number" || typeof v.s !== "string") return null;
-    const ageDays = (now - v.t) / 86_400_000;
-    if (ageDays < -1 || ageDays > CONSENT_MAX_AGE_DAYS) return null;
-    if ([...SCOPE].some((group) => !(v.s as string).includes(group))) return null;
+    if (expires) {
+      const ageDays = (now - v.t) / 86_400_000;
+      if (ageDays < -1 || ageDays > CONSENT_MAX_AGE_DAYS) return null;
+      if ([...SCOPE].some((group) => !(v.s as string).includes(group))) return null;
+    }
     return { analytics: v.a === 1 && HAS_ANALYTICS_TOOLS, ads: v.m === 1 && HAS_ADS_TOOLS };
   } catch {
     return null;
   }
+}
+
+/** The region cookie set by src/proxy.ts, as text ("" = none). Stable, for useSyncExternalStore. */
+export function readRegionRaw(): string {
+  try {
+    for (const pair of document.cookie.split(";")) {
+      const [name, ...rest] = pair.trim().split("=");
+      if (name === REGION_COOKIE) return rest.join("=");
+    }
+  } catch {
+    /* cookies blocked */
+  }
+  return "";
+}
+
+/** "consent" (ask first) unless the proxy said "open"; no cookie (blocked, local run) = ask first. */
+export function readRegion(): ConsentRegion {
+  return parseRegion(readRegionRaw());
+}
+
+/**
+ * What may run for this visitor: the stored choice if there is one (it always wins); otherwise
+ * nothing in a "consent" region (null = show the banner), everything in an "open" region.
+ */
+export function effectiveConsent(raw: string, region: ConsentRegion, now: number = Date.now()): ConsentChoice | null {
+  if (region === "consent") return parseConsent(raw, now);
+  return parseConsent(raw, now, { expires: false }) ?? { analytics: HAS_ANALYTICS_TOOLS, ads: HAS_ADS_TOOLS };
 }
 
 export function saveConsent(choice: ConsentChoice): void {

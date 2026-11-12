@@ -140,19 +140,29 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
   link-preview URLs; the preview image is `src/app/opengraph-image.tsx`. Custom 404 and error
   pages (`not-found.tsx`, `error.tsx`, `global-error.tsx`). Vercel Web Analytics
   (`@vercel/analytics`) is in the root layout and must be enabled in the Vercel dashboard.
-- **Marketing measurement behind a cookie banner (2026-11-11, `docs/SEO.md` §7).** Off unless
+- **Marketing measurement, cookie banner in Europe only (2026-11-11, `docs/SEO.md` §7).** Off unless
   its id is set in Vercel (Production only): `NEXT_PUBLIC_GA_ID` (Google Analytics 4),
   optional `NEXT_PUBLIC_CLARITY_ID`, and for later ads `NEXT_PUBLIC_GOOGLE_ADS_ID` and
   `NEXT_PUBLIC_META_PIXEL_ID`; `NEXT_PUBLIC_GSC_VERIFICATION` and
   `NEXT_PUBLIC_BING_VERIFICATION` add the Search Console / Bing ownership tags to every page.
   Ids are format-checked in `src/lib/analyticsConfig.ts`; a malformed one is ignored. With at
-  least one tool set, the root layout mounts `src/components/site/ConsentManager.tsx`: a small
-  banner (English / Spanish by page, "Accept" and "Reject" alike, "Choose" for Analytics and
-  Advertising separately, nothing pre-ticked), the choice kept in the browser's local storage
-  (`crpt-consent-v1`) for six months, and a "Cookie settings" link in the footer to change or
-  withdraw it. Google Consent Mode v2 in its basic form: no third-party script is loaded until
-  the visitor accepts, and withdrawing switches the tools off and deletes their first-party
-  cookies. Never a banner or a script on the private paths (`PRIVATE_PATHS` in
+  least one tool set, the root layout mounts `src/components/site/ConsentManager.tsx`.
+  **Region rule (Jorge, 2026-11-11):** the banner is shown only to visitors in the EEA (EU-27 +
+  Iceland, Liechtenstein, Norway), the UK and Switzerland, plus EU areas with their own country
+  code and Gibraltar / Jersey / Guernsey / Isle of Man (list in `src/lib/consentRegion.ts`,
+  `npm run test:consent-region`); everyone else gets the tools on by default with no banner and
+  can switch them off with "Cookie settings". `src/proxy.ts` reads Vercel's
+  `x-vercel-ip-country` header and sets the first-party cookie `crpt-region` = `consent` or
+  `open` (30 days, SameSite=Lax, Secure on Vercel, path `/`, only when missing or different,
+  only when a tool is switched on), so the pages stay prerendered; a missing or unknown
+  country counts as `consent`. A stored choice always wins in every region (outside Europe it
+  does not expire). Where shown, the banner: English / Spanish by page, "Accept" and "Reject"
+  alike, "Choose" for Analytics and Advertising separately, nothing pre-ticked; the choice kept
+  in the browser's local storage (`crpt-consent-v1`) for six months, and a "Cookie settings"
+  link in the footer (for every visitor) to change or withdraw it. Google Consent Mode v2 in
+  its basic form: in Europe no third-party script is loaded until the visitor accepts;
+  elsewhere the tag loads at once with analytics granted; switching off stops the tools and
+  deletes their first-party cookies. Never a banner or a script on the private paths (`PRIVATE_PATHS` in
   `src/lib/site.ts`, plus `/account` and `/chat`); arriving on one with tools running reloads
   the page clean, and trip links are never sent, not even as the referrer. Events go through
   one browser-only helper, `src/lib/analytics.ts` (`page_view`, `view_item`, `select_item`,
@@ -1045,8 +1055,11 @@ multi-day trips were retired (§1, §5.5) and are not on the roadmap.
     being built; decide before switching either on whether typed place names should leave the
     address (shared ride links would then carry only the place id). (d) `purchase` is not sent
     until real payments exist; decide then whether the paid amount or the lead is the main
-    conversion for ads. (e) Built assumption: the banner is shown to every visitor, not only
-    in the EU / UK (simplest, and Costa Rica's Ley 8968 also asks for informed consent).
+    conversion for ads. (e) **Decided (Jorge, 2026-11-11):** the banner is shown only in the
+    EEA, the UK and Switzerland; elsewhere analytics is on by default with an opt-out in the
+    footer. For the lawyer: whether this is enough under Costa Rica's Ley 8968 (it asks for
+    informed consent) and other non-European laws, and the "legitimate interest" basis now
+    stated for visitors outside Europe in the Privacy Policy's section 4.
 
 ---
 
