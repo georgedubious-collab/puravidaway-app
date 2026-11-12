@@ -11,6 +11,9 @@ export type UploadTarget =
   | { type: "photo"; vehicleId: string };
 
 const MAX_BYTES = 10 * 1024 * 1024;
+/** Same as the website (src/lib/vehiclePhotos.ts); `npm run test:photos` checks they match. */
+export const MAX_VEHICLE_PHOTOS = 8;
+export const MIN_VEHICLE_PHOTOS = 2;
 const EXT: Record<string, string> = {
   "image/jpeg": "jpg",
   "image/png": "png",
@@ -21,8 +24,10 @@ const EXT: Record<string, string> = {
 
 export type UploadSource = "camera" | "library" | "file";
 
+type Picked = { uri: string; mime?: string };
+
 /** The picked file as a local address and type, or an error, or null when cancelled. */
-async function pick(from: UploadSource, allowPdf: boolean): Promise<{ uri: string; mime?: string } | string | null> {
+async function pick(from: UploadSource, allowPdf: boolean): Promise<Picked | string | null> {
   if (from === "file") {
     const res = await DocumentPicker.getDocumentAsync({
       type: allowPdf ? ["application/pdf", "image/*"] : ["image/*"],
@@ -52,11 +57,83 @@ async function pick(from: UploadSource, allowPdf: boolean): Promise<{ uri: strin
  * null when it worked or the driver cancelled.
  */
 export async function pickAndUpload(userId: string, target: UploadTarget, from: UploadSource, renewed?: string): Promise<string | null> {
-  // Vehicle photos must be pictures; documents may also be PDFs.
-  const allowPdf = target.type !== "photo";
+  const allowPdf = pdfAllowed(target);
   const asset = await pick(from, allowPdf);
   if (asset === null || typeof asset === "string") return asset;
+  return uploadOne(userId, target, asset, from, renewed);
+}
 
+/** What happened when adding several vehicle photos at once. */
+export interface PhotosResult {
+  /** Photos added to the vehicle. */
+  added: number;
+  /** Photos chosen beyond the cap, not uploaded. */
+  skipped: number;
+  /** The first error, if one stopped the uploads; null when they all worked or nothing was chosen. */
+  error: string | null;
+}
+
+/**
+ * Vehicle photos: from the gallery the driver can choose several at once (up to the room
+ * left under the cap); the camera stays one at a time. They upload one after the other and
+ * `onProgress(n, total)` reports each one as it starts ("Subiendo 2 de 4…").
+ * Uses expo-image-picker's own options (allowsMultipleSelection / selectionLimit), already
+ * in the installed app: no new native code, so this ships as an over-the-air update.
+ */
+export async function pickAndUploadPhotos(
+  userId: string,
+  vehicleId: string,
+  from: "camera" | "library",
+  have: number,
+  onProgress: (n: number, total: number) => void,
+): Promise<PhotosResult> {
+  const room = MAX_VEHICLE_PHOTOS - have;
+  if (room <= 0) return { added: 0, skipped: 0, error: capMessage() };
+  let assets: Picked[];
+  if (from === "camera") {
+    const one = await pick("camera", false);
+    if (one === null) return { added: 0, skipped: 0, error: null };
+    if (typeof one === "string") return { added: 0, skipped: 0, error: one };
+    assets = [one];
+  } else {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      quality: 0.7,
+      allowsMultipleSelection: room > 1,
+      selectionLimit: room,
+      orderedSelection: true,
+    });
+    if (result.canceled || !result.assets?.length) return { added: 0, skipped: 0, error: null };
+    assets = result.assets.map((a) => ({ uri: a.uri, mime: a.mimeType ?? undefined }));
+  }
+  // Some phones ignore the selection limit: keep the first ones that fit.
+  const take = assets.slice(0, room);
+  const skipped = assets.length - take.length;
+  let added = 0;
+  for (const [i, a] of take.entries()) {
+    onProgress(i + 1, take.length);
+    const err = await uploadOne(userId, { type: "photo", vehicleId }, a, from);
+    if (err) return { added, skipped: skipped + (take.length - i - 1), error: err };
+    added++;
+  }
+  return { added, skipped, error: null };
+}
+
+/** Why no more photos can be added. */
+export function capMessage(): string {
+  return tr(
+    "Ya tiene " + MAX_VEHICLE_PHOTOS + " fotos, el máximo. Elimine una para agregar otra.",
+    "You already have " + MAX_VEHICLE_PHOTOS + " photos, the most allowed. Remove one to add another.",
+  );
+}
+
+/** Vehicle photos and the licence plate photo must be pictures; other documents may also be PDFs. */
+function pdfAllowed(target: UploadTarget): boolean {
+  return target.type === "driver" || (target.type === "vehicle" && target.key !== "plate_photo");
+}
+
+async function uploadOne(userId: string, target: UploadTarget, asset: Picked, from: UploadSource, renewed?: string): Promise<string | null> {
+  const allowPdf = pdfAllowed(target);
   if (from === "file" && (!asset.mime || !EXT[asset.mime])) return allowPdf
       ? tr("Use un PDF o una foto (JPG, PNG, WEBP, HEIC).", "Use a PDF or a photo (JPG, PNG, WEBP, HEIC).")
       : tr("Use una foto (JPG, PNG, WEBP, HEIC).", "Use a photo (JPG, PNG, WEBP, HEIC).");

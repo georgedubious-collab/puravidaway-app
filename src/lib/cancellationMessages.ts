@@ -113,6 +113,27 @@ export function driverCancelEmail(d: DriverCancel): MailText {
   };
 }
 
+/**
+ * To a driver the TEAM removed from a trip (Jorge, 2026-11-12): short and neutral, no reason, no
+ * traveller details, no price. Not sent when the driver cancelled (they already know).
+ */
+export function driverReassignedEmail(d: DriverCancel): MailText {
+  const es = d.lang === "es";
+  const n = firstName(d.driverName);
+  return {
+    lang: d.lang,
+    subject: es ? `Viaje reasignado: ${d.ref} · ${d.when}` : `Trip reassigned: ${d.ref} · ${d.when}`,
+    lines: [
+      es ? (n ? `Hola ${n}:` : "Hola:") : `Hi ${n || "there"},`,
+      es
+        ? `El viaje ${d.ref} (${d.route}, recogida ${d.when}, hora de Costa Rica) fue reasignado. Ya no tiene que hacerlo.`
+        : `The trip ${d.ref} (${d.route}, pickup ${d.when}, Costa Rica time) was reassigned. You no longer need to drive it.`,
+      es ? "Gracias. Si tiene alguna pregunta, escríbale a nuestro equipo por WhatsApp." : "Thank you. If you have any questions, message our team on WhatsApp.",
+    ],
+    button: { label: es ? "Ver mis viajes" : "See my trips", url: d.tripsUrl },
+  };
+}
+
 export interface DriverRemovedAlert {
   ref: string;
   route: string;

@@ -299,15 +299,6 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
   const custKey = b.trips ? customerKey(guest.guest_email, guest.guest_phone, b.trip_id) : null;
   // ---- end CRM part 3 ----
 
-  const cancelWarning = t(
-    `La reserva ${b.booking_ref} quedará cancelada. Nadie recibe un aviso automático: avise al viajero${b.assigned_driver_id ? " y al conductor" : ""}.${
-      Number(b.amount_paid) > 0 ? ` Ya se recibieron ${usd(b.amount_paid)}: revise el reembolso.` : ""
-    }`,
-    `Booking ${b.booking_ref} will be cancelled. Nobody is told automatically: let the traveller${b.assigned_driver_id ? " and the driver" : ""} know.${
-      Number(b.amount_paid) > 0 ? ` ${usd(b.amount_paid)} was already received: check the refund.` : ""
-    }`,
-  );
-
   return (
     <div className="space-y-5">
       {b.status === "pending_bids" && <LiveRefresh seconds={10} />}
@@ -546,25 +537,25 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
             lang={lang}
             className="space-y-4"
             confirm={[
-              { kind: "equals", field: "status", values: ["cancelled"], unlessInitial: true, message: cancelWarning },
               {
                 kind: "changed",
                 fields: ["amount_paid"],
                 message: t("El monto recibido cambiará de {from} a {to} USD.", "The amount received will change from {from} to {to} USD."),
               },
-              // CRM part 3: removing or replacing the assigned driver.
-              ...(b.assigned_driver_id
-                ? [
-                    {
-                      kind: "changed" as const,
-                      fields: ["assignment"],
-                      message: t(
-                        "Se quita al conductor actual. Al viajero NO se le avisa ahora: recibe el correo de «conductor confirmado» cuando haya un conductor nuevo. Si deja «Nadie todavía» en una reserva confirmada, vuelve a «Abierta para conductores». Se avisa al equipo por correo.",
-                        "The current driver is removed. The traveller is NOT told now: they get the \"driver confirmed\" email once there's a new driver. If you leave \"Nobody yet\" on a confirmed booking, it goes back to \"Open for drivers\". The team is emailed.",
-                      ),
-                    },
-                  ]
-                : []),
+              // Setting, removing or replacing the driver: say who gets a message.
+              {
+                kind: "changed" as const,
+                fields: ["assignment"],
+                message: b.assigned_driver_id
+                  ? t(
+                      "Se quita al conductor actual. Al viajero NO se le avisa del cambio. Si elige otro conductor, el viajero recibe «conductor confirmado» y el nuevo conductor «tiene el viaje» (correo y app). Si deja «Nadie todavía» en una reserva confirmada, vuelve a «Abierta para conductores». Se avisa al equipo por correo; si fue decisión del equipo, el conductor quitado recibe un correo breve de que el viaje fue reasignado.",
+                      "The current driver is removed. The traveller is NOT told about the change. If you pick another driver, the traveller gets \"driver confirmed\" and the new driver \"you've got the ride\" (email and app). If you leave \"Nobody yet\" on a confirmed booking, it goes back to \"Open for drivers\". The team is emailed; on a team decision, the removed driver gets a short email that the trip was reassigned.",
+                    )
+                  : t(
+                      "Se asigna el conductor: el viajero recibe «conductor confirmado» y el conductor «tiene el viaje» (correo y app), una vez por asignación.",
+                      "The driver is set: the traveller gets \"driver confirmed\" and the driver \"you've got the ride\" (email and app), once per assignment.",
+                    ),
+              },
             ]}
           >
             <input type="hidden" name="id" value={b.id} />

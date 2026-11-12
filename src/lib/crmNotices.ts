@@ -1,15 +1,12 @@
 import "server-only";
-import { usd } from "./bookings";
 import { bookedItemName } from "./catalog";
 import { placeNameFor } from "./catalogEs";
 import { getCatalog } from "./catalogSource";
-import { driverCancelEmail, driverRemovedTeamEmail, travellerCancelEmail } from "./cancellationMessages";
+import { driverCancelEmail, driverReassignedEmail, driverRemovedTeamEmail, travellerCancelEmail } from "./cancellationMessages";
 import { formatScheduledAt, formatScheduledAtFor } from "./dates";
 import { ADMIN_EMAIL, SITE_URL, sendEmail } from "./email";
 import { parsePublicLang } from "./publicLang";
-import { sendPush, sendPushToEmail } from "./push";
 import { createSupabaseAdminClient } from "./supabase/admin";
-import { clientLanguageNote, driverFirstName, rideConfirmedEmail, rideConfirmedPush } from "./travellerMessages";
 
 /**
  * Messages that go out from the booking page's CRM actions (CRM part 3, 2026-11-12). Every one is
@@ -133,57 +130,32 @@ export async function alertTeamDriverRemoved(
 }
 
 /**
- * A new driver was assigned after the previous one dropped out or was replaced: the traveller gets
- * the existing "driver confirmed" email + push (src/lib/travellerMessages.ts, the same one sent when
- * an offer is accepted), and the new driver the same "You've got the ride" message as acceptOffer.
+ * The team removed a driver (team decision): one short, neutral email to that driver in their
+ * language (Spanish by default) saying the trip was reassigned. No reason, no traveller details,
+ * no price. Returns whether it was sent.
  */
-export async function sendDriverConfirmed(bookingId: string, driverId: string): Promise<void> {
+export async function emailRemovedDriver(bookingId: string, driverId: string): Promise<boolean> {
   try {
     const db = createSupabaseAdminClient();
-    if (!db) return;
-    const { data: b } = await db.from("bookings").select(`${BOOKING_COLS}, driver_payout`).eq("id", bookingId).maybeSingle<Booking & { driver_payout: number | null }>();
-    if (!b) return;
-    const [{ data: who }, { data: guest }] = await Promise.all([
-      db.from("profiles").select("full_name, email").eq("id", driverId).maybeSingle(),
-      b.trip_id ? db.from("trips").select("guest_name, guest_email, access_token, language").eq("id", b.trip_id).maybeSingle() : Promise.resolve({ data: null }),
+    if (!db) return false;
+    const [{ data: b }, { data: who }] = await Promise.all([
+      db.from("bookings").select(BOOKING_COLS).eq("id", bookingId).maybeSingle<Booking>(),
+      db.from("profiles").select("full_name, email, app_lang").eq("id", driverId).maybeSingle(),
     ]);
-    const guestLang = parsePublicLang(guest?.language);
-    if (guest?.guest_email) {
-      const driver = driverFirstName(guestLang, who?.full_name);
-      const when = formatScheduledAtFor(b.scheduled_at, guestLang);
-      await sendPushToEmail(guest.guest_email, { ...rideConfirmedPush(guestLang, { driver, when }), data: { screen: "trip", id: bookingId } });
-      await sendEmail({
-        to: guest.guest_email,
-        ...rideConfirmedEmail(guestLang, {
-          ride: b.service_type === "transfer",
-          guestName: guest.guest_name,
-          driver,
-          ref: b.booking_ref,
-          origin: placeNameFor(b.origin, guestLang),
-          destination: placeNameFor(b.destination, guestLang),
-          when,
-          tripUrl: `${SITE_URL}/trip/${guest.access_token}`,
-        }),
-      });
-    }
-    const when = formatScheduledAt(b.scheduled_at);
-    const payout = b.driver_payout != null ? ` · payout ${usd(b.driver_payout)}` : "";
-    await sendPush([driverId], { title: `You've got the ride ${b.booking_ref}`, body: `${b.origin ?? ""} → ${b.destination ?? ""} · ${when}${payout}`, data: { screen: "trip", id: bookingId } }, "driver");
-    if (who?.email) {
-      await sendEmail({
-        to: who.email,
-        subject: `You've got the ride ${b.booking_ref} · ${when}`,
-        lines: [
-          `Hi ${(who.full_name ?? "").split(" ")[0] || "there"},`,
-          `Our team assigned you ${b.booking_ref}, ${b.origin ?? ""} → ${b.destination ?? ""}, pickup ${when} (Costa Rica time).`,
-          b.driver_payout != null ? `Your payout: ${usd(b.driver_payout)}.` : "",
-          guest ? clientLanguageNote(guestLang) : "",
-          "Open the trip for the exact pickup place, the traveller's requests and the chat. Please introduce yourself there today.",
-        ].filter(Boolean),
-        button: { label: "Open the trip", url: `${SITE_URL}/driver/trips/${bookingId}` },
-      });
-    }
+    if (!b || !who?.email) return false;
+    const lang = who.app_lang === "en" ? "en" : "es";
+    const mail = driverReassignedEmail({
+      lang,
+      driverName: who.full_name,
+      ref: b.booking_ref,
+      route: await whatFor(b, lang),
+      when: formatScheduledAt(b.scheduled_at, lang),
+      tripsUrl: `${SITE_URL}/driver/trips`,
+    });
+    return await sendEmail({ to: who.email, ...mail });
   } catch (e) {
-    console.error("[crm] driver confirmed", e);
+    console.error("[crm] removed driver email", e);
+    return false;
   }
 }
+

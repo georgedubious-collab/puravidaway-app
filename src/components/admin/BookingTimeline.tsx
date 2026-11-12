@@ -83,7 +83,7 @@ export function describeEvent(e: BookingEvent, lang: TeamLang, who: { driver: Lo
     case "driver_removed":
       return {
         title: a.reason === "driver_dropped" ? t("El conductor se retiró del viaje", "The driver dropped out") : t("El equipo quitó al conductor", "The team removed the driver"),
-        detail: `${who.driver(b.driver_id) ?? t("Conductor", "Driver")}${a.team_alerted ? ` · ${t("aviso al equipo por correo", "team alerted by email")}` : ""} · ${t("al viajero no se le avisó", "the traveller was not told")}`,
+        detail: `${who.driver(b.driver_id) ?? t("Conductor", "Driver")}${a.team_alerted ? ` · ${t("aviso al equipo por correo", "team alerted by email")}` : ""}${a.driver_emailed ? ` · ${t("conductor avisado: viaje reasignado", "driver told: trip reassigned")}` : ""} · ${t("al viajero no se le avisó", "the traveller was not told")}`,
       };
     case "whatsapp_opened":
       return { title: `${t("WhatsApp abierto", "WhatsApp opened")}: ${waButtonLabel(String(a.kind) as WaKind, lang)}` };

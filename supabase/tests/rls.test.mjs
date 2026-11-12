@@ -1477,6 +1477,80 @@ await expectOk("server removes the test booking", "server", "delete from public.
     "select 1 from information_schema.columns where table_name = 'bookings' and column_name ~ '^(refund|cancelled_by)'", 0);
 }
 
+// --- Vehicle photos: remove / reorder (migration 0048) -----------------------------------------
+{
+  const V1 = "'30000000-0000-0000-0000-000000000001'";
+  const p = (n) => `"${U.driver}/vehicles/30000000-0000-0000-0000-000000000001/photo-${n}.jpg"`;
+  await expectOk("server sets up an approved vehicle with 3 photos", "server",
+    `update public.driver_vehicles set status = 'approved', review_hold = false, needs_review = false,
+       photos = '[${p(1)}, ${p(2)}, ${p(3)}]' where id = ${V1}`);
+  await expectBlocked("another driver cannot reorder these photos", "pending",
+    `update public.driver_vehicles set photos = '[${p(3)}, ${p(1)}, ${p(2)}]' where id = ${V1}`, { affected: 0 });
+  await expectBlocked("another driver cannot remove these photos", "pending",
+    `update public.driver_vehicles set photos = '[${p(1)}]' where id = ${V1}`, { affected: 0 });
+  await expectRows("still 3 photos in the original order", "admin",
+    `select 1 from public.driver_vehicles where id = ${V1} and photos = '[${p(1)}, ${p(2)}, ${p(3)}]'::jsonb`, 1);
+  await expectOk("driver makes the third photo the main one", "driver",
+    `update public.driver_vehicles set photos = '[${p(3)}, ${p(1)}, ${p(2)}]' where id = ${V1}`);
+  await expectOk("driver removes one photo (3 → 2)", "driver",
+    `update public.driver_vehicles set photos = '[${p(3)}, ${p(1)}]' where id = ${V1}`);
+  await expectBlocked("approved vehicle cannot go below 2 photos", "driver",
+    `update public.driver_vehicles set photos = '[${p(3)}]' where id = ${V1}`);
+  await expectBlocked("approved vehicle cannot drop all photos", "driver",
+    `update public.driver_vehicles set photos = '[]' where id = ${V1}`);
+  await expectRows("photo changes mark the vehicle changed but do not pause it", "admin",
+    `select 1 from public.driver_vehicles where id = ${V1} and needs_review and not review_hold and status = 'approved'
+       and photos = '[${p(3)}, ${p(1)}]'::jsonb`, 1);
+  await expectOk("admin may still clear photos", "admin", `update public.driver_vehicles set photos = '[${p(3)}]' where id = ${V1}`);
+  await expectOk("driver adds a photo to a vehicle below the minimum", "driver",
+    `update public.driver_vehicles set photos = '[${p(3)}, ${p(4)}]' where id = ${V1}`);
+  // A pending vehicle (not yet approved) may go below 2 while the driver is still setting it up.
+  await expectOk("driver adds a pending vehicle", "driver",
+    `insert into public.driver_vehicles (id, driver_id, make_model, photos) values ('30000000-0000-0000-0000-0000000000f1', '${U.driver}', 'Kia', '["${U.driver}/vehicles/f1/a.jpg", "${U.driver}/vehicles/f1/b.jpg"]')`);
+  await expectOk("pending vehicle may drop to 1 photo", "driver",
+    `update public.driver_vehicles set photos = '["${U.driver}/vehicles/f1/a.jpg"]' where id = '30000000-0000-0000-0000-0000000000f1'`);
+  await expectOk("driver removes the test vehicle", "driver", "delete from public.driver_vehicles where id = '30000000-0000-0000-0000-0000000000f1'");
+
+  // Storage: only the server (after its own checks) or an admin deletes a photo file.
+  await expectOk("server stores a photo file", "server",
+    `insert into storage.objects (bucket_id, name) values ('driver-kyc-docs', '${U.driver}/vehicles/x/photo-del.jpg')`);
+  await expectBlocked("driver cannot delete storage files directly", "driver",
+    `delete from storage.objects where name = '${U.driver}/vehicles/x/photo-del.jpg'`, { affected: 0 });
+  await expectBlocked("another driver cannot delete them either", "pending",
+    `delete from storage.objects where name = '${U.driver}/vehicles/x/photo-del.jpg'`, { affected: 0 });
+  await expectRows("a traveller cannot read driver files", "client",
+    `select 1 from storage.objects where bucket_id = 'driver-kyc-docs' and name = '${U.driver}/vehicles/x/photo-del.jpg'`, 0);
+  await expectRows("the owning driver can read the file", "driver",
+    `select 1 from storage.objects where bucket_id = 'driver-kyc-docs' and name = '${U.driver}/vehicles/x/photo-del.jpg'`, 1);
+  await expectOk("server deletes the photo file", "server",
+    `delete from storage.objects where name = '${U.driver}/vehicles/x/photo-del.jpg'`);
+  await expectRows("the file is gone", "server", `select 1 from storage.objects where name = '${U.driver}/vehicles/x/photo-del.jpg'`, 0);
+
+  // Licence plate photo: a vehicle document for the team only (Jorge, 2026-11-12).
+  const plate = (n) => `${U.driver}/vehicles/30000000-0000-0000-0000-000000000001/plate_photo-${n}.jpg`;
+  await expectOk("server: approved vehicle, not paused", "server",
+    `update public.driver_vehicles set status = 'approved', review_hold = false, needs_review = false where id = ${V1}`);
+  await expectOk("driver adds the plate photo the first time", "driver",
+    `update public.driver_vehicles set documents = documents || '{"plate_photo": "${plate(1)}"}' where id = ${V1}`);
+  await expectRows("adding it the first time does not pause the approved vehicle", "admin",
+    `select 1 from public.driver_vehicles where id = ${V1} and status = 'approved' and not review_hold and documents ->> 'plate_photo' = '${plate(1)}'`, 1);
+  await expectOk("driver replaces the plate photo", "driver",
+    `update public.driver_vehicles set documents = documents || '{"plate_photo": "${plate(2)}"}' where id = ${V1}`);
+  await expectRows("replacing it pauses the vehicle like other vehicle documents", "admin",
+    `select 1 from public.driver_vehicles where id = ${V1} and status = 'approved' and review_hold`, 1);
+  await expectOk("admin checks it", "admin", `update public.driver_vehicles set needs_review = false where id = ${V1}`);
+  await expectRows("the hold clears after the team's check", "admin", `select 1 from public.driver_vehicles where id = ${V1} and not review_hold`, 1);
+  await expectBlocked("another driver cannot set this vehicle's plate photo", "pending",
+    `update public.driver_vehicles set documents = documents || '{"plate_photo": "${U.pending}/x.jpg"}' where id = ${V1}`, { affected: 0 });
+  await expectOk("server stores the plate photo file", "server",
+    `insert into storage.objects (bucket_id, name) values ('driver-kyc-docs', '${plate(2)}')`);
+  await expectRows("a traveller cannot read the plate photo file", "client", `select 1 from storage.objects where name = '${plate(2)}'`, 0);
+  await expectRows("another driver cannot read the plate photo file", "pending", `select 1 from storage.objects where name = '${plate(2)}'`, 0);
+  await expectRows("a visitor cannot read the plate photo file", "anon", `select 1 from storage.objects where name = '${plate(2)}'`, 0);
+  await expectRows("the owning driver can read it", "driver", `select 1 from storage.objects where name = '${plate(2)}'`, 1);
+  await expectRows("the team can read it", "admin", `select 1 from storage.objects where name = '${plate(2)}'`, 1);
+}
+
 // --- Dispatch calendar assigns like the booking page (2026-11-12) ---------------------------------
 // Both pages call the same server action, updateBooking (src/app/admin/bookings/actions.ts). The
 // booking page sends status + driver/vehicle + amount received; the calendar sends status +

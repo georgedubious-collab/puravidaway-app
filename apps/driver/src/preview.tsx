@@ -211,6 +211,23 @@ const chatHidden: ChatMessage[] = [
   { id: "m4", party: "driver", name: "You", text: "If you need anything, WhatsApp me at [hidden]", at: at(-0.5), mine: true },
 ];
 
+/** Drawn stand-ins for vehicle photos (no network in previews). */
+const samplePhoto = (label: string, sky: string, body: string) =>
+  "data:image/svg+xml;base64," +
+  btoa(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect width="400" height="300" fill="${sky}"/>` +
+      `<rect y="210" width="400" height="90" fill="#9CA3AF"/><rect x="70" y="120" width="260" height="95" rx="22" fill="${body}"/>` +
+      `<rect x="100" y="135" width="80" height="40" rx="6" fill="#E0F2FE"/><rect x="200" y="135" width="100" height="40" rx="6" fill="#E0F2FE"/>` +
+      `<circle cx="125" cy="218" r="22" fill="#1F2937"/><circle cx="275" cy="218" r="22" fill="#1F2937"/>` +
+      `<text x="200" y="60" font-family="sans-serif" font-size="30" font-weight="700" fill="#0B1F17" text-anchor="middle">${label}</text></svg>`,
+  );
+const SAMPLE_PHOTOS = [
+  samplePhoto("Exterior", "#BAE6FD", "#F8FAFC"),
+  samplePhoto("Interior", "#FDE68A", "#475569"),
+  samplePhoto("Maletero", "#A7F3D0", "#E2E8F0"),
+  samplePhoto("Lateral", "#FBCFE8", "#F8FAFC"),
+];
+
 const CR_OFFSET_MS = 6 * H;
 const crDay = (h: number) => new Date(Date.now() + h * H - CR_OFFSET_MS).toISOString().slice(0, 10);
 
@@ -297,8 +314,23 @@ export function Preview() {
       english_level: "fluent",
     },
   };
+  // Vehicle photos: `photos` (thumbnails + upload progress), `photo-options` (sheet for one photo),
+  // `photo-confirm` (remove confirmation), `photo-min` (an approved vehicle at the minimum of 2).
+  const photoShot = s === "photos" || s === "photo-options" || s === "photo-confirm" || s === "photo-min";
+  if (photoShot) {
+    docs.vehicles[0].photos = s === "photo-min" ? SAMPLE_PHOTOS.slice(0, 2) : SAMPLE_PHOTOS;
+    Object.assign(docs, {
+      vehicleId: "v1",
+      progress: s === "photos" ? t("Subiendo 2 de 4…", "Uploading 2 of 4…") : undefined,
+      openPhoto: s === "photos" ? undefined : { index: s === "photo-min" ? 0 : 1, confirm: s === "photo-confirm" },
+    });
+  }
   const section: Section =
-    s === "jobs" || s === "calendar" || s === "earnings" || s === "documents" || s === "help" || s === "profile" ? s : s === "apply" ? "documents" : "trips";
+    s === "jobs" || s === "calendar" || s === "earnings" || s === "documents" || s === "help" || s === "profile"
+      ? s
+      : s === "apply" || photoShot
+        ? "documents"
+        : "trips";
   // Chat states: `chat` (trip scrolled to the chat), `chat-hidden` (notice after a number was hidden),
   // `chat-draft` (warning before sending), `chat-closed` (read-only 48 h after the trip).
   const chatShot = s === "chat" || s === "chat-hidden" || s === "chat-draft" || s === "chat-closed";

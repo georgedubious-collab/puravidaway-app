@@ -1,13 +1,15 @@
 /**
- * What happens when the team changes a booking's driver on the booking page (Jorge, 2026-11-12):
- *   - removing or replacing the assigned driver needs a reason ("the driver cancelled" or
- *     "team decision"), is recorded in the history (booking_events "driver_removed") and the team
- *     is emailed;
- *   - the traveller is NOT told at that moment;
+ * What happens when the team removes or replaces a booking's driver (Jorge, 2026-11-12):
+ *   - the team says why ("the driver cancelled" or "team decision"); it is recorded in the history
+ *     (booking_events "driver_removed") and the team is emailed;
+ *   - the traveller is NOT told about the removal;
  *   - a confirmed booking left without a driver goes back to "Open for drivers" (pending_bids),
  *     which emails the approved drivers about the job as usual;
- *   - when a new driver is assigned on a confirmed booking after a removal, the traveller gets the
- *     existing "driver confirmed" email (as when an offer is accepted).
+ *   - the removed driver gets a short neutral email only when it was a team decision (when the
+ *     driver cancelled, they already know);
+ *   - when a driver is set (first time, replacement or after a drop-out), the ONE assignment sender
+ *     (src/lib/assignmentNotices.ts, the dispatch calendar's) messages the traveller and the new
+ *     driver. Nothing here sends a second "driver confirmed".
  *
  * Plain TypeScript without imports, so `npm run test:crm` runs it with Node.
  */
@@ -24,28 +26,20 @@ export interface DriverChange {
   reopened: boolean;
   /** Always false: the traveller is never messaged about a removal. */
   tellTravellerNow: false;
-  /** Send the existing "driver confirmed" email to the traveller (new driver after a removal). */
-  sendDriverConfirmed: boolean;
+  /** Email the removed driver that the trip was reassigned (team decision only). */
+  emailRemovedDriver: boolean;
 }
 
-export function driverChange(a: {
-  beforeDriver: string | null;
-  newDriver: string | null;
-  status: string;
-  reason: string;
-  /** A driver was removed from this booking earlier (booking_events "driver_removed"). */
-  hadRemovalBefore: boolean;
-}): DriverChange {
+export function driverChange(a: { beforeDriver: string | null; newDriver: string | null; status: string; reason: string }): DriverChange {
   const removed = a.beforeDriver && a.beforeDriver !== a.newDriver ? a.beforeDriver : null;
   const reopened = Boolean(removed && !a.newDriver && a.status === "confirmed");
-  const status = reopened ? "pending_bids" : a.status;
-  const newOne = Boolean(a.newDriver && a.newDriver !== a.beforeDriver);
+  const needsReason = Boolean(removed) && a.reason !== "driver_dropped" && a.reason !== "team";
   return {
     removed,
-    needsReason: Boolean(removed) && a.reason !== "driver_dropped" && a.reason !== "team",
-    status,
+    needsReason,
+    status: reopened ? "pending_bids" : a.status,
     reopened,
     tellTravellerNow: false,
-    sendDriverConfirmed: newOne && status === "confirmed" && (Boolean(removed) || a.hadRemovalBefore),
+    emailRemovedDriver: Boolean(removed) && !needsReason && a.reason === "team",
   };
 }

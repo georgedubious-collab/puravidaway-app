@@ -124,25 +124,43 @@ ok("driver email never holds traveller details or money", !/Emily|Smith|@|\+506|
 const alert = cm.driverRemovedTeamEmail({ ref: "CRPT-1", route: "SJO → MA", when: "x", driver: "Carlos Mora", reason: "driver_dropped", reopened: true, replacedBy: null, bookingUrl: "https://x/admin/bookings/1" });
 ok("team alert (Spanish) says the traveller was not told and the booking reopened", alert.lines.some((l) => l.includes("NO se le avisó")) && alert.lines.some((l) => l.includes("Abierta para conductores")) && alert.lines.some((l) => l.includes("el conductor canceló")));
 
-// --- Driver removed / replaced (src/lib/driverChange.ts) ------------------------------------------
+// --- Driver removed / replaced (src/lib/driverChange.ts) + the ONE assignment sender ---------------
 const dc = (await import("../src/lib/driverChange.ts")).driverChange;
-const unassign = dc({ beforeDriver: "d1", newDriver: null, status: "confirmed", reason: "driver_dropped", hadRemovalBefore: false });
-eq("unassign: back to open for drivers, traveller not told, no confirmed email",
-  [unassign.removed, unassign.status, unassign.reopened, unassign.tellTravellerNow, unassign.sendDriverConfirmed, unassign.needsReason],
-  ["d1", "pending_bids", true, false, false, false]);
-eq("unassign without a reason is refused", dc({ beforeDriver: "d1", newDriver: null, status: "confirmed", reason: "", hadRemovalBefore: false }).needsReason, true);
-const replace = dc({ beforeDriver: "d1", newDriver: "d2", status: "confirmed", reason: "team", hadRemovalBefore: false });
-eq("replace: stays confirmed, new driver → existing 'driver confirmed' email; nothing about the removal",
-  [replace.removed, replace.status, replace.tellTravellerNow, replace.sendDriverConfirmed], ["d1", "confirmed", false, true]);
-eq("assign after an earlier drop-out → 'driver confirmed' email",
-  dc({ beforeDriver: null, newDriver: "d2", status: "confirmed", reason: "", hadRemovalBefore: true }).sendDriverConfirmed, true);
-eq("first ever manual assignment: unchanged (no new email)",
-  dc({ beforeDriver: null, newDriver: "d2", status: "confirmed", reason: "", hadRemovalBefore: false }).sendDriverConfirmed, false);
-eq("same driver saved again: nothing happens",
-  [dc({ beforeDriver: "d1", newDriver: "d1", status: "confirmed", reason: "", hadRemovalBefore: true }).removed, dc({ beforeDriver: "d1", newDriver: "d1", status: "confirmed", reason: "", hadRemovalBefore: true }).sendDriverConfirmed],
-  [null, false]);
-eq("unassign on a booking still waiting for payment keeps its status",
-  dc({ beforeDriver: "d1", newDriver: null, status: "pending_payment", reason: "team", hadRemovalBefore: false }).status, "pending_payment");
+const am = await import("../src/lib/assignmentMessages.ts");
+// What updateBooking does for one save: the drop-out rules from driverChange, and the dispatch
+// sender (shouldNotifyAssignment → assignmentMessages) for a new driver. Nothing else messages anyone.
+const save = (beforeDriver, newDriver, status, reason) => {
+  const c = dc({ beforeDriver, newDriver, status, reason });
+  const ctx = {
+    bookingId: "b1", ref: "CRPT-1", serviceType: "transfer", origin: "SJO Airport", destination: "Manuel Antonio",
+    scheduledAt: "2026-12-01T15:00:00Z", payout: 120, viaOffer: false, siteUrl: "https://x",
+    driver: { id: newDriver ?? "", fullName: "Andrea Rojas", email: "andrea@example.com", appLang: "es" },
+    guest: { name: "Emily Smith", email: "emily@example.com", accessToken: "a".repeat(64), language: "en" },
+  };
+  const sent = newDriver && am.shouldNotifyAssignment(beforeDriver, newDriver) ? am.assignmentMessages(ctx).map((m) => m.kind) : [];
+  return { c, sent, travellerMessages: sent.filter((k) => k.startsWith("traveller")).length + (c.tellTravellerNow ? 1 : 0) };
+};
+const unassign = save("d1", null, "confirmed", "driver_dropped");
+eq("unassign (driver cancelled): back to open, NO traveller message, removed driver not emailed",
+  [unassign.c.removed, unassign.c.status, unassign.c.reopened, unassign.travellerMessages, unassign.c.emailRemovedDriver, unassign.c.needsReason],
+  ["d1", "pending_bids", true, 0, false, false]);
+eq("unassign without a reason is refused", dc({ beforeDriver: "d1", newDriver: null, status: "confirmed", reason: "" }).needsReason, true);
+const teamRemove = save("d1", null, "confirmed", "team");
+eq("unassign (team decision): removed driver gets the 'reassigned' email; traveller still told nothing",
+  [teamRemove.c.emailRemovedDriver, teamRemove.travellerMessages], [true, 0]);
+const replace = save("d1", "d2", "confirmed", "team");
+eq("replace: stays confirmed; ONE 'driver confirmed' (email + push) from the dispatch sender, nothing about the removal",
+  [replace.c.removed, replace.c.status, replace.sent.filter((k) => k === "traveller_email").length, replace.sent.filter((k) => k === "traveller_push").length],
+  ["d1", "confirmed", 1, 1]);
+ok("driverChange no longer has its own 'driver confirmed' sender", !("sendDriverConfirmed" in replace.c));
+eq("assign after an earlier drop-out → the same single 'driver confirmed'", save(null, "d2", "confirmed", "").sent.filter((k) => k === "traveller_email").length, 1);
+eq("first manual assignment → the same single sender", save(null, "d2", "confirmed", "").sent, ["traveller_push", "traveller_email", "driver_push", "driver_email"]);
+eq("same driver saved again: nothing sent, nothing removed", [save("d1", "d1", "confirmed", "").sent.length, save("d1", "d1", "confirmed", "").c.removed], [0, null]);
+eq("unassign on a booking still waiting for payment keeps its status", dc({ beforeDriver: "d1", newDriver: null, status: "pending_payment", reason: "team" }).status, "pending_payment");
+const re = cm.driverReassignedEmail({ lang: "es", driverName: "Carlos Mora", ref: "CRPT-1", route: "Aeropuerto SJO → Manuel Antonio", when: "2026-12-01 · 9:00 a. m.", tripsUrl: "https://x/driver/trips" });
+ok("reassigned email: Spanish, neutral, says they don't need to do it", re.subject.startsWith("Viaje reasignado: CRPT-1") && re.lines[0] === "Hola Carlos:" && re.lines[1].includes("fue reasignado. Ya no tiene que hacerlo") && re.lines[1].includes("hora de Costa Rica"));
+ok("reassigned email: no reason, traveller details or money", !/Emily|Smith|@|\+506|\$|USD|precio|price|motivo|reason|canceló|equipo decidió/i.test(JSON.stringify(re).replace("https://x/driver/trips", "")));
+ok("reassigned email in English for drivers who use English", cm.driverReassignedEmail({ lang: "en", driverName: null, ref: "CRPT-1", route: "A → B", when: "x", tripsUrl: "u" }).lines[1].includes("was reassigned"));
 
 // --- Scorecard -----------------------------------------------------------------------------------
 const NOW = new Date("2026-11-12T18:00:00Z");
