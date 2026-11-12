@@ -25,6 +25,8 @@ import { makeT, type TeamLang } from "@/lib/teamLang";
 import { getTeamLang } from "@/lib/teamLangServer";
 import { VEHICLE_CATEGORY_IDS, categoryHint, categoryLabel, isVehicleCategory } from "@/lib/vehicleEligibility";
 import { reviewDriver, reviewVehicle, setVehicleCategory } from "../actions";
+import { usd } from "@/lib/bookings";
+import { scorecard, type ScoreOffer, type ScoreReview, type ScoreTrip } from "@/lib/scorecard";
 
 type Row = DriverRecord & {
   is_on_duty: boolean;
@@ -60,6 +62,20 @@ export default async function DriverDetail({ params }: { params: Promise<{ id: s
     .order("created_at")
     .returns<VehicleRecord[]>();
   const vehicles = vehicleRows ?? [];
+
+  // Scorecard (CRM part 3, read-only; src/lib/scorecard.ts says how each number is counted).
+  const [scTrips, scReviews, scOffers, scDrops] = await Promise.all([
+    supabase.from("bookings").select("status, scheduled_at, late_alert_at, driver_payout, driver_settled_at").eq("assigned_driver_id", id).limit(5000).returns<ScoreTrip[]>(),
+    supabase.from("driver_reviews").select("stars, comment").eq("driver_id", id).limit(5000).returns<ScoreReview[]>(),
+    supabase.from("bids").select("status").eq("driver_id", id).limit(5000).returns<ScoreOffer[]>(),
+    supabase
+      .from("booking_events")
+      .select("id", { count: "exact", head: true })
+      .eq("action", "driver_removed")
+      .filter("before->>driver_id", "eq", id)
+      .filter("after->>reason", "eq", "driver_dropped"),
+  ]);
+  const sc = scorecard(scTrips.data ?? [], scReviews.data ?? [], scOffers.data ?? [], scDrops.count ?? 0);
 
   // Short-lived links (10 minutes) to the private documents and photos.
   const paths = [
@@ -152,6 +168,35 @@ export default async function DriverDetail({ params }: { params: Promise<{ id: s
         )}
         {d.ict_permit_number && <Chip tone="green">{t("Permiso ICT", "ICT permit")}</Chip>}
       </div>
+
+      <Card title={t("Ficha del conductor", "Driver scorecard")}>
+        <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          <Stat k={t("Viajes completados", "Trips completed")} v={String(sc.completedAll)} sub={t(`${sc.completed30} en 30 días`, `${sc.completed30} in 30 days`)} />
+          <Stat
+            k={t("Calificación", "Rating")}
+            v={sc.ratingAvg != null ? `★ ${sc.ratingAvg.toFixed(2)}` : "—"}
+            sub={`${sc.ratingCount} ${t("calificaciones", "ratings")}${sc.commentShare != null ? ` · ${sc.commentShare}% ${t("con comentario", "with a comment")}` : ""}`}
+          />
+          <Stat
+            k={t("Sin alerta de retraso", "No lateness alert")}
+            v={sc.onTimeShare != null ? `${sc.onTimeShare}%` : "—"}
+            sub={t(`${sc.alerts} viaje(s) con alerta`, `${sc.alerts} trip(s) with an alert`)}
+          />
+          <Stat k={t("Se retiró tras aceptar", "Dropped out after accepting")} v={String(sc.dropOuts)} sub={t("registrado desde 12 nov 2026", "recorded from Nov 12, 2026")} />
+          <Stat
+            k={t("Ofertas aceptadas", "Offers accepted")}
+            v={`${sc.offersAccepted} / ${sc.offersSent}`}
+            sub={sc.acceptShare != null ? `${sc.acceptShare}%` : t("sin ofertas", "no offers")}
+          />
+          <Stat k={t("Pagado (liquidado)", "Paid out (settled)")} v={usd(sc.paidOut)} sub={t("pago al conductor de viajes liquidados", "driver payout of settled trips")} />
+        </dl>
+        <p className="mt-3 text-xs leading-relaxed text-[#5F6F67]">
+          {t(
+            "Solo lectura. «Alerta de retraso»: el sistema avisó al equipo antes de la recogida porque, con el tráfico, el conductor llegaría más de 20 minutos tarde, o porque no había compartido su ubicación 60 minutos antes. No distingue cuál de las dos ni guarda la hora real de llegada. «Se retiró»: veces que el equipo lo quitó porque el conductor canceló; antes del 12 nov 2026 no se registraba. La calificación aquí es el promedio simple; la que ordena las ofertas cuenta doble un comentario.",
+            "Read-only. \"Lateness alert\": before the pickup the system alerted the team because, with traffic, the driver would arrive more than 20 minutes late, or because they hadn't shared their location 60 minutes before. It doesn't tell which, nor store the real arrival time. \"Dropped out\": times the team removed them because the driver cancelled; not recorded before Nov 12, 2026. The rating here is the plain average; the one that ranks offers counts a comment double.",
+          )}
+        </p>
+      </Card>
 
       {(issues.length > 0 || missing.length > 0) && (
         <Notice tone="red">
@@ -489,5 +534,16 @@ function Radio({ value, label }: { value: string; label: string }) {
     <label className="flex min-h-10 items-center gap-2">
       <input type="radio" name="decision" value={value} required /> {label}
     </label>
+  );
+}
+
+/** One scorecard number (CRM part 3). */
+function Stat({ k, v, sub }: { k: string; v: string; sub?: string }) {
+  return (
+    <div className="rounded-xl border border-[#E3E8E5] bg-[#FAFBFA] p-3">
+      <dt className="text-xs font-bold text-[#5F6F67]">{k}</dt>
+      <dd className="mt-0.5 text-xl font-extrabold text-[#14231C]">{v}</dd>
+      {sub && <dd className="text-xs text-[#5F6F67]">{sub}</dd>}
+    </div>
   );
 }
