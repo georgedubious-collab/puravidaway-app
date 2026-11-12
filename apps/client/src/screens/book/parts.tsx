@@ -6,7 +6,25 @@ import { useT } from "../../i18n";
 import { useNav } from "../../nav";
 import { driveTime, nightLabel } from "../../prices";
 import { C, R, S, T } from "../../theme";
-import { Badge, BottomBar, Btn, Skeleton, Text, type IconName } from "../../ui";
+import { Badge, BottomBar, Btn, Choice, Skeleton, Text, type IconName } from "../../ui";
+
+/**
+ * "Don't send me suggestions after my trip" (unticked by default): sent as noSuggestions, and the
+ * server puts the email on the promotional unsubscribe list. Booking emails are not affected.
+ */
+export function NoSuggestions() {
+  const { t } = useT();
+  const { state, set } = useBooking();
+  return (
+    <Choice
+      kind="checkbox"
+      title={t("Don't send me suggestions after my trip", "No me envíen sugerencias después de mi viaje")}
+      detail={t("Emails about your bookings still arrive.", "Los correos de sus reservas siguen llegando.")}
+      on={state.noSuggestions}
+      onPress={() => set({ noSuggestions: !state.noSuggestions })}
+    />
+  );
+}
 
 /** Pickup to drop-off, drawn: a green dot, a line, a dark square. Stretches to the height of the rows beside it. */
 export function RouteDots({ inset = 20, small }: { inset?: number; small?: boolean }) {

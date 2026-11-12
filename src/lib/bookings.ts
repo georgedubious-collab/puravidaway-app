@@ -94,6 +94,12 @@ export interface BookingRow {
   sign_text?: string | null;
   /** Name sign: "Don't show my name" (the sign shows the brand name). Migration 0040. */
   sign_hide_name?: boolean | null;
+  /** Day tours: the hotel or address to pick them up (migration 0045). */
+  pickup_place?: string | null;
+  /** Automatic messages (docs/PROJECT.md §4.7, migration 0045): when each went out (or was skipped). */
+  reminder_traveller_at?: string | null;
+  reminder_driver_at?: string | null;
+  followup_sent_at?: string | null;
   /** When the driver tapped "I'm on my way" (migration 0029). */
   en_route_at?: string | null;
   created_at: string;
@@ -163,6 +169,8 @@ export type DriverTrip = Pick<
   carry_on_count?: number | null;
   /** Estimated arrival at the drop-off: pickup + drive time + stops; null when the drive time is unknown (migration 0035). */
   arrive_at?: string | null;
+  /** Day tours: the hotel or address to pick the travellers up (migration 0045); null on rides. */
+  pickup_place?: string | null;
 };
 
 export function usd(n: number | string): string {

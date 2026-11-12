@@ -14,9 +14,11 @@ import {
   type PaymentMode,
 } from "@/lib/cart";
 import { DEFAULT_PICKUP_TIME, formatShortDate, formatTime12h } from "@/lib/dates";
+import { regionName } from "@/lib/catalogEs";
 import { formatBpsPercent, formatUSD } from "@/lib/pricing";
 import { localizedHref, type PublicLang } from "@/lib/publicLang";
 import { localizeServerMessage } from "@/lib/serverMessagesEs";
+import { TOUR_PICKUP_MAX, cleanPickupPlace, pickupPlaceProblem } from "@/lib/tripRequest";
 import { useCatalog } from "./CatalogContext";
 import { usePublicLang, useT } from "./PublicLangContext";
 
@@ -25,6 +27,8 @@ export interface TripContact {
   email: string;
   phone: string;
   notes: string;
+  /** "Don't send me suggestions after my trip" (unticked by default; docs/PROJECT.md §4.7). */
+  noSuggestions: boolean;
 }
 
 /** Everything the trip panel needs; owned by Storefront so sidebar and drawer stay in sync. */
@@ -35,6 +39,8 @@ export interface TripState {
   onMode: (m: PaymentMode) => void;
   contact: TripContact;
   onContact: (c: TripContact) => void;
+  /** A day tour's pickup hotel or address, saved on the cart item (spec.pickupPlace). */
+  onTourPickup: (id: string, place: string) => void;
   onReprice: (prices: Record<string, number>) => void;
   /** Booking references once the trip was sent (the cart is then emptied). */
   sentRefs: string[] | null;
@@ -46,7 +52,7 @@ export interface TripState {
 
 const field = "mt-1 w-full min-h-11 border border-slate-300 rounded-xl px-3 text-base font-semibold text-slate-900";
 
-type FieldErrors = Partial<Record<"name" | "email" | "phone", string>>;
+type FieldErrors = Partial<Record<"name" | "email" | "phone", string>> & { pickups?: Record<string, string> };
 
 /**
  * The trip: its legs in date order, payment choice and sending the request.
@@ -54,7 +60,7 @@ type FieldErrors = Partial<Record<"name" | "email" | "phone", string>>;
  */
 export function TripSummary({ trip }: { trip: TripState }) {
   const { items, onRemove, mode, onMode, contact, onContact } = trip;
-  const { cashFeeBps } = useCatalog();
+  const { cashFeeBps, dayTours } = useCatalog();
   const lang = usePublicLang();
   const t = useT();
   const feeLabel = formatBpsPercent(cashFeeBps);
@@ -68,7 +74,7 @@ export function TripSummary({ trip }: { trip: TripState }) {
 
   if (trip.sentRefs) return <Sent refs={trip.sentRefs} tripToken={trip.sentTripToken} contact={contact} onNewTrip={trip.onNewTrip} />;
 
-  const set = (k: keyof TripContact) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const set = (k: "name" | "email" | "phone" | "notes") => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     onContact({ ...contact, [k]: e.target.value });
     if (k !== "notes" && fieldErrors[k]) setFieldErrors({ ...fieldErrors, [k]: undefined });
   };
@@ -93,6 +99,15 @@ export function TripSummary({ trip }: { trip: TripState }) {
     if (contact.name.trim().length < 2) errs.name = t("Please enter your full name.", "Por favor, escriba su nombre completo.");
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(contact.email.trim()))
       errs.email = t("Please enter a valid email, like name@example.com.", "Por favor, escriba un correo válido, como nombre@ejemplo.com.");
+    // Day tours: where to pick them up is required on new requests.
+    const pickups: Record<string, string> = {};
+    for (const i of items) {
+      if (i.spec?.kind !== "day_tour") continue;
+      const place = cleanPickupPlace(i.spec.pickupPlace);
+      const problem = place ? pickupPlaceProblem(place) : t("Please tell us where to pick you up.", "Por favor, indíquenos dónde lo recogemos.");
+      if (problem) pickups[i.id] = localizeServerMessage(problem, lang);
+    }
+    if (Object.keys(pickups).length) errs.pickups = pickups;
     if (contact.phone.replace(/\D/g, "").length < 7)
       errs.phone = t(
         "Please enter your mobile number with the country code, like +1 555 123 4567.",
@@ -111,9 +126,19 @@ export function TripSummary({ trip }: { trip: TripState }) {
       e.currentTarget.querySelector<HTMLInputElement>(`[name="${first}"]`)?.focus();
       return;
     }
+    const firstPickup = Object.keys(errs.pickups ?? {})[0];
+    if (firstPickup) {
+      e.currentTarget.querySelector<HTMLInputElement>(`[name="pickup-${firstPickup}"]`)?.focus();
+      return;
+    }
     startTransition(async () => {
       const res = await submitTripRequest({
-        items: items.map((i) => ({ id: i.id, date: i.date, totalCents: i.totalCents, spec: i.spec })),
+        items: items.map((i) => ({
+          id: i.id,
+          date: i.date,
+          totalCents: i.totalCents,
+          spec: i.spec?.kind === "day_tour" ? { ...i.spec, pickupPlace: cleanPickupPlace(i.spec.pickupPlace) } : i.spec,
+        })),
         mode,
         cashFeeBps,
         ...contact,
@@ -275,6 +300,47 @@ export function TripSummary({ trip }: { trip: TripState }) {
               />
               {fieldError("phone")}
             </label>
+            {legs
+              .filter((i) => i.spec?.kind === "day_tour")
+              .map((i) => {
+                const spec = i.spec?.kind === "day_tour" ? i.spec : null;
+                const region = dayTours.find((x) => x.id === spec?.tourId)?.region;
+                const err = fieldErrors.pickups?.[i.id];
+                const tours = items.filter((x) => x.kind === "day_tour").length;
+                return (
+                  <label key={i.id} className="block text-xs font-bold text-slate-600">
+                    {t("Where should we pick you up?", "¿Dónde lo recogemos?")}
+                    {tours > 1 && <span className="block font-semibold text-slate-500">{i.title}</span>}
+                    <input
+                      name={`pickup-${i.id}`}
+                      required
+                      maxLength={TOUR_PICKUP_MAX}
+                      autoComplete="off"
+                      value={spec?.pickupPlace ?? ""}
+                      onChange={(e) => {
+                        trip.onTourPickup(i.id, e.target.value);
+                        if (err) setFieldErrors({ ...fieldErrors, pickups: { ...fieldErrors.pickups, [i.id]: "" } });
+                      }}
+                      aria-invalid={Boolean(err)}
+                      aria-describedby={`trip-pickup-${i.id}-hint${err ? ` trip-pickup-${i.id}-error` : ""}`}
+                      className={`${field} ${err ? "border-red-600 bg-red-50" : ""}`}
+                    />
+                    <span id={`trip-pickup-${i.id}-hint`} className="mt-1 block font-normal text-slate-500">
+                      {region
+                        ? t(
+                            `Your hotel or address in ${regionName(region, lang)}. Our team confirms the pickup time.`,
+                            `Su hotel o dirección en ${regionName(region, lang)}. Nuestro equipo confirma la hora de recogida.`,
+                          )
+                        : t("Your hotel or address. Our team confirms the pickup time.", "Su hotel o dirección. Nuestro equipo confirma la hora de recogida.")}
+                    </span>
+                    {err ? (
+                      <span id={`trip-pickup-${i.id}-error`} role="alert" className="mt-1 block text-sm font-semibold text-red-700">
+                        {err}
+                      </span>
+                    ) : null}
+                  </label>
+                );
+              })}
             <label className="block text-xs font-bold text-slate-600">
               {t("Anything we should know? (optional)", "¿Algo que debamos saber? (opcional)")}
               <textarea
@@ -285,6 +351,21 @@ export function TripSummary({ trip }: { trip: TripState }) {
                 placeholder={t("Flight number, hotel, child seats, luggage…", "Número de vuelo, hotel, sillas para niños, equipaje…")}
                 className="mt-1 w-full border border-slate-300 rounded-xl p-3 text-base text-slate-900"
               />
+            </label>
+            <label className="flex min-h-11 items-start gap-2.5 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                name="no_suggestions"
+                checked={contact.noSuggestions}
+                onChange={(e) => onContact({ ...contact, noSuggestions: e.target.checked })}
+                className="mt-0.5 h-4 w-4 shrink-0 accent-emerald-700"
+              />
+              <span>
+                <span className="font-semibold">{t("Don't send me suggestions after my trip", "No me envíen sugerencias después de mi viaje")}</span>
+                <span className="block text-xs text-slate-500">
+                  {t("Emails about your bookings still arrive.", "Los correos de sus reservas siguen llegando.")}
+                </span>
+              </span>
             </label>
             <label aria-hidden className="hidden">
               Website
