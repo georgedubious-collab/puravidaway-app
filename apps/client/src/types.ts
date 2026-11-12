@@ -27,6 +27,8 @@ export interface AppBooking {
    * the way). Older servers don't send it.
    */
   sign?: { text: string | null; hideName: boolean; shown: string; editable: boolean } | null;
+  /** Day tours: the hotel or address where we pick them up. Older servers don't send it. */
+  pickupPlace?: string | null;
 }
 
 export interface AppTrip {

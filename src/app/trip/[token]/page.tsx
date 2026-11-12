@@ -280,6 +280,11 @@ export default async function TripPage({ params, searchParams }: Props) {
                     <span className="font-mono">{b.booking_ref}</span>
                   </p>
                   <h2 className="text-lg font-extrabold text-slate-900">{itemName(b)}</h2>
+                  {b.service_type !== "transfer" && b.pickup_place && (
+                    <p className="text-sm text-slate-600">
+                      {t("Pickup:", "Recogida:")} <span className="font-semibold text-slate-900">{b.pickup_place}</span>
+                    </p>
+                  )}
                   {asked.length > 0 && <p className="text-sm text-slate-600">{t("You asked for:", "Usted pidió:")} {asked.join(", ")}</p>}
                 </div>
                 <div className="text-right">

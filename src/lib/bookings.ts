@@ -94,6 +94,8 @@ export interface BookingRow {
   sign_text?: string | null;
   /** Name sign: "Don't show my name" (the sign shows the brand name). Migration 0040. */
   sign_hide_name?: boolean | null;
+  /** Day tours: the hotel or address to pick them up (migration 0045). */
+  pickup_place?: string | null;
   /** When the driver tapped "I'm on my way" (migration 0029). */
   en_route_at?: string | null;
   created_at: string;
