@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import { View } from "react-native";
+import { SITE_URL } from "../config";
 import { useT } from "../i18n";
 import { supabase } from "../supabase";
 import { C, T } from "../theme";
@@ -15,14 +16,40 @@ import { Btn, Card, Input, LinkBtn, Text } from "../ui";
  */
 export const validEmail = (e: string) => /^\S+@\S+\.\S+$/.test(e.trim());
 
-/** Email a code. Returns an error message, or null when sent. */
-export async function sendCode(email: string, t: (en: string, es: string) => string): Promise<string | null> {
+/**
+ * Email a code. Returns an error message, or null when sent.
+ *
+ * Our server sends it (/api/v1/auth/send-code), never the phone, so bots can't create accounts:
+ * "booking" (sending a trip request) may create the account; "trips" ("Already booked?") only
+ * works for an email that has trips, and the answer never says which (onNeutral gets the
+ * "If this email has trips with us…" wording to show instead).
+ */
+export async function sendCode(
+  email: string,
+  t: (en: string, es: string) => string,
+  purpose: "booking" | "trips" = "booking",
+  onNeutral?: (message: string) => void,
+): Promise<string | null> {
   const e = email.trim().toLowerCase();
   if (!validEmail(e)) return t("Enter your email address.", "Escriba su correo electrónico.");
-  const { error } = await supabase.auth.signInWithOtp({ email: e, options: { shouldCreateUser: true } });
-  return error
-    ? t("We couldn't send a code to that email. Check the address and try again in a minute.", "No pudimos enviar un código a ese correo. Revise la dirección e intente de nuevo en un minuto.")
-    : null;
+  const failed = t(
+    "We couldn't send a code to that email. Check the address and try again in a minute.",
+    "No pudimos enviar un código a ese correo. Revise la dirección e intente de nuevo en un minuto.",
+  );
+  try {
+    const res = await fetch(SITE_URL + "/api/v1/auth/send-code", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: e, purpose, lang: t("en", "es") }),
+    });
+    const json = (await res.json().catch(() => null)) as { ok?: boolean; neutral?: boolean; message?: string; error?: string } | null;
+    if (!json) return failed;
+    if (!json.ok) return json.error ?? failed;
+    if (json.neutral && json.message) onNeutral?.(json.message);
+    return null;
+  } catch {
+    return t("We couldn't reach the server. Check your connection.", "No pudimos conectar con el servidor. Revise su conexión.");
+  }
 }
 
 /** Check the code; on success the app is signed in as that email. Returns an error message, or null. */
@@ -60,11 +87,13 @@ export function SignInCard({ demoSent }: { demoSent?: string }) {
   const [sent, setSent] = useState(Boolean(demoSent));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [neutral, setNeutral] = useState("");
 
   async function send() {
     setBusy(true);
     setError("");
-    const err = await sendCode(email, t);
+    setNeutral("");
+    const err = await sendCode(email, t, "trips", setNeutral);
     setBusy(false);
     if (err) return setError(err);
     setSent(true);
@@ -86,7 +115,9 @@ export function SignInCard({ demoSent }: { demoSent?: string }) {
       <Text style={T.h2}>{sent ? t("Enter your code", "Escriba su código") : t("Already booked?", "¿Ya reservó?")}</Text>
       <Text style={T.body}>
         {sent
-          ? t("We emailed a 6-digit code to ", "Enviamos un código de 6 dígitos a ") + email.trim().toLowerCase() + "."
+          ? neutral
+            ? neutral + " (" + email.trim().toLowerCase() + ")"
+            : t("We emailed a 6-digit code to ", "Enviamos un código de 6 dígitos a ") + email.trim().toLowerCase() + "."
           : t(
               "Enter the email you used for your trip and we'll send you a 6-digit code to see your trips, your driver and the chat. No account or password needed.",
               "Escriba el correo que usó para su viaje y le enviaremos un código de 6 dígitos para ver sus viajes, su conductor y el chat. No necesita cuenta ni contraseña.",

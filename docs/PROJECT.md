@@ -85,6 +85,22 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
 - Logins: `/login` (email + 6-digit code), `src/proxy.ts` (session refresh on account pages),
   `src/lib/auth.ts` (`requireRole`). `/admin` (dashboard) and `/admin/users` (roles) are live
   once Supabase is connected.
+- **Sign-in codes are sent only by our server (2026-11-12, after bot sign-ups):** the website
+  (`POST /api/auth/send-code`) and both apps (`POST /api/v1/auth/send-code`, same handler,
+  `src/lib/authCodeServer.ts`, rules in `src/lib/authCode.ts`) never call Supabase's
+  `signInWithOtp` themselves. The server checks the email, a quiet Cloudflare Turnstile check on
+  the website (only when `TURNSTILE_SECRET_KEY` / `NEXT_PUBLIC_TURNSTILE_SITE_KEY` are set; the
+  script loads only on `/login`), rate limits (3 codes per email an hour, 6 a day, 10 requests
+  per network an hour; table `auth_code_requests`, migration 0050), then the reason (`purpose`):
+  `booking` (traveller app sending a trip request) and `driver` (driver app, or `/login?next=/driver`
+  for a new driver applying on the website) may create the account; `trips` ("Already booked?")
+  only if a trip was booked with that email; `login` (website `/login`) existing accounts only.
+  Existing accounts always get a code. For `trips` and `login` the reply never says whether the
+  email has trips or an account ("If this email has…, we've sent…"). Accounts are created with the
+  admin API (service role, server only) and marked confirmed so Supabase emails the code with
+  public sign-ups **off** (Supabase → Authentication → Sign In / Providers → "Allow new users to
+  sign up" off; `docs/SETUP-SUPABASE.md` §4b). The code itself still proves the inbox is theirs.
+  Migration 0051 deleted the junk accounts made on 10–12 Nov 2026 (13 on the live database).
 - `supabase/migrations/` — database schema, row-level security and catalog seed (Phase 2b);
   `supabase/tests/rls.test.mjs` checks the security rules (`npm run test:db`). Setup steps for
   Jorge: `docs/SETUP-SUPABASE.md`.
@@ -1254,6 +1270,10 @@ and `season_for_date(date)` returns the season for a travel date.
   reads bids on their booking; admins see all.
 - **catalog tables:** public read for active items; admin write. **pricing_settings** (cash fee, ride formula) and **hub_pricing** (area factors): public read, admin write.
 - **payments:** written only by the server (service role); clients read their own; admins read all.
+- **auth_code_requests** (sign-in code rate limits, migration 0050): RLS on with **no policies**;
+  browsers and apps can't read or write it. Only the server (service role) uses it, through
+  `allow_auth_code()` and `auth_email_status()`, which anon and signed-in users can't call.
+  Public sign-ups are off in Supabase: only the server creates accounts (§3, "Sign-in codes").
 - **email_optouts:** written only by the server (the unsubscribe page and one-click route); admins
   read; logged-out visitors, travellers and drivers can't read or write it (`npm run test:db`).
 - **booking_events:** admins read; nobody writes from a browser or app (no insert/update/delete

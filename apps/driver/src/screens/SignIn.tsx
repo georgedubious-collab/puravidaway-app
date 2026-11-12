@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import { KeyboardAvoidingView, Platform, Pressable, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { SITE_URL } from "../config";
 import { useT, type Lang } from "../i18n";
 import { supabase } from "../supabase";
 import { C, R, S } from "../theme";
@@ -23,15 +24,25 @@ export function SignIn() {
     setBusy(true);
     setError("");
     // New drivers can start here too: a first sign-in creates the account, then they apply in the app.
-    const { error: err } = await supabase.auth.signInWithOtp({ email: e, options: { shouldCreateUser: true } });
+    // Our server sends the code (/api/v1/auth/send-code, purpose "driver"), never the phone itself.
+    const failed = t(
+      "No pudimos enviar un código a ese correo. Revise la dirección e intente de nuevo en un minuto.",
+      "We couldn't send a code to that email. Check the address and try again in a minute.",
+    );
+    let err: string | null = null;
+    try {
+      const res = await fetch(SITE_URL + "/api/v1/auth/send-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: e, purpose: "driver", lang: t("es", "en") }),
+      });
+      const json = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+      if (!json?.ok) err = json?.error ?? failed;
+    } catch {
+      err = t("No pudimos conectar con el servidor. Revise su conexión.", "We couldn't reach the server. Check your connection.");
+    }
     setBusy(false);
-    if (err)
-      return setError(
-        t(
-          "No pudimos enviar un código a ese correo. Revise la dirección e intente de nuevo en un minuto.",
-          "We couldn't send a code to that email. Check the address and try again in a minute.",
-        ),
-      );
+    if (err) return setError(err);
     setSent(true);
   }
 
