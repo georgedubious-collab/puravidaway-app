@@ -1280,6 +1280,115 @@ await expectOk("server removes the test booking", "server", "delete from public.
   await expectRows("drivers still read no booking rows", "driver", "select * from public.bookings", 0);
 }
 
+// --- CRM part 3 (migration 0046): customers, refunds, new history entries ------------------------
+{
+  const T = (n) => `20000000-0000-0000-0000-0000000000c${n}`;
+  const BK = (n) => `10000000-0000-0000-0000-0000000000c${n}`;
+  const tok = (n) => `'${String(n).repeat(64)}'`;
+  const V1 = "30000000-0000-0000-0000-000000000001";
+  await db.exec(`
+    insert into public.trips (id, access_token, guest_name, guest_email, guest_phone, language) values
+      ('${T(1)}', ${tok(1)}, 'Ana Gómez', ' AnaCRM@Example.com ', '+506 8888-1234', 'es'),
+      ('${T(2)}', ${tok(2)}, 'Ana G.', 'anacrm@example.com', null, 'es'),
+      ('${T(3)}', ${tok(3)}, 'Bob', '', '+1 (555) 222-3333', 'en');
+    insert into public.bookings (id, trip_id, client_id, service_type, total_price, amount_paid, status, assigned_driver_id, assigned_vehicle_id, scheduled_at) values
+      ('${BK(1)}', '${T(1)}', null, 'transfer', 100, 100, 'completed', '${U.driver}', '${V1}', now() - interval '20 days'),
+      ('${BK(2)}', '${T(2)}', null, 'transfer', 50, 50, 'confirmed', '${U.driver}', '${V1}', now() + interval '5 days'),
+      ('${BK(3)}', '${T(1)}', null, 'transfer', 30, 30, 'cancelled', null, null, now() + interval '9 days'),
+      ('${BK(4)}', '${T(3)}', null, 'transfer', 70, 0, 'pending_payment', null, null, now() + interval '3 days'),
+      ('${BK(5)}', '${T(3)}', '${U.client}', 'transfer', 80, 80, 'confirmed', '${U.driver}', '${V1}', now() + interval '2 days');
+    insert into public.driver_reviews (booking_id, driver_id, trip_id, stars, comment) values ('${BK(1)}', '${U.driver}', '${T(1)}', 4, 'Muy bien');
+  `);
+  const ana = "anacrm@example.com";
+  // Customers: grouped by email (any case/spaces), else phone digits.
+  await expectRows("admin sees two customers", "admin", "select * from public.admin_customers(null, null, 'last', 0, 0) where customer_key in ('anacrm@example.com', 'tel:15552223333')", 2);
+  await expectRows("Ana's two trips are one customer: 3 bookings, 1 completed, 1 cancelled, $150 spent, ★4", "admin",
+    `select * from public.admin_customers(null, '${ana}') where bookings = 3 and completed = 1 and cancelled = 1 and total_spent = 150 and ratings = 1 and avg_rating = 4 and name like 'Ana G%' and email = '${ana}' and phone = '+506 8888-1234'`, 1);
+  await expectRows("search by phone digits finds Bob", "admin", "select * from public.admin_customers('555 222', null) where customer_key = 'tel:15552223333'", 1);
+  await expectRows("customer's trips", "admin", `select * from public.admin_customer_trips('${ana}')`, 2);
+  for (const who of ["client", "client2", "driver", "pending", "anon"]) {
+    await expectRows(`${who} sees no customers`, who, "select * from public.admin_customers(null, null, 'last', 0, 0)", 0);
+    await expectRows(`${who} sees no customer trips`, who, `select * from public.admin_customer_trips('${ana}')`, 0);
+  }
+  // Team tags and notes.
+  await expectOk("admin tags a customer VIP with a note", "admin",
+    `insert into public.customer_notes (customer_key, tags, note) values ('${ana}', array['VIP','honeymoon'], 'Prefers WhatsApp')`);
+  await expectRows("who changed it is set by the database", "admin", `select * from public.customer_notes where customer_key = '${ana}' and updated_by = '${U.admin}'`, 1);
+  await expectRows("VIP shows on the customer", "admin", `select * from public.admin_customers(null, '${ana}') where vip`, 1);
+  await expectRows("search by tag", "admin", "select * from public.admin_customers('honeymoon', null)", 1);
+  await expectOk("admin edits the note", "admin", `update public.customer_notes set note = 'Prefers email' where customer_key = '${ana}'`);
+  await expectRows("note changes are kept with who did them", "admin",
+    `select * from public.customer_note_events where customer_key = '${ana}' and actor_id = '${U.admin}'`, 2);
+  await expectBlocked("key must be lower-case", "admin", `insert into public.customer_notes (customer_key) values ('Bob@x.com')`);
+  for (const who of ["client", "driver", "anon"]) {
+    await expectRows(`${who} cannot read customer notes`, who, "select * from public.customer_notes", 0);
+    await expectRows(`${who} cannot read customer note history`, who, "select * from public.customer_note_events", 0);
+    await expectBlocked(`${who} cannot write customer notes`, who, `insert into public.customer_notes (customer_key, note) values ('x@y.com', 'hi')`);
+  }
+  await expectBlocked("admin cannot rewrite the note history", "admin", `delete from public.customer_note_events`, { affected: 0 });
+
+  // Team edits the name sign: same rules as the traveller, recorded with who did it.
+  await expectOk("admin sets the sign", "admin", `update public.bookings set sign_text = 'Familia Gómez', sign_hide_name = false where id = '${BK(2)}'`);
+  await expectRows("sign change logged with the admin as actor", "admin",
+    `select * from public.booking_events where booking_id = '${BK(2)}' and action = 'sign' and actor_id = '${U.admin}' and after->>'sign_text' = 'Familia Gómez'`, 1);
+  await expectBlocked("sign with a phone number refused, also for the team", "admin", `update public.bookings set sign_text = 'Call 8888 1234' where id = '${BK(2)}'`);
+  await expectBlocked("sign longer than 40 refused", "admin", `update public.bookings set sign_text = '${"x".repeat(41)}' where id = '${BK(2)}'`);
+
+  // Driver removed: the booking goes back to open; the server records why.
+  await expectOk("admin removes the driver (back to open for drivers)", "admin",
+    `update public.bookings set assigned_driver_id = null, assigned_vehicle_id = null, status = 'pending_bids' where id = '${BK(2)}'`);
+  await expectRows("removal logged as an assignment change by the admin", "admin",
+    `select * from public.booking_events where booking_id = '${BK(2)}' and action = 'assignment' and actor_id = '${U.admin}' and before->>'driver_id' = '${U.driver}' and after->>'driver_id' is null`, 1);
+  await expectOk("server records why (driver dropped out)", "server",
+    `insert into public.booking_events (booking_id, actor_id, action, before, after) values ('${BK(2)}', '${U.admin}', 'driver_removed', '{"driver_id":"${U.driver}"}', '{"reason":"driver_dropped","team_alerted":true}')`);
+  await expectOk("server records a WhatsApp message opened", "server",
+    `insert into public.booking_events (booking_id, actor_id, action, after) values ('${BK(2)}', '${U.admin}', 'whatsapp_opened', '{"kind":"driver_confirmed"}')`);
+  await expectBlocked("admin cannot write those entries directly", "admin",
+    `insert into public.booking_events (booking_id, action) values ('${BK(2)}', 'driver_removed')`);
+  await expectRows("drivers can't see removals", "driver", "select * from public.booking_events", 0);
+  await expectOk("admin assigns the driver again", "admin",
+    `update public.bookings set assigned_driver_id = '${U.driver}', assigned_vehicle_id = '${V1}', status = 'confirmed' where id = '${BK(2)}'`);
+
+  // Cancel + refund (cancel_booking) and refund paid.
+  await expectBlocked("refund different from the policy needs a reason", "admin",
+    `select public.cancel_booking('${BK(5)}', 'traveller', now(), 30, 80, 'free_24h', 40, null)`);
+  await expectBlocked("refund can't exceed what was received", "admin",
+    `select public.cancel_booking('${BK(5)}', 'team', null, 30, 80, 'we_cancelled', 90, 'goodwill')`);
+  await expectRows("…and nothing was cancelled by those attempts", "admin", `select * from public.bookings where id = '${BK(5)}' and status = 'confirmed'`, 1);
+  for (const who of ["client", "driver", "anon"]) {
+    await expectBlocked(`${who} cannot cancel through cancel_booking`, who,
+      `select public.cancel_booking('${BK(5)}', 'traveller', now(), 30, 80, 'free_24h', 80, null)`);
+  }
+  await expectOk("admin cancels: traveller asked 30 h ahead, full refund", "admin",
+    `select public.cancel_booking('${BK(5)}', 'traveller', now(), 30, 80, 'free_24h', 80, null)`);
+  await expectRows("booking cancelled", "admin", `select * from public.bookings where id = '${BK(5)}' and status = 'cancelled'`, 1);
+  await expectRows("refund row with policy, rule and amount received", "admin",
+    `select * from public.booking_refunds where booking_id = '${BK(5)}' and refund_due = 80 and refund_policy = 80 and amount_received = 80 and refund_rule = 'free_24h' and created_by = '${U.admin}'`, 1);
+  await expectRows("cancellation + status in the history, by the admin", "admin",
+    `select count(*) as n from public.booking_events where booking_id = '${BK(5)}' and actor_id = '${U.admin}' and (action = 'cancellation' or (action = 'status' and after->>'status' = 'cancelled'))`, 2);
+  await expectBlocked("cancelling twice refused", "admin", `select public.cancel_booking('${BK(5)}', 'team', null, 30, 80, 'we_cancelled', 80, null)`);
+  await expectBlocked("refund paid must have amount, date and method", "admin",
+    `update public.booking_refunds set refund_paid_amount = 80 where booking_id = '${BK(5)}'`);
+  await expectOk("admin marks the refund paid (SINPE)", "admin",
+    `update public.booking_refunds set refund_paid_amount = 80, refund_paid_on = current_date, refund_method = 'sinpe' where booking_id = '${BK(5)}'`);
+  await expectRows("refund paid logged", "admin",
+    `select * from public.booking_events where booking_id = '${BK(5)}' and action = 'refund_paid' and after->>'method' = 'sinpe' and actor_id = '${U.admin}'`, 1);
+  await expectBlocked("unknown refund method refused", "admin", `update public.booking_refunds set refund_method = 'bitcoin' where booking_id = '${BK(5)}'`);
+  await expectRows("the traveller still reads their own booking row", "client", `select * from public.bookings where id = '${BK(5)}'`, 1);
+  for (const who of ["client", "client2", "driver", "pending", "anon"]) {
+    await expectRows(`${who} cannot read refunds`, who, "select * from public.booking_refunds", 0);
+    await expectBlocked(`${who} cannot write refunds`, who,
+      `insert into public.booking_refunds (booking_id, cancelled_by, refund_policy, refund_rule, refund_due) values ('${BK(4)}', 'team', 0, 'we_cancelled', 0)`);
+  }
+  // Cancellation notices: the driver has no way to the traveller's contact details or the money.
+  await expectRows("driver reads no trips (traveller contact)", "driver", "select * from public.trips", 0);
+  await expectRows("driver reads no booking rows", "driver", "select * from public.bookings", 0);
+  await expectRows("driver's own trips hold no traveller email or phone columns", "admin",
+    "select 1 from information_schema.routines r join information_schema.parameters p on p.specific_name = r.specific_name where r.routine_name = 'my_trips' and p.parameter_mode = 'OUT' and p.parameter_name ~ '(email|phone|guest_name|total_price|amount_paid|refund)'", 0);
+  await expectRows("refund columns are not on bookings (travellers can read their rows)", "admin",
+    "select 1 from information_schema.columns where table_name = 'bookings' and column_name ~ '^(refund|cancelled_by)'", 0);
+}
+
 // --- Report -----------------------------------------------------------------------------------
 console.log(`${passed} checks passed, ${failures.length} failed`);
 for (const f of failures) console.log("  ✗ " + f);

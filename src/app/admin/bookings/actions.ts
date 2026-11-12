@@ -18,6 +18,7 @@ import { makeT } from "@/lib/teamLang";
 import { clientLanguageNote, driverFirstName, rideConfirmedEmail, rideConfirmedPush } from "@/lib/travellerMessages";
 import { getTeamLang } from "@/lib/teamLangServer";
 import { alertTeamDriverRemoved, logBookingEvent, sendDriverConfirmed } from "@/lib/crmNotices";
+import { driverChange } from "@/lib/driverChange";
 
 /** Did this booking lose a driver before (booking_events "driver_removed", CRM part 3)? */
 async function hadDriverRemoved(bookingId: string): Promise<boolean> {
@@ -151,16 +152,24 @@ export async function updateBooking(_prev: FormState, fd: FormData): Promise<For
       throw new InputError(
         t("Para cancelar use la tarjeta «Cancelar reserva» (calcula el reembolso).", "To cancel, use the \"Cancel booking\" card (it works out the refund)."),
       );
-    // Removing or replacing the assigned driver: say why; the traveller is not told now (see below).
-    const removedDriver: string | null = before?.assigned_driver_id && before.assigned_driver_id !== driverId ? (before.assigned_driver_id as string) : null;
+    // Removing or replacing the assigned driver (src/lib/driverChange.ts): say why; the traveller
+    // is not told now; a confirmed booking left without a driver goes back to "Open for drivers".
     const removalReason = String(fd.get("removal_reason") ?? "");
-    if (removedDriver && removalReason !== "driver_dropped" && removalReason !== "team")
+    const beforeDriver = (before?.assigned_driver_id as string | null) ?? null;
+    const change = driverChange({
+      beforeDriver,
+      newDriver: driverId,
+      status,
+      reason: removalReason,
+      hadRemovalBefore: Boolean(driverId && driverId !== beforeDriver && status === "confirmed" && !beforeDriver) && (await hadDriverRemoved(id)),
+    });
+    if (change.needsReason)
       throw new InputError(
         t("Diga por qué quita o cambia al conductor (debajo de «Conductor y vehículo»).", "Say why you're removing or changing the driver (below \"Driver and vehicle\")."),
       );
-    // A confirmed booking that loses its driver goes back to finding one ("Open for drivers").
-    const reopened = Boolean(removedDriver && !driverId && status === "confirmed");
-    if (reopened) status = "pending_bids";
+    const removedDriver = change.removed;
+    const reopened = change.reopened;
+    status = change.status;
 
     if ((status === "confirmed" || status === "in_progress" || status === "completed") && !driverId) {
       throw new InputError(
@@ -211,9 +220,9 @@ export async function updateBooking(_prev: FormState, fd: FormData): Promise<For
         );
       });
     }
-    if (driverId && before && driverId !== before.assigned_driver_id && status === "confirmed") {
-      const hadDropOut = removedDriver ? true : await hadDriverRemoved(id);
-      if (hadDropOut) after(() => sendDriverConfirmed(id, driverId!));
+    if (change.sendDriverConfirmed && driverId) {
+      const newDriver = driverId;
+      after(() => sendDriverConfirmed(id, newDriver));
     }
     const n = await supabase
       .from("booking_admin_notes")
