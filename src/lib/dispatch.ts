@@ -13,12 +13,13 @@
  *     with the booking; otherwise UNKNOWN_DRIVE_MINUTES, marked "estimated". This is the same
  *     sum the driver app shows as "Arrives approx." (public.my_trips(), migration 0035).
  *   - Day tour: the tour's length in the catalog (durationHours), DEFAULT_TOUR_MINUTES if unknown.
+ *     It starts and ends in its region's town; the Osa tour in Puerto Jiménez (not one of our towns).
  *
  * CLASH between two bookings of one driver (warnings only; the team decides):
  *   - "overlap": the busy spans overlap.
  *   - "too_tight": they don't overlap, but the free time between the end of the earlier one and
  *     the start of the later one is shorter than the drive from the first drop-off to the second
- *     pickup (ROUTE_MINUTES, both ends must be one of our towns) + CLASH_BUFFER_MINUTES.
+ *     pickup (ROUTE_MINUTES, both ends must be one of our towns) + CLASH_BUFFER_MINUTES (2 h).
  *   - "check_travel": the drop-off or the next pickup is a place we can't map to one of our towns,
  *     so the drive between them is unknown: shown as "check the travel time" instead of a guess,
  *     only when the free time is short enough to matter (under CHECK_TRAVEL_WINDOW_MINUTES).
@@ -27,14 +28,15 @@
  *   Cancelled bookings never clash.
  */
 import { HUB_IDS, routeMinutes, type AreaId, type HubId } from "./catalog";
-import { scheduledParts } from "./dates";
+import { formatTime12h, scheduledParts } from "./dates";
 import { townOf } from "./matching";
 
 /**
- * Extra minutes a driver needs between two jobs on top of the drive between them: parking, a
- * bathroom stop, meeting the next travellers, loading bags. Jorge can change this number.
+ * Extra minutes a driver needs between two jobs on top of the drive between them, in case the
+ * first trip runs late (traffic, a late flight, a long stop), plus parking and meeting the next
+ * travellers. Jorge, 2026-11-12: 2 hours.
  */
-export const CLASH_BUFFER_MINUTES = 30;
+export const CLASH_BUFFER_MINUTES = 120;
 /** A ride whose drive time we can't work out counts as this long (the same default as src/lib/matching.ts). */
 export const UNKNOWN_DRIVE_MINUTES = 240;
 /** A day tour whose length we don't know counts as a full day out. */
@@ -53,8 +55,14 @@ export const LONGEST_ROUTE_MINUTES = Math.max(...HUB_IDS.flatMap((a) => HUB_IDS.
  */
 export const CHECK_TRAVEL_WINDOW_MINUTES = LONGEST_ROUTE_MINUTES + CLASH_BUFFER_MINUTES;
 
-/** Day tours start and end in their region's town (hotel pickup there). Osa tours: not mapped (check). */
+/** Day tours start and end in their region's town (hotel pickup there). */
 const TOUR_REGION_HUB: Record<string, HubId> = { Arenal: "Arenal", ManuelAntonio: "ManuelAntonio", Monteverde: "Monteverde" };
+/**
+ * Day tours that start and end in a place that isn't one of our towns (Jorge, 2026-11-12: the Osa
+ * tour, Sierpe mangroves & Caño Island, starts and ends in Puerto Jiménez). The drive to or from it
+ * can't come from the town table, so the calendar says "check the travel time" and names the place.
+ */
+const TOUR_REGION_PLACE: Record<string, string> = { Osa: "Puerto Jiménez" };
 
 /** The parts of a booking the calendar needs. */
 export interface SpanBooking {
@@ -88,6 +96,9 @@ export interface BusySpan {
   /** Our town at the pickup and at the drop-off; null when the place isn't mapped to one. */
   from: AreaId | null;
   to: AreaId | null;
+  /** A named place outside our towns at the pickup / drop-off (e.g. "Puerto Jiménez"), else null. */
+  fromPlace: string | null;
+  toPlace: string | null;
 }
 
 /** When the driver is busy with this booking, or null without a pickup time. */
@@ -99,6 +110,8 @@ export function busySpan(b: SpanBooking, cat: SpanCatalog): BusySpan | null {
   let estimated = false;
   let from: AreaId | null;
   let to: AreaId | null;
+  let fromPlace: string | null = null;
+  let toPlace: string | null = null;
 
   if (b.service_type === "transfer" || !b.service_type) {
     from = townOf(b.origin, b.origin_coords);
@@ -125,13 +138,16 @@ export function busySpan(b: SpanBooking, cat: SpanCatalog): BusySpan | null {
     // Smart En-Route: the tour is done on the way to another town we don't know here.
     const enRoute = (b.sightseeing_stops ?? []).some((s) => s.id === "en_route_upgrade");
     to = enRoute ? null : hub;
+    const place = tour?.region ? (TOUR_REGION_PLACE[tour.region] ?? null) : null;
+    fromPlace = place;
+    toPlace = enRoute ? null : place;
     if (tour && tour.durationHours > 0) minutes = Math.round(tour.durationHours * 60);
     else {
       minutes = DEFAULT_TOUR_MINUTES;
       estimated = true;
     }
   }
-  return { start, end: start + minutes * 60000, minutes, estimated, from, to };
+  return { start, end: start + minutes * 60000, minutes, estimated, from, to, fromPlace, toPlace };
 }
 
 /** Realistic drive between a drop-off and the next pickup: 0 in the same town, null when unknown. */
@@ -154,6 +170,8 @@ export interface Clash {
   gapMinutes: number;
   /** Drive minutes between them + buffer, when known ("too_tight"). */
   neededMinutes: number | null;
+  /** "check_travel": the named place outside our towns, when we know it (e.g. "Puerto Jiménez"). */
+  place?: string | null;
 }
 
 const ACTIVE = (s: string | null | undefined) => s !== "cancelled";
@@ -185,7 +203,8 @@ export function findClashes(target: SpanBooking, others: readonly SpanBooking[],
     const gap = Math.round((second.start - first.end) / 60000);
     const drive = travelMinutes(first.to, second.from);
     if (drive === null) {
-      if (gap < CHECK_TRAVEL_WINDOW_MINUTES) out.push({ kind: "check_travel", other: ref(other), side, gapMinutes: gap, neededMinutes: null });
+      if (gap < CHECK_TRAVEL_WINDOW_MINUTES)
+        out.push({ kind: "check_travel", other: ref(other), side, gapMinutes: gap, neededMinutes: null, place: first.toPlace ?? second.fromPlace ?? null });
       return;
     }
     const needed = drive + CLASH_BUFFER_MINUTES;
@@ -225,20 +244,27 @@ export function clashText(c: Clash, lang: "es" | "en"): string {
     const need = durationText(c.neededMinutes ?? 0);
     return c.side === "before"
       ? es
-        ? `Muy justo después de ${ref}: ${gap} libres, necesita ${need} (manejo + ${CLASH_BUFFER_MINUTES} min)`
-        : `Too tight after ${ref}: ${gap} free, needs ${need} (drive + ${CLASH_BUFFER_MINUTES} min)`
+        ? `Muy justo después de ${ref}: ${gap} libres, necesita ${need} (manejo + ${durationText(CLASH_BUFFER_MINUTES)} de margen)`
+        : `Too tight after ${ref}: ${gap} free, needs ${need} (drive + ${durationText(CLASH_BUFFER_MINUTES)} margin)`
       : es
-        ? `Muy justo antes de ${ref}: ${gap} libres, necesita ${need} (manejo + ${CLASH_BUFFER_MINUTES} min)`
-        : `Too tight before ${ref}: ${gap} free, needs ${need} (drive + ${CLASH_BUFFER_MINUTES} min)`;
+        ? `Muy justo antes de ${ref}: ${gap} libres, necesita ${need} (manejo + ${durationText(CLASH_BUFFER_MINUTES)} de margen)`
+        : `Too tight before ${ref}: ${gap} free, needs ${need} (drive + ${durationText(CLASH_BUFFER_MINUTES)} margin)`;
   }
   const gap = durationText(c.gapMinutes);
+  const where = c.place
+    ? es
+      ? `${c.place} está fuera de nuestras zonas`
+      : `${c.place} is outside our towns`
+    : es
+      ? "lugar fuera de nuestras zonas"
+      : "a place outside our towns";
   return c.side === "before"
     ? es
-      ? `Revise el tiempo de traslado desde ${ref} (${gap} libres; lugar fuera de nuestras zonas)`
-      : `Check the travel time from ${ref} (${gap} free; a place outside our towns)`
+      ? `Revise el tiempo de traslado desde ${ref} (${gap} libres; ${where})`
+      : `Check the travel time from ${ref} (${gap} free; ${where})`
     : es
-      ? `Revise el tiempo de traslado hasta ${ref} (${gap} libres; lugar fuera de nuestras zonas)`
-      : `Check the travel time to ${ref} (${gap} free; a place outside our towns)`;
+      ? `Revise el tiempo de traslado hasta ${ref} (${gap} libres; ${where})`
+      : `Check the travel time to ${ref} (${gap} free; ${where})`;
 }
 
 /** Costa Rica days a span touches (a late ride can end after midnight). */
@@ -249,10 +275,19 @@ export function spanDays(s: Pick<BusySpan, "start" | "end">): string[] {
   return last && last !== first ? [first, last] : [first];
 }
 
-/** "08:00–11:15" in Costa Rica time (+1 when it ends the next day). */
+/**
+ * "8:00–10:45 a. m." / "11:30 a. m.–2:15 p. m." in Costa Rica time, like the rest of the admin
+ * (formatTime12h); "8:00–10:45 AM" in English. "+1 día" when it ends the next day.
+ */
 export function spanLabel(s: Pick<BusySpan, "start" | "end">, lang: "es" | "en" = "es"): string {
   const days = spanDays(s);
-  return `${hhmm(s.start)}–${hhmm(s.end)}${days.length > 1 ? (lang === "es" ? " (+1 día)" : " (+1 day)") : ""}`;
+  const a = formatTime12h(hhmm(s.start), lang);
+  const b = formatTime12h(hhmm(s.end), lang);
+  const [aTime, ...aHalf] = a.split(" ");
+  const [bTime, ...bHalf] = b.split(" ");
+  const sameHalf = aHalf.join(" ") === bHalf.join(" ") && days.length === 1;
+  const text = sameHalf ? `${aTime}–${bTime} ${bHalf.join(" ")}` : `${a}–${b}`;
+  return `${text}${days.length > 1 ? (lang === "es" ? " (+1 día)" : " (+1 day)") : ""}`;
 }
 
 export interface CandidateInput {

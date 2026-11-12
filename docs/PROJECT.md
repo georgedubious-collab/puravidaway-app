@@ -449,12 +449,60 @@ and error states, `AdminActionForm`).
   server exactly like the website (same catalog, season, night premium, stops, sign, bags) and saved
   through the website's own request path (`submitTripRequestAsTeam`, `src/app/trip/actions.ts`):
   same `trips`/`bookings` rows, status "Esperando pago", fixed price, online or cash; optional email
-  of the trip link to the traveller. Rides between our towns (typed addresses: on the website).
+  of the trip link to the traveller. **Any pickup / drop-off place** (Jorge, 2026-11-12): our towns
+  as one-tap quick picks above the website's own place search (`PlaceInput`, Google through
+  `/api/places/*`), so a hotel in a small town is priced exactly like on the website (same
+  `placeSpecFields()` in `src/lib/places.ts`, same server lookup and route, same price;
+  `npm run test:crm` checks the price matches).
 - **Booking page**: change history ("Historial de cambios", §7.3 `booking_events`) as a timeline.
 - **Confirmations in the page** (never a browser pop-up), saying what will happen: cancel a booking,
   change the amount received, accept a driver's offer (sets the payout), mark trips settled,
   reject/suspend a driver or vehicle, change a vehicle's category, change prices / fees / season
   multipliers / commission, add or remove season dates, change a user's role.
+- **CRM part 3 (2026-11-12, migration 0049, `npm run test:crm`):**
+  - **Clientes** (`/admin/customers`): travellers grouped by email (lower-case, trimmed; with no
+    email, by phone digits). Search (name, email, phone, tag), columns name / email / phone /
+    bookings / completed / spent (= amount received, cancelled bookings and test payments left out) /
+    first and last trip / tags, sort by last trip or spent, 25 per page, CSV export
+    (`/admin/customers/export`, same rules as the bookings export). Profile
+    (`/admin/customers/<email>`): contact, every booking (links), total spent, average rating they
+    gave, "Repeat customer" (2+ bookings not cancelled) and "VIP" chips, tags and a private team note
+    (who changed it last; every change kept). Computed by the admin-only `admin_customers()`; nothing
+    is copied. The traveller's name on the bookings list and booking page links to the profile.
+  - **WhatsApp card** on the booking page: five buttons that open `wa.me/<traveller's number>` with a
+    message built from the booking in the traveller's booking language (English, or Spanish with
+    "usted"): booking received / confirm details; driver confirmed (driver's first name, the vehicle
+    as the trip page shows it, pickup time, name sign, trip page link); day-before reminder; "we're
+    looking into it"; payment reminder (online balance + trip link). Buttons wait for a driver / a
+    balance; no number → a clear note. Each tap is logged in the history. Team only.
+  - **Cancel booking with refund calculator**: who cancels (traveller / us / the driver / weather,
+    road or park closure), when (the traveller's message time, Costa Rica time, vs the pickup), the
+    amount received → the refund the published policy gives and the rule that applied
+    (`src/lib/refundPolicy.ts`: 24 h or more → full; under 24 h or no-show → none; we or the driver
+    cancel → full; weather → full proposed, the team can lower it). The team may change the refund
+    owed, with a required reason. "Avisar al viajero y al conductor" (ticked by default) emails the
+    traveller (their language) and the assigned driver (their language, Spanish by default; no
+    traveller details, no prices). Cancelling is no longer a status in the dispatch list. Card
+    refunds are manual until Green Pay: "Mark refund as paid" (amount, date, card / SINPE / transfer
+    / cash).
+  - **Driver removed or replaced** (dispatch form): the team says why (driver cancelled / team
+    decision); a confirmed booking left without a driver goes back to "Open for drivers" (drivers are
+    emailed the job as usual); the team gets an email (Spanish); the **traveller is not told** about
+    the removal; on a **team decision** the removed driver gets one short, neutral email in their
+    language (Spanish by default) that the trip was reassigned and they don't need to do it (no
+    reason, no traveller details, no price; not sent when the driver cancelled). `driver_removed` is
+    logged (`src/lib/driverChange.ts`). Whenever a driver is set (first time, replacement or after a
+    drop-out) the traveller and the new driver are messaged by the ONE assignment sender
+    (`src/lib/assignmentNotices.ts`, §9 #20), never twice; the booking page's confirmation says so.
+    Drivers can't drop an accepted trip themselves (they withdraw only
+    open offers; the calendar refuses a day with a trip), so the dispatch form is the only path.
+  - **Name sign (team)**: the team can set the sign (name + initial, the brand, or a text, same rules
+    as the traveller's), even after the driver set off (with a confirmation); the history shows who.
+  - **Driver scorecard** on the driver page (and a compact line on the drivers list): trips completed
+    (30 days / all), plain rating average and count, share with a comment, trips with a lateness
+    alert (`bookings.late_alert_at`: the live estimate said 20+ minutes late, or no location 60
+    minutes before; the system doesn't record which or the real arrival), drop-outs after accepting
+    (recorded from 2026-11-12), offers accepted / sent, driver payout of settled trips. Read-only.
 - **Drivers are told** (push to the driver app + email, in their language, `profiles.app_lang`) when
   the team approves or rejects their application, approves / rejects / puts on hold one of their
   vehicles, or sets a vehicle's category for the first time — once per decision, only about their own
@@ -462,18 +510,23 @@ and error states, `AdminActionForm`).
 - **Despacho / Dispatch calendar** (`/admin/dispatch`, 2026-11-12): one week, Monday–Sunday in Costa
   Rica time (previous / next week, "Hoy"); phones see one day with ← / → buttons. A row per approved
   driver (name, home base, vehicle categories) plus a top row "Sin conductor" for bookings that still
-  need one (waiting for payment, open for offers). Each booking shows pickup → estimated end, code,
+  need one (waiting for payment, open for offers). Each booking shows pickup → estimated end in
+  a. m. / p. m. ("8:00–10:45 a. m.", like the rest of the admin), code,
   route, travellers, vehicle class and the traveller's name only (no email or phone). Days a driver
   blocked are striped "No disponible". Rules in `src/lib/dispatch.ts` (`npm run test:dispatch`):
   - **Busy span** = pickup + drive time (`bookings.drive_minutes`, which already includes the Paquera
     ferry / Drake Bay boat when Google's route has them; else the catalog's town-to-town minutes;
     else the saved road route; else 4 h, shown with "≈") + each stop's time and detour (the same sum
-    the driver app shows as "Llegada aprox."); day tours = the catalog length (8 h if unknown).
+    the driver app shows as "Llegada aprox."); day tours = the catalog length (8 h if unknown),
+    starting and ending in their region's town; the Osa tour (Sierpe mangroves & Caño Island)
+    starts and ends in **Puerto Jiménez** (Jorge, 2026-11-12), which is not one of our towns, so
+    travel to or from it shows "Revisar traslado" naming Puerto Jiménez.
   - **Clash** (red): two of a driver's bookings (not cancelled) overlap, or the free time between the
     end of one and the next pickup is shorter than the drive between them (catalog `ROUTE_MINUTES`,
-    both ends in our towns) + `CLASH_BUFFER_MINUTES` = 30. When a place can't be mapped to one of our
-    towns, "Revisar traslado" (yellow) instead of a guess, only when the free time is under the
-    longest drive in the country + 30 min.
+    both ends in our towns) + `CLASH_BUFFER_MINUTES` = **120 (2 hours, Jorge 2026-11-12: in case
+    the earlier trip runs late)**. When a place can't be mapped to one of our towns, "Revisar
+    traslado" (yellow) instead of a guess, only when the free time is under the longest drive in
+    the country (555 min) + 2 h.
   - Clicking a booking without a driver opens a side panel: every approved driver + approved vehicle
     with warnings (clash, blocked day, category can't serve, seats, documents expired on the trip
     day, review hold, the traveller's requests). Order: no warnings first, then drivers who offered,
@@ -483,6 +536,14 @@ and error states, `AdminActionForm`).
     otherwise "Asignar" (`updateBooking`, status unchanged or Confirmada), so the change history and
     notifications are identical. `updateBooking` now leaves the amount received and the internal notes
     alone when a form doesn't send them. Nothing new is shown to drivers.
+  - **A driver assigned by hand is announced like an accepted offer** (Jorge, 2026-11-12): when the
+    booking page or the calendar sets a new driver (none → driver, or another driver), the traveller
+    gets "your ride is confirmed" (push + email, in the language they booked in) and the driver gets
+    "you've got the ride" (push + email, Spanish unless their app is in English; route, pickup time
+    and their payout, never the traveller's contact or price). Once per assignment: saving the
+    booking again with the same driver sends nothing. Texts and the rule in
+    `src/lib/assignmentMessages.ts` (also used by "Aceptar oferta"), sending in
+    `src/lib/assignmentNotices.ts`.
 
 ### 4.3 Driver portal (`/driver`, driver role)
 KYC document upload, view open booking requests, submit and manage bids, assigned trips,
@@ -1005,8 +1066,36 @@ decides which jobs the driver receives, §5.3, migration 0038) ·
 "electric vehicle, if available" request, not a category and no price change, §5.3, migration 0042) ·
 `ins_policy_number` · `ins_insurance_expiry` date · `dekra_inspection_expiry` date ·
 `marchamo_year` int · `has_wifi` · `child_seats` · `stroller_space` · `pet_friendly` · `documents` jsonb (`insurance`, `dekra`, `marchamo`,
-`vehicle_registration`) · `photos` jsonb array (at least 2, one showing the plate; at most 12) · `status` · `note` ·
+`vehicle_registration`, `plate_photo`) · `photos` jsonb array (ordered, first = main photo; at least 2 on an approved vehicle; at most 8 from the app and website, 12 in the database) · `status` · `note` ·
 `needs_review` · `reviewed_at` · `reviewed_by` · `created_at`
+
+**Driver and vehicle photos (2026-11-12, Jorge: "upload several pictures, selfie plus car pics, shown
+to a client once the driver is confirmed"):** the profile photo (`documents.driver_photo`, "Su foto")
+stays single, with the hint "a clear, friendly photo of your face, no sunglasses; travellers see it
+once you're confirmed". Vehicle `photos` are ordered: the first is the **main photo** travellers see
+first. Drivers add up to **8** per vehicle (`MAX_VEHICLE_PHOTOS`, `src/lib/vehiclePhotos.ts`; the app
+keeps a copy and `npm run test:photos` checks they match; the database still allows 12 for older
+vehicles), several at once from the phone's gallery (camera one at a time), "outside, inside and the
+luggage space; hide the plate if you prefer". On the vehicle card they tap a thumbnail to "Use as main
+photo" or "Remove" (with a confirmation); the website portal has the same two buttons. Both go through
+`deleteVehiclePhoto` / `makeMainVehiclePhoto` (`src/app/driver/actions.ts`, app route
+`/api/v1/driver/photos`): the vehicle is read and written as the signed-in driver (row-level
+security), the file must be in that driver's folder for that vehicle, and the removed file is then
+deleted from Storage with the server key (drivers have no delete right on the bucket). An approved
+vehicle never drops below **2** photos (server message, and the database refuses it too, migration
+0048). **Review rule unchanged:** photo changes (add, remove, reorder) only mark the vehicle
+"changed since last review" (`needs_review`); they do not pause jobs (`review_hold` is only for key
+documents, dates and the plate, migration 0031). Travellers see the profile photo and all car photos
+(main first, up to 8) only once the booking is confirmed / in progress / completed with that driver:
+the trip page as a sideways-scrolling row with a full-screen viewer, the customer app as a swipeable
+row with a full-screen viewer (React Native Modal, no new native library). Only those files are ever
+signed for travellers (`travellerPhotoPaths`), never documents.
+**Licence plate photo (Jorge, 2026-11-12, option b):** each vehicle also needs one photo where the
+plate is easy to read, "for our team only" (`documents.plate_photo`, a required vehicle document,
+picture only, no PDF). Being a document, only the team and the owning driver can open it; it is never
+signed for travellers. Vehicles approved before this rule show it as missing to the team but stay
+approved and keep working; adding it the first time pauses nothing, replacing it later pauses new jobs
+for that vehicle like the other vehicle documents (`review_hold`, migration 0048).
 
 The criminal record certificate must be issued ≤ 30 days before first approval (checked by the
 approve button). Expiry warnings cover the licence, insurance, Dekra and Marchamo.
@@ -1048,10 +1137,29 @@ promotional emails (§4.7). **`driver_reviews.team_alerted_at`**: low-rating ema
 **`booking_events`** (change history, migration 0044): `id` · `booking_id` → `bookings.id` · `at` ·
 `actor_id` → `profiles.id` (who did it; empty for the website's server and scheduled jobs) · `action`
 (`status` | `assignment` | `amount_paid` | `price` | `payout` | `payment_mode` | `schedule` |
-`settled` | `sign` | `notes` | `created_by_team` | `trip_link_emailed`) · `before` / `after` jsonb
+`settled` | `sign` | `notes` | `created_by_team` | `trip_link_emailed`; since migration 0049 also
+`cancellation` | `refund` | `refund_paid` (trigger on `booking_refunds`) and `driver_removed` |
+`whatsapp_opened` | `notified` (written by the server)) · `before` / `after` jsonb
 (only the changed fields). Written by triggers on `bookings` and `booking_admin_notes` (so every path
 is covered: admin pages, accepting an offer, the driver app, the traveller's sign) and by the server
 for bookings entered by the team. Never card data, never chat messages.
+
+**`booking_refunds`** (migration 0049, admins only; one row per cancelled booking): `booking_id` ·
+`cancelled_by` (`traveller` | `team` | `driver` | `weather`) · `cancelled_at` · `asked_at` (when the
+traveller's message arrived) · `hours_before` · `amount_received` · `refund_policy` · `refund_rule`
+(`free_24h` | `late_or_no_show` | `we_cancelled` | `weather`) · `refund_due` (≤ received) ·
+`refund_reason` (required when `refund_due` ≠ `refund_policy`) · `refund_paid_amount` /
+`refund_paid_on` / `refund_method` (`card` | `sinpe` | `transfer` | `cash`, all three or none) ·
+`created_by` · `updated_at`. Its own table, not booking columns: travellers can read their own booking
+rows, and the team's reason must stay internal. Written with `cancel_booking()` (status + refund row in
+one step, admins only).
+
+**Customers** (migration 0049): no table of their own. `customer_key(email, phone, trip)` = the
+email lower-cased and trimmed, else `tel:<digits>`, else `trip:<id>`; `admin_customers()` and
+`admin_customer_trips()` compute the list from `trips` + `bookings` + `driver_reviews` and return
+nothing to non-admins. **`customer_notes`**: `customer_key` PK · `tags` text[] (≤ 12; "VIP" = the VIP
+chip) · `note` (≤ 4000) · `updated_by` / `updated_at` (set by the database). Every change is kept in
+**`customer_note_events`** (who, when, before/after).
 
 ### 7.4 `bids`
 `id` uuid PK · `booking_id` → `bookings.id` · `driver_id` → `drivers.id` · `bid_amount` numeric ·
@@ -1171,6 +1279,12 @@ and `season_for_date(date)` returns the season for a travel date.
 - **booking_events:** admins read; nobody writes from a browser or app (no insert/update/delete
   policies) — only the triggers and the server (service role). Travellers, drivers and visitors read
   nothing. `npm run test:db` checks this.
+- **CRM part 3 (migration 0049):** `customer_notes`, `customer_note_events` and `booking_refunds`
+  are admins only (read and write; history read-only); `admin_customers()` /
+  `admin_customer_trips()` return nothing to anyone else; `cancel_booking()` refuses non-admins.
+  Travellers, drivers and visitors read none of it. The cancellation email to a driver never holds
+  the traveller's name, phone, email, the price or the refund. `npm run test:db` checks this.
+  The customers CSV (`/admin/customers/export`) follows the same privacy rule as the bookings export.
 - **Admin CSV export (privacy):** `/admin/bookings/export` is admins only and reads with the admin's
   own session (RLS applies). It holds travellers' names, emails and phones because it is the team's
   own working copy: keep downloaded files private, don't share them outside the team, and delete them
@@ -1319,13 +1433,18 @@ multi-day trips were retired (§1, §5.5) and are not on the roadmap.
     footer. For the lawyer: whether this is enough under Costa Rica's Ley 8968 (it asks for
     informed consent) and other non-European laws, and the "legitimate interest" basis now
     stated for visitors outside Europe in the Privacy Policy's section 4.
-20. **Dispatch calendar (open, from the build of 2026-11-12, §4.2).** (a) Is 30 minutes the right
-    margin between two jobs (`CLASH_BUFFER_MINUTES`, `src/lib/dispatch.ts`)? (b) A manual
-    assignment (calendar or booking page) still sends no automatic message to the driver or the
-    traveller; only accepting an offer does. Should it? (c) Osa day tours and Smart En-Route tours
-    have no known start/end town, so they show "Revisar traslado" instead of a computed drive.
-    (d) The calendar blocks use 24-hour times (08:00–10:45) to fit; the rest of the admin uses
-    a. m. / p. m.
+20. **Dispatch calendar (decided, Jorge, 2026-11-12, §4.2).** (a) Margin between two jobs: 2 hours
+    (`CLASH_BUFFER_MINUTES = 120`). (b) A manual assignment tells the traveller and the driver, with
+    the same messages as an accepted offer, once per assignment. (c) The Osa tour starts and ends in
+    Puerto Jiménez (travel to/from it: "Revisar traslado"); Smart En-Route tours still end in a town
+    the calendar doesn't know. (d) Times in a. m. / p. m.
+21. **Cancellations and drop-outs (decided, Jorge, 2026-11-12, §4.2 CRM part 3).** (a) When the team
+    cancels, the traveller and the assigned driver are told **by email** (checkbox ticked by
+    default). (b) Weather, road or park closures default to a **full refund**; the team can lower it
+    with a reason (e.g. only part of the trip was affected, or they rebook). (c) When a driver drops
+    out or is removed, the traveller is not told; the booking goes back to "Open for drivers", the
+    team is alerted, and the traveller hears only when a new driver is assigned. (d) A driver removed
+    by a team decision gets a short neutral "reassigned" email; one who cancelled gets nothing.
 
 ---
 

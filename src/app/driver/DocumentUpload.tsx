@@ -32,6 +32,7 @@ export function DocumentUpload({
   label,
   uploaded,
   renew,
+  imageOnly,
   lang = "es",
 }: {
   userId: string;
@@ -40,6 +41,8 @@ export function DocumentUpload({
   uploaded: boolean;
   /** Dated document after the first review: ask for its new date with the file. */
   renew?: { ask: string; kind: "date" | "year" };
+  /** A photo only, no PDF (the licence plate photo). */
+  imageOnly?: boolean;
   lang?: TeamLang;
 }) {
   const t = makeT(lang);
@@ -50,13 +53,14 @@ export function DocumentUpload({
   const [, startTransition] = useTransition();
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const photos = target.type === "photo";
+  const noPdf = photos || Boolean(imageOnly);
   const id = `up-${target.type}-${"vehicleId" in target ? target.vehicleId : "me"}-${"key" in target ? target.key : "photo"}`;
 
   async function uploadOne(file: File): Promise<string | null> {
     const ext = (file.name.split(".").pop() ?? "").toLowerCase();
     const type = TYPES[ext];
-    if (!type || (photos && type === "application/pdf")) {
-      return photos
+    if (!type || (noPdf && type === "application/pdf")) {
+      return noPdf
         ? t("Use fotos (JPG, PNG, WEBP, HEIC).", "Use photos (JPG, PNG, WEBP, HEIC).")
         : t("Use una foto (JPG, PNG, WEBP, HEIC) o un PDF.", "Use a photo (JPG, PNG, WEBP, HEIC) or a PDF.");
     }
@@ -134,7 +138,7 @@ export function DocumentUpload({
         id={id}
         type="file"
         multiple={photos}
-        accept={photos ? "image/*,.heic" : "image/*,.heic,application/pdf"}
+        accept={noPdf ? "image/*,.heic" : "image/*,.heic,application/pdf"}
         className="sr-only"
         onChange={(e) => onPick(e.target.files)}
         disabled={busy}

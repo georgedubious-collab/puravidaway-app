@@ -4,12 +4,14 @@ import { AREA_IDS } from "@/lib/catalog";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth";
 import { isValidYmd } from "@/lib/dates";
-import { DRIVER_DOC_KEYS, MAX_VEHICLE_PHOTOS, RENEWABLE, VEHICLE_DOC_KEYS } from "@/lib/driverKyc";
+import { DRIVER_DOC_KEYS, MAX_VEHICLE_PHOTOS, MIN_VEHICLE_PHOTOS, RENEWABLE, VEHICLE_DOC_KEYS, VEHICLE_DOCS } from "@/lib/driverKyc";
 import { InputError, runAction, type FormState } from "@/lib/forms/formState";
 import { hasContactDetails } from "@/lib/preferences";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { makeT } from "@/lib/teamLang";
 import { getTeamLang } from "@/lib/teamLangServer";
+import { isOwnVehiclePath, withMainPhoto, withoutPhoto } from "@/lib/vehiclePhotos";
 
 /* All writes run as the signed-in user, so row-level security and the guard
    triggers decide what is allowed: a driver can never approve themselves or
@@ -264,13 +266,19 @@ export async function removeVehicle(_prev: FormState, fd: FormData): Promise<For
 
 async function vehicleFor(t: T, meId: string, vehicleId: string, path: string) {
   if (!UUID.test(vehicleId)) throw new InputError(vehicleNotFound(t));
-  if (!path.startsWith(`${meId}/vehicles/${vehicleId}/`) || path.includes("..")) {
+  if (!isOwnVehiclePath(meId, vehicleId, path)) {
     throw new InputError(uploadFailed(t));
   }
   const supabase = await db(t);
-  const cur = await supabase.from("driver_vehicles").select("documents, photos").eq("id", vehicleId).single();
+  // Read as the driver: row-level security only returns their own vehicles.
+  const cur = await supabase.from("driver_vehicles").select("documents, photos, status").eq("id", vehicleId).single();
   if (cur.error) throw new InputError(vehicleNotFoundReload(t));
-  return { supabase, documents: (cur.data.documents ?? {}) as Record<string, string>, photos: (cur.data.photos ?? []) as string[] };
+  return {
+    supabase,
+    documents: (cur.data.documents ?? {}) as Record<string, string>,
+    photos: (cur.data.photos ?? []) as string[],
+    status: String(cur.data.status ?? ""),
+  };
 }
 
 export async function attachVehicleDocument(vehicleId: string, key: string, path: string, renewed?: string): Promise<FormState> {
@@ -278,6 +286,8 @@ export async function attachVehicleDocument(vehicleId: string, key: string, path
   return runAction(async () => {
     const me = await requireUser("/driver");
     if (!VEHICLE_DOC_KEYS.has(key)) throw new InputError(unknownDoc(t));
+    if (VEHICLE_DOCS.find((d) => d.key === key)?.imageOnly && /\.pdf$/i.test(path))
+      throw new InputError(t("Use una foto (JPG, PNG, WEBP, HEIC), no un PDF.", "Use a photo (JPG, PNG, WEBP, HEIC), not a PDF."));
     const { supabase, documents } = await vehicleFor(t, me.id, vehicleId, path);
     const patch: Record<string, unknown> = { documents: { ...documents, [key]: path } };
     const r = renewedValue(t, key, renewed);
@@ -312,15 +322,64 @@ export async function addVehiclePhoto(vehicleId: string, path: string): Promise<
   ));
 }
 
+/** Website form: remove one vehicle photo. */
 export async function removeVehiclePhoto(_prev: FormState, fd: FormData): Promise<FormState> {
+  return deleteVehiclePhoto(String(fd.get("vehicle_id") ?? ""), String(fd.get("path") ?? ""));
+}
+
+/** Website form: make one vehicle photo the main one (first). */
+export async function setMainVehiclePhoto(_prev: FormState, fd: FormData): Promise<FormState> {
+  return makeMainVehiclePhoto(String(fd.get("vehicle_id") ?? ""), String(fd.get("path") ?? ""));
+}
+
+const photoGone = (t: T) => t("Esa foto ya no está. Recargue la página.", "That photo is no longer there. Reload the page.");
+const photoMinimum = (t: T) =>
+  t(
+    `Un vehículo aprobado necesita al menos ${MIN_VEHICLE_PHOTOS} fotos. Agregue una nueva antes de eliminar esta.`,
+    `An approved vehicle needs at least ${MIN_VEHICLE_PHOTOS} photos. Add a new one before removing this one.`,
+  );
+
+/**
+ * Remove one photo of the driver's OWN vehicle: the path must be in their folder and on the
+ * vehicle's list (read and written as the driver, so row-level security applies). An approved
+ * vehicle keeps at least 2 (the database refuses it too, migration 0048). Like adding a photo,
+ * this marks the vehicle "changed since last review" but does not pause jobs (migration 0031).
+ * The file itself is then deleted with the server key (drivers can't delete storage files).
+ */
+export async function deleteVehiclePhoto(vehicleId: string, path: string): Promise<FormState> {
   const t = await lang();
   return runAction(async () => {
     const me = await requireUser("/driver");
-    const vehicleId = String(fd.get("vehicle_id") ?? "");
-    const path = String(fd.get("path") ?? "");
-    const { supabase, photos } = await vehicleFor(t, me.id, vehicleId, path);
-    const up = await supabase.from("driver_vehicles").update({ photos: photos.filter((p) => p !== path) }).eq("id", vehicleId);
-    if (up.error) friendly(up.error);
+    const { supabase, photos, status } = await vehicleFor(t, me.id, vehicleId, path);
+    const next = withoutPhoto(photos, path, status);
+    if (!next.ok) throw new InputError(next.reason === "missing" ? photoGone(t) : photoMinimum(t));
+    const up = await supabase.from("driver_vehicles").update({ photos: next.photos }).eq("id", vehicleId).select("id");
+    if (up.error) {
+      if (/at least 2 photos/.test(up.error.message ?? "")) throw new InputError(photoMinimum(t));
+      friendly(up.error);
+    }
+    if (!up.data?.length) throw new InputError(vehicleNotFoundReload(t));
+    // Only reached for a path that was on this driver's own vehicle and inside their own folder.
+    const admin = createSupabaseAdminClient();
+    if (admin) {
+      const del = await admin.storage.from("driver-kyc-docs").remove([path]);
+      if (del.error) console.error("vehicle photo: storage delete failed", del.error.message);
+    }
     revalidatePath("/driver");
   }, t("No se pudo eliminar la foto. Intente de nuevo.", "Couldn't remove the photo. Please try again."));
+}
+
+/** Move one photo of the driver's OWN vehicle to the front: the main photo travellers see first. */
+export async function makeMainVehiclePhoto(vehicleId: string, path: string): Promise<FormState> {
+  const t = await lang();
+  return runAction(async () => {
+    const me = await requireUser("/driver");
+    const { supabase, photos } = await vehicleFor(t, me.id, vehicleId, path);
+    const next = withMainPhoto(photos, path);
+    if (!next.ok) throw new InputError(photoGone(t));
+    const up = await supabase.from("driver_vehicles").update({ photos: next.photos }).eq("id", vehicleId).select("id");
+    if (up.error) friendly(up.error);
+    if (!up.data?.length) throw new InputError(vehicleNotFoundReload(t));
+    revalidatePath("/driver");
+  }, t("No se pudo cambiar la foto principal. Intente de nuevo.", "Couldn't change the main photo. Please try again."));
 }

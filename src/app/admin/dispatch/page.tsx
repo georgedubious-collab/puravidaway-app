@@ -9,6 +9,7 @@ import { addDays, costaRicaTimestamp, isValidYmd, scheduledParts, todayInCostaRi
 import { vehicleRoadLegal, type DriverRecord, type VehicleRecord } from "@/lib/driverKyc";
 import {
   CLASH_BUFFER_MINUTES,
+  durationText,
   busySpan,
   candidateWarnings,
   findClashes,
@@ -356,6 +357,9 @@ export default async function DispatchPage({ searchParams }: { searchParams: Pro
   );
 }
 
+/** Never split "8:00 a. m." across two lines in a narrow block: line breaks only after the dash. */
+const keepTogether = (label: string) => label.replace(/ (a\.|p\.) m\./g, "\u00a0$1\u00a0m.").replace(/ (AM|PM)\b/g, "\u00a0$1");
+
 /* ---------- One booking on the calendar ---------- */
 
 function BookingBlock({
@@ -379,7 +383,7 @@ function BookingBlock({
   const route =
     b.service_type === "transfer"
       ? `${shortPlace(b.origin, b.origin_coords, lang)} → ${shortPlace(b.destination, b.destination_coords, lang)}`
-      : (catalog.dayTours.find((x) => x.id === b.catalog_item_id)?.name ?? t("Tour", "Tour"));
+      : `${span?.fromPlace ? `${span.fromPlace} · ` : ""}${catalog.dayTours.find((x) => x.id === b.catalog_item_id)?.name ?? t("Tour", "Tour")}`;
   const hard = clashes.some((c) => c.kind !== "check_travel");
   const soft = !hard && clashes.length > 0;
   const unassigned = !b.assigned_driver_id;
@@ -404,7 +408,7 @@ function BookingBlock({
     >
       <span className="flex items-baseline justify-between gap-1">
         <span className="font-extrabold tabular-nums">
-          {span ? `${span.estimated ? "≈ " : ""}${spanLabel(span, lang)}` : t("Sin hora", "No time")}
+          {span ? `${span.estimated ? "≈ " : ""}${keepTogether(spanLabel(span, lang))}` : t("Sin hora", "No time")}
         </span>
       </span>
       <span className="block font-mono text-[11px] font-bold text-[#33443C]">{b.booking_ref}</span>
@@ -458,8 +462,8 @@ function Legend({ lang }: { lang: TeamLang }) {
         </li>
         <li>
           {t(
-            `Choque (rojo): dos viajes del mismo conductor se cruzan, o no queda tiempo para manejar de la llegada de uno a la recogida del siguiente más ${CLASH_BUFFER_MINUTES} min de margen.`,
-            `Clash (red): two of a driver's bookings overlap, or there isn't time to drive from one drop-off to the next pickup plus a ${CLASH_BUFFER_MINUTES}-minute margin.`,
+            `Choque (rojo): dos viajes del mismo conductor se cruzan, o no queda tiempo para manejar de la llegada de uno a la recogida del siguiente más ${durationText(CLASH_BUFFER_MINUTES)} de margen (por si el viaje anterior se atrasa).`,
+            `Clash (red): two of a driver's bookings overlap, or there isn't time to drive from one drop-off to the next pickup plus a ${durationText(CLASH_BUFFER_MINUTES)} margin (in case the earlier trip runs late).`,
           )}
         </li>
         <li>
@@ -555,7 +559,7 @@ function AssignPanel({
   const route = b
     ? b.service_type === "transfer"
       ? `${shortPlace(b.origin, b.origin_coords, lang)} → ${shortPlace(b.destination, b.destination_coords, lang)}`
-      : (catalog.dayTours.find((x) => x.id === b.catalog_item_id)?.name ?? t("Tour", "Tour"))
+      : `${span?.fromPlace ? `${span.fromPlace} · ` : ""}${catalog.dayTours.find((x) => x.id === b.catalog_item_id)?.name ?? t("Tour", "Tour")}`
     : "";
   const nextStatusDefault = b?.status === "pending_bids" ? "confirmed" : (b?.status ?? "confirmed");
 
@@ -589,7 +593,7 @@ function AssignPanel({
             <Card>
               <p className="font-extrabold text-[#14231C]">{route}</p>
               <p className="mt-1 text-sm text-[#33443C]">
-                {dayName(tripDay, lang, "long")} · {span ? `${span.estimated ? "≈ " : ""}${spanLabel(span, lang)}` : t("sin hora", "no time")}
+                {dayName(tripDay, lang, "long")} · {span ? `${span.estimated ? "≈ " : ""}${keepTogether(spanLabel(span, lang))}` : t("sin hora", "no time")}
               </p>
               <p className="mt-1 text-sm text-[#5F6F67]">
                 {[b.vehicle_class ? jobClassLabel(b.vehicle_class, lang) : null, b.passenger_count ? t(`${b.passenger_count} pasajeros`, `${b.passenger_count} passengers`) : null, b.trips?.guest_name]
@@ -695,8 +699,8 @@ function AssignPanel({
                                 {
                                   kind: "always",
                                   message: t(
-                                    `Se asigna ${b.booking_ref} a ${nameOf(d)} (${v.make_model ?? "vehículo"} ${v.plate ?? ""}). Igual que en la página de la reserva, nadie recibe un aviso automático: avise al conductor.${warnText.length ? ` Avisos: ${warnText.join("; ")}.` : ""}`,
-                                    `${b.booking_ref} goes to ${nameOf(d)} (${v.make_model ?? "vehicle"} ${v.plate ?? ""}). As on the booking page, nobody is notified automatically: tell the driver.${warnText.length ? ` Warnings: ${warnText.join("; ")}.` : ""}`,
+                                    `Se asigna ${b.booking_ref} a ${nameOf(d)} (${v.make_model ?? "vehículo"} ${v.plate ?? ""}). El conductor y el viajero reciben un aviso (el mismo que al aceptar una oferta).${warnText.length ? ` Avisos: ${warnText.join("; ")}.` : ""}`,
+                                    `${b.booking_ref} goes to ${nameOf(d)} (${v.make_model ?? "vehicle"} ${v.plate ?? ""}). The driver and the traveller are notified (the same messages as accepting an offer).${warnText.length ? ` Warnings: ${warnText.join("; ")}.` : ""}`,
                                   ),
                                 },
                               ]}

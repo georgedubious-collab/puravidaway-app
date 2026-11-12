@@ -232,8 +232,8 @@ export const TOUR_CONTENT: TourPageContent[] = [
       "Dos caras de Osa en un día: los canales lentos y verdes del humedal Térraba-Sierpe, el manglar más grande de Costa Rica, y el agua clara alrededor de la Isla del Caño, una reserva biológica mar adentro.",
     ),
     start: l(
-      "The tour is in the Osa region, around Sierpe and Drake Bay, with only your group. Write where you are staying in the trip notes when you book, and our team confirms where and when the day starts.",
-      "El tour es en la región de Osa, alrededor de Sierpe y Bahía Drake, solo para su grupo. Escriba dónde se hospeda en las notas del viaje al reservar, y nuestro equipo le confirma dónde y a qué hora empieza el día.",
+      "The tour starts and ends in Puerto Jiménez, in the Osa region, with only your group. Write where you are staying in the trip notes when you book, and our team confirms where and when the day starts.",
+      "El tour empieza y termina en Puerto Jiménez, en la región de Osa, solo para su grupo. Escriba dónde se hospeda en las notas del viaje al reservar, y nuestro equipo le confirma dónde y a qué hora empieza el día.",
     ),
     parts: [
       {

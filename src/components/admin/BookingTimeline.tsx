@@ -1,7 +1,9 @@
 import { paymentModeLabel, usd, type BookingRow } from "@/lib/bookings";
 import { formatScheduledAt } from "@/lib/dates";
 import { statusShort } from "@/lib/adminBookings";
+import { cancelledByText, refundMethodText, type CancelledBy } from "@/lib/refundPolicy";
 import { makeT, type TeamLang } from "@/lib/teamLang";
+import { waButtonLabel, type WaKind } from "@/lib/whatsappMessages";
 
 export interface BookingEvent {
   id: string;
@@ -57,6 +59,39 @@ export function describeEvent(e: BookingEvent, lang: TeamLang, who: { driver: Lo
       return { title: t("Reserva ingresada por el equipo", "Booking entered by the team"), detail: a.source ? String(a.source) : undefined };
     case "trip_link_emailed":
       return { title: t("Enlace del viaje enviado al viajero por correo", "Trip link emailed to the traveller") };
+    // CRM part 3 (migration 0049).
+    case "cancellation":
+      return {
+        title: `${t("Cancelada por", "Cancelled by")}: ${cancelledByText(String(a.cancelled_by) as CancelledBy, lang)}`,
+        detail: [
+          `${t("Reembolso", "Refund")} ${money(a.refund_due)} ${t("de", "of")} ${money(a.amount_received)} ${t("recibidos", "received")}`,
+          Number(a.refund_due) !== Number(a.refund_policy) ? `${t("la política daba", "policy gave")} ${money(a.refund_policy)}` : "",
+          a.refund_reason ? `“${String(a.refund_reason)}”` : "",
+        ]
+          .filter(Boolean)
+          .join(" · "),
+      };
+    case "refund":
+      return {
+        title: `${t("Reembolso cambiado", "Refund changed")}: ${money(b.refund_due)} → ${money(a.refund_due)}`,
+        detail: a.refund_reason ? `“${String(a.refund_reason)}”` : undefined,
+      };
+    case "refund_paid":
+      return a.amount
+        ? { title: `${t("Reembolso pagado", "Refund paid")}: ${money(a.amount)}`, detail: `${String(a.on ?? "")} · ${refundMethodText(String(a.method ?? ""), lang)}` }
+        : { title: t("Pago del reembolso deshecho", "Refund payment undone") };
+    case "driver_removed":
+      return {
+        title: a.reason === "driver_dropped" ? t("El conductor se retiró del viaje", "The driver dropped out") : t("El equipo quitó al conductor", "The team removed the driver"),
+        detail: `${who.driver(b.driver_id) ?? t("Conductor", "Driver")}${a.team_alerted ? ` · ${t("aviso al equipo por correo", "team alerted by email")}` : ""}${a.driver_emailed ? ` · ${t("conductor avisado: viaje reasignado", "driver told: trip reassigned")}` : ""} · ${t("al viajero no se le avisó", "the traveller was not told")}`,
+      };
+    case "whatsapp_opened":
+      return { title: `${t("WhatsApp abierto", "WhatsApp opened")}: ${waButtonLabel(String(a.kind) as WaKind, lang)}` };
+    case "notified":
+      return {
+        title: t("Avisos de cancelación enviados", "Cancellation notices sent"),
+        detail: [a.traveller ? t("viajero (correo)", "traveller (email)") : "", a.driver ? t("conductor (correo)", "driver (email)") : ""].filter(Boolean).join(" · ") || t("nadie", "nobody"),
+      };
     default:
       return { title: e.action };
   }
@@ -88,7 +123,12 @@ export function BookingTimeline({
       )}
       {events.map((e) => {
         const d = describeEvent(e, lang, { driver: driverName, vehicle: vehicleName });
-        const tone = e.action === "status" && e.after?.status === "cancelled" ? "red" : e.action === "amount_paid" || e.action === "price" || e.action === "payout" ? "amber" : "green";
+        const tone =
+          (e.action === "status" && e.after?.status === "cancelled") || e.action === "cancellation" || e.action === "driver_removed"
+            ? "red"
+            : ["amount_paid", "price", "payout", "refund", "refund_paid"].includes(e.action)
+              ? "amber"
+              : "green";
         return (
           <Item
             key={e.id}
