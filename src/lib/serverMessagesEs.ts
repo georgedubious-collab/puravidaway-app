@@ -48,6 +48,9 @@ const EXACT: Record<string, string> = {
   // Multi-day trips were retired on 2026-11-11 (RETIRED_EXPEDITION_ERROR in src/lib/tripRequest.ts).
   "Multi-day trips are no longer offered. Please remove that item from your trip; private transfers and 1-day tours are still available.":
     "Ya no ofrecemos viajes de varios días. Por favor, quite ese elemento de su viaje; los traslados privados y los tours de un día siguen disponibles.",
+  // Travellers book at the fixed price only since 2026-11-11 (TRAVELLER_OFFER_ERROR in src/lib/tripRequest.ts).
+  "Please book at the fixed price shown; offers are no longer available.":
+    "Por favor, reserve al precio fijo indicado; las ofertas ya no están disponibles.",
   // Rating on the trip page (src/app/trip/[token]/actions.ts)
   "This link isn't valid any more.": "Este enlace ya no es válido.",
   "Pick 1 to 5 stars.": "Elija de 1 a 5 estrellas.",

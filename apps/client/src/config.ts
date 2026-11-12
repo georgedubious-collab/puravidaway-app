@@ -6,5 +6,5 @@
 export const SUPABASE_URL = "https://yfbwpdnjgpbjjonoiydy.supabase.co";
 export const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_YDrpcWXyAMAzv880CGEGUw_fsvXGNbs";
 
-/** The website, for /api/v1 calls (offers, trip status, chat). */
+/** The website, for /api/v1 calls (prices, trip requests, trip status, chat). */
 export const SITE_URL = "https://www.costaricaprivatetransfers.com";

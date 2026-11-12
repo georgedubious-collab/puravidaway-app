@@ -87,7 +87,7 @@ Without the key nothing breaks: Android shows the app's own drawn map.
   menu panel (`Menu.tsx`).
 - **Booking a ride** (no map while booking since 2026-11-11; the map is only on the trip screen once a driver is close) — in `src/screens/book/`: `Where.tsx` (pickup and
   drop-off, "Add a stop", our towns with drive times) → `Ride.tsx` (a route summary card
-  with the drive time, date and travellers, the vehicles with prices, fixed price or driver bids) → `Confirm.tsx`
+  with the drive time, date and travellers, then "Choose your vehicle" with fixed prices; travellers book at the fixed price only since 2026-11-11) → `Confirm.tsx`
   ("Your ride": travellers and bags, flight number, stops, driver and extras, payment, contact
   details, "Request ride"). Panels: `When.tsx` (date, time, travellers, bags), `Extras.tsx` (stops;
   driver and extras), `PlaceSearch.tsx`. A ride can't be sent until the traveller
@@ -138,7 +138,7 @@ Every screen can be shown in a browser with made-up data, without signing in:
 Then open the address it prints and add `?s=<screen>`; add `&lang=es` to see it in Spanish.
 Screens: `home` (rides), `home-in`, `home-route`, `home-loading`, `menu`, `places`,
 `where-empty`, `where`, `search`, `search-found`, `map-pick` (now opens the place search), `when`, `time`, `choose` (same as
-`ride`), `ride-new`, `ride-bid`, `ride-loading`, `stops`, `extras`, `extras-empty`, `confirm`, `confirm-electric`
+`ride`), `ride-new`, `ride-bid` (now opens `ride`), `ride-loading`, `stops`, `extras`, `extras-empty`, `confirm`, `confirm-electric`
 (`review` and `guest` are the same screen with other data), `code`, `tours` (with the switch),
 `tours-loading`, `tour-when`, `tour`, `tour-review`, `sent`, `sent-paid`, `sent-cash`, `trips`,
 `empty`, `trips-loading`, `signin`, `signin-code`, `live` (same as `trip`), `trip-driver`, `trip2`,

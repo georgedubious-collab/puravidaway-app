@@ -46,7 +46,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
 /** What travellers see for each status. */
 const TRAVELLER_STATUS: Record<BookingStatus, string> = {
   pending_payment: "Request received · we're confirming availability",
-  pending_bids: "Collecting driver offers",
+  pending_bids: "Finding your driver",
   confirmed: "Confirmed",
   in_progress: "On the road",
   completed: "Completed",
@@ -54,7 +54,7 @@ const TRAVELLER_STATUS: Record<BookingStatus, string> = {
 };
 const TRAVELLER_STATUS_ES: Record<BookingStatus, string> = {
   pending_payment: "Solicitud recibida · estamos confirmando la disponibilidad",
-  pending_bids: "Recibiendo ofertas de conductores",
+  pending_bids: "Buscando su conductor",
   confirmed: "Confirmado",
   in_progress: "En ruta",
   completed: "Completado",

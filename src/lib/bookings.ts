@@ -60,6 +60,7 @@ export interface BookingRow {
   scheduled_at: string | null;
   passenger_count: number | null;
   flight_or_hotel_notes: string | null;
+  /** "bid" only on rides booked as a traveller's own offer before 2026-11-11 (fixed prices only since). */
   pricing_mode: "fixed" | "bid";
   total_price: number;
   currency: string;
