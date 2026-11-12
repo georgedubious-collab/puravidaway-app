@@ -193,9 +193,9 @@ What is recorded in Google Analytics (GA4's standard names, so its built-in repo
 | `page_view` | each public page | cleaned address, page title |
 | `view_item` | the ride builder shows prices for a route (once per route) | route as town codes, number of vehicle classes offered, "from" price, USD |
 | `select_item` | a vehicle class is tapped | route, vehicle class, its price |
-| `add_to_cart` | a ride or day tour is added to "Your trip" | item code, price, fixed price or bid |
-| `begin_checkout` | the trip is opened to review (phones) or the details form is first touched (desktop), once per trip | total, payment choice, fixed / bid / mixed, number of items |
-| `generate_lead` | "Send trip request" succeeded | total in USD, payment choice (`full_100` online or `cash_driver`), fixed / bid / mixed, items |
+| `add_to_cart` | a ride or day tour is added to "Your trip" | item code, price (the `pricing` fixed / bid parameter was dropped on 2026-11-11: fixed prices only) |
+| `begin_checkout` | the trip is opened to review (phones) or the details form is first touched (desktop), once per trip | total, payment choice, number of items |
+| `generate_lead` | "Send trip request" succeeded | total in USD, payment choice (`full_100` online or `cash_driver`), items |
 | `click` | a WhatsApp button, an app store link (none on the site yet) or the language switch | only the kind of link (`whatsapp`, `app_store`, `language`) |
 
 `purchase` is **not sent at all** for now: the website takes no payment (the team sends a
