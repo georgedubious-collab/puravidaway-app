@@ -48,6 +48,40 @@ export interface TripState {
   sentTripToken: string | null;
   onSent: (refs: string[], tripToken: string | null) => void;
   onNewTrip: () => void;
+  /** The promo code the server accepted for these items, or null. */
+  promo: AppliedPromo | null;
+  /** Why the code was refused, in the page's language (cleared on the next try). */
+  promoError: string | null;
+  /** Check a code on the server ("Apply"). Resolves once the answer is shown. */
+  onApplyPromo: (code: string) => Promise<void>;
+  onRemovePromo: () => void;
+  /** Sending refused the code (no longer valid) or found a different discount: check again. */
+  onPromoRejected: (invalid: boolean, message: string) => void;
+}
+
+/** A promo code the server accepted (checkTripPromo in src/app/trip/actions.ts). */
+export interface AppliedPromo {
+  code: string;
+  discountCents: number;
+  /** Item id → its discount in cents. */
+  perItem: Record<string, number>;
+  /** The items (ids and prices) it was checked for; a different trip is checked again. */
+  key: string;
+}
+
+/** What identifies the trip a promo was checked for: each item and its price. */
+export function promoItemsKey(items: CartItem[]): string {
+  return items.map((i) => `${i.id}:${i.totalCents}`).join("|");
+}
+
+/** The items in the shape the server checks (same as sending the trip). */
+export function requestItems(items: CartItem[]) {
+  return items.map((i) => ({
+    id: i.id,
+    date: i.date,
+    totalCents: i.totalCents,
+    spec: i.spec?.kind === "day_tour" ? { ...i.spec, pickupPlace: cleanPickupPlace(i.spec.pickupPlace) } : i.spec,
+  }));
 }
 
 const field = "mt-1 w-full min-h-11 border border-slate-300 rounded-xl px-3 text-base font-semibold text-slate-900";
@@ -64,7 +98,9 @@ export function TripSummary({ trip }: { trip: TripState }) {
   const lang = usePublicLang();
   const t = useT();
   const feeLabel = formatBpsPercent(cashFeeBps);
-  const totals = cartTotals(items, mode, cashFeeBps);
+  // A promo only counts for the exact items it was checked for (Storefront checks again on a change).
+  const promo = trip.promo && trip.promo.key === promoItemsKey(items) ? trip.promo : null;
+  const totals = cartTotals(items, mode, cashFeeBps, promo?.perItem);
   const anyCashable = items.some((i) => cashAllowed(i.kind));
   const legs = [...items].sort((a, b) => legKey(a).localeCompare(legKey(b)));
   const [pending, startTransition] = useTransition();
@@ -133,25 +169,25 @@ export function TripSummary({ trip }: { trip: TripState }) {
     }
     startTransition(async () => {
       const res = await submitTripRequest({
-        items: items.map((i) => ({
-          id: i.id,
-          date: i.date,
-          totalCents: i.totalCents,
-          spec: i.spec?.kind === "day_tour" ? { ...i.spec, pickupPlace: cleanPickupPlace(i.spec.pickupPlace) } : i.spec,
-        })),
+        items: requestItems(items),
         mode,
         cashFeeBps,
         ...contact,
         website,
         lang,
+        // Promo code and the discount shown here; the server checks both again.
+        ...(promo ? { promoCode: promo.code, promoDiscountCents: promo.discountCents } : {}),
       });
       if (res.ok) {
         // Totals and codes only: never the contact details, the references or the trip link.
-        trackLead(items, totals.totalCents, mode);
+        trackLead(items, totals.totalCents, mode, promo?.code);
         trip.onSent(res.refs, res.tripToken);
       } else {
         if ("repriced" in res) trip.onReprice(res.repriced);
-        setError(localizeServerMessage(res.error, lang));
+        const message = localizeServerMessage(res.error, lang);
+        if ("promoInvalid" in res && res.promoInvalid) trip.onPromoRejected(true, message);
+        else if ("promoDiscountCents" in res && res.promoDiscountCents !== undefined) trip.onPromoRejected(false, message);
+        setError(message);
       }
     });
   }
@@ -243,11 +279,20 @@ export function TripSummary({ trip }: { trip: TripState }) {
             );
           })}
         </fieldset>
+        {items.length > 0 && <PromoField trip={trip} promo={promo} />}
         <div className="space-y-1 text-sm text-slate-600">
           <div className="flex items-center justify-between">
             <span>{t("Trip price", "Precio del viaje")}</span>
             <span className="font-bold text-slate-900">{formatUSD(totals.itemsCents)}</span>
           </div>
+          {promo && totals.discountCents > 0 && (
+            <div className="flex items-center justify-between text-emerald-800">
+              <span>
+                {t("Promo", "Promoción")} <span className="font-mono font-bold">{promo.code}</span>
+              </span>
+              <span className="font-bold">−{formatUSD(totals.discountCents)}</span>
+            </div>
+          )}
           {totals.cashFeeCents > 0 && (
             <div className="flex items-center justify-between">
               <span>
@@ -413,6 +458,84 @@ export function TripSummary({ trip }: { trip: TripState }) {
           </a>
         )}
       </form>
+    </div>
+  );
+}
+
+/**
+ * "Promo code (optional)" with an Apply button; once accepted, the code and its discount with a
+ * Remove button. The server decides (checkTripPromo); a refused code shows one neutral message.
+ * Its own small form, so Enter applies the code instead of sending the trip.
+ */
+function PromoField({ trip, promo }: { trip: TripState; promo: AppliedPromo | null }) {
+  const t = useT();
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
+  const errId = "trip-promo-error";
+  if (promo) {
+    return (
+      <div className="flex items-center justify-between gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm" role="status">
+        <span className="text-emerald-900">
+          <span className="font-bold">{t("Promo code applied:", "Código promocional aplicado:")}</span>{" "}
+          <span className="font-mono font-bold">{promo.code}</span> −{formatUSD(promo.discountCents)}
+        </span>
+        <button
+          type="button"
+          onClick={() => {
+            trip.onRemovePromo();
+            setCode("");
+          }}
+          className="min-h-11 shrink-0 px-2 text-sm font-bold text-emerald-800 underline"
+        >
+          {t("Remove", "Quitar")}
+        </button>
+      </div>
+    );
+  }
+  const apply = async () => {
+    if (!code.trim() || busy) return;
+    setBusy(true);
+    await trip.onApplyPromo(code.trim());
+    setBusy(false);
+  };
+  return (
+    <div>
+      <label htmlFor="trip-promo" className="block text-xs font-bold text-slate-600">
+        {t("Promo code (optional)", "Código promocional (opcional)")}
+      </label>
+      <div className="mt-1 flex gap-2">
+        <input
+          id="trip-promo"
+          value={code}
+          onChange={(e) => setCode(e.target.value.toUpperCase())}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              void apply();
+            }
+          }}
+          maxLength={30}
+          autoComplete="off"
+          autoCapitalize="characters"
+          spellCheck={false}
+          aria-invalid={Boolean(trip.promoError)}
+          aria-describedby={trip.promoError ? errId : undefined}
+          className={`min-h-11 w-full min-w-0 flex-1 rounded-xl border border-slate-300 px-3 font-mono text-base font-semibold uppercase text-slate-900 ${trip.promoError ? "border-red-600 bg-red-50" : ""}`}
+        />
+        <button
+          type="button"
+          onClick={() => void apply()}
+          disabled={!code.trim() || busy}
+          className="min-h-11 shrink-0 rounded-xl border border-emerald-700 px-4 text-sm font-extrabold text-emerald-800 hover:bg-emerald-50 disabled:opacity-50"
+        >
+          {busy ? t("Checking…", "Verificando…") : t("Apply", "Aplicar")}
+        </button>
+      </div>
+      {trip.promoError && (
+        <span id={errId} role="alert" className="mt-1 block text-sm font-semibold text-red-700">
+          {trip.promoError}
+        </span>
+      )}
     </div>
   );
 }

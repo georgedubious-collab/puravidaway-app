@@ -90,6 +90,12 @@ export interface BookingRow {
   drive_minutes?: number | null;
   /** Night-pickup premium inside total_price (USD); 0 by day. Missing before migration 0041. */
   night_premium?: number | string | null;
+  /** Promo code used on this booking (upper-case), or null; migration 0052. Never shown to drivers. */
+  promo_code?: string | null;
+  /** USD the promo code took off (total_price is already after it); 0 without a code. Migration 0052. */
+  promo_discount?: number | string | null;
+  /** Ferry tickets inside total_price, paid to the driver in full (USD); null before migration 0052. */
+  pass_through?: number | string | null;
   /** Name sign: the traveller's own text (max 40), null = none written. See src/lib/sign.ts; migration 0040. */
   sign_text?: string | null;
   /** Name sign: "Don't show my name" (the sign shows the brand name). Migration 0040. */
