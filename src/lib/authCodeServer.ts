@@ -45,16 +45,17 @@ export async function sendCodeRoute(req: Request, channel: CodeChannel): Promise
   // Website: the cookie client, so the sign-in link's PKCE check is stored in this browser.
   // Apps: a plain client; they only use the 6-digit code.
   const sender = channel === "web" ? await createSupabaseServerClient() : createSupabasePublicClient();
-  if (!admin || !sender) {
-    console.error("[send-code] Supabase keys missing (NEXT_PUBLIC_SUPABASE_URL / ANON / SUPABASE_SERVICE_ROLE_KEY).");
-    return reply({ ok: false, error: "Sign-in isn't available right now. Please try again later." }, 503);
-  }
+  // Missing keys fail at the first database step (after the Turnstile check), as a 500.
+  const need = <T,>(client: T | null): T => {
+    if (!client) throw new Error("Supabase keys missing (NEXT_PUBLIC_SUPABASE_URL / ANON / SUPABASE_SERVICE_ROLE_KEY)");
+    return client;
+  };
 
   const next = typeof body.next === "string" && body.next.startsWith("/") && !body.next.startsWith("//") ? body.next : "/";
   const deps: CodeDeps = {
     verifyTurnstile: turnstileFor(channel),
     allow: async (ipAddr, email) => {
-      const { data, error } = await admin.rpc("allow_auth_code", {
+      const { data, error } = await need(admin).rpc("allow_auth_code", {
         p_ip: ipAddr,
         p_email: email,
         p_email_per_hour: CODE_LIMITS.EMAIL_PER_HOUR,
@@ -68,7 +69,7 @@ export async function sendCodeRoute(req: Request, channel: CodeChannel): Promise
       return data as LimitResult;
     },
     status: async (email) => {
-      const { data, error } = await admin.rpc("auth_email_status", { p_email: email });
+      const { data, error } = await need(admin).rpc("auth_email_status", { p_email: email });
       if (error) throw new Error(error.message);
       const row = (Array.isArray(data) ? data[0] : data) as { user_id: string | null; confirmed: boolean | null; has_trip: boolean } | undefined;
       return { userId: row?.user_id ?? null, confirmed: Boolean(row?.confirmed), hasTrip: Boolean(row?.has_trip) };
@@ -76,7 +77,7 @@ export async function sendCodeRoute(req: Request, channel: CodeChannel): Promise
     createUser: async (email) => {
       // Confirmed now so Supabase will email it a code with public sign-ups off; the code
       // itself still proves the person owns the inbox before they're signed in.
-      const { error } = await admin.auth.admin.createUser({ email, email_confirm: true });
+      const { error } = await need(admin).auth.admin.createUser({ email, email_confirm: true });
       if (error && !/already|registered|exists/i.test(error.message)) {
         console.error("[send-code] create user failed", error.message);
         return false;
@@ -84,12 +85,12 @@ export async function sendCodeRoute(req: Request, channel: CodeChannel): Promise
       return true;
     },
     confirmUser: async (userId) => {
-      const { error } = await admin.auth.admin.updateUserById(userId, { email_confirm: true });
+      const { error } = await need(admin).auth.admin.updateUserById(userId, { email_confirm: true });
       if (error) console.error("[send-code] confirm user failed", error.message);
       return !error;
     },
     sendOtp: async (email) => {
-      const { error } = await sender.auth.signInWithOtp({
+      const { error } = await need(sender).auth.signInWithOtp({
         email,
         options: {
           shouldCreateUser: false,

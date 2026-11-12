@@ -139,8 +139,45 @@ Supabase → **Authentication → URL Configuration**:
 - **Redirect URLs → Add URL:** `https://puravidaway-app.vercel.app/**` (add the custom domain too
   when you have one).
 
+## 4b. Stop bot sign-ups (do this after the "signup protection" change is live, Nov 2026)
+Since 2026-11-12 only our website's server sends sign-in codes and creates accounts
+(`docs/PROJECT.md` §3, "Sign-in codes"). Two settings finish the job:
+
+1. **Turn off public sign-ups.** Wait until the change is merged and the Vercel deployment of
+   `main` shows **Ready**, then: Supabase → your project → **Authentication** → **Sign In /
+   Providers** → section **User Signups** → switch **Allow new users to sign up** to **off** →
+   **Save changes**. Leave the **Email** provider itself switched on. From now on nobody can
+   create an account by calling Supabase directly; our server still can (it uses the secret key).
+   (If your dashboard looks older: Authentication → **Providers** / **Settings** → "Allow new
+   users to sign up".)
+2. **Check the sign-in email has the code.** Authentication → **Emails** → **Templates** →
+   **Magic Link**: the message must contain `{{ .Token }}` (the 6-digit code the apps ask for).
+   Every sign-in email now uses this template, including a brand-new traveller's or driver's
+   first one (the "Confirm signup" template is no longer used).
+3. **Test it:** open the driver app, ask for a code with your email, and sign in; on the website,
+   sign in at `/login`.
+
+### Cloudflare Turnstile (the website's "are you a person" check)
+1. Sign in at [dash.cloudflare.com](https://dash.cloudflare.com) (a free account is enough; the
+   domain doesn't need to be on Cloudflare) → **Turnstile** → **Add widget**.
+2. Name: `Costa Rica Private Transfers login`. **Hostnames:** `www.costaricaprivatetransfers.com`
+   and `costaricaprivatetransfers.com` (add `puravidaway-app.vercel.app` too if you test previews
+   there). **Widget mode: Managed.** Pre-clearance: No. **Create**.
+3. Copy the **Site Key** and the **Secret Key**. Vercel → **Settings → Environment Variables**
+   (Production, and Preview if you added the preview hostname), then **redeploy**:
+
+| Vercel variable | Value |
+| :--- | :--- |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | the Site Key (public) |
+| `TURNSTILE_SECRET_KEY` | the Secret Key — tick **Sensitive** |
+
+Add both together. Without them the website still works and the rate limits still apply; with
+only the secret key the website login would refuse everyone. The apps don't use Turnstile.
+
 ## 5. Make yourself the admin
-1. Open the site → **/login** → enter your email → click the **sign-in link** in the email, in the
+1. (Since 2026-11-12 `/login` only signs in existing accounts. On a brand-new project, create
+   yours first: Supabase → **Authentication → Users → Add user → Create new user**, your email,
+   tick **Auto Confirm User**.) Open the site → **/login** → enter your email → click the **sign-in link** in the email, in the
    same browser. (You land on "this account doesn't have access" — expected.)
 2. Supabase → **SQL Editor** → run (with your email):
    ```sql

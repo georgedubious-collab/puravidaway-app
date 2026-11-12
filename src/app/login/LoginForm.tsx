@@ -61,6 +61,8 @@ export function LoginForm() {
       setError("We couldn't reach the server. Check your connection.");
     }
     setBusy(false);
+    // A Turnstile token works once: forget it and get a fresh one for the next try.
+    setToken(null);
     turnstile.current?.reset();
   }
 
