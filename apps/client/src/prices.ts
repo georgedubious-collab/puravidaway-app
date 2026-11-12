@@ -62,13 +62,13 @@ export async function fetchTours(date: string, pax: number, lang: "en" | "es" = 
   return res;
 }
 
-/** The rides shown on the home screen. `photo` is a name in src/images.ts. */
-export const POPULAR: { from: string; to: string; photo: string }[] = [
-  { from: "SJO", to: "Arenal", photo: "arenal" },
-  { from: "SJO", to: "ManuelAntonio", photo: "manuel-antonio" },
-  { from: "LIR", to: "Tamarindo", photo: "tamarindo" },
-  { from: "SJO", to: "Monteverde", photo: "monteverde" },
-  { from: "SJO", to: "PuertoViejo", photo: "puerto-viejo" },
+/** The routes whose drive time is shown next to our towns in "Plan your ride" (BookWhere). */
+export const POPULAR: { from: string; to: string }[] = [
+  { from: "SJO", to: "Arenal" },
+  { from: "SJO", to: "ManuelAntonio" },
+  { from: "LIR", to: "Tamarindo" },
+  { from: "SJO", to: "Monteverde" },
+  { from: "SJO", to: "PuertoViejo" },
 ];
 
 export interface PopularPrice {
@@ -80,10 +80,10 @@ const POPULAR_KEY = "popular-prices-v1";
 const POPULAR_MAX_AGE_MS = 12 * 3600 * 1000;
 
 /**
- * "From $X" and the drive time for the home screen's popular rides, for the
- * default date and two travellers. Asked one route at a time and kept on the
+ * "From $X" and the drive time of our most asked-for routes, for the day and
+ * group size being planned. Asked one route at a time and kept on the
  * phone for 12 hours, so opening the app doesn't hammer the price server.
- * A route that can't be priced is simply left out (the card says "See price").
+ * A route that can't be priced is simply left out.
  */
 export async function popularPrices(date: string, pax: number, onUpdate: (prices: Record<string, PopularPrice>) => void): Promise<void> {
   const stamp = date + "|" + pax;
@@ -112,3 +112,37 @@ export async function popularPrices(date: string, pax: number, onUpdate: (prices
 
 /** "2 h 45 min" */
 export const driveTime = (minutes: number) => ((minutes >= 60 ? Math.floor(minutes / 60) + " h " : "") + (minutes % 60 ? (minutes % 60) + " min" : "")).trim();
+
+/** One vehicle type as the home screen lists it: what it is and who fits. Never a price (that needs a route). */
+export type VehicleClass = Pick<RideQuote["vehicles"][number], "id" | "name" | "exampleModels" | "badge" | "maxPax" | "luggage">;
+
+const CLASSES_KEY = "vehicle-classes-v1";
+const CLASSES_MAX_AGE_MS = 12 * 3600 * 1000;
+/** The ride whose price answer the list is read from: every vehicle type offered on an ordinary route comes back with it. */
+const CLASSES_ROUTE = { from: "hub:SJO", to: "hub:Arenal" };
+
+/**
+ * Our vehicle types for the home screen ("Choose your ride"), in the app's
+ * language. There is no separate list to keep in step: they are read from the
+ * server's price answer for one ordinary ride (one traveller, so no type is
+ * left out for being too small) and kept on the phone for 12 hours per
+ * language. Null when the server can't be reached and nothing is saved.
+ */
+export async function vehicleClasses(lang: "en" | "es"): Promise<VehicleClass[] | null> {
+  type Saved = Partial<Record<"en" | "es", { at: number; list: VehicleClass[] }>>;
+  let saved: Saved = {};
+  try {
+    saved = (JSON.parse((await AsyncStorage.getItem(CLASSES_KEY)) ?? "null") as Saved | null) ?? {};
+  } catch {
+    /* start fresh */
+  }
+  const hit = saved[lang];
+  const usable = hit && Array.isArray(hit.list) && hit.list.length ? hit : null;
+  if (usable && Date.now() - usable.at < CLASSES_MAX_AGE_MS) return usable.list;
+  const res = await fetchQuote({ ...CLASSES_ROUTE, date: crDatePlus(14), pax: 1, stopIds: [], lang });
+  const list = res.data?.quote.vehicles.map(({ id, name, exampleModels, badge, maxPax, luggage }) => ({ id, name, exampleModels, badge, maxPax, luggage }));
+  // Offline or the server said no: an older saved list is better than none.
+  if (!res.ok || !list || !list.length) return usable ? usable.list : null;
+  AsyncStorage.setItem(CLASSES_KEY, JSON.stringify({ ...saved, [lang]: { at: Date.now(), list } })).catch(() => {});
+  return list;
+}

@@ -81,10 +81,16 @@ Without the key nothing breaks: Android shows the app's own drawn map.
   screen push onto the stack (slide in, swipe back on iPhone). Place search, pickup time, tour
   date, the email code and the rating are panels that slide up from the bottom.
 - **Explore** — `src/screens/Explore.tsx`: a "Rides | Day tours" switch (the phone remembers the
-  side). Rides is a scrolling booking start: a headline, the "From / To" card with a "Date" button,
-  popular rides as picture cards (drive time, "from" price) and "Every ride includes" (`Home.tsx`,
-  promises in `Promises.tsx`); Day tours is the photo list (`Tours.tsx`). The ☰ button opens a small
-  menu panel (`Menu.tsx`).
+  side). Both sides start with the same dark green band (`ExploreBand.tsx`: ☰, the switch, the
+  headline in white, a faint volcano skyline) and a white card that overlaps its edge. Rides is a
+  scrolling booking start: the "From / To" card with a "Date" button, "Your next trip" when signed
+  in, "Choose your ride" (our vehicle types: drawing, name, "… or similar", who fits, badge; no
+  prices, since nothing is priced until a route is chosen) and "Every ride includes" (`Home.tsx`,
+  promises in `Promises.tsx`). The vehicle types come from the server's price answer for one
+  ordinary ride, in the app's language, kept 12 hours (`vehicleClasses()` in `src/prices.ts`,
+  `useVehicleClasses()` in `src/usePopular.ts`); tapping one sets `vehicleId` in the booking store
+  and opens "Plan your ride". Day tours is the photo list (`Tours.tsx`). The ☰ button opens a
+  small menu panel (`Menu.tsx`).
 - **Booking a ride** (no map while booking since 2026-11-11; the map is only on the trip screen once a driver is close) — in `src/screens/book/`: `Where.tsx` (pickup and
   drop-off, "Add a stop", our towns with drive times) → `Ride.tsx` (a route summary card
   with the drive time, date and travellers, the vehicles with prices, fixed price or driver bids) → `Confirm.tsx`

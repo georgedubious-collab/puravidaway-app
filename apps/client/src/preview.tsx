@@ -229,7 +229,7 @@ export function Preview() {
   const params = new URLSearchParams(globalThis.location?.search ?? "");
   const setup = SCREENS[params.get("s") ?? "home"] ?? SCREENS.home;
   const email = setup.email === undefined ? sarah : setup.email;
-  const demo: Demo = { popular, homeTours: tours, ...setup.demo };
+  const demo: Demo = { popular, homeTours: tours, vehicles: quote.vehicles, ...setup.demo };
   const initialState = { index: setup.routes.length - 1, routes: setup.routes } as Parameters<typeof NavigationContainer>[0]["initialState"];
   return (
     <LangProvider initial={params.get("lang") === "es" ? "es" : "en"}>

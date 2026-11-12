@@ -17,9 +17,10 @@ export type ExploreMode = "rides" | "tours";
 const KEY = "explore-mode-v1";
 
 /**
- * The Explore tab: private rides ("From / To", popular rides, what every ride
- * includes) or day tours (photos first), chosen with the switch at the top. The phone remembers
- * which side was open last.
+ * The Explore tab: private rides ("From / To", our vehicle types, what every
+ * ride includes) or day tours (photos first), chosen with the switch at the top.
+ * Both sides start with the same dark green band (ExploreBand). The phone
+ * remembers which side was open last.
  */
 export function Explore() {
   const demo = useDemo();
@@ -58,7 +59,7 @@ export function Explore() {
   return mode === "rides" ? <Home top={<ExploreTop mode={mode} onMode={setMode} />} /> : <ToursHome top={<ExploreTop mode={mode} onMode={setMode} />} />;
 }
 
-/** The row at the top of Explore: the round menu button and the "Rides | Day tours" switch. */
+/** The row at the top of Explore, drawn for the dark green band: the round menu button and the "Rides | Day tours" switch. */
 function ExploreTop({ mode, onMode }: { mode: ExploreMode; onMode: (m: ExploreMode) => void }) {
   const { t } = useT();
   const nav = useNav();
@@ -72,11 +73,11 @@ function ExploreTop({ mode, onMode }: { mode: ExploreMode; onMode: (m: ExploreMo
         accessibilityRole="button"
         accessibilityLabel={t("Open menu", "Abrir menú")}
         onPress={() => nav.navigate("Menu")}
-        style={({ pressed }) => ({ width: 48, height: 48, borderRadius: 24, backgroundColor: C.card, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: C.border, opacity: pressed ? 0.7 : 1 })}
+        style={({ pressed }) => ({ width: 48, height: 48, borderRadius: 24, backgroundColor: C.onDeep, alignItems: "center", justifyContent: "center", opacity: pressed ? 0.7 : 1 })}
       >
-        <Ionicons name="menu" size={24} color={C.text} />
+        <Ionicons name="menu" size={24} color="#fff" />
       </Pressable>
-      <View accessibilityRole="tablist" style={{ flex: 1, flexDirection: "row", padding: 4, borderRadius: R.pill, backgroundColor: C.surface }}>
+      <View accessibilityRole="tablist" style={{ flex: 1, flexDirection: "row", padding: 4, borderRadius: R.pill, backgroundColor: C.onDeep }}>
         {options.map((o) => {
           const on = o.id === mode;
           return (
@@ -89,9 +90,9 @@ function ExploreTop({ mode, onMode }: { mode: ExploreMode; onMode: (m: ExploreMo
                 pick();
                 onMode(o.id);
               }}
-              style={{ flex: 1, minHeight: 44, borderRadius: R.pill, alignItems: "center", justifyContent: "center", paddingHorizontal: 8, backgroundColor: on ? C.emerald : "transparent" }}
+              style={{ flex: 1, minHeight: 44, borderRadius: R.pill, alignItems: "center", justifyContent: "center", paddingHorizontal: 8, backgroundColor: on ? "#fff" : "transparent" }}
             >
-              <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} maxFontSizeMultiplier={1.15} style={{ fontSize: 15, lineHeight: 20, fontWeight: "700", color: on ? "#fff" : C.muted }}>
+              <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} maxFontSizeMultiplier={1.15} style={{ fontSize: 15, lineHeight: 20, fontWeight: on ? "800" : "700", color: on ? C.emeraldDeep : C.emeraldSoft }}>
                 {o.label}
               </Text>
             </Pressable>
