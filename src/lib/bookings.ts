@@ -96,6 +96,10 @@ export interface BookingRow {
   sign_hide_name?: boolean | null;
   /** Day tours: the hotel or address to pick them up (migration 0045). */
   pickup_place?: string | null;
+  /** Automatic messages (docs/PROJECT.md §4.7, migration 0045): when each went out (or was skipped). */
+  reminder_traveller_at?: string | null;
+  reminder_driver_at?: string | null;
+  followup_sent_at?: string | null;
   /** When the driver tapped "I'm on my way" (migration 0029). */
   en_route_at?: string | null;
   created_at: string;
