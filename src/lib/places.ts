@@ -107,6 +107,21 @@ export function isHubPlace(p: Pick<RidePlace, "id">): boolean {
   return hubOfPlaceId(p.id) !== null;
 }
 
+/**
+ * The pickup / drop-off part of a ride's request (ItemSpec in ./tripRequest): our town for each
+ * end, plus the typed place (Google id + name) when it isn't one of our towns. The website's ride
+ * builder and the team's manual booking form both use this, so a typed hotel reaches the server
+ * the same way from both and is priced the same (the server looks the place up again by id).
+ */
+export function placeSpecFields(origin: RidePlace, destination: RidePlace) {
+  return {
+    origin: origin.hub,
+    destination: destination.hub,
+    ...(isHubPlace(origin) ? {} : { originPlace: { id: origin.id, label: origin.label } }),
+    ...(isHubPlace(destination) ? {} : { destinationPlace: { id: destination.id, label: destination.label } }),
+  };
+}
+
 /** Google place ids are long URL-safe strings. */
 export function isGooglePlaceId(v: unknown): v is string {
   return typeof v === "string" && /^[A-Za-z0-9_-]{10,300}$/.test(v);

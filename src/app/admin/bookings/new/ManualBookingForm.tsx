@@ -8,6 +8,56 @@ import { DEFAULT_PICKUP_TIME, PICKUP_TIMES, formatTime12h } from "@/lib/dates";
 import { SIGN_MAX } from "@/lib/sign";
 import { makeT, type TeamLang } from "@/lib/teamLang";
 import { createTeamBooking, quoteForTeam, type TeamQuote } from "./actions";
+import { PlaceInput } from "@/components/PlaceInput";
+import { PublicLangProvider } from "@/components/PublicLangContext";
+import { hubPlace, isHubPlace, placeSpecFields, type RidePlace } from "@/lib/places";
+
+/**
+ * Pickup or drop-off: our towns as one-tap quick picks above the website's own place search
+ * (PlaceInput: our towns, then hotels, docks and addresses from Google once 3+ letters are typed).
+ */
+function PlacePicker({
+  label,
+  value,
+  hubs,
+  lang,
+  onChange,
+}: {
+  label: string;
+  value: RidePlace;
+  hubs: { id: HubId; name: string }[];
+  lang: TeamLang;
+  onChange: (p: RidePlace) => void;
+}) {
+  const t = makeT(lang);
+  return (
+    <div className="sm:col-span-2">
+      <p className="text-xs font-bold text-[#5F6F67]">{t("Rápido:", "Quick pick:")}</p>
+      <div className="mb-2 mt-1 flex flex-wrap gap-1.5">
+        {hubs.map((h) => {
+          const on = isHubPlace(value) && value.hub === h.id;
+          return (
+            <button
+              key={h.id}
+              type="button"
+              aria-pressed={on}
+              onClick={() => onChange(hubPlace(h.id))}
+              className={`min-h-9 rounded-full border px-3 text-xs font-bold ${on ? "border-[#047857] bg-[#ECFDF5] text-[#065F46]" : "border-[#DCE3DF] bg-white text-[#33443C] hover:bg-[#F1F4F2]"}`}
+            >
+              {h.name}
+            </button>
+          );
+        })}
+      </div>
+      <PlaceInput label={label} value={value} onChange={onChange} />
+      {!isHubPlace(value) && (
+        <p className={field.hint}>
+          {value.address ?? value.label} · {t("precio por la ruta real de Google, igual que en el sitio", "priced by Google's real route, as on the website")}
+        </p>
+      )}
+    </div>
+  );
+}
 
 interface Props {
   lang: TeamLang;
@@ -33,8 +83,12 @@ export function ManualBookingForm({ lang, today, hubs, vehicles, stops, tours }:
   const t = makeT(lang);
   const formRef = useRef<HTMLFormElement>(null);
   const [kind, setKind] = useState<"transfer" | "day_tour">("transfer");
-  const [origin, setOrigin] = useState<HubId>(hubs[0]?.id ?? "SJO");
-  const [destination, setDestination] = useState<HubId>(hubs[2]?.id ?? hubs[1]?.id ?? "Arenal");
+  // Any place, like the website (Jorge, 2026-11-12): our towns as quick picks, or a typed hotel /
+  // address found with the website's own place search (Google, through /api/places/*).
+  const [originPlace, setOriginPlace] = useState<RidePlace>(hubPlace(hubs[0]?.id ?? "SJO"));
+  const [destPlace, setDestPlace] = useState<RidePlace>(hubPlace(hubs[2]?.id ?? hubs[1]?.id ?? "Arenal"));
+  const origin: HubId = originPlace.hub;
+  const destination: HubId = destPlace.hub;
   const [vehicleId, setVehicleId] = useState(vehicles[0]?.id ?? "");
   const [quote, setQuote] = useState<TeamQuote | null>(null);
   const [asking, setAsking] = useState<null | { email: string; emailTraveller: boolean }>(null);
@@ -53,8 +107,7 @@ export function ManualBookingForm({ lang, today, hubs, vehicles, stops, tours }:
       kind === "transfer"
         ? {
             kind: "transfer",
-            origin,
-            destination,
+            ...placeSpecFields(originPlace, destPlace),
             vehicleId,
             stopIds: fd.getAll("stopIds").map(String),
             pax,
@@ -211,26 +264,28 @@ export function ManualBookingForm({ lang, today, hubs, vehicles, stops, tours }:
                 </select>
                 <span className={field.hint}>{t("De noche se suma el recargo nocturno.", "Night hours add the night premium.")}</span>
               </label>
-              <label className={field.label}>
-                {t("Recogida", "Pickup")}
-                <select value={origin} onChange={(e) => setOrigin(e.target.value as HubId)} className={field.input}>
-                  {hubs.map((h) => (
-                    <option key={h.id} value={h.id}>
-                      {h.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className={field.label}>
-                {t("Destino", "Drop-off")}
-                <select value={destination} onChange={(e) => setDestination(e.target.value as HubId)} className={field.input}>
-                  {hubs.map((h) => (
-                    <option key={h.id} value={h.id}>
-                      {h.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <PublicLangProvider lang={lang}>
+                <PlacePicker
+                  label={t("Recogida", "Pickup")}
+                  value={originPlace}
+                  hubs={hubs}
+                  lang={lang}
+                  onChange={(p) => {
+                    setOriginPlace(p);
+                    setQuote(null);
+                  }}
+                />
+                <PlacePicker
+                  label={t("Destino", "Drop-off")}
+                  value={destPlace}
+                  hubs={hubs}
+                  lang={lang}
+                  onChange={(p) => {
+                    setDestPlace(p);
+                    setQuote(null);
+                  }}
+                />
+              </PublicLangProvider>
               <label className={field.label}>
                 {t("Vehículo", "Vehicle")}
                 <select value={vehicleId} onChange={(e) => setVehicleId(e.target.value)} className={field.input}>
