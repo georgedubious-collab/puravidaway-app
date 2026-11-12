@@ -26,7 +26,7 @@
 --      keep working. The job board (driver_jobs / open_trip_requests) does NOT get it: drivers
 --      browsing open jobs see towns only, as before.
 -- It changes no other column, price or policy.
--- Run after 0044 (booking_events, in feat/admin-redesign) or, if that is not merged yet, after 0043.
+-- Run after 0044 (booking_events).
 -- Safe to run once, in order.
 
 alter table public.bookings
