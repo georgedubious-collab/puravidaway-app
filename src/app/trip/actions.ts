@@ -14,8 +14,17 @@ import { resolveTransfer } from "@/lib/googleMaps";
 import type { RidePlace, RideRoute } from "@/lib/places";
 import { hasDriverPayout, splitPayout } from "@/lib/payout";
 import { cashFeeCents, formatBpsPercent } from "@/lib/pricing";
+import { PROMO_CHANGED_ERROR, discountedMoney, type PromoItemInput, type PromoLine } from "@/lib/promo";
+import { checkPromo } from "@/lib/promoServer";
+import type { CatalogData } from "@/lib/catalogModel";
 import { parsePublicLang, type PublicLang } from "@/lib/publicLang";
-import { clientLanguageNote, requestItemLine, requestPaymentLine, tripRequestEmail } from "@/lib/travellerMessages";
+import {
+  clientLanguageNote,
+  requestItemLine,
+  requestPaymentLine,
+  requestPromoLine,
+  tripRequestEmail,
+} from "@/lib/travellerMessages";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
   MAX_TRIP_ITEMS,
@@ -50,12 +59,26 @@ export interface TripRequestInput {
    * Anything else (or nothing, e.g. an older app build) is English.
    */
   lang?: PublicLang;
+  /**
+   * Promo code typed by the traveller (docs/PRICING.md §9). Checked again here; older pages and
+   * app builds don't send it and book exactly as before.
+   */
+  promoCode?: string;
+  /** The discount the traveller was shown for that code (cents); a different one is refused so they can look again. */
+  promoDiscountCents?: number;
 }
 
 export type TripRequestResult =
   /** tripToken: the code in the traveller's private trip-page link. */
   | { ok: true; refs: string[]; tripToken: string | null; /** Booking ids, for a booking entered by the team. */ ids?: string[] }
-  | { ok: false; error: string }
+  | {
+      ok: false;
+      error: string;
+      /** The promo code can't be used: the field shows the error and the code comes off. */
+      promoInvalid?: boolean;
+      /** The promo discount is now this (cents): the page shows it and asks again. */
+      promoDiscountCents?: number;
+    }
   /** Prices changed since the item was added: the cart shows the new totals and asks again. */
   | { ok: false; error: string; repriced: Record<string, number> };
 
@@ -117,38 +140,9 @@ async function saveTripRequest(input: TripRequestInput, team: TeamEntry | null):
 
     const catalog = await getCatalog();
     const today = todayInCostaRica();
-    const priced: {
-      spec: ItemSpec;
-      date: string;
-      totalCents: number;
-      passThroughCents: number;
-      companyCostCents: number;
-      nightCents: number;
-      /** Rides: both ends as priced (typed places looked up again on the server) and the road route. */
-      ride?: { origin: RidePlace; destination: RidePlace; route: RideRoute | null };
-    }[] = [];
-    const repriced: Record<string, number> = {};
-    for (const item of items) {
-      let spec = parseSpec(item.spec);
-      if (!spec) return { ok: false, error: "One item was added on an older version of the site. Please remove it and add it again." };
-      if (typeof item.date !== "string" || item.date < today) {
-        return { ok: false, error: "One of the dates is in the past. Please change it." };
-      }
-      let p;
-      let ride: (typeof priced)[number]["ride"];
-      try {
-        if (spec.kind === "transfer") {
-          const r = await resolveTransfer(spec);
-          spec = r.spec;
-          ride = { origin: r.origin, destination: r.destination, route: r.route };
-        }
-        p = priceItem(spec, item.date, catalog, ride?.route);
-      } catch (e) {
-        return { ok: false, error: (e as Error).message };
-      }
-      if (p.totalCents !== item.totalCents) repriced[item.id] = p.totalCents;
-      priced.push({ spec, date: item.date, ...p, ride });
-    }
+    const pricing = await priceTripItems(items, catalog, today);
+    if (!pricing.ok) return { ok: false, error: pricing.error };
+    const { priced, repriced } = pricing;
     if (Object.keys(repriced).length) {
       return { ok: false, error: "Some prices have changed since you added them. Please check the new totals and send again.", repriced };
     }
@@ -164,9 +158,24 @@ async function saveTripRequest(input: TripRequestInput, team: TeamEntry | null):
     const feeFor = (spec: ItemSpec, totalCents: number) =>
       itemPaymentMode(spec.kind, mode) === "cash_driver" ? cashFeeCents(totalCents, feeBps) : 0;
 
+    const ip = await clientIp();
+    // Promo code (src/lib/promo.ts): checked again with the real email, after the prices. Its
+    // wrong guesses count towards the same per-network limit as the "Apply" button.
+    const NO_PROMO: PromoLine = { discountCents: 0, driverCents: 0, platformCents: 0 };
+    let promo: { code: string; codeId: string; lines: PromoLine[]; totalCents: number } | null = null;
+    if (!team && typeof input.promoCode === "string" && input.promoCode.trim()) {
+      const check = await checkPromo(db, { raw: input.promoCode, email, ip, today, items: priced.map(promoItem), catalog });
+      if (!check.ok) return { ok: false, error: check.error, promoInvalid: true };
+      if (typeof input.promoDiscountCents === "number" && input.promoDiscountCents !== check.result.totalDiscountCents) {
+        return { ok: false, error: PROMO_CHANGED_ERROR, promoDiscountCents: check.result.totalDiscountCents };
+      }
+      promo = { code: check.code.code, codeId: check.code.id, lines: check.result.lines, totalCents: check.result.totalDiscountCents };
+    }
+    const lineFor = (i: number): PromoLine => promo?.lines[i] ?? NO_PROMO;
+    // What the traveller pays for each item: the price minus its promo discount.
+    const payCents = (i: number) => Math.max(0, priced[i].totalCents - lineFor(i).discountCents);
+
     // Abuse limit (every request emails the address given): 5 an hour per network, 3 per email.
-    const h = await headers();
-    const ip = (h.get("x-forwarded-for") ?? "").split(",")[0].trim() || h.get("x-real-ip") || "unknown";
     // (The team entering a booking by hand is not limited.)
     const allowed = team ? { data: true, error: null } : await db.rpc("allow_trip_request", { p_ip: ip, p_email: email });
     if (allowed.error) throw allowed.error;
@@ -187,9 +196,16 @@ async function saveTripRequest(input: TripRequestInput, team: TeamEntry | null):
     }
     // Driver payout: the platform keeps its commission on the price minus pass-through costs (ferries).
     // and company-paid costs (entrances, lunch, activities) come off before the driver's share.
-    const payoutFor = (kind: string, totalCents: number, passThroughCents: number, companyCostCents: number) =>
-      hasDriverPayout(kind) ? splitPayout(totalCents, passThroughCents, catalog, companyCostCents) : null;
-    const rows = priced.map(({ spec, date, totalCents, passThroughCents, companyCostCents, nightCents, ride }) => ({
+    // A promo discount then comes off half from each side (driver's half rounded down to the cent).
+    const moneyFor = (i: number) => {
+      const p = priced[i];
+      const payout = hasDriverPayout(p.spec.kind) ? splitPayout(p.totalCents, p.passThroughCents, catalog, p.companyCostCents) : null;
+      return discountedMoney(p.totalCents, payout, lineFor(i));
+    };
+    const rows = priced.map(({ spec, date, totalCents: listCents, passThroughCents, companyCostCents, nightCents, ride }, i) => {
+      const m = moneyFor(i);
+      const totalCents = m.totalCents;
+      return {
       trip_id: tripId,
       service_type: spec.kind,
       catalog_item_id: spec.kind === "day_tour" ? spec.tourId : null,
@@ -235,16 +251,23 @@ async function saveTripRequest(input: TripRequestInput, team: TeamEntry | null):
       // Night-pickup premium inside total_price (migration 0041); 0 by day. The driver's payout
       // below is a share of total_price, so it rises with the premium.
       night_premium: nightCents / 100,
-      driver_payout: (payoutFor(spec.kind, totalCents, passThroughCents, companyCostCents)?.payoutCents ?? null) === null ? null : payoutFor(spec.kind, totalCents, passThroughCents, companyCostCents)!.payoutCents / 100,
-      platform_fee: (payoutFor(spec.kind, totalCents, passThroughCents, companyCostCents)?.feeCents ?? null) === null ? null : payoutFor(spec.kind, totalCents, passThroughCents, companyCostCents)!.feeCents / 100,
-      company_costs: hasDriverPayout(spec.kind) ? Math.min(companyCostCents, totalCents) / 100 : 0,
+      driver_payout: m.payoutCents === null ? null : m.payoutCents / 100,
+      platform_fee: m.feeCents === null ? null : m.feeCents / 100,
+      company_costs: hasDriverPayout(spec.kind) ? Math.min(companyCostCents, listCents) / 100 : 0,
+      // Ferry tickets inside the price, paid to the driver in full (migration 0052; for the money report).
+      pass_through: passThroughCents / 100,
+      // Promo code (migration 0052): total_price above is already after the discount.
+      promo_code: lineFor(i).discountCents > 0 ? promo!.code : null,
+      promo_discount: lineFor(i).discountCents / 100,
       currency: "USD",
       payment_mode: itemPaymentMode(spec.kind, mode),
+      // The cash booking fee is charged on what the traveller pays (after the discount).
       cash_fee: feeFor(spec, totalCents) / 100,
       // The team confirms, then posts the ride to the drivers' job board from the booking page.
       status: "pending_payment",
       client_notes: notes || null,
-    }));
+      };
+    });
 
     let saved = await db.from("bookings").insert(rows).select("id, booking_ref, status");
     // Safety net for the minutes between a deploy and its database update (migration 0037):
@@ -276,12 +299,38 @@ async function saveTripRequest(input: TripRequestInput, team: TeamEntry | null):
         .insert(rows.map((row) => ({ ...row, pickup_place: undefined })))
         .select("id, booking_ref, status");
     }
+    // And for the promo / ferry columns (migration 0052). Without the migration no code can be
+    // checked (the table isn't there), so nothing is discounted on this path.
+    if (saved.error && !promo && /pass_through|promo_code|promo_discount/.test(saved.error.message ?? "")) {
+      saved = await db
+        .from("bookings")
+        .insert(rows.map((row) => ({ ...row, pass_through: undefined, promo_code: undefined, promo_discount: undefined })))
+        .select("id, booking_ref, status");
+    }
     const { data, error } = saved;
     if (error) {
       console.error("[trip request]", error);
       return { ok: false, error: "We couldn't save your request. Please try again or send it on WhatsApp." };
     }
     const refs = (data ?? []).map((r) => r.booking_ref as string);
+    // One redemption per discounted booking (counts towards the code's limits; money report).
+    if (promo) {
+      const redemptions = (data ?? [])
+        .map((r, i) => ({ r, line: lineFor(i) }))
+        .filter(({ line }) => line.discountCents > 0)
+        .map(({ r, line }) => ({
+          booking_id: r.id as string,
+          trip_id: tripId,
+          promo_code_id: promo!.codeId,
+          code: promo!.code,
+          email,
+          discount: line.discountCents / 100,
+          platform_part: line.platformCents / 100,
+          driver_part: line.driverCents / 100,
+        }));
+      const red = await db.from("promo_redemptions").insert(redemptions);
+      if (red.error) console.error("[trip request] promo redemption", red.error.message);
+    }
     // "Don't send me suggestions after my trip": no promotional emails to this address. An
     // address already on the list stays on it (unticked never removes anyone).
     if (optsOutOfSuggestions(input.noSuggestions)) {
@@ -298,11 +347,12 @@ async function saveTripRequest(input: TripRequestInput, team: TeamEntry | null):
       const ev = await db.from("booking_events").insert(events);
       if (ev.error) console.error("[trip request] history", ev.error.message);
     }
-    const feeTotalCents = priced.reduce((n, p) => n + feeFor(p.spec, p.totalCents), 0);
-    const tripCents = priced.reduce((n, p) => n + p.totalCents, 0) + feeTotalCents;
+    // Everything below is what the traveller pays: after the promo discount.
+    const feeTotalCents = priced.reduce((n, p, i) => n + feeFor(p.spec, payCents(i)), 0);
+    const tripCents = priced.reduce((n, _p, i) => n + payCents(i), 0) + feeTotalCents;
     const total = tripCents / 100;
     const cashCents = priced.reduce(
-      (n, p) => n + (itemPaymentMode(p.spec.kind, mode) === "cash_driver" ? p.totalCents + feeFor(p.spec, p.totalCents) : 0),
+      (n, p, i) => n + (itemPaymentMode(p.spec.kind, mode) === "cash_driver" ? payCents(i) + feeFor(p.spec, payCents(i)) : 0),
       0,
     );
     const onlineCents = tripCents - cashCents;
@@ -336,6 +386,7 @@ async function saveTripRequest(input: TripRequestInput, team: TeamEntry | null):
           refs,
           itemLines: lang === "en" ? itemLines : itemLinesIn(lang),
           paymentLine: requestPaymentLine(lang, { cashCents, onlineCents, feeTotalCents, feePercent: formatBpsPercent(feeBps) }),
+          promoLine: promo ? requestPromoLine(lang, promo.code, promo.totalCents) : undefined,
           tripUrl,
           hasRide: priced.some((p) => p.spec.kind === "transfer"),
         }),
@@ -349,6 +400,9 @@ async function saveTripRequest(input: TripRequestInput, team: TeamEntry | null):
             cashCents > 0
               ? `Pays cash to the driver: ${money(cashCents)} (cash fee ${money(feeTotalCents)})${onlineCents > 0 ? `; online in full: ${money(onlineCents)}` : ""}.`
               : `Pays online in full: ${money(onlineCents)} (send the payment link once confirmed).`,
+            promo
+              ? `Promo code ${promo.code}: ${money(promo.totalCents)} off (half from our share, half from the driver's payout).`
+              : "",
             ...itemLines,
             notes ? `Notes: ${notes}` : "",
             clientLanguageNote(lang),
@@ -362,6 +416,121 @@ async function saveTripRequest(input: TripRequestInput, team: TeamEntry | null):
     console.error("[trip request]", e);
     return { ok: false, error: "We couldn't save your request. Please try again or send it on WhatsApp." };
   }
+}
+
+export interface PromoCheckInput {
+  code: string;
+  items: TripRequestInput["items"];
+  /** The traveller's email when known (website form, signed-in app): checks the per-email limit now. */
+  email?: string | null;
+}
+
+export type PromoCheckResult =
+  | {
+      ok: true;
+      /** The code as stored (upper-case). */
+      code: string;
+      /** Off the whole trip, cents. */
+      discountCents: number;
+      /** Per item id: its discount in cents (0 when the code doesn't cover it). */
+      perItem: Record<string, number>;
+    }
+  | { ok: false; error: string };
+
+/**
+ * The "Apply" button next to the promo code field (website checkout; the app calls it through
+ * POST /api/v1/client/promo). Prices the items again exactly like sending the trip, then checks
+ * the code. Wrong codes count towards a per-network limit; the answer never says why a code
+ * isn't valid. Nothing is saved except that count.
+ */
+export async function checkTripPromo(input: PromoCheckInput): Promise<PromoCheckResult> {
+  try {
+    const items = Array.isArray(input?.items) ? input.items.slice(0, MAX_TRIP_ITEMS) : [];
+    if (items.length === 0) return { ok: false, error: "Your trip is empty." };
+    const retired = retiredItemError(items);
+    if (retired) return { ok: false, error: retired };
+    const db = createSupabaseAdminClient();
+    if (!db) return { ok: false, error: PROMO_UNAVAILABLE };
+    const catalog = await getCatalog();
+    const today = todayInCostaRica();
+    const pricing = await priceTripItems(items, catalog, today);
+    if (!pricing.ok) return { ok: false, error: pricing.error };
+    const email = typeof input.email === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email.trim()) ? input.email.trim().toLowerCase() : null;
+    const check = await checkPromo(db, {
+      raw: input.code,
+      email,
+      ip: await clientIp(),
+      today,
+      items: pricing.priced.map(promoItem),
+      catalog,
+    });
+    if (!check.ok) return { ok: false, error: check.error };
+    const perItem: Record<string, number> = {};
+    items.forEach((item, i) => (perItem[String(item.id)] = check.result.lines[i]?.discountCents ?? 0));
+    return { ok: true, code: check.code.code, discountCents: check.result.totalDiscountCents, perItem };
+  } catch (e) {
+    console.error("[promo check]", e);
+    return { ok: false, error: PROMO_UNAVAILABLE };
+  }
+}
+
+const PROMO_UNAVAILABLE = "We couldn't check that code. Please try again.";
+
+interface PricedTripItem {
+  spec: ItemSpec;
+  date: string;
+  totalCents: number;
+  passThroughCents: number;
+  companyCostCents: number;
+  nightCents: number;
+  /** Rides: both ends as priced (typed places looked up again on the server) and the road route. */
+  ride?: { origin: RidePlace; destination: RidePlace; route: RideRoute | null };
+}
+
+/**
+ * Price every item again from the live catalog (typed places looked up again on the server).
+ * `repriced` lists the items whose price differs from what the traveller was shown.
+ */
+async function priceTripItems(
+  items: TripRequestInput["items"],
+  catalog: CatalogData,
+  today: string,
+): Promise<{ ok: true; priced: PricedTripItem[]; repriced: Record<string, number> } | { ok: false; error: string }> {
+  const priced: PricedTripItem[] = [];
+  const repriced: Record<string, number> = {};
+  for (const item of items) {
+    let spec = parseSpec(item?.spec);
+    if (!spec) return { ok: false, error: "One item was added on an older version of the site. Please remove it and add it again." };
+    if (typeof item.date !== "string" || item.date < today) {
+      return { ok: false, error: "One of the dates is in the past. Please change it." };
+    }
+    let p;
+    let ride: PricedTripItem["ride"];
+    try {
+      if (spec.kind === "transfer") {
+        const r = await resolveTransfer(spec);
+        spec = r.spec;
+        ride = { origin: r.origin, destination: r.destination, route: r.route };
+      }
+      p = priceItem(spec, item.date, catalog, ride?.route);
+    } catch (e) {
+      return { ok: false, error: (e as Error).message };
+    }
+    if (p.totalCents !== item.totalCents) repriced[item.id] = p.totalCents;
+    priced.push({ spec, date: item.date, ...p, ride });
+  }
+  return { ok: true, priced, repriced };
+}
+
+/** What the promo rules need from a priced item. */
+function promoItem(p: PricedTripItem): PromoItemInput {
+  return { kind: p.spec.kind, totalCents: p.totalCents, passThroughCents: p.passThroughCents, companyCostCents: p.companyCostCents };
+}
+
+/** The visitor's network address, for the request and promo-code limits. */
+async function clientIp(): Promise<string> {
+  const h = await headers();
+  return (h.get("x-forwarded-for") ?? "").split(",")[0].trim() || h.get("x-real-ip") || "unknown";
 }
 
 /** Booking text for one end: "Arenas Del Mar Resort, Rd to Arenas Del Mar, Manuel Antonio…" or our town's name. */
