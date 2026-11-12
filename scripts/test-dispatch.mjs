@@ -52,9 +52,9 @@ const ride = (from, to, hhmm, extra = {}) => ({
 const kinds = (target, others) => d.findClashes(target, others, CAT).map((c) => c.kind);
 
 // --- Constants --------------------------------------------------------------------------------
-eq("buffer is 30 minutes", d.CLASH_BUFFER_MINUTES, 30);
+eq("buffer is 2 hours (Jorge, 2026-11-12)", d.CLASH_BUFFER_MINUTES, 120);
 eq("longest drive between our towns (Drake Bay ↔ Puerto Viejo)", d.LONGEST_ROUTE_MINUTES, 555);
-eq("unknown places are only checked inside longest drive + buffer", d.CHECK_TRAVEL_WINDOW_MINUTES, 585);
+eq("unknown places are only checked inside longest drive + buffer", d.CHECK_TRAVEL_WINDOW_MINUTES, 675);
 
 // --- Busy span --------------------------------------------------------------------------------
 const stop = SIGHTSEEING_STOPS[0];
@@ -80,15 +80,22 @@ eq("a stop no longer in the catalog counts 45 min", d.busySpan(ride("SJO", "Aren
   const s = d.busySpan(tour, CAT);
   eq("day tour: the catalog length (8 h)", s.minutes, 480);
   eq("…starts and ends in its region's town", [s.from, s.to], ["Arenal", "Arenal"]);
+  const osa = d.busySpan({ ...tour, catalog_item_id: "dt3" }, CAT);
+  eq("Osa tour: Puerto Jiménez, not one of our towns", [osa.from, osa.to, osa.fromPlace, osa.toPlace], [null, null, "Puerto Jiménez", "Puerto Jiménez"]);
+  const osaClash = d.findClashes(ride("Sierpe", "SJO", "17:30"), [{ ...tour, id: "osa", catalog_item_id: "dt3" }], CAT);
+  eq("…a ride after it: check the travel time, naming Puerto Jiménez", [osaClash.map((c) => c.kind), d.clashText(osaClash[0], "es")],
+    [["check_travel"], "Revise el tiempo de traslado desde CRPT-T1 (3 h 30 min libres; Puerto Jiménez está fuera de nuestras zonas)"]);
   eq("Smart En-Route tour ends somewhere we don't know", d.busySpan({ ...tour, sightseeing_stops: [{ id: "en_route_upgrade" }] }, CAT).to, null);
   eq("unknown tour: a full day, estimated", [d.busySpan({ ...tour, catalog_item_id: "x" }, CAT).minutes, d.busySpan({ ...tour, catalog_item_id: "x" }, CAT).estimated], [480, true]);
 }
 eq("no pickup time: no span", d.busySpan({ ...ride("SJO", "LIR", "08:00"), scheduled_at: null }, CAT), null);
-eq("span label in Costa Rica time", d.spanLabel(d.busySpan(ride("SJO", "Arenal", "08:00"), CAT)), "08:00–10:45");
+eq("span label in Costa Rica time, a. m. once when both are morning", d.spanLabel(d.busySpan(ride("SJO", "Arenal", "08:00"), CAT)), "8:00–10:45 a. m.");
+eq("…English", d.spanLabel(d.busySpan(ride("SJO", "Arenal", "08:00"), CAT), "en"), "8:00–10:45 AM");
+eq("…morning to afternoon", d.spanLabel(d.busySpan(ride("SJO", "Arenal", "11:30"), CAT)), "11:30 a. m.–2:15 p. m.");
 {
   const late = d.busySpan(ride("LIR", "Tamarindo", "23:30"), CAT); // 90 min → 01:00 next day
   eq("late ride ends the next day", d.spanDays(late), ["2026-11-20", "2026-11-21"]);
-  eq("…label says so", d.spanLabel(late, "es"), "23:30–01:00 (+1 día)");
+  eq("…label says so", d.spanLabel(late, "es"), "11:30 p. m.–1:00 a. m. (+1 día)");
 }
 
 // --- Clashes ----------------------------------------------------------------------------------
@@ -96,20 +103,20 @@ eq("span label in Costa Rica time", d.spanLabel(d.busySpan(ride("SJO", "Arenal",
 const A = ride("SJO", "Arenal", "08:00");
 eq("overlap", kinds(ride("Arenal", "Monteverde", "10:00"), [A]), ["overlap"]);
 eq("overlap: a later booking that starts inside", kinds(A, [ride("SJO", "Tamarindo", "09:00")]), ["overlap"]);
-eq("back-to-back in the same town with exactly the buffer: fine", kinds(ride("Arenal", "Monteverde", "11:15"), [A]), []);
-eq("…one minute less: too tight", kinds({ ...ride("Arenal", "Monteverde", "11:15"), scheduled_at: "2026-11-20T11:14:00-06:00" }, [A]), ["too_tight"]);
+eq("back-to-back in the same town with exactly the 2 h buffer: fine", kinds(ride("Arenal", "Monteverde", "12:45"), [A]), []);
+eq("…119 minutes: too tight", kinds({ ...ride("Arenal", "Monteverde", "12:45"), scheduled_at: "2026-11-20T12:44:00-06:00" }, [A]), ["too_tight"]);
 {
-  // La Fortuna → Monteverde is 210 min + 30 buffer = 240 after 10:45 → 14:45.
-  eq("other town, enough travel time + buffer: fine", kinds(ride("Monteverde", "SJO", "14:45"), [A]), []);
+  // La Fortuna → Monteverde is 210 min + 120 buffer = 330 after 10:45 → 16:15.
+  eq("other town, enough travel time + buffer: fine", kinds(ride("Monteverde", "SJO", "16:15"), [A]), []);
   const c = d.findClashes(ride("Monteverde", "SJO", "14:00"), [A], CAT);
-  eq("other town, not enough travel time: too tight", c.map((x) => [x.kind, x.side, x.gapMinutes, x.neededMinutes]), [["too_tight", "before", 195, 240]]);
-  eq("…readable in Spanish", d.clashText(c[0], "es"), `Muy justo después de ${A.booking_ref}: 3 h 15 min libres, necesita 4 h (manejo + 30 min)`);
+  eq("other town, not enough travel time: too tight", c.map((x) => [x.kind, x.side, x.gapMinutes, x.neededMinutes]), [["too_tight", "before", 195, 330]]);
+  eq("…readable in Spanish", d.clashText(c[0], "es"), `Muy justo después de ${A.booking_ref}: 3 h 15 min libres, necesita 5 h 30 min (manejo + 2 h de margen)`);
 }
 eq("the next booking is too close after this one", kinds(A, [ride("Tamarindo", "LIR", "12:00")]), ["too_tight"]);
 {
   const typedPickup = { ...ride(null, "SJO", "13:00"), origin: "Villa Privada, Nuevo Arenal", origin_coords: { lat: 10.5, lng: -84.9 } };
   eq("unknown pickup place after a drop-off: check the travel time", kinds(typedPickup, [A]), ["check_travel"]);
-  eq("…but not with more free time than the longest drive + buffer", kinds({ ...typedPickup, scheduled_at: at("20:31") }, [A]), []);
+  eq("…but not with more free time than the longest drive + buffer", kinds({ ...typedPickup, scheduled_at: at("22:00") }, [A]), []);
   eq("…in Spanish", d.clashText(d.findClashes(typedPickup, [A], CAT)[0], "es").startsWith("Revise el tiempo de traslado desde"), true);
 }
 eq("cancelled booking ignored", kinds(ride("Arenal", "Monteverde", "10:00"), [{ ...A, status: "cancelled" }]), []);
@@ -117,11 +124,11 @@ eq("a cancelled target clashes with nothing", kinds({ ...ride("Arenal", "Monteve
 eq("the booking itself is skipped", kinds(A, [A]), []);
 eq("other days don't clash", kinds(ride("Monteverde", "SJO", "08:00", { day: "2026-11-21" }), [A]), []);
 {
-  // Only the nearest booking before is checked for travel: an earlier far-away drop-off with a
-  // booking in between doesn't count twice.
-  const early = ride("SJO", "Tamarindo", "03:00"); // free 07:50 in Tamarindo
-  const mid = ride("Tamarindo", "Arenal", "08:30"); // 240 → free 12:30 in La Fortuna
-  eq("only the neighbours are checked for travel time", kinds(ride("Arenal", "SJO", "13:00"), [early, mid]), []);
+  // Only the nearest booking before is checked for travel: an earlier drop-off at an unknown place
+  // (would be "check the travel time") with a booking in between doesn't count.
+  const early = { ...ride("SJO", null, "03:00"), destination: "Casa Azul, Playa Hermosa", destination_coords: { lat: 10.5 }, drive_minutes: 60 }; // free 04:00
+  const mid = { ...ride(null, "Arenal", "06:00"), origin: "Casa Azul, Playa Hermosa", origin_coords: { lat: 10.5 }, drive_minutes: 180 }; // free 09:00 in La Fortuna
+  eq("only the neighbours are checked for travel time", kinds(ride("Arenal", "SJO", "11:00"), [early, mid]), []);
 }
 
 // --- Warnings for one driver + vehicle --------------------------------------------------------
@@ -155,6 +162,58 @@ eq("calendar never shows traveller email or phone", /guest_email|guest_phone/.te
 const actions = readFileSync(new URL("../src/app/admin/bookings/actions.ts", import.meta.url), "utf8");
 eq("updateBooking keeps the amount received when the calendar doesn't send it", /fd\.has\("amount_paid"\)/.test(actions), true);
 eq("updateBooking keeps the internal notes when the calendar doesn't send them", /fd\.has\("admin_notes"\)/.test(actions), true);
+
+// --- Driver assigned: the traveller and the driver are told, once per assignment ----------------
+{
+  const am = await import("../src/lib/assignmentMessages.ts");
+  const DA = "00000000-0000-0000-0000-0000000000a1";
+  const DB = "00000000-0000-0000-0000-0000000000b2";
+  const ctx = (driverId, o = {}) => ({
+    bookingId: "b-1", ref: "CRPT-1200", serviceType: "transfer", origin: "SJO Airport / San José", destination: "La Fortuna / Arenal",
+    scheduledAt: "2026-11-20T08:00:00-06:00", payout: 140, viaOffer: false,
+    driver: { id: driverId, fullName: driverId === DA ? "Carlos Mora" : "Andrea Rojas", email: driverId === DA ? "carlos@example.com" : "andrea@example.com", appLang: null },
+    guest: { name: "Emily Smith", email: "emily@example.com", accessToken: "tok", language: "en" },
+    siteUrl: "https://example.com", ...o,
+  });
+  // What updateBooking does on each save: notify only when shouldNotifyAssignment says so.
+  const sent = [];
+  let current = null;
+  const save = (driverId) => {
+    if (am.shouldNotifyAssignment(current, driverId)) sent.push(...am.assignmentMessages(ctx(driverId)));
+    current = driverId;
+  };
+  save(DA);
+  eq("manual assignment: traveller push + email and driver push + email, once each", sent.map((m) => m.kind), ["traveller_push", "traveller_email", "driver_push", "driver_email"]);
+  const n1 = sent.length;
+  save(DA);
+  save(DA);
+  eq("re-saving with the same driver (status, amount, notes) sends nothing", sent.length, n1);
+  save(DB);
+  eq("reassigning: the new driver and the traveller are told", sent.slice(n1).map((m) => [m.kind, m.kind.startsWith("driver") ? (m.userId ?? m.email.to) : (m.toEmail ?? m.email.to)]),
+    [["traveller_push", "emily@example.com"], ["traveller_email", "emily@example.com"], ["driver_push", DB], ["driver_email", "andrea@example.com"]]);
+  eq("removing the driver sends nothing here (handled elsewhere)", am.shouldNotifyAssignment(DB, null), false);
+
+  const msgs = am.assignmentMessages(ctx(DA));
+  const tPush = msgs.find((m) => m.kind === "traveller_push").message;
+  eq("traveller hears the same text as an accepted offer (rideConfirmedPush)", tPush.title, "Your ride is confirmed");
+  const tMail = msgs.find((m) => m.kind === "traveller_email").email;
+  eq("…email in the language they booked in, with their trip link", [tMail.lang, tMail.lines.some((l) => /Carlos/.test(l)), JSON.stringify(tMail).includes("/trip/tok")], ["en", true, true]);
+  const es = am.assignmentMessages(ctx(DA, { guest: { name: "Ana", email: "ana@example.com", accessToken: "t2", language: "es" } }));
+  eq("Spanish booking: Spanish traveller messages", es.find((m) => m.kind === "traveller_push").message.title, "Su traslado está confirmado");
+  const dPush = msgs.find((m) => m.kind === "driver_push").message;
+  const dMail = msgs.find((m) => m.kind === "driver_email").email;
+  eq("driver: Spanish by default", [dPush.title, dMail.subject.startsWith("Tiene el viaje CRPT-1200"), dMail.lang], ["Tiene el viaje CRPT-1200", true, "es"]);
+  eq("…manual assignment wording, with their payout", [dMail.lines.some((l) => l.startsWith("Nuestro equipo le asignó el viaje CRPT-1200")), dMail.lines.includes("Su pago: $140.00.")], [true, true]);
+  const en = am.assignmentMessages(ctx(DA, { viaOffer: true, driver: { id: DA, fullName: "Carlos Mora", email: "carlos@example.com", appLang: "en" } }));
+  eq("driver app in English: the existing offer-accepted text", [en.find((m) => m.kind === "driver_push").message.title, en.find((m) => m.kind === "driver_email").email.lines[1].startsWith("Your offer was accepted: CRPT-1200")], ["You've got the ride CRPT-1200", true]);
+  const forDriver = JSON.stringify(msgs.filter((m) => m.kind.startsWith("driver")));
+  eq("driver messages never hold the traveller's email, name or the price they paid", /emily@example\.com|Emily|Smith|tok/.test(forDriver), false);
+  eq("no traveller email on file: only the driver is told", am.assignmentMessages(ctx(DA, { guest: null })).map((m) => m.kind), ["driver_push", "driver_email"]);
+
+  const actionsSrc = readFileSync(new URL("../src/app/admin/bookings/actions.ts", import.meta.url), "utf8");
+  eq("updateBooking notifies only through shouldNotifyAssignment", /shouldNotifyAssignment\(before\.assigned_driver_id, driverId\)/.test(actionsSrc), true);
+  eq("acceptOffer and updateBooking share the same sender", (actionsSrc.match(/prepareAssignmentNotices\(/g) ?? []).length, 2);
+}
 
 if (failures.length) {
   console.error(`Dispatch: ${failures.length} failed, ${passed} passed`);

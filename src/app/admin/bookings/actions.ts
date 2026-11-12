@@ -3,19 +3,14 @@
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { requireRole } from "@/lib/auth";
-import { BOOKING_STATUSES, usd } from "@/lib/bookings";
-import { placeNameFor } from "@/lib/catalogEs";
-import { formatScheduledAt, formatScheduledAtFor } from "@/lib/dates";
-import { SITE_URL, sendEmail } from "@/lib/email";
+import { shouldNotifyAssignment } from "@/lib/assignmentMessages";
+import { prepareAssignmentNotices } from "@/lib/assignmentNotices";
+import { BOOKING_STATUSES } from "@/lib/bookings";
 import { notifyDriversOfJobs } from "@/lib/jobAlerts";
-import { parsePublicLang } from "@/lib/publicLang";
-import { sendPush, sendPushToEmail } from "@/lib/push";
 import { requestDriverReview } from "@/lib/reviewRequest";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { InputError, runAction, type FormState } from "@/lib/forms/formState";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { makeT } from "@/lib/teamLang";
-import { clientLanguageNote, driverFirstName, rideConfirmedEmail, rideConfirmedPush } from "@/lib/travellerMessages";
 import { getTeamLang } from "@/lib/teamLangServer";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -24,7 +19,7 @@ const STATUS_IDS = new Set<string>(BOOKING_STATUSES.map(([s]) => s));
 /**
  * Accept one driver's offer from the job board: the database function assigns the
  * driver + vehicle, confirms the booking, makes the offer the payout and declines
- * the other offers. Then the driver is emailed.
+ * the other offers. Then the driver and the traveller are told.
  */
 export async function acceptOffer(_prev: FormState, fd: FormData): Promise<FormState> {
   const t = makeT(await getTeamLang());
@@ -35,68 +30,18 @@ export async function acceptOffer(_prev: FormState, fd: FormData): Promise<FormS
     if (!UUID.test(bidId) || !UUID.test(bookingId))
       throw new InputError(t("Esa oferta ya no está abierta.", "That offer isn't open any more."));
     const supabase = (await createSupabaseServerClient())!;
-    const { data: ref, error } = await supabase.rpc("accept_offer", { p_bid: bidId });
+    const { error } = await supabase.rpc("accept_offer", { p_bid: bidId });
     if (error) {
       if (/^(That offer|This booking|The offer|Only the team)/.test(error.message)) throw new InputError(error.message);
       throw new Error(error.message);
     }
     const { data: offer } = await supabase.from("bids").select("driver_id, bid_amount").eq("id", bidId).maybeSingle();
-    const { data: who } = offer
-      ? await supabase.from("profiles").select("full_name, email").eq("id", offer.driver_id).maybeSingle()
-      : { data: null };
-    const { data: b } = await supabase.from("bookings").select("origin, destination, scheduled_at, trip_id, service_type").eq("id", bookingId).maybeSingle();
-    // The traveller's contact lives in the server-only trips table.
-    const admin = createSupabaseAdminClient();
-    const { data: guest } =
-      admin && b?.trip_id
-        ? await admin.from("trips").select("guest_name, guest_email, access_token, language").eq("id", b.trip_id).maybeSingle()
-        : { data: null };
-    // The traveller hears about it in the language they booked in.
-    const guestLang = parsePublicLang(guest?.language);
-    after(async () => {
-      const when = b?.scheduled_at ? formatScheduledAt(b.scheduled_at) : "";
-      if (guest?.guest_email) {
-        const driver = driverFirstName(guestLang, who?.full_name);
-        const guestWhen = b?.scheduled_at ? formatScheduledAtFor(b.scheduled_at, guestLang) : "";
-        await sendPushToEmail(guest.guest_email, {
-          ...rideConfirmedPush(guestLang, { driver, when: guestWhen }),
-          data: { screen: "trip", id: bookingId },
-        });
-        await sendEmail({
-          to: guest.guest_email,
-          ...rideConfirmedEmail(guestLang, {
-            ride: b?.service_type === "transfer",
-            guestName: guest.guest_name,
-            driver,
-            ref: String(ref),
-            origin: placeNameFor(b?.origin, guestLang),
-            destination: placeNameFor(b?.destination, guestLang),
-            when: guestWhen,
-            tripUrl: `${SITE_URL}/trip/${guest.access_token}`,
-          }),
-        });
-      }
-      if (offer) {
-        await sendPush(
-          [offer.driver_id],
-          { title: `You've got the ride ${ref}`, body: `${b?.origin ?? ""} → ${b?.destination ?? ""} · ${when} · payout ${usd(offer.bid_amount)}`, data: { screen: "trip", id: bookingId } },
-          "driver",
-        );
-      }
-      if (!who?.email) return;
-      await sendEmail({
-        to: who.email,
-        subject: `You've got the ride ${ref} · ${when}`,
-        lines: [
-          `Hi ${(who.full_name ?? "").split(" ")[0] || "there"},`,
-          `Your offer was accepted: ${ref}, ${b?.origin ?? ""} → ${b?.destination ?? ""}, pickup ${when} (Costa Rica time).`,
-          offer ? `Your payout: ${usd(offer.bid_amount)}.` : "",
-          guest ? clientLanguageNote(guestLang) : "",
-          "Open the trip for the exact pickup place, the traveller's requests and the chat. Please introduce yourself there today.",
-        ].filter(Boolean),
-        button: { label: "Open the trip", url: `${SITE_URL}/driver/trips/${bookingId}` },
-      });
-    });
+    // The traveller ("your ride is confirmed") and the driver ("you've got the ride"): the same
+    // messages as a manual assignment (src/lib/assignmentMessages.ts).
+    if (offer) {
+      const send = await prepareAssignmentNotices({ bookingId, driverId: offer.driver_id, payout: offer.bid_amount, viaOffer: true });
+      after(send);
+    }
     revalidatePath("/admin/bookings");
     revalidatePath(`/admin/bookings/${bookingId}`);
     revalidatePath("/driver/jobs");
@@ -144,7 +89,7 @@ export async function updateBooking(_prev: FormState, fd: FormData): Promise<For
     const supabase = (await createSupabaseServerClient())!;
     const { data: before } = await supabase
       .from("bookings")
-      .select("status, trip_id, booking_ref, review_requested_at, service_type, origin, destination")
+      .select("status, assigned_driver_id, trip_id, booking_ref, review_requested_at, service_type, origin, destination")
       .eq("id", id)
       .maybeSingle();
     const { data, error } = await supabase
@@ -163,6 +108,13 @@ export async function updateBooking(_prev: FormState, fd: FormData): Promise<For
       throw error;
     }
     if (!data?.length) throw new InputError(t("No se encontró la reserva.", "Booking not found."));
+
+    // A new driver (none → driver, or another driver): the traveller and the driver get the same
+    // messages as when an offer is accepted, once per assignment (re-saving sends nothing).
+    if (before && driverId && shouldNotifyAssignment(before.assigned_driver_id, driverId)) {
+      const send = await prepareAssignmentNotices({ bookingId: id, driverId, viaOffer: false });
+      after(send);
+    }
 
     // Just opened for drivers: email approved drivers about the job.
     if (status === "pending_bids" && before && before.status !== "pending_bids") {
