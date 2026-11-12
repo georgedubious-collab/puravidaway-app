@@ -18,6 +18,10 @@ export const C = {
   emerald: "#047857",
   emeraldBright: "#059669",
   emeraldDark: "#022C22",
+  /** The dark green band at the top of the Explore tab (white text on it). */
+  emeraldDeep: "#065F46",
+  /** A translucent white well for controls that sit on the dark green band. */
+  onDeep: "rgba(255,255,255,0.14)",
   emeraldSoft: "#D1FAE5",
   emeraldTint: "#ECFDF5",
   gold: "#F5B301",

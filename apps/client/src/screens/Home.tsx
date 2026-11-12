@@ -1,165 +1,170 @@
 import { Ionicons } from "@expo/vector-icons";
 import type { ReactNode } from "react";
 import { Pressable, ScrollView, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { cents, useBooking } from "../booking";
+import { useBooking } from "../booking";
 import { shortDate } from "../DatePicker";
-import { TOWNS } from "../format";
-import { shortPlace } from "../geo";
+import { orSimilar, plural } from "../format";
 import { tap } from "../haptics";
-import { useT } from "../i18n";
+import { useT, type Lang } from "../i18n";
 import { openTrip, useNav } from "../nav";
-import { Photo } from "../Photo";
-import { POPULAR, driveTime, hub } from "../prices";
+import type { VehicleClass } from "../prices";
 import { upcomingBookings, useSession } from "../session";
 import { C, R, S, SHADOW, SP, T } from "../theme";
-import { Skeleton, Bar, Text } from "../ui";
-import { usePopular } from "../usePopular";
+import { Bar, Skeleton, Text } from "../ui";
+import { useVehicleClasses } from "../usePopular";
+import { VehicleArt } from "../VehicleArt";
 import { RouteDots } from "./book/parts";
+import { BAND_OVERLAP, ExploreBand } from "./ExploreBand";
 import { RidePromises } from "./Promises";
 import { bookingStage } from "./Trips";
 
+/** "Five vehicle types." The number as a word up to ten, as a figure after that. */
+const COUNT_WORDS: Record<Lang, string[]> = {
+  en: ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten"],
+  es: ["", "Un", "Dos", "Tres", "Cuatro", "Cinco", "Seis", "Siete", "Ocho", "Nueve", "Diez"],
+};
+function typesLine(n: number, lang: Lang): string {
+  const word = COUNT_WORDS[lang][n] ?? String(n);
+  if (lang === "es") return word + (n === 1 ? " tipo de vehículo." : " tipos de vehículo.") + " Los precios aparecen cuando elige a dónde va.";
+  return word + (n === 1 ? " vehicle type." : " vehicle types.") + " Prices appear once you pick where to.";
+}
+
 /**
- * Explore, rides side: a clean booking start. A short headline, the
- * "From / To" card with the date, popular rides as picture cards with their
- * drive time and "from" price, and what every ride includes. No map here: the
- * map only appears on a trip once the driver is on the way (TripDetail).
- * `top` is the menu button and the Rides | Day tours switch.
+ * Explore, rides side: a clean booking start. The dark green band with the
+ * headline, the "From / To" card with the date overlapping its edge, our
+ * vehicle types ("Choose your ride": what each one is and who fits, no prices,
+ * because nothing is priced until there is a route), and what every ride
+ * includes. No map here: the map only appears on a trip once the driver is on
+ * the way (TripDetail). `top` is the menu button and the Rides | Day tours switch.
  */
 export function Home({ top }: { top: ReactNode }) {
   const { lang, t } = useT();
   const nav = useNav();
-  const insets = useSafeAreaInsets();
   const { state, set } = useBooking();
   const { trips } = useSession();
-  const { prices, done } = usePopular();
+  const { classes, failed } = useVehicleClasses();
   const { from, to } = state;
 
   const next = upcomingBookings(trips)[0]?.booking;
   const stage = next ? bookingStage(next, lang) : null;
-
-  // Popular rides, the ones leaving from the chosen pickup first.
-  const fromHub = from?.id.startsWith("hub:") ? from.id.slice(4) : "";
-  const mine = POPULAR.filter((r) => r.from === fromHub);
-  const popular = [...mine, ...POPULAR.filter((r) => !mine.includes(r))];
 
   function plan() {
     tap();
     set({ kind: "ride" });
     nav.navigate("BookWhere");
   }
-  function quickRide(r: { from: string; to: string }) {
+  /** Remember the vehicle type as the one wanted; "Choose your vehicle" opens with it selected when the route offers it. */
+  function planWith(v: VehicleClass) {
     tap();
-    set({ kind: "ride", from: hub(r.from), to: hub(r.to), stopIds: [] });
-    nav.navigate("BookRide");
+    set({ kind: "ride", vehicleId: v.id });
+    nav.navigate("BookWhere");
   }
 
   return (
-    <ScrollView style={S.screen} contentContainerStyle={[S.pad, { paddingTop: insets.top + 8, gap: SP.xl }]} showsVerticalScrollIndicator={false}>
-      <Bar style="dark" />
-      <View style={{ marginHorizontal: SP.lg - SP.page }}>{top}</View>
+    <ScrollView style={S.screen} contentContainerStyle={{ paddingBottom: SP.xxl }} showsVerticalScrollIndicator={false}>
+      <Bar style="light" />
+      <ExploreBand
+        top={top}
+        title={t("Private rides across Costa Rica", "Traslados privados por Costa Rica")}
+        subtitle={t("Door to door with a hand-picked local driver. See the price before you book.", "De puerta a puerta con un conductor local seleccionado. Vea el precio antes de reservar.")}
+      />
 
-      {next && stage ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t("Your next trip: ", "Su próximo viaje: ") + next.title + ", " + stage.text}
-          onPress={() => openTrip(next.id)}
-          style={({ pressed }) => [{ flexDirection: "row", alignItems: "center", gap: 10, minHeight: 56, backgroundColor: C.emeraldTint, borderRadius: R.card, paddingHorizontal: 14, paddingVertical: 10, marginTop: -SP.sm, opacity: pressed ? 0.8 : 1 }]}
-        >
-          <Ionicons name={stage.icon} size={22} color={C.emerald} />
-          <View style={{ flex: 1 }}>
-            <Text style={T.caption} numberOfLines={1}>
-              {t("Your next trip", "Su próximo viaje")} · {stage.text}
-            </Text>
-            <Text style={T.smallStrong} numberOfLines={1}>
-              {next.title}
-            </Text>
-          </View>
-          <Ionicons name="chevron-forward" size={18} color={C.emerald} />
-        </Pressable>
-      ) : null}
-
-      <View style={{ gap: SP.lg }}>
-        <View style={{ gap: 6 }}>
-          <Text accessibilityRole="header" style={T.display}>
-            {t("Private rides across Costa Rica", "Traslados privados por Costa Rica")}
-          </Text>
-          <Text style={T.body}>{t("Door to door with a hand-picked local driver. See the price before you book.", "De puerta a puerta con un conductor local seleccionado. Vea el precio antes de reservar.")}</Text>
-        </View>
-
-        <View style={[{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 6, paddingLeft: 14, paddingRight: 10, borderRadius: R.card, backgroundColor: C.card, borderWidth: 1, borderColor: C.border }, SHADOW]}>
-          <RouteDots inset={22} />
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <Field label={t("From", "Desde")} value={from?.label} placeholder={t("Where from?", "¿Desde dónde?")} onPress={plan} line />
-            <Field label={t("To", "Hasta")} value={to?.label} placeholder={t("Where to?", "¿A dónde va?")} onPress={plan} />
-          </View>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t("Date, time and travellers", "Fecha, hora y viajeros") + (state.whenSet ? ": " + shortDate(state.date, lang) : "")}
-            onPress={() => nav.navigate("BookWhen")}
-            style={({ pressed }) => ({ minHeight: 48, maxWidth: 104, paddingHorizontal: 12, paddingVertical: 6, borderRadius: R.control, backgroundColor: C.amberSoft, flexDirection: "row", alignItems: "center", gap: 6, opacity: pressed ? 0.7 : 1 })}
-          >
-            <Ionicons name="calendar-outline" size={20} color={C.amber} />
-            <Text maxFontSizeMultiplier={1.15} style={{ fontSize: 14, lineHeight: 18, fontWeight: "700", color: C.amber, flexShrink: 1 }}>
-              {state.whenSet ? shortDate(state.date, lang) : t("Date", "Fecha")}
-            </Text>
-          </Pressable>
-        </View>
-      </View>
-
-      <View style={{ gap: SP.md }}>
-        <Text accessibilityRole="header" style={T.h2}>
-          {t("Popular rides", "Traslados populares")}
-        </Text>
-        {popular.map((r) => {
-          const p = prices[r.from + ">" + r.to];
-          const origin = shortPlace(TOWNS[r.from]);
-          return (
+      <View style={{ marginTop: -BAND_OVERLAP, paddingHorizontal: SP.lg, gap: SP.xl }}>
+        <View style={{ gap: SP.md }}>
+          <View style={[{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 6, paddingLeft: 14, paddingRight: 10, borderRadius: R.card, backgroundColor: C.card }, SHADOW]}>
+            <RouteDots inset={22} />
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Field label={t("From", "Desde")} value={from?.label} placeholder={t("Where from?", "¿Desde dónde?")} onPress={plan} line />
+              <Field label={t("To", "Hasta")} value={to?.label} placeholder={t("Where to?", "¿A dónde va?")} onPress={plan} />
+            </View>
             <Pressable
-              key={r.from + r.to}
               accessibilityRole="button"
-              accessibilityLabel={TOWNS[r.from] + " → " + TOWNS[r.to] + (p ? ", " + driveTime(p.minutes) + t(", from ", ", desde ") + cents(p.fromCents) : "")}
-              onPress={() => quickRide(r)}
-              style={({ pressed }) => [S.card, { padding: 0, gap: 0, flexDirection: "row", overflow: "hidden", minHeight: 100, opacity: pressed ? 0.85 : 1 }]}
+              accessibilityLabel={t("Date, time and travellers", "Fecha, hora y viajeros") + (state.whenSet ? ": " + shortDate(state.date, lang) : "")}
+              onPress={() => nav.navigate("BookWhen")}
+              style={({ pressed }) => ({ minHeight: 52, maxWidth: 104, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: C.amberSoft, flexDirection: "row", alignItems: "center", gap: 6, opacity: pressed ? 0.7 : 1 })}
             >
-              <Photo name={r.photo} style={{ width: 100, alignSelf: "stretch" }} />
-              <View style={{ flex: 1, minWidth: 0, paddingVertical: 12, paddingLeft: 14, paddingRight: 12, gap: 3, justifyContent: "center" }}>
-                <Text style={T.h3} numberOfLines={2}>
-                  {TOWNS[r.to]}
-                </Text>
-                <Text style={T.caption} numberOfLines={1}>
-                  {t("from ", "desde ") + origin}
-                </Text>
-                <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", columnGap: 10, rowGap: 4, marginTop: 4 }}>
-                  {p ? (
-                    <>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                        <Ionicons name="time-outline" size={14} color={C.emerald} />
-                        <Text style={[T.caption, { color: C.emerald, fontWeight: "700" }]}>{driveTime(p.minutes)}</Text>
-                      </View>
-                      <Text style={T.caption}>
-                        {t("from ", "desde ")}
-                        <Text style={{ fontSize: 17, lineHeight: 22, fontWeight: "800", color: C.text }}>{cents(p.fromCents)}</Text>
-                      </Text>
-                    </>
-                  ) : done ? (
-                    <Text style={[T.smallStrong, { color: C.emerald }]}>{t("See price", "Ver precio")}</Text>
-                  ) : (
-                    <Skeleton width={120} height={18} />
-                  )}
-                </View>
-              </View>
+              <Ionicons name="calendar-outline" size={20} color={C.amber} />
+              <Text maxFontSizeMultiplier={1.15} style={{ fontSize: 14, lineHeight: 18, fontWeight: "800", color: C.amber, flexShrink: 1 }}>
+                {state.whenSet ? shortDate(state.date, lang) : t("Date", "Fecha")}
+              </Text>
             </Pressable>
-          );
-        })}
-        <Text style={T.caption}>{t("Prices are for the whole vehicle, not per person.", "Los precios son por todo el vehículo, no por persona.")}</Text>
-      </View>
+          </View>
 
-      <View style={{ backgroundColor: C.surface, borderRadius: R.card, padding: SP.lg, gap: SP.md }}>
-        <Text accessibilityRole="header" style={T.h3}>
-          {t("Every ride includes", "Cada traslado incluye")}
-        </Text>
-        <RidePromises compact />
+          {next && stage ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t("Your next trip: ", "Su próximo viaje: ") + next.title + ", " + stage.text}
+              onPress={() => openTrip(next.id)}
+              style={({ pressed }) => [{ flexDirection: "row", alignItems: "center", gap: 10, minHeight: 56, backgroundColor: C.emeraldTint, borderRadius: R.card, paddingHorizontal: 14, paddingVertical: 10, opacity: pressed ? 0.8 : 1 }]}
+            >
+              <Ionicons name={stage.icon} size={22} color={C.emerald} />
+              <View style={{ flex: 1 }}>
+                <Text style={T.caption} numberOfLines={1}>
+                  {t("Your next trip", "Su próximo viaje")} · {stage.text}
+                </Text>
+                <Text style={T.smallStrong} numberOfLines={1}>
+                  {next.title}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={C.emerald} />
+            </Pressable>
+          ) : null}
+        </View>
+
+        {failed ? null : (
+          <View style={{ gap: 10 }}>
+            <View style={{ gap: 2, paddingHorizontal: SP.xs }}>
+              <Text accessibilityRole="header" style={[T.h2, { fontWeight: "800" }]}>
+                {t("Choose your ride", "Elija su vehículo")}
+              </Text>
+              {classes ? <Text style={T.caption}>{typesLine(classes.length, lang)}</Text> : <Skeleton width={230} height={14} style={{ marginVertical: 2 }} />}
+            </View>
+            {classes
+              ? classes.map((v) => {
+                  const similar = orSimilar(v.exampleModels, lang);
+                  const fits = t("Up to " + plural(v.maxPax, "traveller", "en"), "Hasta " + plural(v.maxPax, "traveller", "es")) + " · " + v.luggage;
+                  return (
+                    <Pressable
+                      key={v.id}
+                      accessibilityRole="button"
+                      accessibilityLabel={[v.name, similar, fits, v.badge].filter(Boolean).join(", ")}
+                      onPress={() => planWith(v)}
+                      style={({ pressed }) => [{ flexDirection: "row", alignItems: "center", gap: 12, minHeight: 84, backgroundColor: C.card, borderRadius: 18, paddingVertical: 12, paddingHorizontal: 14, opacity: pressed ? 0.85 : 1 }, SHADOW]}
+                    >
+                      <VehicleArt id={v.id} maxPax={v.maxPax} />
+                      <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+                        <Text style={{ fontSize: 16, lineHeight: 21, fontWeight: "800", color: C.text }}>{v.name}</Text>
+                        {similar ? <Text style={{ fontSize: 13, lineHeight: 18, fontWeight: "500", color: C.text }}>{similar}</Text> : null}
+                        <Text style={T.caption}>{fits}</Text>
+                        {v.badge ? (
+                          <View style={{ alignSelf: "flex-start", maxWidth: "100%", marginTop: 4, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 10, backgroundColor: C.surface }}>
+                            <Text style={{ fontSize: 12, lineHeight: 16, fontWeight: "700", color: C.body }}>{v.badge}</Text>
+                          </View>
+                        ) : null}
+                      </View>
+                      <Ionicons name="chevron-forward" size={18} color={C.faint} />
+                    </Pressable>
+                  );
+                })
+              : [0, 1, 2, 3].map((i) => (
+                  <View key={i} style={[{ flexDirection: "row", alignItems: "center", gap: 12, minHeight: 84, backgroundColor: C.card, borderRadius: 18, paddingVertical: 12, paddingHorizontal: 14 }, SHADOW]}>
+                    <Skeleton width={68} height={52} radius={14} />
+                    <View style={{ flex: 1, gap: 8 }}>
+                      <Skeleton height={16} width="60%" />
+                      <Skeleton height={12} width="80%" />
+                    </View>
+                  </View>
+                ))}
+            <Text style={[T.caption, { textAlign: "center", marginTop: 4 }]}>{t("The price is for the whole vehicle, not per person.", "El precio es por todo el vehículo, no por persona.")}</Text>
+          </View>
+        )}
+
+        <View style={{ backgroundColor: C.surface, borderRadius: R.card, padding: SP.lg, gap: SP.md }}>
+          <Text accessibilityRole="header" style={T.h3}>
+            {t("Every ride includes", "Cada traslado incluye")}
+          </Text>
+          <RidePromises compact />
+        </View>
       </View>
     </ScrollView>
   );
@@ -175,7 +180,7 @@ function Field({ label, value, placeholder, onPress, line }: { label: string; va
       style={({ pressed }) => ({ minHeight: 56, justifyContent: "center", gap: 1, paddingVertical: 6, borderBottomWidth: line ? 1 : 0, borderBottomColor: C.border, opacity: pressed ? 0.6 : 1 })}
     >
       <Text style={[T.label, { letterSpacing: 0.5 }]}>{label}</Text>
-      <Text style={{ fontSize: 17, lineHeight: 23, fontWeight: "700", color: C.text }} numberOfLines={1}>
+      <Text style={{ fontSize: 17, lineHeight: 23, fontWeight: "700", color: value ? C.text : C.muted }} numberOfLines={1}>
         {value ?? placeholder}
       </Text>
     </Pressable>

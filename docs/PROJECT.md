@@ -533,6 +533,20 @@ is never shown as a promise. The category **names stay short** and no longer car
 "Private Van"; Spanish "4x4 Ejecutivo", "Van privada"). The seeded examples above are a first
 proposal; leaving the field empty hides the line for that category.
 
+**The customer app's Rides home lists the vehicle types (Jorge, 2026-11-11, mockup "C").** Under a
+dark green band (menu, Rides | Day tours switch, the headline in white; the same band on the Day
+tours side) and the From / To card that overlaps its edge, "Choose your ride" shows every
+category that an ordinary route offers: a small drawing, the name, "Toyota Prado or similar",
+"Up to N travellers · N suitcases" and the badge. **No prices there** (nothing is priced until a
+route is chosen); it says "Prices appear once you pick where to" and "The price is for the whole
+vehicle, not per person". It replaced the "Popular rides" picture cards. The list is never typed
+into the app: it is read from the server's price answer for one ordinary ride (SJO → La Fortuna,
+one traveller, in the app's language; `vehicleClasses()` in `apps/client/src/prices.ts`) and kept
+on the phone for 12 hours, so a change in `/admin/pricing` reaches the app without an update. The
+4x4 + Sierpe boat combo is only offered on Sierpe / Drake Bay routes, so it is not in this list.
+Tapping a type remembers it and opens "Plan your ride"; "Choose your vehicle" then opens with it
+selected when the route offers it for that group size, and with the first vehicle otherwise.
+
 **The 4-traveller class is a minivan, not an SUV (Jorge, 2026-11-11).** A compact SUV (Aion V,
 RAV4) has a sedan-size boot, so it cannot honestly carry 4 travellers + 4 suitcases; on Daytrip
 such a car only qualifies for Sedan / Sedan Lite and the 4-person class is MPVs only
@@ -767,7 +781,7 @@ Jorge: "24/7 arrivals. Trips that start from 10pm/4am should charge a 20% premiu
   chip on the vehicle step and on "Your ride" (app), "+20%" beside each night hour in the time
   lists, and "Includes $X night pickup premium" on the trip page. The admin booking page shows
   "Recargo nocturno".
-- **"From" prices** (popular routes, route pages, guides, the app's home screen) stay daytime
+- **"From" prices** (popular routes, route pages, guides) stay daytime
   prices. The airport guides, the FAQ and `llms.txt` carry one sentence built from the database
   values (`nightSentence()`, token `{night}`): "Pickups are available at any hour. Rides that
   start between 10:00 PM and 4:00 AM cost 20% more."

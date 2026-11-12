@@ -15,6 +15,7 @@ import { C, R, S, SHADOW, SP, T } from "../theme";
 import type { Tour } from "../types";
 import { Badge, Bar, Chip, Page, RoundBtn, SkeletonCard, Text } from "../ui";
 import { PriceBar } from "./book/parts";
+import { ExploreBand } from "./ExploreBand";
 
 const tourPhoto = (tour: Tour) => ({ name: "tour:" + tour.id, fallback: photoFor((tour.regionName ?? "") + " " + tour.name) });
 
@@ -40,29 +41,26 @@ function WhenPill() {
 }
 
 /**
- * Explore, day tours side: region chips, then a big card per tour. `top` is the
- * menu button and the Rides | Day tours switch (src/screens/Explore.tsx, which
- * also tells the booking store that a tour is being planned).
+ * Explore, day tours side: the dark green band with the headline, the date and
+ * group size overlapping its edge, region chips, then a big card per tour.
+ * `top` is the menu button and the Rides | Day tours switch
+ * (src/screens/Explore.tsx, which also tells the booking store that a tour is
+ * being planned).
  */
 export function ToursHome({ top }: { top: ReactNode }) {
   const { lang, t } = useT();
   const nav = useNav();
-  const insets = useSafeAreaInsets();
   const { state, set, tours, toursError } = useBooking();
   const [region, setRegion] = useState("ALL");
 
   const regions = [...new Map((tours ?? []).filter((x) => x.region && x.regionName).map((x) => [x.region as string, x.regionName as string])).entries()];
   const shown = (tours ?? []).filter((tour) => region === "ALL" || tour.region === region);
   return (
-    <ScrollView style={S.screen} contentContainerStyle={[S.pad, { paddingTop: insets.top + 8 }]} showsVerticalScrollIndicator={false}>
-      <Bar style="dark" />
-      <View style={{ marginHorizontal: SP.lg - SP.page }}>{top}</View>
-      <View style={{ gap: 6 }}>
-        <Text accessibilityRole="header" style={T.display}>
-          {t("Day tours", "Tours de un día")}
-        </Text>
-        <Text style={T.body}>{t("Private, with a guide, entrances and lunch included.", "Privados, con guía, entradas y almuerzo incluidos.")}</Text>
-      </View>
+    <ScrollView style={S.screen} contentContainerStyle={{ paddingBottom: SP.xxl }} showsVerticalScrollIndicator={false}>
+      <Bar style="light" />
+      <ExploreBand top={top} title={t("Day tours", "Tours de un día")} subtitle={t("Private, with a guide, entrances and lunch included.", "Privados, con guía, entradas y almuerzo incluidos.")} />
+      {/* The date pill sits half on the band, like the From / To card on the rides side. */}
+      <View style={{ marginTop: -28, paddingHorizontal: SP.lg, gap: SP.lg }}>
       <WhenPill />
       {toursError ? (
         <Text accessibilityRole="alert" style={S.error}>
@@ -119,6 +117,7 @@ export function ToursHome({ top }: { top: ReactNode }) {
           </View>
         </Pressable>
       ))}
+      </View>
     </ScrollView>
   );
 }

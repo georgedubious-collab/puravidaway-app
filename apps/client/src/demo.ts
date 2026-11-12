@@ -1,5 +1,5 @@
 import { createContext, useContext } from "react";
-import type { PopularPrice } from "./prices";
+import type { PopularPrice, VehicleClass } from "./prices";
 import type { ChatMessage, Tour } from "./types";
 
 /**
@@ -9,6 +9,8 @@ import type { ChatMessage, Tour } from "./types";
 export interface Demo {
   popular?: Record<string, PopularPrice>;
   homeTours?: Tour[];
+  /** The vehicle types listed on the home screen ("Choose your ride"). */
+  vehicles?: VehicleClass[];
   chat?: ChatMessage[];
   /** Preview only: show the chat as closed (read-only), with the "contact hidden" notice, or with a draft. */
   chatClosed?: boolean;
