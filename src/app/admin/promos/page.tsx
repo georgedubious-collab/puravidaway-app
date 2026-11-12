@@ -189,7 +189,8 @@ export default async function PromosPage() {
                     </Td>
                     <Td>
                       <span className="text-sm">
-                        {c.valid_from ?? t("siempre", "any time")} → {c.valid_to ?? t("sin fin", "no end")}
+                        <span className="whitespace-nowrap">{c.valid_from ?? t("siempre", "any time")}</span> →{" "}
+                        <span className="whitespace-nowrap">{c.valid_to ?? t("sin fin", "no end")}</span>
                       </span>
                     </Td>
                     <Td align="right">

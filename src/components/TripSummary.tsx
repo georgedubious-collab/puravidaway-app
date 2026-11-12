@@ -477,7 +477,9 @@ function PromoField({ trip, promo }: { trip: TripState; promo: AppliedPromo | nu
       <div className="flex items-center justify-between gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm" role="status">
         <span className="text-emerald-900">
           <span className="font-bold">{t("Promo code applied:", "Código promocional aplicado:")}</span>{" "}
-          <span className="font-mono font-bold">{promo.code}</span> −{formatUSD(promo.discountCents)}
+          <span className="whitespace-nowrap">
+            <span className="font-mono font-bold">{promo.code}</span> −{formatUSD(promo.discountCents)}
+          </span>
         </span>
         <button
           type="button"
