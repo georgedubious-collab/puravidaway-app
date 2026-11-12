@@ -1,7 +1,9 @@
 import "server-only";
 import { isLowRating } from "./automationRules";
 import { lowRatingTeamEmail } from "./automationMessages";
+import { teamAlertLang } from "./automationRules";
 import { bookedItemName } from "./catalog";
+import { localizeCatalog } from "./catalogEs";
 import { getCatalog } from "./catalogSource";
 import { formatScheduledAt } from "./dates";
 import { ADMIN_EMAIL, SITE_URL, sendEmail } from "./email";
@@ -32,13 +34,25 @@ export async function alertTeamOfLowRating(bookingId: string): Promise<boolean> 
       db.from("bookings").select("booking_ref, service_type, catalog_item_id, origin, destination, scheduled_at").eq("id", bookingId).maybeSingle(),
       db.from("profiles").select("full_name").eq("id", r.driver_id).maybeSingle(),
     ]);
-    const tour = b?.service_type === "transfer" ? null : bookedItemName((await getCatalog()).dayTours, b?.catalog_item_id);
+    // Spanish, unless the admin who gets this address uses the team pages / app in English.
+    const { data: admin } = await db
+      .from("profiles")
+      .select("app_lang")
+      .ilike("email", ADMIN_EMAIL.trim().replace(/[%_\\]/g, "\\$&"))
+      .eq("role", "admin")
+      .limit(1)
+      .maybeSingle();
+    const lang = teamAlertLang(admin?.app_lang);
+    const isTour = b?.service_type !== "transfer";
+    const tour = isTour ? bookedItemName(localizeCatalog(await getCatalog(), lang).dayTours, b?.catalog_item_id, lang) : null;
     return await sendEmail({
       to: ADMIN_EMAIL,
-      ...lowRatingTeamEmail({
+      lang,
+      ...lowRatingTeamEmail(lang, {
         ref: b?.booking_ref ?? "—",
-        route: b?.service_type === "transfer" ? `${b?.origin ?? "—"} → ${b?.destination ?? "—"}` : `Day tour: ${tour ?? "—"}`,
-        when: formatScheduledAt(b?.scheduled_at),
+        route: isTour ? (tour ?? "—") : `${b?.origin ?? "—"} → ${b?.destination ?? "—"}`,
+        tour: isTour,
+        when: formatScheduledAt(b?.scheduled_at, lang),
         driverName: who?.full_name ?? "—",
         stars: Number(r.stars),
         comment: r.comment,

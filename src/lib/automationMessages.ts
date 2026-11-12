@@ -31,6 +31,8 @@ export interface DriverReminder {
   /** Ride: pickup and drop-off as the driver app shows them. Tour: its name in `pickup`. */
   pickup: string;
   dropoff: string;
+  /** Day tours: where to pick them up (null when not given). */
+  tourPickup: string | null;
   /** formatScheduledAt(…, lang). */
   when: string;
   passengers: number | null;
@@ -70,6 +72,8 @@ export interface DriverReminderBooking {
   amount_paid: number | string | null;
   sign_text: string | null;
   sign_hide_name: boolean | null;
+  /** Day tours: the hotel or address (my_trips().pickup_place). */
+  pickup_place?: string | null;
 }
 
 /**
@@ -90,6 +94,7 @@ export function driverReminderFor(
     ride,
     pickup: ride ? (b.origin ?? "—") : (a.tourName ?? "Tour"),
     dropoff: ride ? (b.destination ?? "—") : "",
+    tourPickup: ride ? null : (b.pickup_place ?? null),
     when: formatScheduledAt(b.scheduled_at, lang),
     passengers: b.passenger_count,
     bags: { large: b.luggage_count, carryOn: b.carry_on_count },
@@ -121,7 +126,7 @@ export function driverReminderPush(lang: PublicLang, a: DriverReminder): { title
   return {
     title: t(lang, `Reminder: trip ${a.ref} · ${a.when}`, `Recordatorio: viaje ${a.ref} · ${a.when}`),
     body: [
-      a.ride ? `${a.pickup} → ${a.dropoff}` : a.pickup,
+      a.ride ? `${a.pickup} → ${a.dropoff}` : a.tourPickup ? `${a.pickup} · ${t(lang, "pickup", "recogida")}: ${a.tourPickup}` : a.pickup,
       a.passengers ? t(lang, `${a.passengers} pax`, `${a.passengers} pasajeros`) : "",
       a.ride && a.sign ? t(lang, `sign: “${a.sign}”`, `rótulo: “${a.sign}”`) : "",
     ]
@@ -141,6 +146,11 @@ export function driverReminderEmail(lang: PublicLang, a: DriverReminder): { subj
       t(lang, `A reminder of your trip ${a.ref}: pickup ${a.when} (Costa Rica time).`, `Le recordamos su viaje ${a.ref}: recogida ${a.when} (hora de Costa Rica).`),
       a.ride ? t(lang, `Pickup: ${a.pickup}`, `Recogida: ${a.pickup}`) : t(lang, `Day tour: ${a.pickup}`, `Tour de un día: ${a.pickup}`),
       a.ride && a.dropoff ? t(lang, `Drop-off: ${a.dropoff}`, `Destino: ${a.dropoff}`) : "",
+      !a.ride
+        ? a.tourPickup
+          ? t(lang, `Pickup: ${a.tourPickup}`, `Recogida: ${a.tourPickup}`)
+          : t(lang, "Pickup: our team confirms the place in the trip chat.", "Recogida: nuestro equipo confirma el lugar en el chat del viaje.")
+        : "",
       [a.passengers ? t(lang, `Travellers: ${a.passengers}`, `Pasajeros: ${a.passengers}`) : "", bags ? t(lang, `Bags: ${bags}`, `Maletas: ${bags}`) : ""]
         .filter(Boolean)
         .join(" · "),
@@ -162,12 +172,17 @@ export function driverReminderEmail(lang: PublicLang, a: DriverReminder): { subj
   };
 }
 
-// --- Low rating: email to our team (English, like the other team emails) ----------------
+// --- Low rating: email to our team (Spanish by default, like the admin pages) -------------
 
-export function lowRatingTeamEmail(a: {
+/**
+ * The team reads Spanish unless the admin who receives it uses English (profiles.app_lang =
+ * 'en'). Words as on the admin pages: "Reserva", "Cliente", "Conductor", "Ruta".
+ */
+export function lowRatingTeamEmail(lang: PublicLang, a: {
   ref: string;
-  /** "SJO Airport / San José → Manuel Antonio", or "Day tour: …". */
+  /** "SJO Airport / San José → Manuel Antonio", or the tour's name (`tour` true). */
   route: string;
+  tour?: boolean;
   /** formatScheduledAt(…). */
   when: string;
   driverName: string;
@@ -176,18 +191,23 @@ export function lowRatingTeamEmail(a: {
   adminUrl: string;
 }): { subject: string; lines: string[]; button: { label: string; url: string } } {
   const s = Math.max(1, Math.min(5, Math.round(a.stars)));
+  const stars = `${"★".repeat(s)}${"☆".repeat(5 - s)} (${s}/5)`;
   return {
-    subject: `Low rating: ${s}★ for ${a.driverName} (${a.ref})`,
+    subject: t(lang, `Low rating: ${s}★ for ${a.driverName} (${a.ref})`, `Calificación baja: ${s}★ para ${a.driverName} (${a.ref})`),
     lines: [
-      `A traveller rated their driver ${s} out of 5.`,
-      `Booking: ${a.ref}`,
-      `Route: ${a.route}`,
-      `Date: ${a.when} (Costa Rica time)`,
-      `Driver: ${a.driverName}`,
-      `Stars: ${"★".repeat(s)}${"☆".repeat(5 - s)} (${s}/5)`,
-      a.comment ? `Comment: “${a.comment}”` : "No comment was written.",
-      "The driver is not told about this alert. It is sent once per rating; the rating already counts in the driver's average.",
+      t(lang, `A traveller rated their driver ${s} out of 5.`, `Un cliente calificó a su conductor con ${s} de 5.`),
+      t(lang, `Booking: ${a.ref}`, `Reserva: ${a.ref}`),
+      a.tour ? t(lang, `Day tour: ${a.route}`, `Tour de un día: ${a.route}`) : t(lang, `Route: ${a.route}`, `Ruta: ${a.route}`),
+      t(lang, `Date: ${a.when} (Costa Rica time)`, `Fecha: ${a.when} (hora de Costa Rica)`),
+      t(lang, `Driver: ${a.driverName}`, `Conductor: ${a.driverName}`),
+      t(lang, `Stars: ${stars}`, `Estrellas: ${stars}`),
+      a.comment ? t(lang, `Comment: “${a.comment}”`, `Comentario: “${a.comment}”`) : t(lang, "No comment was written.", "No escribió ningún comentario."),
+      t(
+        lang,
+        "The driver is not told about this alert. It is sent once per rating; the rating already counts in the driver's average.",
+        "Al conductor no se le avisa de esta alerta. Se envía una sola vez por calificación; la calificación ya cuenta en el promedio del conductor.",
+      ),
     ],
-    button: { label: "Open the booking", url: a.adminUrl },
+    button: { label: t(lang, "Open the booking", "Abrir la reserva"), url: a.adminUrl },
   };
 }

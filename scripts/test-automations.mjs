@@ -169,8 +169,11 @@ for (const lang of ["en", "es"]) {
   check(`traveller (${lang}): call our team / chat`, /(Call our team|Llamar a nuestro equipo)/.test(all), true);
   check(`traveller (${lang}): no 24/7, no owner brand`, /24\/7|Travel Planner|Familia/.test(all), false);
   rendered.push([`traveller-reminder-airport-${lang}`, { to: GUEST.email, ...e }]);
-  const tour = tm.dayBeforeEmail(lang, { ...a, ride: false, origin: "Arenal Volcano 1968 Lava Trails", destination: "", sign: null, airport: false, car: null });
+  const tour = tm.dayBeforeEmail(lang, { ...a, ride: false, origin: "Arenal Volcano 1968 Lava Trails", destination: "", sign: null, airport: false, car: null, pickupPlace: "Hotel Lomas del Volcán, La Fortuna" });
   check(`tour reminder (${lang}): no sign, no airport promise`, /rótulo|name sign|arrivals|llegadas/.test(JSON.stringify(tour)), false);
+  check(`tour reminder (${lang}): pickup place and the team's time`, [tour.lines[1].includes("Hotel Lomas del Volcán, La Fortuna"), /(confirmed by our team|confirmó nuestro equipo)/.test(tour.lines[1])], [true, true]);
+  const noPlace = tm.dayBeforeEmail(lang, { ...a, ride: false, origin: "Arenal Volcano 1968 Lava Trails", destination: "", sign: null, airport: false, car: null, pickupPlace: null });
+  check(`tour reminder without a place (${lang}): asks for it in the chat`, /(trip chat|chat del viaje)/.test(noPlace.lines[1]), true);
   rendered.push([`traveller-reminder-tour-${lang}`, { to: GUEST.email, ...tour }]);
 }
 check("Spanish reminder uses usted", /\busted\b|\bsu conductor\b|Su conductor/.test(JSON.stringify(tm.dayBeforeEmail("es", { guestName: "Ana", driver: "Carlos", ref: "X", ride: true, origin: "A", destination: "B", when: "w", car: null, sign: "Ana", airport: false, tripUrl: "u" }))), true);
@@ -179,11 +182,57 @@ check("Spanish reminder uses usted", /\busted\b|\bsu conductor\b|Su conductor/.t
 check("1, 2, 3 stars alert the team", [1, 2, 3].map(r.isLowRating), [true, true, true]);
 check("4 and 5 stars don't", [4, 5].map(r.isLowRating), [false, false]);
 check("nonsense never alerts", [0, 6, 2.5, NaN].map(r.isLowRating), [false, false, false, false]);
+// The team alert is in Spanish unless the receiving admin uses English (profiles.app_lang).
+check("team alert language: Spanish by default", [r.teamAlertLang(null), r.teamAlertLang(undefined), r.teamAlertLang("es"), r.teamAlertLang("fr")], ["es", "es", "es", "es"]);
+check("team alert language: English only for app_lang 'en'", r.teamAlertLang("en"), "en");
 {
-  const e = am.lowRatingTeamEmail({ ref: "CRPT-10492", route: "SJO Airport / San José → Manuel Antonio", when: "2026-11-22 · 2:30 PM", driverName: "Carlos Mora", stars: 2, comment: "Late and rude.", adminUrl: "https://www.example.com/admin/bookings/1111" });
-  check("team alert: subject", e.subject, "Low rating: 2★ for Carlos Mora (CRPT-10492)");
-  check("team alert: stars, comment, link", [e.lines.some((l) => l.includes("★★☆☆☆ (2/5)")), e.lines.some((l) => l.includes("Late and rude.")), e.button.url.endsWith("/admin/bookings/1111")], [true, true, true]);
-  rendered.push(["team-low-rating-en", { to: "team@example.com", ...e }]);
+  const args = { ref: "CRPT-10492", route: "SJO Airport / San José → Manuel Antonio", when: "2026-11-22 · 2:30 PM", driverName: "Carlos Mora", stars: 2, comment: "Late and rude.", adminUrl: "https://www.example.com/admin/bookings/1111" };
+  const es = am.lowRatingTeamEmail("es", args);
+  check("team alert (es): subject", es.subject, "Calificación baja: 2★ para Carlos Mora (CRPT-10492)");
+  check("team alert (es): admin-page words", [es.lines[0], es.lines[1], es.lines[2], es.lines[4], es.button.label],
+    ["Un cliente calificó a su conductor con 2 de 5.", "Reserva: CRPT-10492", "Ruta: SJO Airport / San José → Manuel Antonio", "Conductor: Carlos Mora", "Abrir la reserva"]);
+  check("team alert (es): stars, comment, link", [es.lines.some((l) => l.includes("Estrellas: ★★☆☆☆ (2/5)")), es.lines.some((l) => l.includes("Comentario: “Late and rude.”")), es.button.url.endsWith("/admin/bookings/1111")], [true, true, true]);
+  check("team alert (es): tour", am.lowRatingTeamEmail("es", { ...args, route: "Arenal", tour: true }).lines[2], "Tour de un día: Arenal");
+  check("team alert (es): no comment", am.lowRatingTeamEmail("es", { ...args, comment: null }).lines[6], "No escribió ningún comentario.");
+  const en = am.lowRatingTeamEmail("en", args);
+  check("team alert (en): subject", en.subject, "Low rating: 2★ for Carlos Mora (CRPT-10492)");
+  check("team alert (en): stars, comment, link", [en.lines.some((l) => l.includes("★★☆☆☆ (2/5)")), en.lines.some((l) => l.includes("Late and rude.")), en.button.label], [true, true, "Open the booking"]);
+  rendered.push(["team-low-rating-es", { to: "team@example.com", lang: "es", ...es }]);
+  rendered.push(["team-low-rating-en", { to: "team@example.com", ...en }]);
+}
+
+// --- Day-tour pickup place and the "no suggestions" tickbox (booking forms) -------------------
+{
+  const tr = await import("../src/lib/tripRequest.ts");
+  const { BUILT_IN_CATALOG } = await import("../src/lib/catalogModel.ts");
+  const tourSpec = (o = {}) => ({ kind: "day_tour", tourId: "dt1", upgrade: false, pax: 2, ...o });
+  check("tour without a pickup place (older apps): still accepted", tr.parseSpec(tourSpec()), tourSpec());
+  check("tour pickup place: cleaned to one line", tr.parseSpec(tourSpec({ pickupPlace: "  Hotel  Arenal\nKioro  " })).pickupPlace, "Hotel Arenal Kioro");
+  check("tour pickup place: empty = not given", "pickupPlace" in tr.parseSpec(tourSpec({ pickupPlace: "   " })), false);
+  check("tour pickup place: not text = malformed", tr.parseSpec(tourSpec({ pickupPlace: 42 })), null);
+  const price = (place) => { try { tr.priceItem(tourSpec({ pickupPlace: place }), "2027-03-10", BUILT_IN_CATALOG); return "ok"; } catch (e) { return e.message; } };
+  check("tour pickup place: a hotel is fine", price("Hotel Lomas del Volcán, La Fortuna"), "ok");
+  check("tour pickup place: missing is fine on the server (older apps)", price(undefined), "ok");
+  check("tour pickup place: 120 characters fine, 121 refused", [price("a".repeat(120)), price("a".repeat(121))], ["ok", tr.TOUR_PICKUP_ERROR_LONG]);
+  check("tour pickup place: phone refused", price("Hotel Arenal, call +506 8888 7777"), tr.TOUR_PICKUP_ERROR_CONTACT);
+  check("tour pickup place: email refused", price("ana@example.com"), tr.TOUR_PICKUP_ERROR_CONTACT);
+  check("tour pickup place: link refused", price("www.myhotel.com"), tr.TOUR_PICKUP_ERROR_CONTACT);
+  const { localizeServerMessage } = await import("../src/lib/serverMessagesEs.ts");
+  check("pickup place errors in Spanish", [localizeServerMessage(tr.TOUR_PICKUP_ERROR_CONTACT, "es").startsWith("Por favor, no incluya"), localizeServerMessage(tr.TOUR_PICKUP_ERROR_LONG, "es")], [true, "El lugar de recogida puede tener hasta 120 caracteres."]);
+  check("rides ignore pickupPlace (they have origin)", "pickupPlace" in (tr.parseSpec({ kind: "transfer", origin: "SJO", destination: "Arenal", vehicleId: "sedan", stopIds: [], pax: 2, pickupPlace: "x" }) ?? {}), false);
+  // Ticked → opt out; unticked or missing (older apps) → nothing changes.
+  check("tickbox ticked → opt out", tr.optsOutOfSuggestions(true), true);
+  check("tickbox unticked → no opt-out", tr.optsOutOfSuggestions(false), false);
+  check("field missing (older apps) → no opt-out", tr.optsOutOfSuggestions(undefined), false);
+  check("anything but true → no opt-out", ["true", "on", 1, null].map(tr.optsOutOfSuggestions), [false, false, false, false]);
+  // The driver's reminder for a tour shows the pickup place.
+  const tb = { ...booking, service_type: "day_tour", origin: null, destination: null, origin_coords: null, destination_coords: null, flight_or_hotel_notes: null, sign_text: null, pickup_place: "Hotel Lomas del Volcán" };
+  for (const lang of ["es", "en"]) {
+    const d = am.driverReminderFor(lang, tb, { guestName: GUEST.name, driverFullName: "Carlos", tourName: "Arenal Volcano", siteUrl: "" });
+    const e = am.driverReminderEmail(lang, d);
+    check(`driver tour reminder (${lang}): pickup place`, [e.lines.includes(lang === "es" ? "Recogida: Hotel Lomas del Volcán" : "Pickup: Hotel Lomas del Volcán"), am.driverReminderPush(lang, d).body.includes("Hotel Lomas del Volcán")], [true, true]);
+    check(`driver tour reminder (${lang}): no traveller contact or price`, /Rose|Smith|@|8888|\$/.test(JSON.stringify(e)), false);
+  }
 }
 
 // --- 3. Follow-up: timing ------------------------------------------------------------------------

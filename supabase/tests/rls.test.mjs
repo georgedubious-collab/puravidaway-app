@@ -1284,6 +1284,39 @@ await expectOk("server removes the test booking", "server", "delete from public.
   }
   await expectRows("admin reads the unsubscribe list", "admin", "select * from public.email_optouts", 1);
   await expectBlocked("even an admin cannot write it from the browser (server only)", "admin", "insert into public.email_optouts (email) values ('y@example.com')");
+  // The "Don't send me suggestions after my trip" tickbox when booking.
+  await expectOk("server adds an address from the booking tickbox", "server",
+    "insert into public.email_optouts (email, source) values ('ticked@example.com', 'booking')");
+  await expectBlocked("unknown sources refused", "server", "insert into public.email_optouts (email, source) values ('z@example.com', 'web')");
+  await expectRows("travellers still cannot read it", "client", "select * from public.email_optouts", 0);
+
+  // Day-tour pickup place (bookings.pickup_place).
+  const T = "10000000-0000-0000-0000-0000000000a5";
+  await expectOk("server stores a confirmed day tour with its pickup place", "server", `
+    insert into public.bookings (id, client_id, service_type, catalog_item_id, total_price, status, assigned_driver_id, assigned_vehicle_id, scheduled_at, pickup_place) values
+      ('${T}', '${U.client}', 'day_tour', 'dt1', 590, 'confirmed', '${U.driver}', '30000000-0000-0000-0000-000000000001', now() + interval '3 days', 'Hotel Lomas del Volcán, La Fortuna')`);
+  await expectRows("the assigned driver sees the pickup place in my_trips()", "driver",
+    `select 1 from public.my_trips() where id = '${T}' and pickup_place = 'Hotel Lomas del Volcán, La Fortuna'`, 1);
+  await expectRows("another driver does not see the trip", "pending", `select 1 from public.my_trips() where id = '${T}'`, 0);
+  await expectRows("travellers' own booking shows it", "client", `select 1 from public.bookings where id = '${T}' and pickup_place is not null`, 1);
+  await expectRows("drivers still read 0 rows from bookings", "driver", "select pickup_place from public.bookings", 0);
+  await expectRows("the job board never carries the pickup place", "admin",
+    "select 1 from pg_proc where proname in ('driver_jobs','open_trip_requests') and pg_get_function_result(oid) ~ 'pickup_place'", 0);
+  await expectBlocked("pickup place with a phone number refused", "server", `update public.bookings set pickup_place = 'Call me +506 8888 7777' where id = '${T}'`);
+  await expectBlocked("pickup place with an email refused", "server", `update public.bookings set pickup_place = 'ana@example.com' where id = '${T}'`);
+  await expectBlocked("pickup place with a link refused", "server", `update public.bookings set pickup_place = 'www.hotel.com' where id = '${T}'`);
+  await expectBlocked("pickup place over 120 characters refused", "server", `update public.bookings set pickup_place = '${"a".repeat(121)}' where id = '${T}'`);
+  await expectOk("pickup place of exactly 120 characters is fine", "server", `update public.bookings set pickup_place = '${"a".repeat(120)}' where id = '${T}'`);
+  await expectBlocked("pickup place with leading spaces refused", "server", `update public.bookings set pickup_place = ' Hotel' where id = '${T}'`);
+  // The change history (migration 0044) logs only its listed columns: the message stamps and the
+  // pickup place never add history rows.
+  await expectRows("message stamps and pickup place never add history rows", "admin",
+    `select count(*) as n from public.booking_events where booking_id in ('${B}', '${T}') and (before::text || after::text) ~ '(reminder_|followup_|confirmed_at|pickup_place|team_alerted)'`, 0);
+  await expectOk("server stamps the tour's reminders", "server",
+    `update public.bookings set reminder_traveller_at = now(), reminder_driver_at = now(), followup_sent_at = now() where id = '${T}'`);
+  await expectRows("…and the history stays empty for the tour", "admin", `select count(*) as n from public.booking_events where booking_id = '${T}'`, 0);
+  await expectOk("server cleans up the tour", "server", `delete from public.bookings where id = '${T}'`);
+
   await expectOk("server cleans up the list", "server", "delete from public.email_optouts");
   await expectOk("server cleans up the rating", "server", `delete from public.driver_reviews where booking_id = '${B}'`);
   await expectOk("server cleans up the booking", "server", `delete from public.bookings where id = '${B}'`);

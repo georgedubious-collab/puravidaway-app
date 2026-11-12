@@ -57,6 +57,8 @@ export interface Trip {
    * Missing before that migration: the app then shows passenger_name, as before.
    */
   sign_text?: string | null;
+  /** Day tours: the hotel or address to pick the travellers up (migration 0045). Missing before it; null on rides. */
+  pickup_place?: string | null;
   /** Bags (suitcases and large backpacks) the traveller said they bring; null when not given. */
   luggage_count?: number | null;
   /** Carry-ons; null or missing on older bookings (then luggage_count is shown alone, as before). Migration 0037. */

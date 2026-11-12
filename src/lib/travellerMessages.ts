@@ -372,6 +372,8 @@ export interface DayBefore {
   sign: string | null;
   /** Pickup at the SJO or LIR airport: the meeting promise, in the site's words. */
   airport: boolean;
+  /** Day tours: the hotel or address they gave (bookings.pickup_place); null when not given. */
+  pickupPlace?: string | null;
   tripUrl: string;
 }
 
@@ -406,11 +408,23 @@ export function dayBeforeEmail(lang: PublicLang, a: DayBefore): TravellerEmail {
     ),
     lines: [
       greeting(lang, a.guestName),
-      t(
-        lang,
-        `A quick reminder of ${what}. Pickup: ${a.when} (Costa Rica time)${a.ride ? `, at ${a.origin}` : ""}.`,
-        `Un breve recordatorio de ${what}. Recogida: ${a.when} (hora de Costa Rica)${a.ride ? `, en ${a.origin}` : ""}.`,
-      ),
+      a.ride
+        ? t(
+            lang,
+            `A quick reminder of ${what}. Pickup: ${a.when} (Costa Rica time), at ${a.origin}.`,
+            `Un breve recordatorio de ${what}. Recogida: ${a.when} (hora de Costa Rica), en ${a.origin}.`,
+          )
+        : a.pickupPlace
+          ? t(
+              lang,
+              `A quick reminder of ${what}. Pickup: ${a.pickupPlace}, on ${a.when} (Costa Rica time), the time confirmed by our team.`,
+              `Un breve recordatorio de ${what}. Recogida: ${a.pickupPlace}, el ${a.when} (hora de Costa Rica), la hora que confirmó nuestro equipo.`,
+            )
+          : t(
+              lang,
+              `A quick reminder of ${what}. Pickup: ${a.when} (Costa Rica time), the time confirmed by our team. If we don't have your pickup place yet, please write it in the trip chat.`,
+              `Un breve recordatorio de ${what}. Recogida: ${a.when} (hora de Costa Rica), la hora que confirmó nuestro equipo. Si aún no tenemos su lugar de recogida, escríbalo en el chat del viaje, por favor.`,
+            ),
       a.car
         ? t(lang, `Your driver: ${a.driver}. Vehicle: ${carLine(lang, a.car)}.`, `Su conductor: ${a.driver}. Vehículo: ${carLine(lang, a.car)}.`)
         : t(lang, `Your driver: ${a.driver}.`, `Su conductor: ${a.driver}.`),

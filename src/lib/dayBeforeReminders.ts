@@ -28,7 +28,7 @@ const BATCH = 200;
 const COLUMNS =
   "id, status, booking_ref, trip_id, service_type, catalog_item_id, origin, destination, origin_coords, destination_coords, scheduled_at, confirmed_at, " +
   "assigned_driver_id, assigned_vehicle_id, passenger_count, luggage_count, carry_on_count, flight_or_hotel_notes, driver_notes, preferences, vehicle_class, " +
-  "payment_mode, total_price, cash_fee, amount_paid, sign_text, sign_hide_name, reminder_traveller_at, reminder_driver_at";
+  "payment_mode, total_price, cash_fee, amount_paid, sign_text, sign_hide_name, pickup_place, reminder_traveller_at, reminder_driver_at";
 
 interface Row {
   id: string;
@@ -58,6 +58,7 @@ interface Row {
   amount_paid: number | string | null;
   sign_text: string | null;
   sign_hide_name: boolean | null;
+  pickup_place: string | null;
   reminder_traveller_at: string | null;
   reminder_driver_at: string | null;
 }
@@ -163,6 +164,7 @@ async function sendTravellerReminder(
       car: v ? { name: [v.make_model, v.year].filter(Boolean).join(" ") || (lang === "es" ? "Vehículo" : "Vehicle"), color: v.color, plate: v.plate } : null,
       sign,
       airport: ride && isAirportEnd({ text: b.origin, coords: b.origin_coords }),
+      pickupPlace: ride ? null : b.pickup_place,
       tripUrl: `${SITE_URL}/trip/${trip.access_token}`,
     }),
   });

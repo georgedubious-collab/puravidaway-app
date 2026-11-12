@@ -87,6 +87,11 @@ export function isLowRating(stars: number): boolean {
   return Number.isInteger(stars) && stars >= 1 && stars <= LOW_RATING_MAX_STARS;
 }
 
+/** The team alert's language: Spanish, unless the receiving admin's profiles.app_lang is 'en'. */
+export function teamAlertLang(appLang: string | null | undefined): "es" | "en" {
+  return appLang === "en" ? "en" : "es";
+}
+
 // --- Places on a stored booking --------------------------------------------------------------
 
 /** bookings.origin_coords / destination_coords as the trip request stores them. */

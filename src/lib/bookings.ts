@@ -169,6 +169,8 @@ export type DriverTrip = Pick<
   carry_on_count?: number | null;
   /** Estimated arrival at the drop-off: pickup + drive time + stops; null when the drive time is unknown (migration 0035). */
   arrive_at?: string | null;
+  /** Day tours: the hotel or address to pick the travellers up (migration 0045); null on rides. */
+  pickup_place?: string | null;
 };
 
 export function usd(n: number | string): string {
