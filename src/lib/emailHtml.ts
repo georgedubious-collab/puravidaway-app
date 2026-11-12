@@ -20,6 +20,8 @@ export interface Email {
   button?: { label: string; url: string };
   /** More links under the button, one per line (e.g. day tours in the follow-up email). */
   links?: { label: string; url: string }[];
+  /** A paragraph shown just above `links` (below the button). */
+  linksIntro?: string;
   /** Where replies go (e.g. the traveller who used the contact form). */
   replyTo?: string;
   /** "es" for emails to travellers who booked in Spanish (footer line); everything else is English. */
@@ -39,9 +41,11 @@ export function emailHtml(e: Email): string {
   const btn = e.button
     ? `<p style="margin:22px 0"><a href="${esc(e.button.url)}" style="background:#022c22;color:#fff;text-decoration:none;font-weight:700;padding:12px 20px;border-radius:10px;display:inline-block">${esc(e.button.label)}</a></p>`
     : "";
-  const links = (e.links ?? [])
-    .map((l) => `<p style="margin:0 0 10px;font-size:15px;line-height:1.5"><a href="${esc(l.url)}" style="color:#047857;font-weight:700">${esc(l.label)}</a></p>`)
-    .join("");
+  const links =
+    (e.links?.length && e.linksIntro ? `<p style="margin:0 0 14px;font-size:15px;line-height:1.5;color:#0f172a">${esc(e.linksIntro)}</p>` : "") +
+    (e.links ?? [])
+      .map((l) => `<p style="margin:0 0 10px;font-size:15px;line-height:1.5"><a href="${esc(l.url)}" style="color:#047857;font-weight:700">${esc(l.label)}</a></p>`)
+      .join("");
   const tagline = e.lang === "es" ? "Traslados y tours" : "Transfers and tours";
   const unsub = e.unsubscribe
     ? `<p style="font-size:12px;color:#64748b;margin:8px 0 0">${esc(e.unsubscribe.note)} <a href="${esc(e.unsubscribe.pageUrl)}" style="color:#64748b">${esc(e.unsubscribe.label)}</a></p>`
@@ -55,6 +59,7 @@ export function emailText(e: Email): string {
   return [
     ...e.lines,
     e.button ? `${e.button.label}: ${e.button.url}` : "",
+    e.links?.length && e.linksIntro ? e.linksIntro : "",
     ...(e.links ?? []).map((l) => `${l.label}: ${l.url}`),
     e.unsubscribe ? `${e.unsubscribe.note} ${e.unsubscribe.label}: ${e.unsubscribe.pageUrl}` : "",
   ]

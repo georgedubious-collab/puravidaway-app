@@ -256,7 +256,8 @@ for (const lang of ["en", "es"]) {
   check(`follow-up (${lang}): no 24/7, no owner brand`, /24\/7|Travel Planner|Familia/.test(JSON.stringify(full)), false);
   rendered.push([`traveller-followup-${lang}`, full]);
   const noTours = tm.followupEmail(lang, { guestName: "Ana", origin: "SJO", destination: "Tamarindo", returnUrl: "u", region: null, tours: [] });
-  check(`follow-up without tours (${lang}): no tour line`, [noTours.lines.length, noTours.links.length], [2, 0]);
+  check(`follow-up without tours (${lang}): no tour line`, [noTours.lines.length, noTours.links.length, noTours.linksIntro], [2, 0, undefined]);
+  check(`follow-up (${lang}): tours come after the return button, with their intro`, html.emailHtml(full).indexOf(e.linksIntro) > html.emailHtml(full).indexOf(e.button.label), true);
 }
 check("booking emails have no unsubscribe headers", html.emailHeaders({ to: "a@b.c", subject: "s", lines: [] }), undefined);
 

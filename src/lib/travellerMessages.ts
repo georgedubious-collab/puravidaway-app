@@ -460,7 +460,7 @@ export function followupEmail(
     region: string | null;
     tours: FollowupTour[];
   },
-): TravellerEmail & { links: { label: string; url: string }[] } {
+): TravellerEmail & { links: { label: string; url: string }[]; linksIntro?: string } {
   return {
     lang,
     subject: t(lang, `Your next ride from ${a.destination}`, `Su próximo traslado desde ${a.destination}`),
@@ -471,15 +471,17 @@ export function followupEmail(
         `We hope you're enjoying ${a.destination}. When it's time to move on, your ride back to ${a.origin} is ready to book: the route is already filled in, just choose the date, time and vehicle. You see the price before you send the request.`,
         `Esperamos que esté disfrutando ${a.destination}. Cuando llegue el momento de seguir, su traslado de regreso a ${a.origin} está listo para reservar: la ruta ya está completa, solo elija la fecha, la hora y el vehículo. Usted ve el precio antes de enviar la solicitud.`,
       ),
-      a.tours.length && a.region
-        ? t(
-            lang,
-            `While you're in ${a.region}, these private day tours are nearby (prices per person, 4 or more travellers, green season):`,
-            `Mientras está en ${a.region}, estos tours privados de un día están cerca (precios por persona, 4 viajeros o más, temporada verde):`,
-          )
-        : "",
-    ].filter(Boolean),
+    ],
     button: { label: t(lang, `Book the ride back to ${a.origin}`, `Reservar el regreso a ${a.origin}`), url: a.returnUrl },
+    ...(a.tours.length && a.region
+      ? {
+          linksIntro: t(
+            lang,
+            `While you're in ${a.region}, these private day tours are nearby (prices per person, for 4 or more travellers, green season):`,
+            `Mientras está en ${a.region}, estos tours privados de un día están cerca (precios por persona, para 4 viajeros o más, temporada verde):`,
+          ),
+        }
+      : {}),
     links: a.tours.map((x) => ({ label: t(lang, `${x.name} · from ${x.fromPrice} per person`, `${x.name} · desde ${x.fromPrice} por persona`), url: x.url })),
   };
 }
