@@ -87,7 +87,9 @@ export function parseBookingFilters(p: Params): BookingFilters {
   // dates alone (or "Fechas exactas") make a custom range.
   const r = one(p, "range");
   const preset = (RANGES as readonly string[]).includes(r) && r !== "custom" ? (r as RangeId) : null;
-  const range: RangeId = preset ?? (from || to ? "custom" : "upcoming");
+  let range: RangeId = preset ?? (from || to ? "custom" : "upcoming");
+  // A search looks through every date unless a narrower window was picked.
+  if (q && range === "upcoming") range = "all";
   if (range !== "custom") {
     from = "";
     to = "";

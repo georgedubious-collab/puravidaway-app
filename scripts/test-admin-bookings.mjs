@@ -51,6 +51,8 @@ eq("email kept", a.sanitizeSearch("ana.o'neil+trip@example.com"), "ana.o'neil+tr
 eq("booking code kept", a.sanitizeSearch("CRPT-1061"), "CRPT-1061");
 eq("filter syntax removed", a.sanitizeSearch('a,b)(c"*%\\:d'), "a b c d");
 eq("search is capped at 80", a.sanitizeSearch("x".repeat(200)).length, 80);
+eq("a search looks through all dates", [f({ q: "ana" }).range, f({ q: "ana", range: "upcoming" }).range, f({ q: "ana" }).sort], ["all", "all", "desc"]);
+eq("…unless a window was picked", f({ q: "ana", range: "7d" }).range, "7d");
 eq("search read from the address", f({ q: " CRPT-10,61 " }).q, "CRPT-10 61");
 eq("or filter: code only", a.searchOrFilter("CRPT-1061", [], []), 'booking_ref.ilike."*CRPT-1061*"');
 const T1 = "40000000-0000-0000-0000-000000000001";
@@ -84,13 +86,13 @@ eq("span empty", a.pageSpan(1, 0), { first: 0, last: 0 });
 // --- Links ---------------------------------------------------------------------------------------
 const base = f({});
 eq("plain list", a.bookingsHref(base), "/admin/bookings");
-eq("next page keeps filters", a.bookingsHref(f({ q: "ana", status: "confirmed" }), { page: 2 }), "/admin/bookings?q=ana&status=confirmed&page=2");
+eq("next page keeps filters", a.bookingsHref(f({ q: "ana", status: "confirmed" }), { page: 2 }), "/admin/bookings?q=ana&status=confirmed&range=all&page=2");
 eq("changing a filter goes back to page 1", a.bookingsHref(f({ page: "4" }), { status: "cancelled" }), "/admin/bookings?status=cancelled");
 eq("preset drops custom dates", a.bookingsHref(f({ from: "2026-12-01", to: "2026-12-02" }), { range: "today" }), "/admin/bookings?range=today");
 eq("custom dates in the link", a.bookingsHref(f({ from: "2026-12-01", to: "2026-12-02" })), "/admin/bookings?from=2026-12-01&to=2026-12-02");
 eq("past uses its own default sort", a.bookingsHref(base, { range: "past" }), "/admin/bookings?range=past");
 eq("non-default sort kept", a.bookingsHref(base, { sort: "desc" }), "/admin/bookings?sort=desc");
-eq("search is encoded", a.bookingsHref(f({ q: "José Pérez" })), "/admin/bookings?q=Jos%C3%A9+P%C3%A9rez");
+eq("search is encoded", a.bookingsHref(f({ q: "José Pérez" })), "/admin/bookings?q=Jos%C3%A9+P%C3%A9rez&range=all");
 eq("export link takes the same filters", a.bookingsHref(f({ type: "transfer", driver: "none" }), {}, "/admin/bookings/export"),
   "/admin/bookings/export?type=transfer&driver=none");
 
