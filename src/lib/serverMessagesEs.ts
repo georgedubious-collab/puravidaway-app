@@ -39,6 +39,9 @@ const EXACT: Record<string, string> = {
     "Por favor, no incluya teléfonos, correos ni enlaces en el mensaje para su conductor. Podrá escribirle a su conductor en el chat del viaje una vez confirmado.",
   "Please keep phone numbers, emails and links off the name sign.": "Por favor, no ponga teléfonos, correos ni enlaces en el rótulo.",
   "The name on the sign can be up to 40 characters.": "El nombre en el rótulo puede tener hasta 40 caracteres.",
+  "Please keep phone numbers, emails and links out of the pickup place. You can message us in the trip chat once confirmed.":
+    "Por favor, no incluya teléfonos, correos ni enlaces en el lugar de recogida. Podrá escribirnos en el chat del viaje una vez confirmado.",
+  "The pickup place can be up to 120 characters.": "El lugar de recogida puede tener hasta 120 caracteres.",
   "The name sign can't be changed any more: your driver is already on the way.":
     "El rótulo ya no se puede cambiar: su conductor ya va en camino.",
   "We couldn't save the name sign. Please try again.": "No pudimos guardar el rótulo. Por favor, inténtelo de nuevo.",

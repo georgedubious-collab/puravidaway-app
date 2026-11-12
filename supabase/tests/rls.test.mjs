@@ -453,8 +453,9 @@ await expectRows("the refused changes left 'no name' in place", "driver",
   `select 1 from public.my_trips() where id = ${BAGS} and sign_text = 'Costa Rica Private Transfers'`, 1);
 await expectRows("the driver's trip never carries the full name, phone or email", "driver",
   `select 1 from public.my_trips() m where m.id = ${BAGS} and (m::text ~* 'Rose|Smith|ana@example|555 0100')`, 0);
-await expectRows("my_trips() returns sign_text last and no contact or price columns", "admin",
-  "select 1 from pg_proc where proname = 'my_trips' and pg_get_function_result(oid) ~ 'carry_on_count smallint, sign_text text\\)$' and pg_get_function_result(oid) !~ '(guest_|email|phone|total_price|platform_fee|amount_paid|client_notes|company_costs|pricing_mode|sign_hide_name)'", 1);
+// Migration 0045 adds pickup_place after sign_text (still after every older column).
+await expectRows("my_trips() returns sign_text (then pickup_place) last and no contact or price columns", "admin",
+  "select 1 from pg_proc where proname = 'my_trips' and pg_get_function_result(oid) ~ 'carry_on_count smallint, sign_text text, pickup_place text\\)$' and pg_get_function_result(oid) !~ '(guest_|email|phone|total_price|platform_fee|amount_paid|client_notes|company_costs|pricing_mode|sign_hide_name)'", 1);
 await expectRows("assigned driver still reads 0 rows from bookings (sign columns included)", "driver",
   `select sign_text, sign_hide_name from public.bookings`, 0);
 await expectRows("assigned driver still reads 0 rows from trips (full name, phone, email)", "driver",
