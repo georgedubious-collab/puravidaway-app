@@ -83,8 +83,15 @@ export function parseBookingFilters(p: Params): BookingFilters {
   from = isYmd(from) ? from : "";
   to = isYmd(to) ? to : "";
   if (from && to && from > to) [from, to] = [to, from];
+  // A preset picked in the list ("Hoy", "Próximos 7 días") wins over dates left in the boxes;
+  // dates alone (or "Fechas exactas") make a custom range.
   const r = one(p, "range");
-  const range: RangeId = from || to ? "custom" : (RANGES as readonly string[]).includes(r) && r !== "custom" ? (r as RangeId) : "upcoming";
+  const preset = (RANGES as readonly string[]).includes(r) && r !== "custom" ? (r as RangeId) : null;
+  const range: RangeId = preset ?? (from || to ? "custom" : "upcoming");
+  if (range !== "custom") {
+    from = "";
+    to = "";
+  }
   const ty = one(p, "type");
   const type = ty === "transfer" || ty === "day_tour" ? ty : "all";
   const d = one(p, "driver");
