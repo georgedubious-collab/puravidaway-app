@@ -1,6 +1,7 @@
 # Every 5 minutes: ask the site to check whether drivers will reach their pickups on time
 # (live traffic) and alert the team if one would be more than 20 minutes late, or isn't
-# sharing location close to the pickup. See src/lib/eta.ts.
+# sharing location close to the pickup. See src/lib/eta.ts. The same call alerts the team once
+# about a pickup within 12 hours that still has no driver (src/lib/teamAlerts.ts).
 # Once an hour (second schedule below): send the single "please rate your driver" reminder
 # to travellers whose trip ended 24+ hours ago. See src/lib/reviewReminder.ts. The same hourly
 # job sends the day-before reminders (traveller + driver) and the "book your return" email the
