@@ -9,6 +9,7 @@ import { addDays, costaRicaTimestamp, isValidYmd, scheduledParts, todayInCostaRi
 import { vehicleRoadLegal, type DriverRecord, type VehicleRecord } from "@/lib/driverKyc";
 import {
   CLASH_BUFFER_MINUTES,
+  durationText,
   busySpan,
   candidateWarnings,
   findClashes,
@@ -379,7 +380,7 @@ function BookingBlock({
   const route =
     b.service_type === "transfer"
       ? `${shortPlace(b.origin, b.origin_coords, lang)} → ${shortPlace(b.destination, b.destination_coords, lang)}`
-      : (catalog.dayTours.find((x) => x.id === b.catalog_item_id)?.name ?? t("Tour", "Tour"));
+      : `${span?.fromPlace ? `${span.fromPlace} · ` : ""}${catalog.dayTours.find((x) => x.id === b.catalog_item_id)?.name ?? t("Tour", "Tour")}`;
   const hard = clashes.some((c) => c.kind !== "check_travel");
   const soft = !hard && clashes.length > 0;
   const unassigned = !b.assigned_driver_id;
@@ -458,8 +459,8 @@ function Legend({ lang }: { lang: TeamLang }) {
         </li>
         <li>
           {t(
-            `Choque (rojo): dos viajes del mismo conductor se cruzan, o no queda tiempo para manejar de la llegada de uno a la recogida del siguiente más ${CLASH_BUFFER_MINUTES} min de margen.`,
-            `Clash (red): two of a driver's bookings overlap, or there isn't time to drive from one drop-off to the next pickup plus a ${CLASH_BUFFER_MINUTES}-minute margin.`,
+            `Choque (rojo): dos viajes del mismo conductor se cruzan, o no queda tiempo para manejar de la llegada de uno a la recogida del siguiente más ${durationText(CLASH_BUFFER_MINUTES)} de margen (por si el viaje anterior se atrasa).`,
+            `Clash (red): two of a driver's bookings overlap, or there isn't time to drive from one drop-off to the next pickup plus a ${durationText(CLASH_BUFFER_MINUTES)} margin (in case the earlier trip runs late).`,
           )}
         </li>
         <li>
@@ -555,7 +556,7 @@ function AssignPanel({
   const route = b
     ? b.service_type === "transfer"
       ? `${shortPlace(b.origin, b.origin_coords, lang)} → ${shortPlace(b.destination, b.destination_coords, lang)}`
-      : (catalog.dayTours.find((x) => x.id === b.catalog_item_id)?.name ?? t("Tour", "Tour"))
+      : `${span?.fromPlace ? `${span.fromPlace} · ` : ""}${catalog.dayTours.find((x) => x.id === b.catalog_item_id)?.name ?? t("Tour", "Tour")}`
     : "";
   const nextStatusDefault = b?.status === "pending_bids" ? "confirmed" : (b?.status ?? "confirmed");
 
