@@ -33,8 +33,8 @@ function setRegionCookie(request: NextRequest, response: NextResponse): void {
     path: "/",
     maxAge: REGION_COOKIE_MAX_AGE_SECONDS,
     sameSite: "lax",
-    // Secure everywhere except a plain-http local run (a browser would drop it there).
-    secure: request.nextUrl.protocol === "https:",
+    // Secure on Vercel and any https address; not on a plain-http local run (Safari would drop it).
+    secure: process.env.VERCEL === "1" || request.nextUrl.protocol === "https:",
     // The banner reads it in the browser; it holds only "consent" or "open".
     httpOnly: false,
   });
