@@ -368,7 +368,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                         {pick !== "today" && <div className="text-xs text-[#5F6F67]">{w.day}</div>}
                       </Td>
                       <Td>
-                        <Link href={`/admin/bookings/${b.id}`} className={`font-mono ${link}`}>
+                        <Link href={`/admin/bookings/${b.id}`} className={`whitespace-nowrap font-mono ${link}`}>
                           {b.booking_ref}
                         </Link>
                         <div className="text-xs text-[#5F6F67]">

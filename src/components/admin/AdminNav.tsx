@@ -180,10 +180,12 @@ export function AdminNav({
       )}
 
       {/* Large screens: the menu stays on the left. */}
-      <aside className="sticky top-0 hidden h-screen w-[248px] shrink-0 flex-col gap-5 overflow-y-auto bg-[#0B2E22] px-3.5 py-5 text-[#D6E9DF] lg:flex">
-        {brand}
-        {body}
-      </aside>
+      <div className="hidden w-[248px] shrink-0 bg-[#0B2E22] lg:block">
+        <aside className="sticky top-0 flex h-screen flex-col gap-5 overflow-y-auto px-3.5 py-5 text-[#D6E9DF]">
+          {brand}
+          {body}
+        </aside>
+      </div>
     </>
   );
 }

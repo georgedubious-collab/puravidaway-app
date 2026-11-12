@@ -299,7 +299,7 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
                             <div className="text-xs text-[#5F6F67]">{when.time}</div>
                           </Td>
                           <Td>
-                            <Link href={`/admin/bookings/${b.id}`} className={`font-mono ${link}`}>
+                            <Link href={`/admin/bookings/${b.id}`} className={`whitespace-nowrap font-mono ${link}`}>
                               {b.booking_ref}
                             </Link>
                           </Td>
