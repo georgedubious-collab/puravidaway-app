@@ -1280,6 +1280,36 @@ await expectOk("server removes the test booking", "server", "delete from public.
   await expectRows("drivers still read no booking rows", "driver", "select * from public.bookings", 0);
 }
 
+// --- Dispatch calendar assigns like the booking page (2026-11-12) ---------------------------------
+// Both pages call the same server action, updateBooking (src/app/admin/bookings/actions.ts). The
+// booking page sends status + driver/vehicle + amount received; the calendar sends status +
+// driver/vehicle only (the action then leaves the amount alone). Both updates run as the admin
+// here, exactly as the action sends them, and must leave the same change history.
+{
+  const PAGE = "10000000-0000-0000-0000-0000000000a1";
+  const CAL = "10000000-0000-0000-0000-0000000000a2";
+  const V = "30000000-0000-0000-0000-000000000001";
+  await expectOk("server saves two bookings waiting for a driver", "server", `
+    insert into public.bookings (id, trip_id, service_type, total_price, status, amount_paid) values
+      ('${PAGE}', '40000000-0000-0000-0000-000000000001', 'transfer', 150, 'pending_bids', 0),
+      ('${CAL}',  '40000000-0000-0000-0000-000000000001', 'transfer', 150, 'pending_bids', 0)`);
+  await expectOk("booking page assigns (status + driver + vehicle + amount received)", "admin",
+    `update public.bookings set status = 'confirmed', assigned_driver_id = '${U.driver}', assigned_vehicle_id = '${V}', amount_paid = 0 where id = '${PAGE}'`);
+  await expectOk("calendar assigns (status + driver + vehicle)", "admin",
+    `update public.bookings set status = 'confirmed', assigned_driver_id = '${U.driver}', assigned_vehicle_id = '${V}' where id = '${CAL}'`);
+  const hist = async (id) =>
+    (await as("admin", `select action, actor_id, before, after from public.booking_events where booking_id = '${id}' order by action`)).rows
+      .map((r) => JSON.stringify(r));
+  const [fromPage, fromCal] = [await hist(PAGE), await hist(CAL)];
+  if (fromCal.length === 2 && JSON.stringify(fromCal) === JSON.stringify(fromPage)) passed++;
+  else failures.push(`calendar and booking page write the same history: page ${fromPage.join(" | ")} vs calendar ${fromCal.join(" | ")}`);
+  await expectRows("calendar's assignment is logged with the admin as actor", "admin",
+    `select count(*) as n from public.booking_events where booking_id = '${CAL}' and action = 'assignment' and actor_id = '${U.admin}' and after->>'driver_id' = '${U.driver}' and after->>'vehicle_id' = '${V}'`, 1);
+  await expectRows("calendar leaves the amount received out of the history", "admin",
+    `select count(*) as n from public.booking_events where booking_id = '${CAL}' and action = 'amount_paid'`, 0);
+  await expectRows("drivers cannot read the calendar's bookings", "driver", `select * from public.bookings where id in ('${PAGE}', '${CAL}')`, 0);
+}
+
 // --- Report -----------------------------------------------------------------------------------
 console.log(`${passed} checks passed, ${failures.length} failed`);
 for (const f of failures) console.log("  ✗ " + f);
