@@ -269,9 +269,17 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
           </span>
         }
         actions={
-          <a href="#dispatch" className={btn.primary}>
-            {t("Asignar y cambiar estado", "Dispatch & status")}
-          </a>
+          <>
+            <Link
+              href={`/admin/dispatch?d=${scheduledParts(b.scheduled_at)?.ymd ?? ""}${b.assigned_driver_id || b.status === "cancelled" ? "" : `&assign=${b.id}`}`}
+              className={btn.secondary}
+            >
+              {t("Ver en el calendario", "See on the calendar")}
+            </Link>
+            <a href="#dispatch" className={btn.primary}>
+              {t("Asignar y cambiar estado", "Dispatch & status")}
+            </a>
+          </>
         }
       />
 
