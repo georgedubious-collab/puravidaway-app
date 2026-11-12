@@ -43,6 +43,10 @@ export interface BookingState {
   signHideName: boolean;
   tourId: string | null;
   upgrade: boolean;
+  /** Day tours: the hotel or address to pick the travellers up (required; sent as spec.pickupPlace). */
+  tourPickup: string;
+  /** "Don't send me suggestions after my trip" (unticked by default). */
+  noSuggestions: boolean;
   name: string;
   phone: string;
   /** The email typed by someone who isn't signed in. */
@@ -71,6 +75,8 @@ const fresh = (): BookingState => ({
   signHideName: false,
   tourId: null,
   upgrade: false,
+  tourPickup: "",
+  noSuggestions: false,
   name: "",
   phone: "",
   guestEmail: "",
@@ -247,7 +253,8 @@ export function BookingProvider({
         date,
         totalCents: total,
         cashFeeBps: toursFee,
-        spec: { kind: "day_tour", tourId: tour.id, upgrade, pax },
+        // Pickup place: servers from before 2026-11-12 ignore it.
+        spec: { kind: "day_tour", tourId: tour.id, upgrade, pax, ...(cleanSignText(state.tourPickup) ? { pickupPlace: cleanSignText(state.tourPickup) } : {}) },
       };
     }
     if (!quote || !vehicle || !rideReady || !state.whenSet) return null;
@@ -310,6 +317,8 @@ export function BookingProvider({
       notes: "",
       // The language the traveller is using: their confirmation email and later messages follow it.
       lang: l,
+      // "Don't send me suggestions after my trip": older servers ignore it.
+      noSuggestions: s.noSuggestions,
     });
     if (!res.ok || !res.data) return { ok: false, error: res.error ?? tt("We couldn't send your request.", "No pudimos enviar su solicitud.") };
     return { ok: true, sent: { tripToken: res.data.tripToken, payOnline: s.payMode === "full_100", totalCents: c.totalCents, testCheckout: Boolean(res.data.testCheckout) } };

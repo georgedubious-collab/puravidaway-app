@@ -44,6 +44,8 @@ export interface AppBooking {
    * (until the driver is on the way). Null on tours and expeditions.
    */
   sign: { text: string | null; hideName: boolean; shown: string; editable: boolean } | null;
+  /** Day tours: the hotel or address where we pick them up (bookings.pickup_place). Null on rides and older tours. */
+  pickupPlace: string | null;
 }
 
 export interface AppTrip {
@@ -74,10 +76,12 @@ export async function tripsForEmail(email: string): Promise<{ trips: AppTrip[]; 
     origin: string | null; destination: string | null; scheduled_at: string | null; status: string; en_route_at: string | null;
     passenger_count: number | null; total_price: number | string; cash_fee: number | string | null; amount_paid: number | string | null;
     payment_mode: string | null; assigned_driver_id: string | null; assigned_vehicle_id: string | null;
-    sign_text?: string | null; sign_hide_name?: boolean | null;
+    sign_text?: string | null; sign_hide_name?: boolean | null; pickup_place?: string | null;
   };
   const tripIds = trips.map((t) => t.id);
-  let found = await db.from("bookings").select(`${COLUMNS}, sign_text, sign_hide_name`).in("trip_id", tripIds).order("scheduled_at").returns<Row[]>();
+  let found = await db.from("bookings").select(`${COLUMNS}, sign_text, sign_hide_name, pickup_place`).in("trip_id", tripIds).order("scheduled_at").returns<Row[]>();
+  // Safety net for the minutes between a deploy and its database update (migration 0045).
+  if (found.error) found = await db.from("bookings").select(`${COLUMNS}, sign_text, sign_hide_name`).in("trip_id", tripIds).order("scheduled_at").returns<Row[]>();
   // Safety net for the minutes between a deploy and its database update (migration 0040):
   // the traveller's trips never disappear because the sign columns aren't there yet.
   if (found.error) found = await db.from("bookings").select(COLUMNS).in("trip_id", tripIds).order("scheduled_at").returns<Row[]>();
@@ -201,6 +205,7 @@ export async function tripsForEmail(email: string): Promise<{ trips: AppTrip[]; 
               editable: signEditable(b),
             }
           : null,
+      pickupPlace: b.service_type === "transfer" ? null : (b.pickup_place ?? null),
     };
   };
 

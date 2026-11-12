@@ -14,6 +14,8 @@ import { useSession } from "../../session";
 import { C, S, SP, T } from "../../theme";
 import { Bar, BottomBar, Btn, Card, Choice, Divider, FieldLabel, IconLine, Input, LinkBtn, Page, Text, type IconName } from "../../ui";
 import { CodeInput, sendCode, validEmail, verifyCode } from "../SignIn";
+import { hasContactDetails } from "../../contact";
+import { NoSuggestions } from "./parts";
 
 /**
  * Sends the planned trip and, when it goes through, replaces the booking steps
@@ -61,7 +63,10 @@ export function BookReview() {
 
   const fee = Math.round((chosen.totalCents * chosen.cashFeeBps) / 10000);
   const total = state.payMode === "cash_driver" ? chosen.totalCents + fee : chosen.totalCents;
-  const detailsOk = Boolean(state.name.trim()) && state.phone.replace(/\D/g, "").length >= 7 && (!guest || validEmail(state.guestEmail));
+  // Where to pick them up: required, one line, no phone numbers, emails or links (the server checks again).
+  const pickupBlocked = hasContactDetails(state.tourPickup);
+  const pickupOk = state.tourPickup.trim().length >= 3 && !pickupBlocked;
+  const detailsOk = pickupOk && Boolean(state.name.trim()) && state.phone.replace(/\D/g, "").length >= 7 && (!guest || validEmail(state.guestEmail));
 
   /** Signed in: send now. Not signed in: email them a code first, then the code panel sends it. */
   async function start() {
@@ -115,6 +120,32 @@ export function BookReview() {
       </View>
 
       <Card>
+        <Text style={T.h2}>{t("Where should we pick you up?", "¿Dónde lo recogemos?")}</Text>
+        <Input
+          accessibilityLabel={t("Where should we pick you up?", "¿Dónde lo recogemos?")}
+          value={state.tourPickup}
+          onChangeText={(tourPickup) => set({ tourPickup })}
+          maxLength={120}
+          placeholder={t("Hotel name or address", "Nombre del hotel o dirección")}
+          autoCorrect={false}
+        />
+        <IconLine
+          small
+          icon="location-outline"
+          text={
+            tour?.regionName
+              ? t("Your hotel or address in " + tour.regionName + ". Our team confirms the pickup time.", "Su hotel o dirección en " + tour.regionName + ". Nuestro equipo confirma la hora de recogida.")
+              : t("Your hotel or address. Our team confirms the pickup time.", "Su hotel o dirección. Nuestro equipo confirma la hora de recogida.")
+          }
+        />
+        {pickupBlocked ? (
+          <Text accessibilityRole="alert" style={S.error}>
+            {t("Please keep phone numbers, emails and links out of the pickup place.", "Por favor, no incluya teléfonos, correos ni enlaces en el lugar de recogida.")}
+          </Text>
+        ) : null}
+      </Card>
+
+      <Card>
         <Text style={T.h2}>{t("Your details", "Sus datos")}</Text>
         <FieldLabel>{t("Full name", "Nombre completo")}</FieldLabel>
         <Input accessibilityLabel={t("Full name", "Nombre completo")} value={state.name} onChangeText={(name) => set({ name })} autoComplete="name" textContentType="name" />
@@ -139,6 +170,7 @@ export function BookReview() {
         ) : (
           <IconLine small icon="mail-outline" text={t("Confirmations go to " + email + ".", "Las confirmaciones se envían a " + email + ".")} />
         )}
+        <NoSuggestions />
       </Card>
 
       <Card>

@@ -1,8 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
+import { isLowRating } from "@/lib/automationRules";
 import { TRIP_TOKEN } from "@/lib/bookings";
 import { InputError, runAction, type FormState } from "@/lib/forms/formState";
+import { alertTeamOfLowRating } from "@/lib/lowRatingAlert";
 import { hasContactDetails } from "@/lib/preferences";
 import { parseRating } from "@/lib/reviewReminder";
 import { cleanSignText, signEditable, signTextProblem, SIGN_ERROR_CONTACT } from "@/lib/sign";
@@ -51,6 +54,9 @@ export async function rateDriver(_prev: FormState, fd: FormData): Promise<FormSt
       if (/contact details|phone numbers/.test(error.message)) throw new InputError("Please keep phone numbers, emails and links out of the review.");
       throw new Error(error.message);
     }
+    // 3 stars or less: our team hears about it at once, by email (once per rating; the
+    // driver is never told). The app's rating (/api/v1/client/rate) comes through here too.
+    if (isLowRating(stars)) after(() => alertTeamOfLowRating(b.id));
     revalidatePath(`/trip/${token}`);
   }, "We couldn't save your rating. Please try again.");
 }

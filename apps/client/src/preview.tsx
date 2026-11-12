@@ -207,6 +207,12 @@ const SCREENS: Record<string, Setup> = {
   "tour-when": { routes: [tabs("Explore"), { name: "TourWhen" }], email: null, state: tourDay, demo: toursTab },
   tour: { routes: [tabs("Explore"), { name: "TourDetail", params: { id: "dt1" } }], email: null, state: tourPick, demo: toursTab },
   "tour-review": { routes: [tabs("Explore"), { name: "TourDetail", params: { id: "dt1" } }, { name: "BookReview" }], state: tourPick, demo: toursTab },
+  /** The pickup place filled in and "no suggestions" ticked. */
+  "tour-review-pickup": {
+    routes: [tabs("Explore"), { name: "TourDetail", params: { id: "dt1" } }, { name: "BookReview" }],
+    state: { ...tourPick, tourPickup: "Hotel Lomas del Volcán, La Fortuna", noSuggestions: true },
+    demo: toursTab,
+  },
   // After sending
   sent: { routes: [tabs("Explore"), { name: "Sent", params: { tripToken: "demo", payOnline: true, totalCents: 27900, testCheckout: true } }] },
   "sent-paid": { routes: [tabs("Explore"), { name: "Sent", params: { tripToken: "demo", payOnline: true, totalCents: 27900, testCheckout: true } }], demo: { paid: true } },

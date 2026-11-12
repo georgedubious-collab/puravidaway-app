@@ -443,6 +443,30 @@ and error states, `AdminActionForm`).
   the team approves or rejects their application, approves / rejects / puts on hold one of their
   vehicles, or sets a vehicle's category for the first time — once per decision, only about their own
   account (`src/lib/driverReviewNotices.ts`).
+- **Despacho / Dispatch calendar** (`/admin/dispatch`, 2026-11-12): one week, Monday–Sunday in Costa
+  Rica time (previous / next week, "Hoy"); phones see one day with ← / → buttons. A row per approved
+  driver (name, home base, vehicle categories) plus a top row "Sin conductor" for bookings that still
+  need one (waiting for payment, open for offers). Each booking shows pickup → estimated end, code,
+  route, travellers, vehicle class and the traveller's name only (no email or phone). Days a driver
+  blocked are striped "No disponible". Rules in `src/lib/dispatch.ts` (`npm run test:dispatch`):
+  - **Busy span** = pickup + drive time (`bookings.drive_minutes`, which already includes the Paquera
+    ferry / Drake Bay boat when Google's route has them; else the catalog's town-to-town minutes;
+    else the saved road route; else 4 h, shown with "≈") + each stop's time and detour (the same sum
+    the driver app shows as "Llegada aprox."); day tours = the catalog length (8 h if unknown).
+  - **Clash** (red): two of a driver's bookings (not cancelled) overlap, or the free time between the
+    end of one and the next pickup is shorter than the drive between them (catalog `ROUTE_MINUTES`,
+    both ends in our towns) + `CLASH_BUFFER_MINUTES` = 30. When a place can't be mapped to one of our
+    towns, "Revisar traslado" (yellow) instead of a guess, only when the free time is under the
+    longest drive in the country + 30 min.
+  - Clicking a booking without a driver opens a side panel: every approved driver + approved vehicle
+    with warnings (clash, blocked day, category can't serve, seats, documents expired on the trip
+    day, review hold, the traveller's requests). Order: no warnings first, then drivers who offered,
+    then the offers' own ranking (`offerRank`: return trip, rating, nearby, amount, fewer trips this
+    week). Warnings never block. Assigning uses the booking page's own actions after an in-page
+    confirmation: "Aceptar oferta" (`acceptOffer`) for a driver who offered on an open booking,
+    otherwise "Asignar" (`updateBooking`, status unchanged or Confirmada), so the change history and
+    notifications are identical. `updateBooking` now leaves the amount received and the internal notes
+    alone when a form doesn't send them. Nothing new is shown to drivers.
 
 ### 4.3 Driver portal (`/driver`, driver role)
 KYC document upload, view open booking requests, submit and manage bids, assigned trips,
@@ -524,6 +548,85 @@ The traveller chooses what it says.
 - **Emails:** "request received" (when the request has a ride) and "ride confirmed" say the driver
   will wait with a name sign and that it can be changed on the trip page.
 - Older customer app builds don't send the field: their bookings get the default (short name).
+
+### 4.7 Automatic messages: day-before reminder, low-rating alert, return-ride suggestion (2026-11-12, migration 0045)
+Three messages the system sends by itself. Rules in `src/lib/automationRules.ts` (cases in
+`npm run test:automations`), texts in `src/lib/travellerMessages.ts` (traveller, EN/ES) and
+`src/lib/automationMessages.ts` (driver and team). All "Costa Rica time" is UTC−6. "Quiet hours"
+are 9 PM–7 AM Costa Rica time, as for the rating reminder. Each is marked in the database
+**before** it is sent and only the call that marked it sends, so none can go out twice.
+- **1. Day-before reminder** (`src/lib/dayBeforeReminders.ts`, `/api/cron/trip-reminders`): for
+  every booking that is `confirmed` with a driver assigned, when the pickup is **20 to 28 hours
+  away** and it is not quiet hours, ONE push + email to the traveller (in `trips.language`) and ONE
+  push + email to the driver (Spanish, or English if `profiles.app_lang = 'en'`). If the whole
+  20–28 h window falls in quiet hours (pickups between about 1 and 3 AM), it goes out at 7 AM,
+  still before the pickup. Bookings **confirmed less than 20 hours before the pickup** get none
+  (`bookings.confirmed_at`, stamped by trigger whenever the status becomes confirmed; the
+  confirmation was just sent). Marked in `reminder_traveller_at` / `reminder_driver_at`; when the
+  team assigns another driver, `reminder_driver_at` is cleared so the new driver gets theirs.
+  - Traveller: date and time, pickup place, driver's first name, the car exactly as the trip page
+    shows it (make/model + year, colour, plate), the name-sign text, at airports the arrivals
+    promise (sign, flight tracking, 60 minutes), and the trip page (chat, "Call our team").
+    Day tours: the pickup place they gave and the time our team confirmed (or, without a place,
+    a request to write it in the trip chat). Never the driver's phone.
+  - Driver: time, pickup and drop-off, travellers and bags, sign text, flight / hotel notes, notes
+    for the driver, extras, the day-tour pickup place, and the ferry / Drake Bay boat / "collect cash" flags as the driver app
+    shows them. Built only from what `my_trips()` already gives the driver: never the traveller's
+    full name, phone, email or any price (the cash amount stays in the app).
+- **2. Low-rating alert** (`src/lib/lowRatingAlert.ts`): when a rating of **1–3 stars** is saved
+  (trip page and app both go through `rateDriver()`), our team is emailed at once at
+  `ADMIN_NOTIFY_EMAIL`: booking ref, route, date, driver, stars, comment and a link to
+  `/admin/bookings/<id>`. **In Spanish** with the admin pages' words ("Calificación baja", "Reserva",
+  "Ruta", "Conductor", "Abrir la reserva"), or in English when the admin whose profile has the
+  `ADMIN_NOTIFY_EMAIL` address uses English (`profiles.app_lang = 'en'`; Jorge, 2026-11-12). Once per
+  rating (`driver_reviews.team_alerted_at`); the hourly job re-sends any from the last 2 days that
+  didn't go out. Email only: there is no team app yet (`device_tokens.app` is `driver` or `client`).
+  The driver is never told.
+- **3. "Book your return / a day tour"** (`src/lib/tripFollowup.ts`, `/api/cron/trip-followups`):
+  ONE email (no push) after a completed **ride**, from **7 AM the next day** (Costa Rica calendar
+  day; never the day of the rating request) and at the latest on the second day after; later than
+  that it is skipped. It links to the ride builder with the way back filled in (`/?from=&to=`
+  swapped, §4.1 shareable links; `/es` for Spanish) and, where the ride ended in a region with day
+  tours, up to two tours with their live "from" price (the site's 4+ travellers rate in the default
+  season). **Skipped** (and marked, never looked at again) for day tours, drop-offs at the SJO / LIR
+  airport, a traveller who already has a later ride on the reversed route (same email, not
+  cancelled), who unsubscribed, who rated the ride 3 stars or less, or has no email. Marked in
+  `bookings.followup_sent_at`.
+- **Promotional emails and unsubscribing** (`src/lib/promoEmail.ts`): the follow-up is the first
+  **promotional** email; every promotional email must go through `sendPromotionalEmail()`, which
+  skips addresses in **`email_optouts`** and adds a signed unsubscribe link (`/unsubscribe`, one
+  button, with "I unsubscribed by mistake") plus `List-Unsubscribe` / `List-Unsubscribe-Post`
+  headers (one-click in Gmail / Apple Mail, `POST /api/unsubscribe`). The link is signed with
+  `UNSUBSCRIBE_SECRET` (Vercel), or `CRON_SECRET` when that isn't set; changing it breaks older
+  links. Booking emails (confirmations, reminders, rating requests, chat) are never affected. The
+  privacy pages (EN/ES) describe this.
+- **"Don't send me suggestions after my trip" / "No me envíen sugerencias después de mi viaje"**
+  (Jorge, 2026-11-12): a tickbox, **unticked by default**, with the hint "Emails about your bookings
+  still arrive.", in the website checkout (`src/components/TripSummary.tsx`), the app's ride
+  "Your ride" step and tour "Review and send" step, and the admin manual booking form ("El viajero
+  no quiere sugerencias después del viaje"). Sent as `noSuggestions: true`; the server adds the
+  email to `email_optouts` with source `booking`. Unticked or missing (older apps) changes nothing,
+  and never takes anyone off the list.
+- **When they run:** the hourly `reviews` job of the GitHub Action `.github/workflows/eta-check.yml`
+  (minute 7), with Vercel Cron once a day as a backstop (`vercel.json`: 08:00 and 08:30 Costa Rica).
+- **Day-tour pickup place** (Jorge, 2026-11-12, `bookings.pickup_place`): new tour bookings ask
+  "Where should we pick you up?" / "¿Dónde lo recogemos?" with the hint "Your hotel or address in
+  {region}. Our team confirms the pickup time." (website checkout, app tour review; required there;
+  optional in the admin manual form). One line, up to 120 characters, phone numbers / emails / links
+  **refused** (server message, and the database constraint `bookings_pickup_place_shape`). Older apps
+  that don't send it still book. Shown on the traveller's trip page and app trip screen, in the
+  assigned driver's trip (`my_trips().pickup_place`, last column; driver portal "Recogida", driver
+  app route "Recogida"), in both day-before reminders, and on the admin booking page. The job board
+  never shows it. Rides keep using `origin`. Changing it is not logged in the booking history and
+  the team can't edit it yet (see below).
+- **Admin booking page** (read-only): "Lugar de recogida" on tours and "Mensajes automáticos" (when
+  each reminder and the return suggestion went out or was checked). **Still to build:** editing the
+  pickup place (then add it to `log_booking_changes()`), "Team alerted" on a review
+  (`team_alerted_at`), "Confirmed at" (`confirmed_at`), and a list of unsubscribed addresses
+  (`email_optouts`, admins can read it) with a way to add or remove one by hand.
+- The new `bookings` columns (`confirmed_at`, `reminder_*_at`, `followup_sent_at`, `pickup_place`)
+  are not in the change history's list (`log_booking_changes()`, migration 0044), so they never
+  add history rows (`npm run test:db`).
 
 ---
 
@@ -938,7 +1041,15 @@ of `total_price` that is the night-pickup premium, 0 by day; §6.6, migration 00
 `amount_paid` numeric · `payment_mode` (`full_100` | `cash_driver`; `deposit_20` on old rows
 only) · `cash_fee` numeric(10,2) (cash booking fee snapshot, 0 unless `cash_driver`) · `assigned_driver_id` →
 `drivers.id` (nullable) · `status` (`pending_payment` | `pending_bids` | `confirmed` |
-`in_progress` | `completed` | `cancelled`) · `created_at`
+`in_progress` | `completed` | `cancelled`) · `created_at` ·
+`confirmed_at` (when the status last became confirmed, by trigger; null on bookings confirmed before
+2026-11-12) · `reminder_traveller_at` / `reminder_driver_at` (day-before reminders sent) ·
+`followup_sent_at` (return-ride suggestion sent or skipped) · `pickup_place` (day tours: hotel or
+address, ≤ 120 characters, no contact details); §4.7, migration 0045
+
+**`email_optouts`** (migration 0045): `email` text PK (lower-case) · `scope` (`promotional`) ·
+`source` (`link` | `one_click` | `team` | `booking`) · `created_at`. Addresses that unsubscribed from
+promotional emails (§4.7). **`driver_reviews.team_alerted_at`**: low-rating email sent.
 
 **`booking_events`** (change history, migration 0044): `id` · `booking_id` → `bookings.id` · `at` ·
 `actor_id` → `profiles.id` (who did it; empty for the website's server and scheduled jobs) · `action`
@@ -1057,6 +1168,8 @@ and `season_for_date(date)` returns the season for a travel date.
   reads bids on their booking; admins see all.
 - **catalog tables:** public read for active items; admin write. **pricing_settings** (cash fee, ride formula) and **hub_pricing** (area factors): public read, admin write.
 - **payments:** written only by the server (service role); clients read their own; admins read all.
+- **email_optouts:** written only by the server (the unsubscribe page and one-click route); admins
+  read; logged-out visitors, travellers and drivers can't read or write it (`npm run test:db`).
 - **booking_events:** admins read; nobody writes from a browser or app (no insert/update/delete
   policies) — only the triggers and the server (service role). Travellers, drivers and visitors read
   nothing. `npm run test:db` checks this.
@@ -1208,6 +1321,13 @@ multi-day trips were retired (§1, §5.5) and are not on the roadmap.
     footer. For the lawyer: whether this is enough under Costa Rica's Ley 8968 (it asks for
     informed consent) and other non-European laws, and the "legitimate interest" basis now
     stated for visitors outside Europe in the Privacy Policy's section 4.
+20. **Dispatch calendar (open, from the build of 2026-11-12, §4.2).** (a) Is 30 minutes the right
+    margin between two jobs (`CLASH_BUFFER_MINUTES`, `src/lib/dispatch.ts`)? (b) A manual
+    assignment (calendar or booking page) still sends no automatic message to the driver or the
+    traveller; only accepting an offer does. Should it? (c) Osa day tours and Smart En-Route tours
+    have no known start/end town, so they show "Revisar traslado" instead of a computed drive.
+    (d) The calendar blocks use 24-hour times (08:00–10:45) to fit; the rest of the admin uses
+    a. m. / p. m.
 
 ---
 

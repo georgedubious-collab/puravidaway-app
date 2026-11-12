@@ -314,6 +314,7 @@ export function TripDetail() {
               }
             />
             {b.passengers ? <IconLine small icon="people-outline" text={plural(b.passengers, "traveller", lang)} /> : null}
+            {b.kind !== "transfer" && b.pickupPlace ? <IconLine small icon="location-outline" text={t("Pickup: ", "Recogida: ") + b.pickupPlace} /> : null}
           </Card>
 
           {b.status !== "cancelled" ? <Timeline booking={b} /> : null}
