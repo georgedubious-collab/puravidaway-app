@@ -41,7 +41,7 @@ export default async function UnsubscribePage({ searchParams }: { searchParams: 
             {t(lang, "Email suggestions", "Sugerencias por correo")}
           </h1>
           {!email || done === "error" ? (
-            <p className="mt-4 text-slate-700">
+            <p className="mt-4 break-words text-slate-700">
               {t(
                 lang,
                 "This link isn't valid or something went wrong. Please try the link in the email again, or write to our team and we'll take you off the list.",
@@ -50,7 +50,7 @@ export default async function UnsubscribePage({ searchParams }: { searchParams: 
             </p>
           ) : done === "out" ? (
             <>
-              <p className="mt-4 text-slate-700">
+              <p className="mt-4 break-words text-slate-700">
                 {t(
                   lang,
                   `Done: ${masked(email)} won't get suggestions like “book your return ride” any more. Emails about your bookings (confirmations, reminders, chat) still arrive.`,
@@ -65,7 +65,7 @@ export default async function UnsubscribePage({ searchParams }: { searchParams: 
             </>
           ) : (
             <>
-              <p className="mt-4 text-slate-700">
+              <p className="mt-4 break-words text-slate-700">
                 {done === "in"
                   ? t(lang, `You're back on the list: ${masked(email)} can get our suggestions again.`, `Está de nuevo en la lista: ${masked(email)} puede recibir nuestras sugerencias otra vez.`)
                   : t(

@@ -22,5 +22,6 @@ export async function GET(req: Request) {
   const page = new URL("/unsubscribe", url.origin);
   const token = url.searchParams.get("t");
   if (token) page.searchParams.set("t", token);
+  if (url.searchParams.get("lang") === "es") page.searchParams.set("lang", "es");
   return NextResponse.redirect(page, 303);
 }

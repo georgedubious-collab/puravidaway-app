@@ -78,7 +78,7 @@ export async function sendPromotionalEmail(
     unsubscribe: {
       ...unsubscribeText,
       pageUrl: `${SITE_URL}/unsubscribe?t=${token}${lang}`,
-      oneClickUrl: `${SITE_URL}/api/unsubscribe?t=${token}`,
+      oneClickUrl: `${SITE_URL}/api/unsubscribe?t=${token}${lang}`,
     },
   });
   return ok ? "sent" : "failed";
