@@ -18,7 +18,8 @@ const db = new PGlite();
 await db.exec(`
   create role anon nologin; create role authenticated nologin; create role service_role nologin bypassrls;
   create schema auth;
-  create table auth.users (id uuid primary key, email text, raw_user_meta_data jsonb default '{}'::jsonb);
+  create table auth.users (id uuid primary key, email text, raw_user_meta_data jsonb default '{}'::jsonb,
+    created_at timestamptz default now(), email_confirmed_at timestamptz default now(), last_sign_in_at timestamptz default now());
   create function auth.uid() returns uuid language sql stable as
     $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
   create schema storage;
@@ -1278,6 +1279,87 @@ await expectOk("server removes the test booking", "server", "delete from public.
   await expectRows("history never holds chat or card columns", "admin",
     "select 1 from information_schema.columns where table_name = 'booking_events' and column_name ~ '(message|card|chat)'", 0);
   await expectRows("drivers still read no booking rows", "driver", "select * from public.bookings", 0);
+}
+
+// --- Sign-in codes: rate limits and lookups (migration 0049) -----------------------------------
+{
+  for (const who of ["client", "driver", "admin", "anon"]) {
+    await expectRows(`${who} cannot read sign-in code requests`, who, "select * from public.auth_code_requests", 0);
+    await expectBlocked(`${who} cannot add sign-in code requests`, who,
+      "insert into public.auth_code_requests (ip, email) values ('1.1.1.1', 'x@example.com')");
+  }
+  // Limits as in src/lib/authCode.ts CODE_LIMITS: 3 per email per hour, 6 per day, 10 per IP per hour.
+  const allow = async (ip, email) =>
+    (await as("server", `select public.allow_auth_code($1, $2, 3, 6, 10) as r`, [ip, email])).rows[0].r;
+  const seq = [];
+  for (let i = 0; i < 4; i++) seq.push(await allow(`10.0.0.${i}`, "Limit@Example.com"));
+  const want = (name, got, w) => (JSON.stringify(got) === JSON.stringify(w) ? passed++ : failures.push(`${name}: expected ${JSON.stringify(w)}, got ${JSON.stringify(got)}`));
+  want("email: 3 an hour, the 4th refused (case-insensitive)", seq, ["ok", "ok", "ok", "email_hour"]);
+  // Three more from earlier today (outside the hour) → 6 in the day.
+  await db.exec(`update public.auth_code_requests set at = now() - interval '2 hours' where email = 'limit@example.com'`);
+  const day = [];
+  for (let i = 0; i < 3; i++) day.push(await allow(`10.0.1.${i}`, "limit@example.com"));
+  await db.exec(`update public.auth_code_requests set at = now() - interval '2 hours' where email = 'limit@example.com'`);
+  day.push(await allow("10.0.1.9", "limit@example.com"));
+  want("email: 6 a day, the 7th refused even outside the hour", day, ["ok", "ok", "ok", "email_day"]);
+  await db.exec(`update public.auth_code_requests set at = now() - interval '25 hours' where email = 'limit@example.com'`);
+  want("email: a day later it works again (old rows removed)", await allow("10.0.2.1", "limit@example.com"), "ok");
+  const ip = [];
+  for (let i = 0; i < 11; i++) ip.push(await allow("203.0.113.9", `p${i}@example.com`));
+  want("IP: 10 an hour across emails, the 11th refused", [ip.slice(0, 10).every((r) => r === "ok"), ip[10]], [true, "ip_hour"]);
+  want("refused requests aren't recorded", Number((await as("server", "select count(*) n from public.auth_code_requests where ip = '203.0.113.9'")).rows[0].n), 10);
+  want("another IP is unaffected", await allow("203.0.113.10", "p99@example.com"), "ok");
+
+  await db.exec(`
+    insert into auth.users (id, email, email_confirmed_at) values ('00000000-0000-0000-0000-0000000000f1', 'Status@Example.com', null);
+    insert into public.trips (id, access_token, guest_email) values ('00000000-0000-0000-0000-0000000000f2', repeat('s', 48), 'TRIPPER@example.com');
+  `);
+  const status = async (e) => (await as("server", "select * from public.auth_email_status($1)", [e])).rows[0];
+  want("status: account found (any case), unconfirmed", await status("status@example.com"),
+    { user_id: "00000000-0000-0000-0000-0000000000f1", confirmed: false, has_trip: false });
+  want("status: no account, has a trip", await status("tripper@example.com"), { user_id: null, confirmed: false, has_trip: true });
+  want("status: nothing", await status("nobody@example.com"), { user_id: null, confirmed: false, has_trip: false });
+  await db.exec(`delete from auth.users where id = '00000000-0000-0000-0000-0000000000f1'`);
+}
+
+// --- One-time cleanup of bot sign-ups (migration 0050) ----------------------------------------
+// The migration already ran on an empty database above; here it runs again over fixtures.
+{
+  const J = (n) => `00000000-0000-0000-0000-00000000f${String(n).padStart(3, "0")}`;
+  const before = "'2026-11-11 10:00+00'";
+  await db.exec(`
+    insert into auth.users (id, email, created_at, email_confirmed_at, last_sign_in_at) values
+      ('${J(1)}', 'j.u.n.k@gmail.com',      ${before}, null, null),               -- junk: deleted
+      ('${J(2)}', 'junk2@example.com',      ${before}, null, null),               -- junk: deleted
+      ('${J(3)}', 'confirmed@example.com',  ${before}, now(), null),              -- confirmed client: kept
+      ('${J(4)}', 'signedin@example.com',   ${before}, null, now()),              -- signed in once: kept
+      ('${J(5)}', 'newdriver@example.com',  ${before}, null, null),               -- driver row: kept
+      ('${J(6)}', 'admin2@example.com',     ${before}, null, null),               -- admin: kept
+      ('${J(7)}', 'Traveller@Example.com',  ${before}, null, null),               -- trip email: kept
+      ('${J(8)}', 'late@example.com',       '2026-11-14 10:00+00', null, null),   -- after the cutoff: kept
+      ('${J(9)}', 'pushonly@example.com',   ${before}, null, null),               -- device token: kept
+      ('${J(10)}', 'booker@example.com',    ${before}, null, null);               -- linked booking: kept
+    update public.profiles set role = 'driver' where id = '${J(5)}';
+    insert into public.drivers (id, kyc_status) values ('${J(5)}', 'pending');
+    update public.profiles set role = 'admin' where id = '${J(6)}';
+    insert into public.trips (id, access_token, guest_email) values ('${J(77)}', repeat('t', 48), 'traveller@example.COM');
+    insert into public.device_tokens (user_id, token, platform, app) values ('${J(9)}', 'ExponentPushToken[cleanup-test]', 'android', 'client');
+    update public.bookings set client_id = '${J(10)}' where id = (select id from public.bookings order by created_at limit 1);
+  `);
+  // auth.users is read as the database owner (the migration runner), not as an API role.
+  const count = async (sql) => Number((await db.query(sql)).rows[0].n);
+  const same = (name, got, w) => (got === w ? passed++ : failures.push(`${name}: expected ${w}, got ${got}`));
+  const users = "select count(*) n from auth.users where id::text like '00000000-0000-0000-0000-00000000f%'";
+  same("cleanup fixtures in place", await count(users), 10);
+  await db.exec(readFileSync(join(dir, "20261112000050_cleanup_bot_signups.sql"), "utf8"));
+  same("cleanup: only the two junk accounts are deleted", await count(users), 8);
+  same("cleanup: junk accounts gone", await count(`select count(*) n from auth.users where id in ('${J(1)}', '${J(2)}')`), 0);
+  await expectRows("cleanup: their profiles gone too", "server", `select * from public.profiles where id in ('${J(1)}', '${J(2)}')`, 0);
+  for (const [k, what] of [[3, "confirmed client"], [4, "client who signed in"], [5, "driver"], [6, "admin"], [7, "client with a trip email"],
+    [8, "unconfirmed account after the cutoff"], [9, "account with a push token"], [10, "account linked to a booking"]]) {
+    await expectRows(`cleanup keeps the ${what}`, "server", `select * from public.profiles where id = '${J(k)}'`, 1);
+  }
+  for (const k of Object.keys(U)) await expectRows(`cleanup keeps test user ${k}`, "server", `select * from public.profiles where id = '${U[k]}'`, 1);
 }
 
 // --- Report -----------------------------------------------------------------------------------

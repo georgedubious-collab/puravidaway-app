@@ -1,7 +1,8 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { TURNSTILE_SITE_KEY, Turnstile, type TurnstileHandle } from "@/components/Turnstile";
 import { safeNext } from "@/lib/safeNext";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
@@ -9,6 +10,10 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
  * Email login, no passwords. Supabase's default email contains a sign-in link
  * (handled by /auth/callback); a custom email server can also add a 6-digit
  * code, which this form accepts as an alternative.
+ *
+ * The code is sent by our server (/api/auth/send-code, rules in src/lib/authCode.ts), never by
+ * the browser: existing accounts only, except on the way to /driver, where a new driver may
+ * start an application. A quiet Turnstile check runs when its keys are set.
  */
 export function LoginForm() {
   const router = useRouter();
@@ -22,23 +27,41 @@ export function LoginForm() {
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Set when the reply mustn't say whether the email has an account. */
+  const [neutral, setNeutral] = useState<string | null>(null);
+  const [token, setToken] = useState<string | null>(null);
+  const [checkFailed, setCheckFailed] = useState(false);
+  const turnstile = useRef<TurnstileHandle>(null);
+  const needsCheck = Boolean(TURNSTILE_SITE_KEY);
 
   async function sendCode(e: React.FormEvent) {
     e.preventDefault();
-    const supabase = createSupabaseBrowserClient();
-    if (!supabase) return;
     setBusy(true);
     setError(null);
-    const { error } = await supabase.auth.signInWithOtp({
-      email: email.trim(),
-      options: {
-        shouldCreateUser: true,
-        emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
-      },
-    });
+    try {
+      const res = await fetch("/api/auth/send-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: email.trim(),
+          // On the way to the driver portal a new driver may create an account; anywhere else, existing accounts only.
+          purpose: next === "/driver" || next.startsWith("/driver/") ? "driver" : "login",
+          lang: "en",
+          next,
+          turnstileToken: token ?? undefined,
+        }),
+      });
+      const json = (await res.json().catch(() => null)) as { ok?: boolean; neutral?: boolean; message?: string; error?: string } | null;
+      if (!json?.ok) setError(json?.error ?? "We couldn't send a code right now. Please try again in a minute.");
+      else {
+        setNeutral(json.neutral ? (json.message ?? null) : null);
+        setStep("code");
+      }
+    } catch {
+      setError("We couldn't reach the server. Check your connection.");
+    }
     setBusy(false);
-    if (error) setError(friendly(error.message));
-    else setStep("code");
+    turnstile.current?.reset();
   }
 
   async function verify(e: React.FormEvent) {
@@ -88,19 +111,39 @@ export function LoginForm() {
               className="mt-1 w-full min-h-11 rounded-xl border border-slate-300 px-3 text-base"
             />
           </label>
+          <Turnstile
+            ref={turnstile}
+            onToken={(t, failed) => {
+              setToken(t);
+              setCheckFailed(Boolean(failed));
+            }}
+          />
+          {checkFailed && (
+            <p role="alert" className="text-sm font-semibold text-red-700">
+              We couldn&apos;t check that you&apos;re a person. Reload the page and try again.
+            </p>
+          )}
           <button
             type="submit"
-            disabled={busy}
+            disabled={busy || (needsCheck && !token)}
             className="w-full min-h-12 rounded-xl bg-emerald-950 text-white font-bold disabled:opacity-50"
           >
-            {busy ? "Sending…" : "Email me a sign-in link"}
+            {busy ? "Sending…" : needsCheck && !token && !checkFailed ? "Just a moment…" : "Email me a sign-in link"}
           </button>
         </form>
       ) : (
         <form onSubmit={verify} className="space-y-3">
           <p className="rounded-xl bg-emerald-50 border border-emerald-200 p-3 text-sm text-emerald-900">
-            Check <strong>{email}</strong> and click the sign-in link. Open it in this same
-            browser. You can close this page.
+            {neutral ? (
+              <>
+                {neutral} Check <strong>{email}</strong> and open the link in this same browser.
+              </>
+            ) : (
+              <>
+                Check <strong>{email}</strong> and click the sign-in link. Open it in this same
+                browser. You can close this page.
+              </>
+            )}
           </p>
           <p className="text-sm text-slate-600">If your email shows a code instead, enter it here:</p>
           <label className="block text-sm font-bold text-slate-700">
