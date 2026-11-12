@@ -65,6 +65,7 @@ async function AdminShell({ children }: { children: React.ReactNode }) {
       countLabel: t(`${c.flagged} sin revisar`, `${c.flagged} not reviewed`),
     },
     { href: "/admin/payouts", label: t("Pagos a conductores", "Payouts"), icon: "payouts", count: 0, countLabel: "" },
+    { href: "/admin/reports", label: t("Informes", "Reports"), icon: "chart", count: 0, countLabel: "" },
     { href: "/admin/pricing", label: t("Precios y catálogo", "Prices & catalog"), icon: "pricing", count: 0, countLabel: "" },
     { href: "/admin/users", label: t("Usuarios y roles", "Users & roles"), icon: "users", count: 0, countLabel: "" },
   ];

@@ -16,7 +16,7 @@
 --   4. bookings.no_driver_alert_at: when the team was told a trip within 12 hours has no driver
 --      (once per booking).
 -- It changes no existing row, price or policy.
--- Run after 0051 (0052 is reserved by another branch). Safe to run once, in order.
+-- Run after 0052 (promo codes). Safe to run once, in order.
 
 -- 1. Phones that receive alerts ----------------------------------------------------------------
 create table if not exists public.admin_push_subscriptions (

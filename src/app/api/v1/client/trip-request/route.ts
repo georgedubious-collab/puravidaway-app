@@ -28,6 +28,9 @@ export async function POST(req: Request) {
     lang,
     // "Don't send me suggestions after my trip". App builds from before 2026-11-12 don't send it.
     noSuggestions: b.noSuggestions === true,
+    // Promo code and the discount the app showed. App builds from before promo codes send neither.
+    promoCode: typeof b.promoCode === "string" ? b.promoCode.slice(0, 60) : undefined,
+    promoDiscountCents: typeof b.promoDiscountCents === "number" ? b.promoDiscountCents : undefined,
   });
   // The app shows the error as it comes: in the app's language when we have a translation.
   if (!res.ok) return json({ ...res, error: localizeServerMessage(res.error, lang), testCheckout: TEST_CHECKOUT_ENABLED }, 400);

@@ -544,6 +544,27 @@ and error states, `AdminActionForm`).
     booking again with the same driver sends nothing. Texts and the rule in
     `src/lib/assignmentMessages.ts` (also used by "Aceptar oferta"), sending in
     `src/lib/assignmentNotices.ts`.
+- **CRM part 5 (2026-11-12, migration 0052, `npm run test:money`):**
+  - **Informes / Reports** (`/admin/reports`, side menu): the money report for a month (default the
+    current Costa Rica month, ← / → months) or any range of pickup days (≤ 366), compared with the
+    month before (or the same number of days before). Basis: **pickup date** in Costa Rica time.
+    Left out everywhere: **test bookings** (any payment with provider `test`); **cancelled**
+    bookings count only under refunds. Numbers, each with its definition on the page (maths in
+    `src/lib/moneyReport.ts`): booked (prices after promo discounts + cash fees), received online
+    (`amount_paid`) vs cash (completed cash-to-driver trips: what the driver collected), outstanding;
+    driver payouts (stored `driver_payout`) vs our share (price − payout; of which company-paid
+    costs and our commission), cash booking fees, ferries (`bookings.pass_through`, recorded from
+    2026-11-12 only), night premium; cash collected by drivers and what is still to settle /
+    already settled (the `/admin/payouts` maths, `settlementUsd()`); refunds owed / paid / still to
+    pay / kept (`booking_refunds`); promo discounts split ours vs drivers' and per code;
+    breakdowns by service, vehicle class, top 10 routes and tours, and driver. Simple CSS bars.
+    **CSV** (`/admin/reports/export`, admins only, BOM + formula-safe `toCsv()`): one line per
+    booking in the period with every number and why it is or isn't in the totals; no traveller
+    names, emails or phones.
+  - **Códigos promocionales / Promo codes** (`/admin/promos`, linked from Precios y catálogo and the
+    report): create, edit (in-page confirmation when the discount changes) and switch off / on
+    (confirmation), usage (trips, cancelled left out) and what each code cost, split ours vs drivers'.
+    Rules: §6.7 and `docs/PRICING.md` §9. The booking page shows the code and the price before it.
 
 ### 4.3 Driver portal (`/driver`, driver role)
 KYC document upload, view open booking requests, submit and manage bids, assigned trips,
@@ -1076,6 +1097,28 @@ Jorge: "24/7 arrivals. Trips that start from 10pm/4am should charge a 20% premiu
   carts still work), `npm run test:night` (window, order of operations, pass-throughs, payout, old-style
   request) and `npm run test:db` (the same prices with the values read from the database).
 
+### 6.7 Promo codes (Jorge, 2026-11-12, migration 0052)
+**The discount is split 50/50** between our share and the driver's payout; drivers still see only
+their payout, never the client's price or the code. Full rules in `docs/PRICING.md` §9; in short:
+- Applied **last**, after season, night premium and ferries; the cash booking fee is on what is left.
+- Discounts only the part we share with the driver (never ferries, the Drake Bay boat fee, park
+  entrances, lunch or activities the company pays); our half is never more than our commission
+  (so at most 40% of the shared part with the 20% commission); a total never goes below zero.
+- Driver's half = half the discount **rounded down to the cent**; we take the odd cent.
+  `driver_payout` / `platform_fee` are saved already reduced.
+- Conditions: active, valid dates (Costa Rica, inclusive), rides / tours / both, minimum order, most
+  uses in total and per email (uses = trips; cancelled bookings don't count). One code per trip.
+- Website trip panel and both app booking screens ("Your ride", the tour review) have an optional
+  "Promo code" field with Apply; the server checks it (`checkTripPromo` in `src/app/trip/actions.ts`,
+  `POST /api/v1/client/promo` for the app) and checks it again when the trip is sent, with the real
+  email and the discount the traveller saw (a different one is refused so they can look again).
+  Any refusal reads "This code isn't valid." / "Este código no es válido." (never why); 10 wrong
+  codes an hour per network blocks checks for an hour (`promo_code_checks`). The traveller sees
+  "Promo CODE −$X" in the trip panel / app, in the request email and on the trip page. Older apps
+  that send no code book as before. The `generate_lead` analytics event carries the code as `coupon`.
+- Tests: `npm run test:money` (rules, odd cents, the website / app / server totals agree) and
+  `npm run test:db` (admin-only tables, usage counts, the failed-check limit, drivers see nothing new).
+
 ---
 
 ## 7. Database (Supabase / PostgreSQL)
@@ -1166,7 +1209,20 @@ only) · `cash_fee` numeric(10,2) (cash booking fee snapshot, 0 unless `cash_dri
 `confirmed_at` (when the status last became confirmed, by trigger; null on bookings confirmed before
 2026-11-12) · `reminder_traveller_at` / `reminder_driver_at` (day-before reminders sent) ·
 `followup_sent_at` (return-ride suggestion sent or skipped) · `pickup_place` (day tours: hotel or
-address, ≤ 120 characters, no contact details); §4.7, migration 0045
+address, ≤ 120 characters, no contact details); §4.7, migration 0045 ·
+`promo_code` (upper-case, null = none) and `promo_discount` numeric(10,2) (USD taken off; `total_price`
+is already after it) and `pass_through` numeric(10,2) (ferry tickets inside the price, paid to the
+driver in full; null before 2026-11-12); §6.7, migration 0052
+
+**`promo_codes`** (migration 0052, admins only): `id` · `code` (3–30 of A–Z 0–9 - _, stored
+upper-case, unique whatever the case) · `description` · `discount_type` (`percent` | `fixed`) ·
+`value` (percent 1–100 or USD) · `applies_to` (`rides` | `tours` | `both`) · `min_order` ·
+`valid_from` / `valid_to` (dates, inclusive) · `max_uses` / `max_uses_per_email` (null = no limit) ·
+`active` · `created_by` (from the session) · `created_at` / `updated_at`.
+**`promo_redemptions`** (admins read, the server writes): `booking_id` (unique) · `trip_id` ·
+`promo_code_id` · `code` · `email` · `discount` = `platform_part` + `driver_part`.
+**`promo_code_checks`**: failed code checks per network (server only, kept a day).
+Functions (server only): `promo_check_allowed()`, `promo_check_failed()`, `promo_usage()`.
 
 **`email_optouts`** (migration 0045): `email` text PK (lower-case) · `scope` (`promotional`) ·
 `source` (`link` | `one_click` | `team` | `booking`) · `created_at`. Addresses that unsubscribed from
@@ -1329,6 +1385,12 @@ and `season_for_date(date)` returns the season for a travel date.
   through the API**, not even admins (`my_admin_push_count()` gives an admin their own count); no
   updates. `admin_alert_prefs`: own row only, admins only. `team_alerts`: admins read, only the
   server writes. Travellers, drivers and visitors get nothing. `npm run test:db` checks this.
+- **Promo codes (migration 0052):** `promo_codes` admins only (read and write); `promo_redemptions`
+  admins read, only the server writes; `promo_code_checks` and the promo functions server only.
+  Visitors, travellers and drivers read none of it; codes are checked on the server. Travellers see
+  the discount on their own booking row (`promo_code`, `promo_discount`); drivers still read no
+  booking rows and `my_trips()` returns no price, code or discount. `npm run test:db` checks this.
+  The money report and its CSV (`/admin/reports`) are admins only and hold no traveller contact data.
 - **Admin CSV export (privacy):** `/admin/bookings/export` is admins only and reads with the admin's
   own session (RLS applies). It holds travellers' names, emails and phones because it is the team's
   own working copy: keep downloaded files private, don't share them outside the team, and delete them
@@ -1489,6 +1551,16 @@ multi-day trips were retired (§1, §5.5) and are not on the roadmap.
     out or is removed, the traveller is not told; the booking goes back to "Open for drivers", the
     team is alerted, and the traveller hears only when a new driver is assigned. (d) A driver removed
     by a team decision gets a short neutral "reassigned" email; one who cancelled gets nothing.
+22. **Promo codes: assumptions to confirm (open, built 2026-11-12, §6.7).** Decided by Jorge: the 50/50
+    split. Assumed until Jorge says otherwise: (a) our half is capped at our commission, so a booking
+    gets at most 40% off its shared part (a "50%" code gives 40%) and we never pay to run a trip; (b) a
+    percent code is a percent of the shared part (price minus ferries, boat, entrances and other
+    company-paid costs), so "10% off" a tour with entrances is a little less than 10% of its price;
+    (c) a fixed code is once per trip, not per booking; (d) the driver's half is rounded down to the
+    cent (drivers never lose the odd cent); (e) an accepted driver offer replaces the reduced payout,
+    as for any booking; (f) the per-email limit can only be checked once the email is known (always
+    when the trip is sent); two trips sent at the very same moment could both use the last allowed
+    use; (g) checking a code with a typed hotel asks Google for the route again (one more Routes call).
 
 ---
 

@@ -15,7 +15,7 @@ import { C, S, SP, T } from "../../theme";
 import { Bar, BottomBar, Btn, Card, Choice, Divider, FieldLabel, IconLine, Input, LinkBtn, Page, Text, type IconName } from "../../ui";
 import { CodeInput, sendCode, validEmail, verifyCode } from "../SignIn";
 import { hasContactDetails } from "../../contact";
-import { NoSuggestions } from "./parts";
+import { NoSuggestions, PromoField } from "./parts";
 
 /**
  * Sends the planned trip and, when it goes through, replaces the booking steps
@@ -45,7 +45,7 @@ export function BookReview() {
   const { lang, t } = useT();
   const nav = useNav();
   const { email } = useSession();
-  const { state, set, chosen, tour } = useBooking();
+  const { state, set, chosen, tour, promo } = useBooking();
   const send = useSendRequest();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -61,8 +61,10 @@ export function BookReview() {
     );
   }
 
-  const fee = Math.round((chosen.totalCents * chosen.cashFeeBps) / 10000);
-  const total = state.payMode === "cash_driver" ? chosen.totalCents + fee : chosen.totalCents;
+  // What the traveller pays: the tour price minus an accepted promo code; the cash fee is on that.
+  const pay = Math.max(0, chosen.totalCents - (promo?.discountCents ?? 0));
+  const fee = Math.round((pay * chosen.cashFeeBps) / 10000);
+  const total = state.payMode === "cash_driver" ? pay + fee : pay;
   // Where to pick them up: required, one line, no phone numbers, emails or links (the server checks again).
   const pickupBlocked = hasContactDetails(state.tourPickup);
   const pickupOk = state.tourPickup.trim().length >= 3 && !pickupBlocked;
@@ -88,6 +90,12 @@ export function BookReview() {
       footer={
         <BottomBar>
           <View style={{ gap: 10 }}>
+            {promo ? (
+              <View style={{ flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", gap: 10 }}>
+                <Text style={[T.smallStrong, { color: C.emerald }]}>{t("Promo ", "Promoción ") + promo.code}</Text>
+                <Text style={[T.smallStrong, { color: C.emerald }]}>−{cents(promo.discountCents)}</Text>
+              </View>
+            ) : null}
             <View style={{ flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", gap: 10 }}>
               <Text style={T.bodyStrong}>Total</Text>
               <Text style={T.money}>{cents(total)}</Text>
@@ -176,16 +184,19 @@ export function BookReview() {
       <Card>
         <Text style={T.h2}>{t("How would you like to pay?", "¿Cómo desea pagar?")}</Text>
         <View accessibilityRole="radiogroup" style={{ gap: 10 }}>
-          <Choice icon="card-outline" title={t("Online in full", "En línea, pago total")} detail={t("Pay securely by card", "Pague de forma segura con tarjeta")} right={cents(chosen.totalCents)} on={state.payMode === "full_100"} onPress={() => set({ payMode: "full_100" })} />
+          <Choice icon="card-outline" title={t("Online in full", "En línea, pago total")} detail={t("Pay securely by card", "Pague de forma segura con tarjeta")} right={cents(pay)} on={state.payMode === "full_100"} onPress={() => set({ payMode: "full_100" })} />
           <Choice
             icon="cash-outline"
             title={t("Cash to the driver", "Efectivo al conductor")}
             detail={t("Includes the " + chosen.cashFeeBps / 100 + "% cash booking fee", "Incluye el cargo del " + chosen.cashFeeBps / 100 + "% por reserva en efectivo")}
-            right={cents(chosen.totalCents + fee)}
+            right={cents(pay + fee)}
             on={state.payMode === "cash_driver"}
             onPress={() => set({ payMode: "cash_driver" })}
           />
         </View>
+      </Card>
+      <Card>
+        <PromoField ready />
       </Card>
       {error ? (
         <Text accessibilityRole="alert" style={S.error}>

@@ -218,7 +218,7 @@ export function Notice({ tone = "amber", children, role }: { tone?: "amber" | "r
 
 export type IconName =
   | "dashboard" | "bookings" | "live" | "drivers" | "flag" | "payouts" | "pricing" | "users"
-  | "customers" | "search" | "plus" | "download" | "menu" | "close" | "inbox" | "chevron" | "alert" | "clock";
+  | "customers" | "search" | "plus" | "download" | "menu" | "close" | "inbox" | "chevron" | "alert" | "clock" | "chart";
 
 const PATHS: Record<IconName, React.ReactNode> = {
   dashboard: <><rect x="3" y="3" width="7" height="9" rx="1.5" /><rect x="14" y="3" width="7" height="5" rx="1.5" /><rect x="14" y="12" width="7" height="9" rx="1.5" /><rect x="3" y="16" width="7" height="5" rx="1.5" /></>,
@@ -239,6 +239,7 @@ const PATHS: Record<IconName, React.ReactNode> = {
   chevron: <path d="m9 6 6 6-6 6" />,
   alert: <><path d="M12 3 2 20h20L12 3Z" /><path d="M12 10v4.5M12 17.5v.01" /></>,
   clock: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>,
+  chart: <path d="M4 20V10M10 20V4M16 20v-7M21 20H3" />,
 };
 
 export function Icon({ name, className = "h-[18px] w-[18px]" }: { name: IconName; className?: string }) {

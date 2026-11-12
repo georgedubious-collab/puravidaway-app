@@ -24,6 +24,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { makeT } from "@/lib/teamLang";
 import { getTeamLang } from "@/lib/teamLangServer";
 import { AdminForm } from "./AdminForm";
+import Link from "next/link";
 import { PageHeader, SectionHeading } from "@/components/admin/ui";
 import type { ConfirmRule } from "@/components/admin/AdminActionForm";
 import {
@@ -184,6 +185,11 @@ export default async function PricingPage() {
               dólares, antes del multiplicador de temporada. Desmarque <strong>Visible</strong> para ocultar algo sin borrarlo.
             </>
           )
+        }
+        actions={
+          <Link href="/admin/promos" className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[#DCE3DF] bg-white px-4 text-sm font-bold text-[#14231C] hover:bg-[#F1F4F2]">
+            {t("Códigos promocionales", "Promo codes")} →
+          </Link>
         }
       />
 

@@ -12,7 +12,7 @@ import { C, S, SP, T } from "../../theme";
 import { Badge, Bar, BottomBar, Btn, Card, Choice, FieldLabel, IconLine, Input, Page, Skeleton, Stepper, Text, Toggle } from "../../ui";
 import { NoSuggestions } from "./parts";
 import { validEmail, sendCode } from "../SignIn";
-import { ActionRow, BagNote, QuoteProblem, RouteDots } from "./parts";
+import { ActionRow, BagNote, PromoField, QuoteProblem, RouteDots } from "./parts";
 import { useSendRequest } from "./Review";
 
 const BOX = { backgroundColor: C.card, borderRadius: 18, borderWidth: 1, borderColor: C.border, paddingHorizontal: SP.lg } as const;
@@ -27,7 +27,10 @@ export function BookConfirm() {
   const { lang, t } = useT();
   const nav = useNav();
   const { email } = useSession();
-  const { state, set, chosen, quote, quoteBusy, vehicle, stopsOn, effectivePrefs, itemCents, notesBlocked, signBlocked } = useBooking();
+  const { state, set, chosen, quote, quoteBusy, vehicle, stopsOn, effectivePrefs, itemCents: listCents, notesBlocked, signBlocked, promo } = useBooking();
+  // What the traveller pays for the ride: the fixed price minus an accepted promo code.
+  const discountCents = promo?.discountCents ?? 0;
+  const itemCents = Math.max(0, listCents - discountCents);
   const send = useSendRequest();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -113,8 +116,22 @@ export function BookConfirm() {
               </View>
             ) : null}
           </View>
-          {priced ? <Text style={{ fontSize: 20, lineHeight: 26, fontWeight: "800", color: C.text }}>{cents(itemCents)}</Text> : !quote && quoteBusy ? <Skeleton height={24} width={64} /> : <Text style={T.h3}>—</Text>}
+          {priced ? (
+            <View style={{ alignItems: "flex-end" }}>
+              {promo ? <Text style={[T.caption, { textDecorationLine: "line-through" }]}>{cents(listCents)}</Text> : null}
+              <Text style={{ fontSize: 20, lineHeight: 26, fontWeight: "800", color: C.text }}>{cents(itemCents)}</Text>
+            </View>
+          ) : !quote && quoteBusy ? (
+            <Skeleton height={24} width={64} />
+          ) : (
+            <Text style={T.h3}>—</Text>
+          )}
         </View>
+        {promo && priced ? (
+          <Text style={[T.smallStrong, { color: C.emerald }]}>
+            {t("Promo ", "Promoción ") + promo.code + " −" + cents(discountCents)}
+          </Text>
+        ) : null}
       </View>
 
       <QuoteProblem />
@@ -198,6 +215,10 @@ export function BookConfirm() {
             />
           </View>
         ) : null}
+      </View>
+
+      <View style={[BOX, { paddingVertical: 14 }]}>
+        <PromoField ready={Boolean(chosen)} />
       </View>
 
       <Card>

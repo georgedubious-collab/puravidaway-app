@@ -135,6 +135,22 @@ interface BookingValue {
   /** Send the request. The caller has already confirmed the email when nobody was signed in. */
   submit: () => Promise<{ ok: true; sent: Sent } | { ok: false; error: string }>;
   demo: boolean;
+
+  /**
+   * The promo code the server accepted for exactly what would be sent now, or null. When the
+   * plan changes (vehicle, date, travellers…) the code is checked again by itself.
+   */
+  promo: { code: string; discountCents: number } | null;
+  promoBusy: boolean;
+  /** Why the last code was refused ("This code isn't valid."), in the app's language. */
+  promoError: string;
+  applyPromo: (code: string) => Promise<void>;
+  removePromo: () => void;
+}
+
+/** What a promo check is tied to: the exact item that would be sent. */
+function promoKey(c: Chosen | null): string {
+  return c ? JSON.stringify([c.date, c.totalCents, c.spec]) : "";
 }
 
 const Ctx = createContext<BookingValue | null>(null);
@@ -151,7 +167,14 @@ export function BookingProvider({
 }: {
   children: ReactNode;
   /** Sample prices and choices for design previews; skips the network. */
-  demo?: { state?: Partial<BookingState>; quote?: RideQuote | null; tours?: Tour[] | null; quoteBusy?: boolean };
+  demo?: {
+    state?: Partial<BookingState>;
+    quote?: RideQuote | null;
+    tours?: Tour[] | null;
+    quoteBusy?: boolean;
+    /** An accepted promo code, for design previews. */
+    promo?: { code: string; discountCents: number; key: string } | null;
+  };
 }) {
   const { lang, t } = useT();
   const tRef = useRef(t);
@@ -302,13 +325,79 @@ export function BookingProvider({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, tour, toursFee, quote, vehicle, rideReady, itemCents, effectivePrefs, stopsOn, lang, t, pax, date]);
 
-  const latest = useRef({ chosen, state, lang });
-  latest.current = { chosen, state, lang };
+  // The latest choices for callbacks that run later (sending, promo checks).
+  const latest = useRef<{ chosen: Chosen | null; state: BookingState; lang: typeof lang; promo: { code: string; discountCents: number } | null }>({
+    chosen,
+    state,
+    lang,
+    promo: null,
+  });
+
+  // ---- Promo code: checked on the server for the exact item that would be sent.
+  const [applied, setApplied] = useState<{ code: string; discountCents: number; key: string } | null>(demo?.promo ?? null);
+  const [promoBusy, setPromoBusy] = useState(false);
+  const [promoError, setPromoError] = useState("");
+  const chosenKey = promoKey(chosen);
+  const promo = applied && (isDemo || applied.key === chosenKey) ? { code: applied.code, discountCents: applied.discountCents } : null;
+  const checkPromo = useCallback(
+    async (code: string, c: Chosen, email: string) =>
+      api<{ code: string; discountCents: number }>("/client/promo", {
+        code,
+        items: [{ id: "app-1", date: c.date, totalCents: c.totalCents, spec: c.spec }],
+        email,
+        lang,
+      }),
+    [lang],
+  );
+  const applyPromo = useCallback(
+    async (code: string) => {
+      const c = latest.current.chosen;
+      if (!c || isDemo) return;
+      setPromoBusy(true);
+      setPromoError("");
+      const res = await checkPromo(code, c, latest.current.state.guestEmail.trim());
+      setPromoBusy(false);
+      if (res.ok && res.data) setApplied({ code: res.data.code, discountCents: res.data.discountCents, key: promoKey(c) });
+      else {
+        setApplied(null);
+        setPromoError(res.error ?? tRef.current("This code isn't valid.", "Este código no es válido."));
+      }
+    },
+    // latest is a ref; checkPromo carries the language.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [checkPromo, isDemo],
+  );
+  const removePromo = useCallback(() => {
+    setApplied(null);
+    setPromoError("");
+  }, []);
+  // The plan changed after a code was accepted: check it again for the new price.
+  const appliedCode = applied?.code ?? "";
+  const appliedKey = applied?.key ?? "";
+  useEffect(() => {
+    if (isDemo || !appliedCode || !chosenKey || appliedKey === chosenKey) return;
+    const c = latest.current.chosen;
+    if (!c) return;
+    let live = true;
+    void checkPromo(appliedCode, c, latest.current.state.guestEmail.trim()).then((res) => {
+      if (!live) return;
+      if (res.ok && res.data) setApplied({ code: res.data.code, discountCents: res.data.discountCents, key: promoKey(c) });
+      else {
+        setApplied(null);
+        setPromoError(res.error ?? tRef.current("This code isn't valid.", "Este código no es válido."));
+      }
+    });
+    return () => {
+      live = false;
+    };
+  }, [chosenKey, appliedCode, appliedKey, isDemo, checkPromo]);
+
+  latest.current = { chosen, state, lang, promo };
   const submit = useCallback(async (): Promise<{ ok: true; sent: Sent } | { ok: false; error: string }> => {
-    const { chosen: c, state: s, lang: l } = latest.current;
+    const { chosen: c, state: s, lang: l, promo: pr } = latest.current;
     const tt = tRef.current;
     if (!c) return { ok: false, error: tt("We couldn't send your request.", "No pudimos enviar su solicitud.") };
-    const res = await api<{ tripToken: string | null; testCheckout?: boolean }>("/client/trip-request", {
+    const res = await api<{ tripToken: string | null; testCheckout?: boolean; promoInvalid?: boolean; promoDiscountCents?: number }>("/client/trip-request", {
       items: [{ id: "app-" + Date.now(), date: c.date, totalCents: c.totalCents, spec: c.spec }],
       mode: s.payMode,
       cashFeeBps: c.cashFeeBps,
@@ -319,9 +408,19 @@ export function BookingProvider({
       lang: l,
       // "Don't send me suggestions after my trip": older servers ignore it.
       noSuggestions: s.noSuggestions,
+      // Promo code and the discount shown; the server checks both again. Older servers ignore them.
+      ...(pr ? { promoCode: pr.code, promoDiscountCents: pr.discountCents } : {}),
     });
-    if (!res.ok || !res.data) return { ok: false, error: res.error ?? tt("We couldn't send your request.", "No pudimos enviar su solicitud.") };
-    return { ok: true, sent: { tripToken: res.data.tripToken, payOnline: s.payMode === "full_100", totalCents: c.totalCents, testCheckout: Boolean(res.data.testCheckout) } };
+    if (!res.ok || !res.data) {
+      // The code no longer applies: it comes off and the field says so. A different discount: check again.
+      if (res.data?.promoInvalid) {
+        setApplied(null);
+        setPromoError(res.error ?? tt("This code isn't valid.", "Este código no es válido."));
+      } else if (res.data?.promoDiscountCents !== undefined) setApplied((a) => (a ? { ...a, key: "" } : a));
+      return { ok: false, error: res.error ?? tt("We couldn't send your request.", "No pudimos enviar su solicitud.") };
+    }
+    const paid = c.totalCents - (pr?.discountCents ?? 0);
+    return { ok: true, sent: { tripToken: res.data.tripToken, payOnline: s.payMode === "full_100", totalCents: paid, testCheckout: Boolean(res.data.testCheckout) } };
   }, []);
 
   const value: BookingValue = {
@@ -348,6 +447,11 @@ export function BookingProvider({
     chosen,
     submit,
     demo: isDemo,
+    promo,
+    promoBusy,
+    promoError,
+    applyPromo,
+    removePromo,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
