@@ -433,12 +433,55 @@ and error states, `AdminActionForm`).
   server exactly like the website (same catalog, season, night premium, stops, sign, bags) and saved
   through the website's own request path (`submitTripRequestAsTeam`, `src/app/trip/actions.ts`):
   same `trips`/`bookings` rows, status "Esperando pago", fixed price, online or cash; optional email
-  of the trip link to the traveller. Rides between our towns (typed addresses: on the website).
+  of the trip link to the traveller. **Any pickup / drop-off place** (Jorge, 2026-11-12): our towns
+  as one-tap quick picks above the website's own place search (`PlaceInput`, Google through
+  `/api/places/*`), so a hotel in a small town is priced exactly like on the website (same
+  `placeSpecFields()` in `src/lib/places.ts`, same server lookup and route, same price;
+  `npm run test:crm` checks the price matches).
 - **Booking page**: change history ("Historial de cambios", §7.3 `booking_events`) as a timeline.
 - **Confirmations in the page** (never a browser pop-up), saying what will happen: cancel a booking,
   change the amount received, accept a driver's offer (sets the payout), mark trips settled,
   reject/suspend a driver or vehicle, change a vehicle's category, change prices / fees / season
   multipliers / commission, add or remove season dates, change a user's role.
+- **CRM part 3 (2026-11-12, migration 0046, `npm run test:crm`):**
+  - **Clientes** (`/admin/customers`): travellers grouped by email (lower-case, trimmed; with no
+    email, by phone digits). Search (name, email, phone, tag), columns name / email / phone /
+    bookings / completed / spent (= amount received, cancelled bookings and test payments left out) /
+    first and last trip / tags, sort by last trip or spent, 25 per page, CSV export
+    (`/admin/customers/export`, same rules as the bookings export). Profile
+    (`/admin/customers/<email>`): contact, every booking (links), total spent, average rating they
+    gave, "Repeat customer" (2+ bookings not cancelled) and "VIP" chips, tags and a private team note
+    (who changed it last; every change kept). Computed by the admin-only `admin_customers()`; nothing
+    is copied. The traveller's name on the bookings list and booking page links to the profile.
+  - **WhatsApp card** on the booking page: five buttons that open `wa.me/<traveller's number>` with a
+    message built from the booking in the traveller's booking language (English, or Spanish with
+    "usted"): booking received / confirm details; driver confirmed (driver's first name, the vehicle
+    as the trip page shows it, pickup time, name sign, trip page link); day-before reminder; "we're
+    looking into it"; payment reminder (online balance + trip link). Buttons wait for a driver / a
+    balance; no number → a clear note. Each tap is logged in the history. Team only.
+  - **Cancel booking with refund calculator**: who cancels (traveller / us / the driver / weather,
+    road or park closure), when (the traveller's message time, Costa Rica time, vs the pickup), the
+    amount received → the refund the published policy gives and the rule that applied
+    (`src/lib/refundPolicy.ts`: 24 h or more → full; under 24 h or no-show → none; we or the driver
+    cancel → full; weather → full proposed, the team can lower it). The team may change the refund
+    owed, with a required reason. "Avisar al viajero y al conductor" (ticked by default) emails the
+    traveller (their language) and the assigned driver (their language, Spanish by default; no
+    traveller details, no prices). Cancelling is no longer a status in the dispatch list. Card
+    refunds are manual until Green Pay: "Mark refund as paid" (amount, date, card / SINPE / transfer
+    / cash).
+  - **Driver removed or replaced** (dispatch form): the team says why (driver cancelled / team
+    decision); a confirmed booking left without a driver goes back to "Open for drivers" (drivers are
+    emailed the job as usual); the team gets an email (Spanish); the **traveller is not told** at that
+    moment and gets the existing "driver confirmed" email once a new driver is assigned
+    (`src/lib/driverChange.ts`). Drivers can't drop an accepted trip themselves (they withdraw only
+    open offers; the calendar refuses a day with a trip), so the dispatch form is the only path.
+  - **Name sign (team)**: the team can set the sign (name + initial, the brand, or a text, same rules
+    as the traveller's), even after the driver set off (with a confirmation); the history shows who.
+  - **Driver scorecard** on the driver page (and a compact line on the drivers list): trips completed
+    (30 days / all), plain rating average and count, share with a comment, trips with a lateness
+    alert (`bookings.late_alert_at`: the live estimate said 20+ minutes late, or no location 60
+    minutes before; the system doesn't record which or the real arrival), drop-outs after accepting
+    (recorded from 2026-11-12), offers accepted / sent, driver payout of settled trips. Read-only.
 - **Drivers are told** (push to the driver app + email, in their language, `profiles.app_lang`) when
   the team approves or rejects their application, approves / rejects / puts on hold one of their
   vehicles, or sets a vehicle's category for the first time — once per decision, only about their own
@@ -921,10 +964,29 @@ only) · `cash_fee` numeric(10,2) (cash booking fee snapshot, 0 unless `cash_dri
 **`booking_events`** (change history, migration 0044): `id` · `booking_id` → `bookings.id` · `at` ·
 `actor_id` → `profiles.id` (who did it; empty for the website's server and scheduled jobs) · `action`
 (`status` | `assignment` | `amount_paid` | `price` | `payout` | `payment_mode` | `schedule` |
-`settled` | `sign` | `notes` | `created_by_team` | `trip_link_emailed`) · `before` / `after` jsonb
+`settled` | `sign` | `notes` | `created_by_team` | `trip_link_emailed`; since migration 0046 also
+`cancellation` | `refund` | `refund_paid` (trigger on `booking_refunds`) and `driver_removed` |
+`whatsapp_opened` | `notified` (written by the server)) · `before` / `after` jsonb
 (only the changed fields). Written by triggers on `bookings` and `booking_admin_notes` (so every path
 is covered: admin pages, accepting an offer, the driver app, the traveller's sign) and by the server
 for bookings entered by the team. Never card data, never chat messages.
+
+**`booking_refunds`** (migration 0046, admins only; one row per cancelled booking): `booking_id` ·
+`cancelled_by` (`traveller` | `team` | `driver` | `weather`) · `cancelled_at` · `asked_at` (when the
+traveller's message arrived) · `hours_before` · `amount_received` · `refund_policy` · `refund_rule`
+(`free_24h` | `late_or_no_show` | `we_cancelled` | `weather`) · `refund_due` (≤ received) ·
+`refund_reason` (required when `refund_due` ≠ `refund_policy`) · `refund_paid_amount` /
+`refund_paid_on` / `refund_method` (`card` | `sinpe` | `transfer` | `cash`, all three or none) ·
+`created_by` · `updated_at`. Its own table, not booking columns: travellers can read their own booking
+rows, and the team's reason must stay internal. Written with `cancel_booking()` (status + refund row in
+one step, admins only).
+
+**Customers** (migration 0046): no table of their own. `customer_key(email, phone, trip)` = the
+email lower-cased and trimmed, else `tel:<digits>`, else `trip:<id>`; `admin_customers()` and
+`admin_customer_trips()` compute the list from `trips` + `bookings` + `driver_reviews` and return
+nothing to non-admins. **`customer_notes`**: `customer_key` PK · `tags` text[] (≤ 12; "VIP" = the VIP
+chip) · `note` (≤ 4000) · `updated_by` / `updated_at` (set by the database). Every change is kept in
+**`customer_note_events`** (who, when, before/after).
 
 ### 7.4 `bids`
 `id` uuid PK · `booking_id` → `bookings.id` · `driver_id` → `drivers.id` · `bid_amount` numeric ·
@@ -1038,6 +1100,12 @@ and `season_for_date(date)` returns the season for a travel date.
 - **booking_events:** admins read; nobody writes from a browser or app (no insert/update/delete
   policies) — only the triggers and the server (service role). Travellers, drivers and visitors read
   nothing. `npm run test:db` checks this.
+- **CRM part 3 (migration 0046):** `customer_notes`, `customer_note_events` and `booking_refunds`
+  are admins only (read and write; history read-only); `admin_customers()` /
+  `admin_customer_trips()` return nothing to anyone else; `cancel_booking()` refuses non-admins.
+  Travellers, drivers and visitors read none of it. The cancellation email to a driver never holds
+  the traveller's name, phone, email, the price or the refund. `npm run test:db` checks this.
+  The customers CSV (`/admin/customers/export`) follows the same privacy rule as the bookings export.
 - **Admin CSV export (privacy):** `/admin/bookings/export` is admins only and reads with the admin's
   own session (RLS applies). It holds travellers' names, emails and phones because it is the team's
   own working copy: keep downloaded files private, don't share them outside the team, and delete them
