@@ -15,6 +15,7 @@
     "test:fixed": "node --no-warnings scripts/test-fixed-prices.mjs",
     "test:routes": "node --no-warnings scripts/test-route-pages.mjs",
     "test:blog": "node --no-warnings scripts/test-blog.mjs",
+    "test:tours": "node --no-warnings scripts/test-tour-pages.mjs",
     "test:reviews": "node --no-warnings scripts/test-review-reminder.mjs",
     "test:consent-region": "node --no-warnings scripts/test-consent-region.mjs",
     "test:automations": "node --no-warnings scripts/test-automations.mjs",

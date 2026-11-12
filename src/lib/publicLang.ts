@@ -44,6 +44,9 @@ export const ES_PATHS: Record<string, string> = {
   "/airports": "/es/aeropuertos",
   // Travel guides (the blog, src/lib/blog): index; the articles are matched by prefix below.
   "/guides": "/es/guias",
+  // Day tour pages (src/lib/tours): index; the tour pages are matched by prefix below.
+  // Spanish keeps the word "tours", as the site's Spanish does ("Tours de un día").
+  "/tours": "/es/tours",
 };
 
 const EN_PATHS: Record<string, string> = Object.fromEntries(
@@ -56,13 +59,14 @@ export const ES_ROUTE_PREFIX = "/es/traslados/";
 
 /**
  * Page families that keep the same slug under each language's folder:
- * route pages, destination guides, airport guides and travel guides (English prefix, Spanish prefix).
+ * route pages, destination guides, airport guides, travel guides and day tours (English prefix, Spanish prefix).
  */
 const PREFIX_PAIRS: [string, string][] = [
   [EN_ROUTE_PREFIX, ES_ROUTE_PREFIX],
   ["/destinations/", "/es/destinos/"],
   ["/airports/", "/es/aeropuertos/"],
   ["/guides/", "/es/guias/"],
+  ["/tours/", "/es/tours/"],
 ];
 
 /** English info pages with a Spanish version (the sitemap lists home, legal and route pages separately). */

@@ -79,7 +79,10 @@ export function Storefront({
   const [focus, setFocus] = useState<{ suggestion: Suggestion; date: string; n: number } | null>(null);
 
   const tabParam = params.get("tab");
-  const [builder, setBuilder] = useState<Builder>(TAB_PARAM[tabParam ?? ""] ?? "transfers");
+  // ?tour=<id> (the "Book" buttons of the tour pages, /tours/<slug>): open the Day tours tab with
+  // that tour's region chosen and the tour highlighted. An unknown id is ignored.
+  const linkedTour = catalog.dayTours.find((x) => x.id === params.get("tour"));
+  const [builder, setBuilder] = useState<Builder>(TAB_PARAM[tabParam ?? ""] ?? (linkedTour ? "daytours" : "transfers"));
   // The site menu links to /?tab=…: follow it when the address changes (React's
   // "adjust state while rendering" pattern, no effect needed).
   const [seenTab, setSeenTab] = useState(tabParam);
@@ -240,7 +243,7 @@ export function Storefront({
           )}
           {builder === "daytours" && (
             <DayToursView
-              key={focus?.suggestion.kind === "day_tour" ? `focus-${focus.n}` : "tours"}
+              key={focus?.suggestion.kind === "day_tour" ? `focus-${focus.n}` : linkedTour ? `tour-${linkedTour.id}` : "tours"}
               today={today}
               onAdd={addItem}
               tabs={tabs}
@@ -250,7 +253,9 @@ export function Storefront({
                     initialDate: focus.date,
                     highlightId: focus.suggestion.id,
                   }
-                : {})}
+                : linkedTour
+                  ? { initialRegion: linkedTour.region, highlightId: linkedTour.id }
+                  : {})}
             />
           )}
         </main>

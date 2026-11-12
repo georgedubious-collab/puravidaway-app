@@ -1,4 +1,4 @@
-import type { PhotoId } from "@/lib/photos";
+import { photoEntry, type PhotoId } from "@/lib/photos";
 import type { PublicLang } from "@/lib/publicLang";
 import { Breadcrumbs, type Crumb } from "./Breadcrumbs";
 import { Photo } from "./Photo";
@@ -19,6 +19,7 @@ export function PublicPage({
   title,
   lead,
   photo,
+  photoCaption = false,
   children,
 }: {
   lang: PublicLang;
@@ -32,6 +33,8 @@ export function PublicPage({
   lead: React.ReactNode;
   /** One picture for the page (src/lib/photos.ts): beside the text on desktop, under it on phones. */
   photo?: PhotoId;
+  /** Show the photo's description (its alt text in the registry) as a visible caption under it. */
+  photoCaption?: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -51,7 +54,7 @@ export function PublicPage({
                 </h1>
                 <div className="mt-4 text-lg leading-relaxed text-slate-600 max-w-3xl">{lead}</div>
               </div>
-              {photo && (
+              {photo && !photoCaption && (
                 <Photo
                   id={photo}
                   lang={lang}
@@ -59,6 +62,13 @@ export function PublicPage({
                   sizes="(min-width: 1024px) 440px, 100vw"
                   className="mt-6 lg:mt-6 aspect-[16/9] lg:aspect-[3/2] rounded-2xl"
                 />
+              )}
+              {photo && photoCaption && (
+                <figure className="mt-6">
+                  {/* The caption says what the photo shows, so screen readers don't hear it twice. */}
+                  <Photo id={photo} lang={lang} priority decorative sizes="(min-width: 1024px) 440px, 100vw" className="aspect-[16/9] lg:aspect-[3/2] rounded-2xl" />
+                  <figcaption className="mt-2 text-xs leading-snug text-slate-600">{photoEntry(photo).alt[lang]}</figcaption>
+                </figure>
               )}
             </div>
           </div>

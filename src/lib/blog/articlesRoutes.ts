@@ -176,8 +176,8 @@ const LA_FORTUNA: Article = {
           ],
         },
         p(
-          "For things to do, the best time to go and where to stay by area, see the [La Fortuna and Arenal destination guide](/destinations/la-fortuna). Our private [day tours](/?tab=tours) include a day of Arenal's lava trails, the La Fortuna Waterfall and hot springs.",
-          "Para saber qué hacer, la mejor época y dónde hospedarse por zona, vea la [guía de destino de La Fortuna y Arenal](/destinations/la-fortuna). Nuestros [tours privados de un día](/?tab=tours) incluyen un día por los senderos de lava del Arenal, la catarata de La Fortuna y aguas termales.",
+          "For things to do, the best time to go and where to stay by area, see the [La Fortuna and Arenal destination guide](/destinations/la-fortuna). Our private [Arenal day tour](/tours/arenal-volcano-waterfall-hot-springs) includes a day of Arenal's lava trails, the La Fortuna Waterfall and hot springs.",
+          "Para saber qué hacer, la mejor época y dónde hospedarse por zona, vea la [guía de destino de La Fortuna y Arenal](/destinations/la-fortuna). Nuestro [tour privado de un día en el Arenal](/tours/arenal-volcano-waterfall-hot-springs) incluye un día por los senderos de lava del Arenal, la catarata de La Fortuna y aguas termales.",
         ),
       ],
     },
@@ -376,8 +376,8 @@ const MANUEL_ANTONIO: Article = {
           "El Parque Nacional Manuel Antonio cierra los martes. Las entradas se venden solo en línea, con anticipación y para una hora de ingreso, y el cupo diario es limitado; no se venden en la entrada. Cómprelas apenas tenga sus fechas, sobre todo de diciembre a abril, y consulte las reglas y los precios vigentes en el Sistema Nacional de Áreas de Conservación (SINAC).",
         ),
         p(
-          "Plan your arrival day around it: if you land in the morning and your park day is a Tuesday, move it. For areas to stay, the best season and things to do, read the [Manuel Antonio destination guide](/destinations/manuel-antonio); our private [day tours](/?tab=tours) include a guided wildlife walk in the park with a catamaran and snorkelling.",
-          "Planifique su día de llegada en función de eso: si aterriza en la mañana y su día de parque cae martes, cámbielo. Para zonas donde hospedarse, la mejor época y qué hacer, lea la [guía de destino de Manuel Antonio](/destinations/manuel-antonio); nuestros [tours privados de un día](/?tab=tours) incluyen una caminata guiada de vida silvestre en el parque con catamarán y snorkel.",
+          "Plan your arrival day around it: if you land in the morning and your park day is a Tuesday, move it. For areas to stay, the best season and things to do, read the [Manuel Antonio destination guide](/destinations/manuel-antonio); our private [Manuel Antonio day tour](/tours/manuel-antonio-park-catamaran) includes a guided wildlife walk in the park with a catamaran and snorkelling.",
+          "Planifique su día de llegada en función de eso: si aterriza en la mañana y su día de parque cae martes, cámbielo. Para zonas donde hospedarse, la mejor época y qué hacer, lea la [guía de destino de Manuel Antonio](/destinations/manuel-antonio); nuestro [tour privado de un día en Manuel Antonio](/tours/manuel-antonio-park-catamaran) incluye una caminata guiada de vida silvestre en el parque con catamarán y snorkel.",
         ),
         {
           kind: "rides",
@@ -614,8 +614,8 @@ const MONTEVERDE: Article = {
           ],
         },
         p(
-          "Where to stay, the reserves and the best season are in the [Monteverde destination guide](/destinations/monteverde). Our private [day tours](/?tab=tours) include the hanging bridges, a zipline and a night walk.",
-          "Dónde hospedarse, las reservas y la mejor época están en la [guía de destino de Monteverde](/destinations/monteverde). Nuestros [tours privados de un día](/?tab=tours) incluyen los puentes colgantes, un canopy y una caminata nocturna.",
+          "Where to stay, the reserves and the best season are in the [Monteverde destination guide](/destinations/monteverde). Our private [Monteverde day tour](/tours/monteverde-hanging-bridges-zipline-night-walk) includes the hanging bridges, a zipline and a night walk.",
+          "Dónde hospedarse, las reservas y la mejor época están en la [guía de destino de Monteverde](/destinations/monteverde). Nuestro [tour privado de un día en Monteverde](/tours/monteverde-hanging-bridges-zipline-night-walk) incluye los puentes colgantes, un canopy y una caminata nocturna.",
         ),
       ],
     },

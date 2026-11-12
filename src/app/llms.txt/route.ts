@@ -1,6 +1,8 @@
 import { ARTICLES, BLOG_PATH, articlePath } from "@/lib/blog";
 import { AIRPORT_GUIDES, AIRPORTS_PATH, DESTINATION_GUIDES, DESTINATIONS_PATH, airportPath, destinationPath } from "@/lib/guides";
+import { localizeCatalog } from "@/lib/catalogEs";
 import { getCatalog } from "@/lib/catalogSource";
+import { TOURS_PATH, activeTourPages, catalogTour, tourPath } from "@/lib/tours";
 import { nightSentence } from "@/lib/nightPremium";
 import { localizedHref } from "@/lib/publicLang";
 import { ROUTE_PAGES, TRANSFERS_PATH, routePath } from "@/lib/routePages";
@@ -14,7 +16,10 @@ export const dynamic = "force-static";
 
 export async function GET() {
   // Pickup hours and the night premium come from the pricing settings, never typed here.
-  const night = nightSentence((await getCatalog()).nightPremium, "en");
+  const catalog = await getCatalog();
+  const night = nightSentence(catalog.nightPremium, "en");
+  // Day tour pages only for tours active in the catalog; names and lengths come from the catalog.
+  const tours = activeTourPages(catalog).map((p) => ({ p, tour: catalogTour(p, catalog)!, es: catalogTour(p, localizeCatalog(catalog, "es"))! }));
   const u = (p: string) => `${SITE_URL}${p}`;
   const text = `# ${SITE_NAME}
 
@@ -40,6 +45,10 @@ Key facts:
 ## Private transfer routes (each page: drive time, distance, price per vehicle class, other ways to travel, FAQs)
 - [All routes with drive times and prices](${u(TRANSFERS_PATH)})
 ${ROUTE_PAGES.map((p) => `- [${p.title.en}](${u(routePath(p))}): ${p.metaDescription.en}`).join("\n")}
+
+## Private day tours (each page: what the day includes, price per person by group size and season, what to bring, how to get there, FAQs)
+- [All day tours by region](${u(TOURS_PATH)}): only the traveller's group, a local naturalist guide, entrances and lunch included; priced per person for 1, 2–3 or 4+ travellers
+${tours.map(({ p, tour }) => `- [${tour.name}](${u(tourPath(p))}): ${tour.durationHours} hours, ${p.metaDescription.en}`).join("\n")}
 
 ## Destination guides
 - [All destination guides](${u(DESTINATIONS_PATH)}): drive times from both airports in one table
@@ -73,6 +82,10 @@ ${AIRPORT_GUIDES.map((g) => `- [${g.title.es}](${u(localizedHref(airportPath(g),
 ## Guías de viaje (español)
 - [Todas las guías de viaje](${u(localizedHref(BLOG_PATH, "es"))})
 ${ARTICLES.map((a) => `- [${a.title.es}](${u(localizedHref(articlePath(a), "es"))})`).join("\n")}
+
+## Tours privados de un día (español)
+- [Todos los tours de un día por región](${u(localizedHref(TOURS_PATH, "es"))})
+${tours.map(({ p, es }) => `- [${es.name}](${u(localizedHref(tourPath(p), "es"))})`).join("\n")}
 
 ## Rutas de traslado privado (español)
 - [Todas las rutas con tiempos de viaje y precios](${u(localizedHref(TRANSFERS_PATH, "es"))})

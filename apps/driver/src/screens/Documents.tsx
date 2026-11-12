@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useCallback, useEffect, useState } from "react";
-import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Pressable, ScrollView, Text, TextInput, View, type LayoutChangeEvent, type ScrollViewInstance } from "react-native";
 import { api } from "../api";
 import { townList } from "../format";
 import { useT } from "../i18n";
@@ -105,6 +105,11 @@ export function Documents({
   const [me, setMe] = useState<Fields>(demo?.me ?? {});
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState("");
+  // The add-vehicle form is remounted (emptied) after a vehicle is added.
+  const [formKey, setFormKey] = useState(0);
+  // A newly added vehicle is scrolled into view so the driver sees it with its "Waiting for review" badge.
+  const [justAdded, setJustAdded] = useState<string | null>(null);
+  const scroll = useRef<ScrollViewInstance>(null);
   const { t, lang } = useT();
   const status = (s: string) => (STATUS[s] ? t(...STATUS[s]) : s);
 
@@ -135,6 +140,14 @@ export function Documents({
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Messages show in a bar pinned to the bottom of the screen, so they are seen whatever
+  // part of the page the driver is on. Success messages hide after 6 seconds; errors stay.
+  useEffect(() => {
+    if (!msg?.ok) return;
+    const id = setTimeout(() => setMsg(null), 6000);
+    return () => clearTimeout(id);
+  }, [msg]);
 
   async function run(id: string, fn: () => Promise<string | null>, done: string) {
     setBusy(id);
@@ -197,7 +210,8 @@ export function Documents({
   const set = (k: string) => (t: string) => setMe((m) => ({ ...m, [k]: t }));
 
   return (
-    <ScrollView style={S.screen} contentContainerStyle={S.pad} keyboardShouldPersistTaps="handled">
+    <View style={{ flex: 1 }}>
+    <ScrollView ref={scroll} style={S.screen} contentContainerStyle={[S.pad, { paddingBottom: 120 }]} keyboardShouldPersistTaps="handled">
       <Badge
         text={t("Solicitud: ", "Application: ") + status(driver.kyc_status)}
         tone={driver.kyc_status === "approved" ? undefined : driver.kyc_status === "pending" ? "amber" : "red"}
@@ -228,8 +242,6 @@ export function Documents({
           )}
         />
       ) : null}
-      {msg ? <Text style={msg.ok ? { color: C.emerald, fontWeight: "700" } : S.error}>{msg.text}</Text> : null}
-
       <Card>
         <Text style={S.h2}>{t("Sus datos", "About you")}</Text>
         <Input label={t("Nombre completo (como en su identificación)", "Full name (as on your ID)")} value={me.full_name} onChange={set("full_name")} />
@@ -290,9 +302,20 @@ export function Documents({
       </Card>
 
       {vehicles.map((v) => (
-        <VehicleCard key={v.id} v={v} userId={userId} busy={busy} run={run} />
+        <View
+          key={v.id}
+          onLayout={(e: LayoutChangeEvent) => {
+            if (justAdded === v.id) {
+              scroll.current?.scrollTo({ y: Math.max(0, e.nativeEvent.layout.y - 12), animated: true });
+              setJustAdded(null);
+            }
+          }}
+        >
+          <VehicleCard v={v} userId={userId} busy={busy} run={run} />
+        </View>
       ))}
       <VehicleForm
+        key={"new-" + formKey}
         title={t("Agregar un vehículo", "Add a vehicle")}
         button={t("Agregar vehículo", "Add vehicle")}
         busy={busy === "add-vehicle"}
@@ -300,14 +323,54 @@ export function Documents({
           void run(
             "add-vehicle",
             async () => {
+              const before = new Set(vehicles.map((x) => x.id));
               const r = await api("/driver/vehicles", f);
-              return r.ok ? null : (r.error ?? t("No se pudo agregar el vehículo.", "Couldn't add the vehicle."));
+              if (!r.ok) return r.error ?? t("No se pudo agregar el vehículo.", "Couldn't add the vehicle.");
+              setFormKey((k) => k + 1);
+              // After the list reloads, scroll to the vehicle that wasn't there before.
+              const { data } = await supabase.from("driver_vehicles").select("id").eq("driver_id", userId);
+              const added = (data ?? []).map((x) => x.id as string).find((id) => !before.has(id));
+              if (added) setJustAdded(added);
+              return null;
             },
-            t("Vehículo agregado. Ahora agregue sus documentos y fotos.", "Vehicle added. Now add its documents and photos."),
+            t(
+              "Vehículo enviado. Está en revisión: agregue sus documentos y fotos abajo de su tarjeta.",
+              "Vehicle sent. It's waiting for review: add its documents and photos on its card.",
+            ),
           )
         }
       />
     </ScrollView>
+    {msg ? (
+      <View
+        accessibilityLiveRegion="polite"
+        accessibilityRole={msg.ok ? "text" : "alert"}
+        style={{
+          position: "absolute",
+          left: 16,
+          right: 16,
+          bottom: 20,
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 10,
+          padding: 14,
+          borderRadius: 14,
+          backgroundColor: msg.ok ? C.emerald : C.red,
+          shadowColor: "#000",
+          shadowOpacity: 0.18,
+          shadowRadius: 10,
+          shadowOffset: { width: 0, height: 4 },
+          elevation: 6,
+        }}
+      >
+        <Ionicons name={msg.ok ? "checkmark-circle" : "alert-circle"} size={22} color="#FFFFFF" />
+        <Text style={{ flex: 1, color: "#FFFFFF", fontWeight: "700", fontSize: 15, lineHeight: 20 }}>{msg.text}</Text>
+        <Pressable accessibilityRole="button" accessibilityLabel={t("Cerrar", "Close")} hitSlop={12} onPress={() => setMsg(null)}>
+          <Ionicons name="close" size={20} color="#FFFFFF" />
+        </Pressable>
+      </View>
+    ) : null}
+    </View>
   );
 }
 
@@ -339,6 +402,16 @@ function VehicleCard({
         </View>
         <Badge text={STATUS[v.status] ? t(...STATUS[v.status]) : v.status} tone={v.status === "approved" ? undefined : v.status === "pending" ? "amber" : "red"} />
       </View>
+      {v.status === "pending" ? (
+        <IconLine
+          icon="time-outline"
+          color={C.amber}
+          text={t(
+            "En revisión: nuestro equipo revisará este vehículo cuando tenga sus documentos y fotos. No recibe trabajos hasta que esté aprobado.",
+            "Waiting for review: our team checks this vehicle once its documents and photos are in. It gets no jobs until it is approved.",
+          )}
+        />
+      ) : null}
       {v.note ? <IconLine icon="chatbox-ellipses-outline" color={C.amber} text={t("Nota de nuestro equipo: ", "Note from our team: ") + v.note} /> : null}
       {/* Read-only: our team sets the category, and it decides which jobs this vehicle receives. */}
       <View style={{ backgroundColor: C.bg, borderRadius: 12, padding: 12, gap: 2 }}>

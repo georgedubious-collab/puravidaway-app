@@ -135,7 +135,7 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
   `robots.txt` blocks only `/admin`, `/driver`, `/trip`, `/login`, `/auth`, `/api`, explicitly
   welcomes search and AI crawlers (Googlebot, Bingbot, GPTBot, OAI-SearchBot, PerplexityBot,
   ClaudeBot, Claude-SearchBot, Google-Extended) on everything else, and points to
-  `sitemap.xml` (home, route pages, destination and airport guides, travel guides, info pages and legal pages, each in English and Spanish
+  `sitemap.xml` (home, route pages, destination and airport guides, travel guides, day tour pages, info pages and legal pages, each in English and Spanish
   with hreflang).
   `NEXT_PUBLIC_SITE_URL` (default `https://www.costaricaprivatetransfers.com`) sets canonical and
   link-preview URLs; the preview image is `src/app/opengraph-image.tsx`. Custom 404 and error
@@ -296,6 +296,23 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
   (author and publisher = the organisation, datePublished / dateModified; no person, no ratings),
   FAQPage, BreadcrumbList; the index is a Blog. Transfers and single-day tours only: no multi-day
   content. Re-check facts and bump each article's `updated` about twice a year.
+- **Day tour pages (2026-11-12, docs/SEO.md §4 step 5):** `/tours` (index, grouped by region)
+  and `/tours/<slug>` for each active tour; Spanish `/es/tours` and `/es/tours/<slug>` (same
+  slugs, paired in `src/lib/publicLang.ts`). Text is data in `src/lib/tours/` (`slugs.ts`,
+  `content.ts`, rules in `types.ts`), drawn by `src/components/site/pages/TourPages.tsx`. **To add
+  a page for a tour, add its slug and one content object.** Name, region, length, highlights,
+  per-person prices (1 / 2–3 / 4+), the Smart En-Route Transfer price and season multipliers come
+  from the live catalog; the price table shows every season from the database. Included: only the
+  site's existing wording (private vehicle with only your group, local naturalist guide, entrances,
+  lunch); not included: rides from other towns, the optional upgrade, the cash booking fee. No clock
+  times; park rules reused from the destination guides. The "Book" button opens the trip builder
+  with the tour's region chosen and the tour highlighted (`/?tab=tours&tour=<id>`, read in
+  `Storefront.tsx`); the builder's tour cards link back to the pages. A build-time check (and
+  `npm run test:tours`) fails on a missing page for a built-in tour, an unknown token, an undated
+  answer, fewer than 5 or more than 8 FAQs, a clock time or forbidden words. Structured data:
+  WebPage + TouristTrip (per-person AggregateOffer in USD; no ratings, no availability), FAQPage,
+  BreadcrumbList. In the footer, sitemap and `llms.txt`; linked from route pages, destination
+  guides and the travel guides.
 - **Site shell (2026-11-09):** every public page (home, `/transfers/*`, legal and info pages; not
   `/admin`, `/driver`, `/trip`, `/login`) shares `SiteHeader` (menu Transfers / Day tours / Destinations / Travel guides /
   Help from `src/lib/siteNav.ts`, WhatsApp, a flag language button always visible in the bar, phones
@@ -363,7 +380,8 @@ Legal pages (`/terms`, `/privacy`, `/cancellation`) are linked from every footer
    `src/lib/bags.ts`;
    website Extras step and the app's "When & who" step; shown to the driver), price breakdown. After a ride is added, an inline, dismissible suggestion of 1–2 day
    tours in the drop-off region (Welcome Pickups-style).
-2. **1-Day Private Tours** — region filter, Smart En-Route Transfer upgrade (+$65).
+2. **1-Day Private Tours** — region filter, Smart En-Route Transfer upgrade (+$65); `?tour=<id>`
+   opens the tab with that tour picked out, and each card links to its page (`/tours/<slug>`).
 3. ~~Multi-Day Expeditions~~ — **retired 2026-11-11** (Jorge: transfers and 1-day tours only).
    An expedition item sent by an older page or app is refused with a clear message (EN/ES,
    `RETIRED_EXPEDITION_ERROR` in `src/lib/tripRequest.ts`); one left in a browser's saved trip is
