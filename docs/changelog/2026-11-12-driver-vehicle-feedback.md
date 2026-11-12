@@ -1,0 +1,1 @@
+- 2026-11-12 — Claude — Driver app Documents: save messages now show in a bar pinned to the bottom of the screen (errors stay until closed); after adding a vehicle the form clears, the app scrolls to the new vehicle, and a pending vehicle explains "Waiting for review: it gets no jobs until it is approved".
