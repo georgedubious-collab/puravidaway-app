@@ -120,24 +120,33 @@ Without the key nothing breaks: Android shows the app's own drawn map.
 - **Logo** — `src/Logo.tsx` (`<LogoMark/>`, `<Logo/>`, `<Logo short/>`). App icons in `assets/`
   were drawn from the same mark.
 
-## Pictures: how to add a real photo
+## Pictures: which photos, and how to add one
 
-Every picture slot is a `<Photo name="…" />` (`src/Photo.tsx`). The name is looked up in
-`src/images.ts`: a real photo if one is listed there, otherwise a designed placeholder (a soft
-gradient with a simple line drawing: volcano, beach, bridge, wave, boat, plane, or a car by class).
+Every picture slot is a `<Photo name="…" />` (`src/Photo.tsx`); the small vehicle pictures are
+`<VehicleArt />` (`src/VehicleArt.tsx`). The name is looked up in `src/images.ts`: a photo if one
+is listed in `PHOTOS`, otherwise a designed placeholder (a soft gradient with a simple line
+drawing: volcano, beach, bridge, wave, boat, plane, or a car by class).
 
-To add a photo:
+Bundled today (`assets/photos/`, about 1.5 MB; rules and the full list in `docs/PHOTOS.md`):
+our own photos for La Fortuna / Arenal, Manuel Antonio, Tamarindo / Guanacaste and Puerto Viejo
+and the Arenal and Manuel Antonio day tours; **temporary free stock photos (Pexels)** for
+Monteverde, Drake Bay / Sierpe and the five vehicle types. The stock ones are listed in
+`STOCK_PHOTOS` with their source page, to be replaced by our own. Vehicle photos are examples of
+the body type (the home says "Photos show example vehicles"), never "our car". A place that
+only resembles one we have a photo of keeps its drawing.
 
-1. Put the file in `apps/client/assets/photos/`, e.g. `arenal.jpg` (landscape JPEG, about 1600 px
-   wide, under ~400 KB). Only use photos we own or have licensed, never one another company uses.
-2. Add one line to `PHOTOS` in `src/images.ts`:
-   `arenal: require("../assets/photos/arenal.jpg"),`
+To add or replace a photo:
+
+1. Clean it (`docs/PHOTOS.md`: no metadata, no people, plates or logos) and put the file in
+   `apps/client/assets/photos/` (JPEG, about 1200 px on the long side; 600 px for a vehicle).
+2. Add or change one line in `PHOTOS` in `src/images.ts`:
+   `arenal: require("../assets/photos/la-fortuna-hot-river.jpg"),`
 
 Every card, hero and list that shows that name then uses the photo. Names: destinations `arenal`,
 `monteverde`, `manuel-antonio`, `tamarindo`, `santa-teresa`, `puerto-viejo`, `drake-bay`, `sjo`,
 `lir`; vehicles `economy`, `sedan`, `suv`, `4x4`, `van`; tours `tour:<id>` (e.g. `tour:dt1`);
-stops `stop:<id>` (e.g. `stop:poas`); and `hero`. A new phone build (or an over-the-air update) is
-needed for added photos to reach phones.
+stops `stop:<id>` (e.g. `stop:poas`); and `hero`. Added photos reach phones with an over-the-air
+update (or a new build).
 
 ## Design previews (no phone needed)
 

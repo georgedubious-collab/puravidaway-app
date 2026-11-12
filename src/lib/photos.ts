@@ -3,9 +3,14 @@
  * drawn placeholders that stand in where we don't have a suitable photo yet.
  *
  * Rules (full version in docs/PHOTOS.md):
- * - Only our own photos, checked against the exclusion list. Never stock or web photos.
- * - A photo used here is never used by any other business, and the other way round.
- * - A photo shows what its caption says: never one place standing in for another.
+ * - Our own photos wherever we have one, checked against the exclusion list.
+ * - Where we have none yet: temporary free stock photos from Pexels or Unsplash only
+ *   (Jorge, 2026-11-11), made with stock() below so each carries its source page and
+ *   licence (internal, never shown) and can be swapped for one of ours later.
+ * - An own photo used here is never used by any other business, and the other way round.
+ * - A photo shows what its caption says: never one place standing in for another. A stock
+ *   vehicle photo is an example of the body type: its alt text says "Example vehicle".
+ * - No identifiable people, readable plates, logos or watermarks.
  * - Files in public/photos carry no metadata (no GPS, camera, date or author).
  *
  * To replace a placeholder with a real photo: put the cleaned file in
@@ -31,6 +36,10 @@ export interface PhotoEntry {
   /** Drawing shown while there is no file. */
   art: PlaceholderArt;
   credit: string;
+  /** Stock photos only: the page it was downloaded from. Internal: for replacing it with an own photo later. */
+  source?: string;
+  /** Stock photos only: the free licence it is used under. */
+  licence?: "Pexels" | "Unsplash";
 }
 
 const photo = (
@@ -42,6 +51,19 @@ const photo = (
   focal = "50% 50%",
   art: PlaceholderArt = "coast",
 ): PhotoEntry => ({ file: `${file}.jpg`, width, height, alt: { en, es }, focal, art, credit: PHOTO_CREDIT });
+
+/** A temporary stock photo (docs/PHOTOS.md): the same as photo(), plus where it came from. */
+const stock = (
+  file: string,
+  width: number,
+  height: number,
+  en: string,
+  es: string,
+  focal: string,
+  art: PlaceholderArt,
+  licence: "Pexels" | "Unsplash",
+  source: string,
+): PhotoEntry => ({ file: `${file}.jpg`, width, height, alt: { en, es }, focal, art, credit: licence, source, licence });
 
 const placeholder = (art: PlaceholderArt, en: string, es: string): PhotoEntry => ({
   alt: { en, es },
@@ -184,20 +206,54 @@ export const PHOTOS = {
 
   // ── Placeholders: no suitable photo yet (add file + width + height to drop one in) ──
   arenal: placeholder("volcano", "Illustration of Arenal Volcano above La Fortuna", "Ilustración del volcán Arenal sobre La Fortuna"),
-  monteverde: placeholder("cloudforest", "Illustration of the Monteverde cloud forest", "Ilustración del bosque nuboso de Monteverde"),
-  "drake-bay": placeholder(
-    "riverboat",
-    "Illustration of a boat on the Sierpe river on the way to Drake Bay",
-    "Ilustración de una lancha en el río Sierpe rumbo a Bahía Drake",
-  ),
   corcovado: placeholder("rainforest", "Illustration of the Corcovado rainforest", "Ilustración del bosque lluvioso de Corcovado"),
   poas: placeholder("volcano", "Illustration of the Poás Volcano crater", "Ilustración del cráter del volcán Poás"),
-  "vehicle-sedan": placeholder("sedan", "Illustration of a sedan", "Ilustración de un sedán"),
   "vehicle-suv": placeholder("suv", "Illustration of an SUV", "Ilustración de un SUV"),
-  "vehicle-mpv": placeholder("van", "Illustration of a minivan", "Ilustración de una minivan"),
-  "vehicle-4x4": placeholder("suv", "Illustration of a 4x4", "Ilustración de un 4x4"),
-  "vehicle-van": placeholder("van", "Illustration of a passenger van", "Ilustración de una microbús de pasajeros"),
   "vehicle-boat": placeholder("riverboat", "Illustration of a 4x4 ride and river boat", "Ilustración de un traslado en 4x4 y lancha"),
+
+  // ── Temporary stock photos (Pexels), until we have our own. Listed in docs/PHOTOS.md. ──
+  monteverde: stock(
+    "monteverde-hanging-bridge", 1481, 1600,
+    "Red hanging bridge through the misty cloud forest in Monteverde",
+    "Puente colgante rojo entre la neblina del bosque nuboso de Monteverde",
+    "50% 45%", "cloudforest", "Pexels", "https://www.pexels.com/photo/iron-bridge-in-a-jungle-16806198/",
+  ),
+  "drake-bay": stock(
+    "drake-bay-coast", 1600, 900,
+    "The forested coast of Drake Bay on the Osa Peninsula, seen from the air",
+    "La costa boscosa de Bahía Drake, en la península de Osa, vista desde el aire",
+    "35% 55%", "riverboat", "Pexels", "https://www.pexels.com/photo/aerial-photography-of-body-of-water-824223/",
+  ),
+  "vehicle-economy": stock(
+    "vehicle-economy", 1200, 761,
+    "Example vehicle: a compact sedan",
+    "Vehículo de ejemplo: un sedán compacto",
+    "50% 60%", "sedan", "Pexels", "https://www.pexels.com/photo/white-car-on-the-roadside-9544521/",
+  ),
+  "vehicle-sedan": stock(
+    "vehicle-sedan", 1200, 789,
+    "Example vehicle: a sedan",
+    "Vehículo de ejemplo: un sedán",
+    "50% 55%", "sedan", "Pexels", "https://www.pexels.com/photo/sleek-white-car-parked-by-spring-blooms-37140081/",
+  ),
+  "vehicle-mpv": stock(
+    "vehicle-mpv", 1200, 800,
+    "Example vehicle: a minivan (MPV)",
+    "Vehículo de ejemplo: una minivan (MPV)",
+    "50% 50%", "van", "Pexels", "https://www.pexels.com/photo/sleek-modern-minivan-driving-on-scenic-road-30195580/",
+  ),
+  "vehicle-4x4": stock(
+    "vehicle-4x4", 1200, 768,
+    "Example vehicle: a large 4x4",
+    "Vehículo de ejemplo: un 4x4 grande",
+    "50% 60%", "suv", "Pexels", "https://www.pexels.com/photo/black-suv-parked-on-road-at-sunset-37049414/",
+  ),
+  "vehicle-van": stock(
+    "vehicle-van", 1200, 1101,
+    "Example vehicle: a high-roof passenger van",
+    "Vehículo de ejemplo: una microbús de pasajeros de techo alto",
+    "60% 55%", "van", "Pexels", "https://www.pexels.com/photo/white-van-on-a-mountain-road-in-oman-37989724/",
+  ),
 } satisfies Record<string, PhotoEntry>;
 
 export type PhotoId = keyof typeof PHOTOS;
@@ -251,9 +307,12 @@ export function tourPhoto(id: string): PhotoId {
   return TOUR_PHOTO[id] ?? "corcovado";
 }
 
-/** Vehicle classes, by catalog id: drawings until the real vehicle photos arrive. */
+/**
+ * Vehicle classes, by catalog id: stock photos of an example of each body type until the
+ * photos of our own vehicles arrive (the 4x4 + boat combo keeps its drawing: no honest photo).
+ */
 const VEHICLE_PHOTO: Record<string, PhotoId> = {
-  economy: "vehicle-sedan",
+  economy: "vehicle-economy",
   sedan: "vehicle-sedan",
   suv: "vehicle-mpv", // the 4-traveller class is a minivan (MPV), not an SUV
   "4x4": "vehicle-4x4",
