@@ -162,7 +162,7 @@ export async function updateBooking(_prev: FormState, fd: FormData): Promise<For
       const reason = removalReason as "driver_dropped" | "team";
       const tellDriver = change.emailRemovedDriver;
       after(async () => {
-        const alerted = await alertTeamDriverRemoved(id, removedDriver, reason, driverId, reopened);
+        const alerted = await alertTeamDriverRemoved(id, removedDriver, reason, driverId, reopened, me.id);
         const driverEmailed = tellDriver ? await emailRemovedDriver(id, removedDriver) : false;
         await logBookingEvent(
           id,

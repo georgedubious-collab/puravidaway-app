@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { checkAllEtas } from "@/lib/eta";
+import { alertTripsWithoutDriver } from "@/lib/teamAlerts";
 
 /**
  * Every 5 minutes (GitHub Action "Driver ETA check"): check every upcoming pickup,
@@ -18,5 +19,8 @@ export async function GET(req: Request) {
   if (given.length !== expected.length || !timingSafeEqual(given, expected)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  return NextResponse.json(await checkAllEtas());
+  const etas = await checkAllEtas();
+  // Same 5-minute run: a pickup within 12 hours that still has no driver (once per booking).
+  const noDriverAlerts = await alertTripsWithoutDriver();
+  return NextResponse.json({ ...etas, noDriverAlerts });
 }

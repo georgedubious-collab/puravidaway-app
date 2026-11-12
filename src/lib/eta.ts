@@ -1,8 +1,10 @@
 import "server-only";
 import { formatScheduledAt } from "./dates";
-import { ADMIN_EMAIL, SITE_URL, sendEmail } from "./email";
+import { ADMIN_EMAIL, SITE_URL } from "./email";
 import { trafficMinutes } from "./googleMaps";
 import { createSupabaseAdminClient } from "./supabase/admin";
+import { adminBookingPath, sendTeamAlert } from "./teamAlerts";
+import { alertText } from "./teamAlertRules";
 
 /**
  * Will the driver reach the pickup on time? (Jorge, 2026-11-09.)
@@ -12,7 +14,8 @@ import { createSupabaseAdminClient } from "./supabase/admin";
  * stored (never one sent with the request), asks Google for the drive time to
  * the pickup point with live traffic, and stores the estimated arrival for
  * /admin/live. If the driver would arrive more than LATE_ALERT_MIN after the
- * pickup time, the team is emailed once per booking so they can react.
+ * pickup time, the team is emailed and pushed once per booking so they can react
+ * (src/lib/teamAlerts.ts).
  */
 export const LATE_ALERT_MIN = 20;
 /** A position older than this is too old to estimate from (a parked car's last position is still where it is). */
@@ -32,30 +35,54 @@ interface AlertBooking {
   driverId: string;
 }
 
-/** Email the team about one booking, once (bookings.late_alert_at is claimed first). */
-async function alertTeam(db: Db, b: AlertBooking, subject: string, what: string[]): Promise<void> {
+/**
+ * Alert the team about one booking, once (bookings.late_alert_at is claimed first): the email as
+ * before, plus a push to the team's phones (src/lib/teamAlerts.ts) without the traveller's contact.
+ */
+async function alertTeam(
+  db: Db,
+  b: AlertBooking,
+  kind: "late_driver" | "no_location",
+  facts: { lateMin?: number; minutes?: number },
+  subject: string,
+  what: string[],
+): Promise<void> {
   const claimed = await db
     .from("bookings")
     .update({ late_alert_at: new Date().toISOString() })
     .eq("id", b.id)
     .is("late_alert_at", null)
     .select("id");
-  if (!claimed.data?.length || !ADMIN_EMAIL) return;
+  if (!claimed.data?.length) return;
   const [{ data: who }, { data: guest }] = await Promise.all([
     db.from("profiles").select("full_name, phone").eq("id", b.driverId).maybeSingle(),
     b.trip_id ? db.from("trips").select("guest_name, guest_phone").eq("id", b.trip_id).maybeSingle() : Promise.resolve({ data: null }),
   ]);
-  await sendEmail({
-    to: ADMIN_EMAIL,
-    subject,
-    lines: [
-      ...what.filter(Boolean),
-      `Trip: ${b.origin ?? ""} → ${b.destination ?? ""}, pickup ${formatScheduledAt(b.scheduled_at)} (Costa Rica time).`,
-      `Driver: ${who?.full_name ?? "—"}${who?.phone ? `, ${who.phone}` : ""}${b.en_route_at ? "" : " (has NOT tapped \"I'm on my way\")"}.`,
-      `Traveller: ${guest?.guest_name ?? "—"}${guest?.guest_phone ? `, ${guest.guest_phone}` : ""}.`,
-      "This alert is sent once per booking. The live page keeps the estimate up to date.",
-    ],
-    button: { label: "Open live trips", url: `${SITE_URL}/admin/live` },
+  const push = alertText(kind, {
+    ref: b.booking_ref,
+    route: `${b.origin ?? "—"} → ${b.destination ?? "—"}`,
+    when: formatScheduledAt(b.scheduled_at, "es"),
+    guestName: guest?.guest_name,
+    driver: who?.full_name,
+    ...facts,
+  });
+  await sendTeamAlert(kind, {
+    dedupeKey: b.id,
+    push: { ...push, url: adminBookingPath(b.id) },
+    email: ADMIN_EMAIL
+      ? {
+          to: ADMIN_EMAIL,
+          subject,
+          lines: [
+            ...what.filter(Boolean),
+            `Trip: ${b.origin ?? ""} → ${b.destination ?? ""}, pickup ${formatScheduledAt(b.scheduled_at)} (Costa Rica time).`,
+            `Driver: ${who?.full_name ?? "—"}${who?.phone ? `, ${who.phone}` : ""}${b.en_route_at ? "" : " (has NOT tapped \"I'm on my way\")"}.`,
+            `Traveller: ${guest?.guest_name ?? "—"}${guest?.guest_phone ? `, ${guest.guest_phone}` : ""}.`,
+            "This alert is sent once per booking. The live page keeps the estimate up to date.",
+          ],
+          button: { label: "Open live trips", url: `${SITE_URL}/admin/live` },
+        }
+      : null,
   });
 }
 
@@ -96,7 +123,7 @@ export async function checkAllEtas(): Promise<{ trips: number; checked: number; 
       }
       const minutesToPickup = Math.round((new Date(b.scheduled_at as string).getTime() - now) / 60000);
       if (minutesToPickup <= NO_SIGNAL_ALERT_MIN && !b.late_alert_at) {
-        await alertTeam(db, { ...b, driverId } as AlertBooking, `NO DRIVER LOCATION: ${b.booking_ref} · pickup in ${Math.max(0, minutesToPickup)} min`, [
+        await alertTeam(db, { ...b, driverId } as AlertBooking, "no_location", { minutes: minutesToPickup }, `NO DRIVER LOCATION: ${b.booking_ref} · pickup in ${Math.max(0, minutesToPickup)} min`, [
           `We have no location from the driver and the pickup is in ${Math.max(0, minutesToPickup)} minutes. They may not have the app open, may not have agreed to share location, or may have no signal. Please call them.`,
         ]);
         out.alerts++;
@@ -155,7 +182,7 @@ export async function checkDriverEta(driverId: string): Promise<EtaResult> {
 
     if (lateMin > LATE_ALERT_MIN && !b.late_alert_at) {
       const positionAge = Math.round((now - new Date(loc.recorded_at).getTime()) / 60000);
-      await alertTeam(db, { ...b, driverId }, `LATE DRIVER: ${b.booking_ref} · about ${lateMin} min late`, [
+      await alertTeam(db, { ...b, driverId }, "late_driver", { lateMin }, `LATE DRIVER: ${b.booking_ref} · about ${lateMin} min late`, [
         `The driver is about ${minutes} minutes from the pickup with current traffic and would arrive about ${lateMin} minutes late.`,
         positionAge > 10 ? `Their last position is ${positionAge} minutes old (parked, no signal, or the app stopped sharing).` : "",
       ]);
