@@ -297,8 +297,8 @@ Rules (code: `src/lib/promo.ts`; tests: `npm run test:money`):
 1. **Order:** base → vehicle and area → season → night premium → ferries (§4, §6.6) → **then the
    discount**. The cash booking fee is charged on what is left after the discount.
 2. **What is discounted:** only the part we and the driver share = price − ferries − costs the
-   company pays (park entrances, lunch, activities on tours and guided stops). Ferry tickets and
-   those costs are **never** discounted. Percent codes: that percent of the shared part of each
+   company pays (park entrances, lunch, activities on tours and guided stops) − the Drake Bay boat
+   fee. Ferry tickets, the boat and those costs are **never** discounted. Percent codes: that percent of the shared part of each
    eligible booking, half-up to the cent. Fixed codes: the amount once per trip, taken from the
    eligible bookings in trip order.
 3. **Limit:** our half never exceeds our commission on the booking, so a code never makes us pay
