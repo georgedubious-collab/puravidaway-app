@@ -66,6 +66,7 @@ for (const lang of ["en", "es"]) {
     "Driver on the way": m.onTheWayPush(lang, { driver, when }),
     "Driver on the way (no name)": m.onTheWayPush(lang, { driver: m.driverFirstName(lang, null), when }),
     "Rating request": m.reviewRequestPush(lang, { driver, ride: true }),
+    "Rating reminder (24 h later, once)": m.reviewReminderPush(lang, { driver, ride: true }),
     "Chat message": m.chatMessagePush(lang, { from: driver, snippet: "I'm at the arrivals exit with a sign." }),
   };
 

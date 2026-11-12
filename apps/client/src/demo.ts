@@ -24,6 +24,9 @@ export interface Demo {
   codeSentTo?: string;
   /** Show the success screen as already paid. */
   paid?: boolean;
+  /** Preview only: the rating panel with stars already tapped and words already typed. */
+  rateStars?: number;
+  rateComment?: string;
   /** Which side of the Explore tab to open on. */
   explore?: "rides" | "tours";
 }

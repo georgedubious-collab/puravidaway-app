@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { TRIP_TOKEN } from "@/lib/bookings";
 import { InputError, runAction, type FormState } from "@/lib/forms/formState";
 import { hasContactDetails } from "@/lib/preferences";
+import { parseRating } from "@/lib/reviewReminder";
 import { cleanSignText, signEditable, signTextProblem, SIGN_ERROR_CONTACT } from "@/lib/sign";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -12,18 +13,18 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /**
  * The traveller rates their driver from the private trip page. No account: the
  * private link (token) proves it's them. One rating per booking, only once the
- * trip is completed and a driver was assigned. A written comment makes the
- * rating count double (database: driver_reviews.weight).
+ * trip is completed and a driver was assigned. The stars are required; the words
+ * are optional (parseRating). A written comment makes the rating count double
+ * (database: driver_reviews.weight); travellers are not told that.
  */
 export async function rateDriver(_prev: FormState, fd: FormData): Promise<FormState> {
   return runAction(async () => {
     const token = String(fd.get("token") ?? "");
     const bookingId = String(fd.get("booking_id") ?? "");
-    const stars = Number(fd.get("stars"));
-    const comment = String(fd.get("comment") ?? "").trim().slice(0, 1000);
     if (!TRIP_TOKEN.test(token) || !UUID.test(bookingId)) throw new InputError("This link isn't valid any more.");
-    if (!Number.isInteger(stars) || stars < 1 || stars > 5) throw new InputError("Pick 1 to 5 stars.");
-    if (comment && hasContactDetails(comment)) throw new InputError("Please keep phone numbers, emails and links out of the review.");
+    const rating = parseRating(fd.get("stars"), fd.get("comment"), hasContactDetails);
+    if (!rating.ok) throw new InputError(rating.error);
+    const { stars, comment } = rating;
 
     const db = createSupabaseAdminClient();
     if (!db) throw new Error("Reviews aren't switched on.");
@@ -43,7 +44,7 @@ export async function rateDriver(_prev: FormState, fd: FormData): Promise<FormSt
       driver_id: b.assigned_driver_id,
       trip_id: trip.id,
       stars,
-      comment: comment || null,
+      comment,
     });
     if (error) {
       if (error.code === "23505") throw new InputError("Thank you, you've already rated this trip.");

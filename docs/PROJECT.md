@@ -898,9 +898,27 @@ and `season_for_date(date)` returns the season for a travel date.
   as `cashFeeBps` / `rideFormula` / `ferryFares` / `crcPerUsd` / `nightPremium`.
 - `driver_reviews` — id, booking_id (unique), driver_id, trip_id, stars 1–5, comment (no contact details),
   weight (generated: 2 with a comment, 1 without), created_at. Written by the server from the traveller's
-  private trip page once the booking is completed; driver reads own, admin all. `bookings.review_requested_at`
-  records the review-request email and `review_reminded_at` the single follow-up, sent 3+ days later by the
-  daily Vercel Cron job `/api/cron/review-reminders` (`vercel.json`, 09:00 Costa Rica, protected by `CRON_SECRET`).
+  private trip page or the app once the booking is completed; driver reads own, admin all.
+  **Stars are required, words are optional** (`parseRating()` in `src/lib/reviewReminder.ts`); the form says
+  "Tap the stars to rate. That's all we need." and "Add a few words (optional)". The double weight of a written
+  comment is internal and is never told to the traveller.
+  **Asking for the rating (Jorge, 2026-11-11):**
+  1. *As soon as the trip ends* (`src/lib/reviewRequest.ts`, `bookings.review_requested_at`): a push to the
+     app and an email. In the app, the next time it is opened, comes back to the front or refreshes the trips,
+     the rating panel opens by itself, **once per booking** (remembered on the phone; only over the home screen,
+     My trips or a trip, never during a booking; only for trips of the last 7 days; at most one panel each time
+     the app comes to the front; `apps/client/src/ratePrompt.tsx`). The "Rate your ride" button stays on the
+     trip. On the private trip page the rating form of a completed, unrated trip is the first thing on the page.
+  2. *One reminder 24 hours later* if there is still no rating (`bookings.review_reminded_at`): a push
+     (tapping it opens the trip with the rating panel) **and** an email, exactly once, never a second one.
+     **Quiet hours:** nothing is sent between 9 PM and 7 AM Costa Rica time; a reminder that comes due at night
+     goes out with the first check after 7 AM. The job is `/api/cron/review-reminders` (protected by
+     `CRON_SECRET`), called **about once an hour** by the GitHub Action `.github/workflows/eta-check.yml`
+     (its `reviews` job, minute 7) and once a day by Vercel Cron as a backstop (`vercel.json`, 09:00 Costa Rica).
+     So the reminder arrives 24–25 hours after the trip ended (GitHub's schedule can run some minutes late), or
+     at about 7 AM when that falls at night. Each booking is marked before anything is sent and only the call
+     that marked it sends, so calling the job more often can never send twice. Rules and their checks:
+     `src/lib/reviewReminder.ts`, `npm run test:reviews`.
 - `hub_pricing` — hub_id (one of the 9 hubs, or an extra pricing area: `SouthNicoya`), area_factor
   (0.50–2.00), updated_at. Public read, admin write. Loaded as `areaFactorBps`.
 - `payments` — id, booking_id, provider (`greenpay`), provider_ref, amount, type (`deposit` | `balance` | `full`), status, raw_payload jsonb, created_at

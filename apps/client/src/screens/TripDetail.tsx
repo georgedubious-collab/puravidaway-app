@@ -15,6 +15,7 @@ import { photoForTrip } from "../images";
 import { RouteMap } from "../MapView";
 import { useNav, type RootParams, type TripsParams } from "../nav";
 import { Photo } from "../Photo";
+import { markRatePrompted } from "../ratePrompt";
 import { allBookings, useSession } from "../session";
 import { C, R, S, SHADOW, SHADOW_UP, SP, T, fontFor } from "../theme";
 import { TRAVELLER_STATUS, type AppBooking, type ChatAnswer, type ChatMessage } from "../types";
@@ -481,15 +482,24 @@ function Timeline({ booking: b }: { booking: AppBooking }) {
   );
 }
 
-/** Slide-up panel: 1–5 stars and an optional comment after the trip. A written comment counts double for the driver. */
+/**
+ * Slide-up panel: 1–5 stars and an optional comment after the trip. The stars are required and
+ * are enough on their own; the words are clearly optional. A written comment counts double for
+ * the driver (internal: the traveller is not told). Opening it, by hand, from a notification or
+ * by itself (src/ratePrompt.tsx), is remembered so it never opens by itself again for this booking.
+ */
 export function RateSheet() {
   const { lang, t } = useT();
   const nav = useNav();
+  const demo = useDemo();
   const { id } = useRoute<RouteProp<RootParams, "Rate">>().params;
   const { reload } = useSession();
   const found = useBookingById(id);
-  const [stars, setStars] = useState(0);
-  const [comment, setComment] = useState("");
+  const [stars, setStars] = useState(demo?.rateStars ?? 0);
+  const [comment, setComment] = useState(demo?.rateComment ?? "");
+  useEffect(() => {
+    if (!demo) void markRatePrompted(id);
+  }, [id, demo]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const b = found?.booking;
@@ -510,6 +520,23 @@ export function RateSheet() {
     nav.goBack();
   }
 
+  // Opened from a notification after the rating was already given.
+  if (b?.myRating) {
+    return (
+      <Page>
+        <Bar style="dark" />
+        <View style={{ alignItems: "center", gap: 12 }}>
+          <Ionicons name="star" size={44} color={C.gold} />
+          <Text accessibilityRole="header" style={[T.h1, { textAlign: "center" }]}>
+            {t("Thank you!", "¡Gracias!")}
+          </Text>
+          <Text style={[T.body, { textAlign: "center" }]}>{t("You rated " + name + " " + plural(b.myRating, "star") + ".", "Usted calificó a " + name + " con " + plural(b.myRating, "star", "es") + ".")}</Text>
+        </View>
+        <Btn label={t("Close", "Cerrar")} alt onPress={() => nav.goBack()} />
+      </Page>
+    );
+  }
+
   const words = [
     "",
     t("Not good", "Nada bien"),
@@ -526,6 +553,7 @@ export function RateSheet() {
         <Text accessibilityRole="header" style={[T.h1, { textAlign: "center" }]}>
           {t("How was your ride with " + name + "?", "¿Cómo estuvo su viaje con " + name + "?")}
         </Text>
+        <Text style={[T.small, { textAlign: "center" }]}>{t("Tap the stars to rate. That's all we need.", "Toque las estrellas para calificar. Con eso basta.")}</Text>
       </View>
       <View style={{ flexDirection: "row", justifyContent: "center", gap: 2 }} accessibilityRole="radiogroup">
         {[1, 2, 3, 4, 5].map((n) => (
@@ -547,15 +575,18 @@ export function RateSheet() {
       <Text accessibilityLiveRegion="polite" style={[T.bodyStrong, { textAlign: "center", minHeight: 25 }]}>
         {words[stars]}
       </Text>
-      <Input
-        accessibilityLabel={t("A few words about your driver", "Unas palabras sobre su conductor")}
-        value={comment}
-        onChangeText={setComment}
-        placeholder={t("A few words about your driver (optional)", "Unas palabras sobre su conductor (opcional)")}
-        multiline
-        maxLength={1000}
-        style={{ minHeight: 110, textAlignVertical: "top" }}
-      />
+      <View style={{ gap: 6 }}>
+        <Text style={T.smallStrong}>{t("Add a few words (optional)", "Agregue unas palabras (opcional)")}</Text>
+        <Input
+          accessibilityLabel={t("Add a few words (optional)", "Agregue unas palabras (opcional)")}
+          value={comment}
+          onChangeText={setComment}
+          placeholder={t("For example: punctual, careful on the mountain roads", "Por ejemplo: puntual, cuidadoso en las carreteras de montaña")}
+          multiline
+          maxLength={1000}
+          style={{ minHeight: 96, textAlignVertical: "top" }}
+        />
+      </View>
       {error ? (
         <Text accessibilityRole="alert" style={S.error}>
           {error}
