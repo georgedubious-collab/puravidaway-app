@@ -1234,6 +1234,60 @@ await expectOk("server removes the test booking", "server", "delete from public.
   eq("a day tour name still wins", bookedItemName([{ id: "dt1", name: "Tour" }], "dt1"), "Tour");
 }
 
+// --- Automations (migration 0044): reminders, low-rating alert, follow-up, unsubscribe list -----
+{
+  const B = "10000000-0000-0000-0000-0000000000a4";
+  await expectOk("server stores a confirmed ride", "server", `
+    insert into public.bookings (id, client_id, service_type, total_price, status, assigned_driver_id, assigned_vehicle_id, scheduled_at) values
+      ('${B}', '${U.client}', 'transfer', 120, 'confirmed', '${U.driver}', '30000000-0000-0000-0000-000000000001', now() + interval '24 hours')`);
+  await expectRows("confirmed_at is stamped when a booking is confirmed", "admin", `select * from public.bookings where id = '${B}' and confirmed_at is not null`, 1);
+  await expectRows("…and the three message columns start empty", "admin",
+    `select * from public.bookings where id = '${B}' and reminder_traveller_at is null and reminder_driver_at is null and followup_sent_at is null`, 1);
+  // Mark first: only the first of two checks running at once gets the row (and sends).
+  await expectRows("traveller reminder: first mark wins", "server",
+    `update public.bookings set reminder_traveller_at = now() where id = '${B}' and reminder_traveller_at is null returning id`, 1);
+  await expectRows("traveller reminder: second mark gets nothing (never sent twice)", "server",
+    `update public.bookings set reminder_traveller_at = now() where id = '${B}' and reminder_traveller_at is null returning id`, 0);
+  await expectRows("driver reminder: first mark wins", "server",
+    `update public.bookings set reminder_driver_at = now() where id = '${B}' and reminder_driver_at is null returning id`, 1);
+  await expectRows("driver reminder: second mark gets nothing", "server",
+    `update public.bookings set reminder_driver_at = now() where id = '${B}' and reminder_driver_at is null returning id`, 0);
+  await expectOk("team takes the driver off the ride", "server", `update public.bookings set assigned_driver_id = null, assigned_vehicle_id = null where id = '${B}'`);
+  await expectRows("a new driver gets their own reminder (driver column cleared)…", "admin",
+    `select * from public.bookings where id = '${B}' and reminder_driver_at is null`, 1);
+  await expectRows("…the traveller's stays sent", "admin", `select * from public.bookings where id = '${B}' and reminder_traveller_at is not null`, 1);
+  await expectRows("follow-up: first mark wins", "server",
+    `update public.bookings set followup_sent_at = now() where id = '${B}' and followup_sent_at is null returning id`, 1);
+  await expectRows("follow-up: never twice", "server",
+    `update public.bookings set followup_sent_at = now() where id = '${B}' and followup_sent_at is null returning id`, 0);
+  await expectRows("drivers' functions never expose the message columns", "admin",
+    "select 1 from pg_proc where proname in ('driver_jobs','my_trips') and pg_get_function_result(oid) ~ '(reminder_|followup_|confirmed_at)'", 0);
+
+  // Low-rating alert: once per rating.
+  await expectOk("the ride is done", "server", `update public.bookings set status = 'completed', assigned_driver_id = '${U.driver}' where id = '${B}'`);
+  await expectOk("server stores a 2-star rating", "server",
+    `insert into public.driver_reviews (booking_id, driver_id, stars, comment) values ('${B}', '${U.driver}', 2, 'Late')`);
+  await expectRows("low-rating alert: first mark wins", "server",
+    `update public.driver_reviews set team_alerted_at = now() where booking_id = '${B}' and team_alerted_at is null returning id`, 1);
+  await expectRows("low-rating alert: never twice", "server",
+    `update public.driver_reviews set team_alerted_at = now() where booking_id = '${B}' and team_alerted_at is null returning id`, 0);
+
+  // The unsubscribe list: written by the server only, read by admins only.
+  await expectOk("server adds an address to the unsubscribe list", "server",
+    "insert into public.email_optouts (email, source) values ('emily.smith@example.com', 'link')");
+  await expectBlocked("addresses are stored lower-case only", "server", "insert into public.email_optouts (email) values ('Someone@Example.com')");
+  for (const who of ["anon", "client", "client2", "driver", "pending"]) {
+    await expectRows(`${who} cannot read the unsubscribe list`, who, "select * from public.email_optouts", 0);
+    await expectBlocked(`${who} cannot add to the unsubscribe list`, who, "insert into public.email_optouts (email) values ('x@example.com')");
+    await expectBlocked(`${who} cannot remove from the unsubscribe list`, who, "delete from public.email_optouts", { affected: 0 });
+  }
+  await expectRows("admin reads the unsubscribe list", "admin", "select * from public.email_optouts", 1);
+  await expectBlocked("even an admin cannot write it from the browser (server only)", "admin", "insert into public.email_optouts (email) values ('y@example.com')");
+  await expectOk("server cleans up the list", "server", "delete from public.email_optouts");
+  await expectOk("server cleans up the rating", "server", `delete from public.driver_reviews where booking_id = '${B}'`);
+  await expectOk("server cleans up the booking", "server", `delete from public.bookings where id = '${B}'`);
+}
+
 // --- Report -----------------------------------------------------------------------------------
 console.log(`${passed} checks passed, ${failures.length} failed`);
 for (const f of failures) console.log("  ✗ " + f);

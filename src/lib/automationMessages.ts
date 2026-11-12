@@ -8,8 +8,11 @@
  * the name-sign text, the flight / hotel notes, the driver notes and the extras. It has no
  * field for the traveller's name, phone, email or the price, so it cannot contain them.
  */
+import { driverTripFacts, type StoredCoords } from "./automationRules";
+import { formatScheduledAt } from "./dates";
 import { prefsSummary, type RidePrefs } from "./preferences";
 import { t, type PublicLang } from "./publicLang";
+import { signShown } from "./sign";
 
 /** Ferry / boat / cash flags, the same ones the driver app shows (driverTripFacts). */
 export interface DriverFlags {
@@ -42,6 +45,61 @@ export interface DriverReminder {
   prefs: Partial<RidePrefs> | null;
   flags: DriverFlags;
   tripUrl: string;
+}
+
+/** The booking columns the driver's reminder is made from: the ones my_trips() shows the driver, plus what the flags need. */
+export interface DriverReminderBooking {
+  id: string;
+  booking_ref: string;
+  service_type: string;
+  origin: string | null;
+  destination: string | null;
+  origin_coords: StoredCoords | null;
+  destination_coords: StoredCoords | null;
+  scheduled_at: string | null;
+  passenger_count: number | null;
+  luggage_count: number | null;
+  carry_on_count: number | null;
+  flight_or_hotel_notes: string | null;
+  driver_notes: string | null;
+  preferences: Partial<RidePrefs> | null;
+  vehicle_class: string | null;
+  payment_mode: string | null;
+  total_price: number | string | null;
+  cash_fee: number | string | null;
+  amount_paid: number | string | null;
+  sign_text: string | null;
+  sign_hide_name: boolean | null;
+}
+
+/**
+ * The driver's reminder from a booking row. The traveller's full name is used ONLY to work out
+ * the sign (first name + last initial, like pickup_sign() in the database); the money columns
+ * only to know whether there is cash to collect. Neither reaches the message.
+ */
+export function driverReminderFor(
+  lang: PublicLang,
+  b: DriverReminderBooking,
+  a: { guestName: string | null | undefined; driverFullName: string | null | undefined; tourName: string | null; siteUrl: string },
+): DriverReminder {
+  const ride = b.service_type === "transfer";
+  const owed = Number(b.total_price ?? 0) + Number(b.cash_fee ?? 0) - Number(b.amount_paid ?? 0);
+  return {
+    driverFirst: (a.driverFullName ?? "").split(" ")[0],
+    ref: b.booking_ref,
+    ride,
+    pickup: ride ? (b.origin ?? "—") : (a.tourName ?? "Tour"),
+    dropoff: ride ? (b.destination ?? "—") : "",
+    when: formatScheduledAt(b.scheduled_at, lang),
+    passengers: b.passenger_count,
+    bags: { large: b.luggage_count, carryOn: b.carry_on_count },
+    sign: ride ? signShown(b, a.guestName) : null,
+    flightOrHotel: b.flight_or_hotel_notes,
+    driverNotes: b.driver_notes,
+    prefs: b.preferences,
+    flags: driverTripFacts({ ...b, owed }),
+    tripUrl: `${a.siteUrl}/driver/trips/${b.id}`,
+  };
 }
 
 function bagsText(lang: PublicLang, b: DriverReminder["bags"]): string {

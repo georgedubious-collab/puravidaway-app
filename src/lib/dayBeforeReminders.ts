@@ -1,10 +1,10 @@
 import "server-only";
-import { REMIND_FROM_HOURS, driverTripFacts, isAirportEnd, planDayBeforeReminders, type StoredCoords } from "./automationRules";
-import { driverReminderEmail, driverReminderPush } from "./automationMessages";
+import { REMIND_FROM_HOURS, isAirportEnd, planDayBeforeReminders, type StoredCoords } from "./automationRules";
+import { driverReminderEmail, driverReminderFor, driverReminderPush } from "./automationMessages";
 import { bookedItemName } from "./catalog";
 import { localizeCatalog, placeNameFor } from "./catalogEs";
 import { getCatalog } from "./catalogSource";
-import { formatScheduledAt, formatScheduledAtFor } from "./dates";
+import { formatScheduledAtFor } from "./dates";
 import { SITE_URL, sendEmail } from "./email";
 import type { RidePrefs } from "./preferences";
 import { parsePublicLang, type PublicLang } from "./publicLang";
@@ -113,24 +113,14 @@ export async function sendDayBeforeReminders(now = new Date()): Promise<{ checke
         if (await sendTravellerReminder(db, b, trip, who?.full_name ?? null, sign, lang, catalog)) out.travellers++;
       }
       if (toDriver && (await claim(db, b.id, "reminder_driver_at", stamp))) {
+        // Drivers read Spanish unless they use the app or the portal in English.
         const lang: PublicLang = who?.app_lang === "en" ? "en" : "es";
-        const owed = Number(b.total_price ?? 0) + Number(b.cash_fee ?? 0) - Number(b.amount_paid ?? 0);
-        const msg = {
-          driverFirst: (who?.full_name ?? "").split(" ")[0],
-          ref: b.booking_ref,
-          ride,
-          pickup: ride ? (b.origin ?? "—") : (bookedItemName(lang === "es" ? localizeCatalog(catalog, "es").dayTours : catalog.dayTours, b.catalog_item_id, lang) ?? "Tour"),
-          dropoff: ride ? (b.destination ?? "—") : "",
-          when: formatScheduledAt(b.scheduled_at, lang),
-          passengers: b.passenger_count,
-          bags: { large: b.luggage_count, carryOn: b.carry_on_count },
-          sign,
-          flightOrHotel: b.flight_or_hotel_notes,
-          driverNotes: b.driver_notes,
-          prefs: b.preferences,
-          flags: driverTripFacts({ ...b, owed }),
-          tripUrl: `${SITE_URL}/driver/trips/${b.id}`,
-        };
+        const msg = driverReminderFor(lang, b, {
+          guestName: trip?.guest_name,
+          driverFullName: who?.full_name,
+          tourName: ride ? null : bookedItemName(localizeCatalog(catalog, lang).dayTours, b.catalog_item_id, lang),
+          siteUrl: SITE_URL,
+        });
         const pushed = await sendPush([b.assigned_driver_id!], { ...driverReminderPush(lang, msg), data: { screen: "trip", id: b.id } }, "driver");
         const mailed = who?.email ? await sendEmail({ to: who.email, ...driverReminderEmail(lang, msg) }) : false;
         if (pushed > 0 || mailed) out.drivers++;
@@ -158,7 +148,7 @@ async function sendTravellerReminder(
     : { data: null };
   const driver = driverFirstName(lang, driverFullName);
   const when = formatScheduledAtFor(b.scheduled_at, lang);
-  const tourName = bookedItemName(lang === "es" ? localizeCatalog(catalog, "es").dayTours : catalog.dayTours, b.catalog_item_id, lang) ?? "Tour";
+  const tourName = bookedItemName(localizeCatalog(catalog, lang).dayTours, b.catalog_item_id, lang) ?? "Tour";
   await sendPushToEmail(trip.guest_email, { ...dayBeforePush(lang, { ride, when, driver, sign }), data: { screen: "trip", id: b.id } });
   return sendEmail({
     to: trip.guest_email,
