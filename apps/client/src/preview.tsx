@@ -19,9 +19,20 @@ const H = 3600 * 1000;
 const at = (hoursFromNow: number) => new Date(Date.now() + hoursFromNow * H).toISOString();
 
 const driver = { firstName: "Carlos", bio: "Born in La Fortuna, driving visitors since 2014. Ask me about the best sodas on the way!", english: "fluent", ict: true, photo: null, rating: "4.9" };
-const car = { name: "Toyota Hiace", color: "White", plate: "BRT-482", seats: 10, photos: [] };
+/** Drawn stand-ins for the driver's car photos (no network in previews). */
+const carPhoto = (label: string, sky: string, body: string) =>
+  "data:image/svg+xml;utf8," +
+  encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect width="400" height="300" fill="${sky}"/>` +
+      `<rect y="210" width="400" height="90" fill="#9CA3AF"/><rect x="70" y="120" width="260" height="95" rx="22" fill="${body}"/>` +
+      `<rect x="100" y="135" width="80" height="40" rx="6" fill="#E0F2FE"/><rect x="200" y="135" width="100" height="40" rx="6" fill="#E0F2FE"/>` +
+      `<circle cx="125" cy="218" r="22" fill="#1F2937"/><circle cx="275" cy="218" r="22" fill="#1F2937"/>` +
+      `<text x="200" y="60" font-family="sans-serif" font-size="30" font-weight="700" fill="#0B1F17" text-anchor="middle">${label}</text></svg>`,
+  );
+const carPhotos = [carPhoto("Outside", "#BAE6FD", "#F8FAFC"), carPhoto("Inside", "#FDE68A", "#475569"), carPhoto("Luggage space", "#A7F3D0", "#E2E8F0")];
+const car = { name: "Toyota Hiace", color: "White", plate: "BRT-482", seats: 10, photos: carPhotos };
 /** A vehicle our team marked as electric: the trip screen shows the badge (`trip-driver`). */
-const electricCar = { name: "BYD Dolphin", color: "Grey", plate: "ELC-204", seats: 4, photos: [], electric: true };
+const electricCar = { name: "BYD Dolphin", color: "Grey", plate: "ELC-204", seats: 4, photos: carPhotos, electric: true };
 const booking = (o: Partial<AppBooking>): AppBooking => ({
   id: "b",
   ref: "CRPT-0000",
@@ -209,6 +220,8 @@ const SCREENS: Record<string, Setup> = {
   trip: { routes: [tabs("Trips", "b1")] },
   live: { routes: [tabs("Trips", "b1")] },
   "trip-driver": { routes: [tabs("Trips", "b2")] },
+  // The car photo viewer, open on the second photo.
+  "trip-photos": { routes: [tabs("Trips", "b2")], demo: { photoViewer: 1 } },
   trip2: { routes: [tabs("Trips", "b3")] },
   rate: { routes: [tabs("Trips", "b4")] },
   "rate-sheet": { routes: [tabs("Trips", "b4"), { name: "Rate", params: { id: "b4" } }] },

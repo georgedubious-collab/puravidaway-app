@@ -30,8 +30,11 @@ export function docHint(doc: DocSpec, lang: "en" | "es" = "en"): string | undefi
 /** Documents about the person. */
 export const DRIVER_DOCS: DocSpec[] = [
   {
-    key: "driver_photo", label: "Your photo", hint: "A clear photo of your face for your profile.",
-    labelEs: "Su foto", hintEs: "Una foto clara de su cara para su perfil.", required: true,
+    key: "driver_photo", label: "Your photo",
+    hint: "A clear, friendly photo of your face, no sunglasses. Travellers see it once you're confirmed for their trip.",
+    labelEs: "Su foto",
+    hintEs: "Una foto clara y amable de su cara, sin lentes de sol. Los clientes la ven cuando usted queda confirmado para su viaje.",
+    required: true,
   },
   { key: "id_front", label: "Cédula or passport: front", labelEs: "Cédula o pasaporte: frente", required: true },
   {
@@ -66,8 +69,8 @@ export const VEHICLE_DOCS: DocSpec[] = [
   { key: "vehicle_registration", label: "Registration (tarjeta de circulación)", labelEs: "Tarjeta de circulación", required: true },
 ];
 
-export const MIN_VEHICLE_PHOTOS = 2;
-export const MAX_VEHICLE_PHOTOS = 12;
+/** Photo count rules live with the other photo rules (no imports there, so tests run it directly). */
+export { MAX_VEHICLE_PHOTOS, MIN_VEHICLE_PHOTOS } from "./vehiclePhotos";
 
 export const DRIVER_DOC_KEYS = new Set(DRIVER_DOCS.map((d) => d.key));
 export const VEHICLE_DOC_KEYS = new Set(VEHICLE_DOCS.map((d) => d.key));

@@ -3,7 +3,7 @@ import { useHeaderHeight } from "@react-navigation/elements";
 import * as Linking from "expo-linking";
 import { useRoute, type RouteProp } from "@react-navigation/native";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Image, KeyboardAvoidingView, Platform, Pressable, RefreshControl, ScrollView, TextInput, View } from "react-native";
+import { Image, KeyboardAvoidingView, Modal, Platform, Pressable, RefreshControl, ScrollView, TextInput, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "../api";
 import { useDemo } from "../demo";
@@ -410,19 +410,96 @@ function SignCard({ booking: b, token }: { booking: AppBooking; token: string })
 
 function CarLines({ car }: { car: NonNullable<AppBooking["car"]> }) {
   const { lang, t } = useT();
+  const demo = useDemo();
+  // The full-screen viewer: which photo it is open on, or null when closed.
+  const [open, setOpen] = useState<number | null>(demo?.photoViewer ?? null);
+  const name = car.name || t("Vehicle", "Vehículo");
   return (
     <>
       <IconLine icon="car-outline" text={car.name + (car.color ? " · " + car.color : "") + (car.plate ? " · " + car.plate : "") + (car.seats ? " · " + plural(car.seats, "seat", lang) : "")} />
       {/* Set by our team on the vehicle; older servers don't send it. */}
       {car.electric ? <Badge text={t("Electric vehicle", "Vehículo eléctrico")} icon="flash-outline" /> : null}
       {car.photos.length > 0 ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
-          {car.photos.map((u) => (
-            <Image key={u} source={{ uri: u }} accessibilityLabel={car.name || t("Vehicle", "Vehículo")} style={{ width: 180, height: 126, borderRadius: R.control, backgroundColor: C.surface }} />
-          ))}
-        </ScrollView>
+        <>
+          {/* Main photo first (the driver chooses it); swipe sideways for the rest, tap to enlarge. */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
+            {car.photos.map((u, i) => (
+              <Pressable
+                key={u}
+                accessibilityRole="imagebutton"
+                accessibilityLabel={t("Enlarge photo " + (i + 1) + " of " + car.photos.length + ", " + name, "Ampliar foto " + (i + 1) + " de " + car.photos.length + ", " + name)}
+                onPress={() => {
+                  tap();
+                  setOpen(i);
+                }}
+                style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
+              >
+                <Image source={{ uri: u }} style={{ width: 180, height: 126, borderRadius: R.control, backgroundColor: C.surface }} />
+              </Pressable>
+            ))}
+          </ScrollView>
+          {car.photos.length > 1 ? <Text style={T.caption}>{t("Swipe to see more · tap to enlarge", "Deslice para ver más · toque para ampliar")}</Text> : null}
+          <PhotoViewer photos={car.photos} name={name} index={open} onIndex={setOpen} />
+        </>
       ) : null}
     </>
+  );
+}
+
+/**
+ * The car photos full screen: swipe sideways (or use the arrows) between them, close with
+ * the X or the phone's back button. Plain React Native (Modal + paging ScrollView): no new
+ * native library, so it ships over the air.
+ */
+function PhotoViewer({ photos, name, index, onIndex }: { photos: string[]; name: string; index: number | null; onIndex: (i: number | null) => void }) {
+  const { t } = useT();
+  const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const pager = useRef<ScrollView>(null);
+  const at = index ?? 0;
+  const go = (i: number) => {
+    const next = (i + photos.length) % photos.length;
+    onIndex(next);
+    pager.current?.scrollTo({ x: next * width, animated: true });
+  };
+  return (
+    <Modal visible={index !== null} animationType="fade" onRequestClose={() => onIndex(null)} statusBarTranslucent>
+      <View style={{ flex: 1, backgroundColor: "#000" }} accessibilityViewIsModal>
+        <ScrollView
+          ref={pager}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          onLayout={() => pager.current?.scrollTo({ x: at * width, animated: false })}
+          onMomentumScrollEnd={(e) => onIndex(Math.round(e.nativeEvent.contentOffset.x / width))}
+          style={{ flex: 1 }}
+        >
+          {photos.map((u, i) => (
+            <View key={u} style={{ width, height, alignItems: "center", justifyContent: "center" }}>
+              <Image
+                source={{ uri: u }}
+                resizeMode="contain"
+                accessibilityLabel={t(name + ", photo " + (i + 1) + " of " + photos.length, name + ", foto " + (i + 1) + " de " + photos.length)}
+                style={{ width, height: height * 0.75 }}
+              />
+            </View>
+          ))}
+        </ScrollView>
+        <View style={{ position: "absolute", top: insets.top + 8, left: 16, right: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <Text style={[T.bodyStrong, { color: "#fff" }]}>{at + 1 + " / " + photos.length}</Text>
+          <RoundBtn icon="close" label={t("Close", "Cerrar")} onPress={() => onIndex(null)} />
+        </View>
+        {photos.length > 1 ? (
+          <View style={{ position: "absolute", bottom: insets.bottom + 24, left: 16, right: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+            <RoundBtn icon="chevron-back" label={t("Previous photo", "Foto anterior")} onPress={() => go(at - 1)} />
+            <Text style={[T.body, { color: "#fff", flex: 1, textAlign: "center" }]} numberOfLines={1}>
+              {name}
+            </Text>
+            <RoundBtn icon="chevron-forward" label={t("Next photo", "Foto siguiente")} onPress={() => go(at + 1)} />
+          </View>
+        ) : null}
+      </View>
+    </Modal>
   );
 }
 

@@ -1,20 +1,36 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Pressable, ScrollView, Text, TextInput, View, type LayoutChangeEvent, type ScrollViewInstance } from "react-native";
+import { ActivityIndicator, Image, Modal, Pressable, ScrollView, Text, TextInput, View, type LayoutChangeEvent, type ScrollViewInstance } from "react-native";
 import { api } from "../api";
 import { townList } from "../format";
 import { useT } from "../i18n";
 import { supabase } from "../supabase";
 import { C, S } from "../theme";
-import { pickAndUpload, type UploadSource, type UploadTarget } from "../upload";
+import {
+  MAX_VEHICLE_PHOTOS,
+  MIN_VEHICLE_PHOTOS,
+  capMessage,
+  pickAndUpload,
+  pickAndUploadPhotos,
+  type PhotosResult,
+  type UploadSource,
+  type UploadTarget,
+} from "../upload";
 import { categoryHint, categoryLabel, isVehicleCategory } from "../vehicleCategory";
-import { Badge, Btn, Card, Chip, IconLine } from "../ui";
+import { Badge, Btn, Card, Chip, IconLine, LinkBtn } from "../ui";
 
 /** Each text as [Spanish, English]. */
 type Pair = [string, string];
 /** Same lists as the website (src/lib/driverKyc.ts). */
 const DRIVER_DOCS: { key: string; label: Pair; hint?: Pair }[] = [
-  { key: "driver_photo", label: ["Su foto", "Your photo"], hint: ["Una foto clara de su cara para su perfil.", "A clear photo of your face for your profile."] },
+  {
+    key: "driver_photo",
+    label: ["Su foto", "Your photo"],
+    hint: [
+      "Una foto clara y amable de su cara, sin lentes de sol. Los clientes la ven cuando usted queda confirmado para su viaje.",
+      "A clear, friendly photo of your face, no sunglasses. Travellers see it once you're confirmed for their trip.",
+    ],
+  },
   { key: "id_front", label: ["Cédula o pasaporte: frente", "Cédula or passport: front"] },
   { key: "id_back", label: ["Cédula: reverso", "Cédula: back"], hint: ["Si es pasaporte, suba otra vez la página de la foto.", "For a passport, upload the photo page again."] },
   { key: "license", label: ["Licencia de conducir", "Driver's licence"], hint: ["Frente y reverso en una sola foto o PDF.", "Front and back in one photo or PDF."] },
@@ -81,6 +97,12 @@ export interface VehicleRow {
   review_hold?: boolean;
 }
 type Fields = Record<string, string>;
+/** Design previews only: show one vehicle's photo options sheet, or its upload progress line. */
+export interface DocumentsDemo {
+  vehicleId?: string;
+  openPhoto?: { index: number; confirm?: boolean };
+  progress?: string;
+}
 /** Form labels read as sentences; the small capitals are kept for section labels. */
 const FIELD_LABEL = { fontSize: 13, fontWeight: "600", color: C.body } as const;
 const str = (v: string | number | null | undefined) => (v === null || v === undefined ? "" : String(v));
@@ -98,7 +120,7 @@ export function Documents({
   userId: string;
   onChanged: () => void;
   /** Sample data for design previews; skips loading. */
-  demo?: { driver: DriverRow | null; vehicles: VehicleRow[]; me: Fields };
+  demo?: { driver: DriverRow | null; vehicles: VehicleRow[]; me: Fields } & DocumentsDemo;
 }) {
   const [driver, setDriver] = useState<DriverRow | null | undefined>(demo ? demo.driver : undefined);
   const [vehicles, setVehicles] = useState<VehicleRow[]>(demo?.vehicles ?? []);
@@ -149,12 +171,14 @@ export function Documents({
     return () => clearTimeout(id);
   }, [msg]);
 
-  async function run(id: string, fn: () => Promise<string | null>, done: string) {
+  /** `done` may be worked out after `fn` (how many photos were added); empty = no message. */
+  async function run(id: string, fn: () => Promise<string | null>, done: string | (() => string)) {
     setBusy(id);
     setMsg(null);
     const err = await fn();
     setBusy("");
-    setMsg(err ? { ok: false, text: err } : { ok: true, text: done });
+    const ok = typeof done === "function" ? done() : done;
+    setMsg(err ? { ok: false, text: err } : ok ? { ok: true, text: ok } : null);
     if (!err) {
       await load();
       onChanged();
@@ -311,7 +335,7 @@ export function Documents({
             }
           }}
         >
-          <VehicleCard v={v} userId={userId} busy={busy} run={run} />
+          <VehicleCard v={v} userId={userId} busy={busy} run={run} demo={demo} />
         </View>
       ))}
       <VehicleForm
@@ -379,18 +403,19 @@ function VehicleCard({
   userId,
   busy,
   run,
+  demo,
 }: {
   v: VehicleRow;
   userId: string;
   busy: string;
-  run: (id: string, fn: () => Promise<string | null>, done: string) => Promise<void>;
+  run: (id: string, fn: () => Promise<string | null>, done: string | (() => string)) => Promise<void>;
+  demo?: DocumentsDemo;
 }) {
   const { t, lang } = useT();
   const reviewed = v.status !== "pending";
   const tagged = isVehicleCategory(v.vehicle_class);
   const upload = (id: string, target: UploadTarget, done: string) => (from: UploadSource, renewed?: string) =>
     void run(id, () => pickAndUpload(userId, target, from, renewed), done);
-  const photos = v.photos?.length ?? 0;
   return (
     <Card>
       <View style={S.row}>
@@ -458,19 +483,270 @@ function VehicleCard({
           onPick={upload("vd-" + v.id + doc.key, { type: "vehicle", vehicleId: v.id, key: doc.key }, t(...doc.label) + t(": subido.", ": uploaded."))}
         />
       ))}
-      <UploadRow
-        label={t(
-          "Fotos del vehículo (" + photos + (photos === 1 ? " agregada" : " agregadas") + ", mínimo 2)",
-          "Vehicle photos (" + photos + " added, at least 2)",
-        )}
-        hint={t("Por fuera y por dentro, con luz de día.", "Outside and inside, in daylight.")}
-        uploaded={false}
-        addLabel={t("Agregar foto", "Add photo")}
-        photosOnly
-        busy={busy === "vp-" + v.id}
-        onPick={upload("vp-" + v.id, { type: "photo", vehicleId: v.id }, t("Foto agregada.", "Photo added."))}
-      />
+      <VehiclePhotos v={v} userId={userId} busy={busy} run={run} demo={demo} />
     </Card>
+  );
+}
+
+/** A photo's address for the thumbnails: a short-lived private link, or the sample picture in design previews. */
+function useThumbs(paths: string[], demo?: boolean) {
+  const [urls, setUrls] = useState<Record<string, string>>({});
+  const key = paths.join("|");
+  useEffect(() => {
+    if (demo || !paths.length) return;
+    let live = true;
+    void supabase.storage
+      .from("driver-kyc-docs")
+      .createSignedUrls(paths, 3600)
+      .then(({ data }) => {
+        if (!live) return;
+        const out: Record<string, string> = {};
+        for (const s of data ?? []) if (s.path && s.signedUrl) out[s.path] = s.signedUrl;
+        setUrls(out);
+      });
+    return () => {
+      live = false;
+    };
+    // `key` stands for the list of paths.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, demo]);
+  return (p: string) => (demo ? p : urls[p]);
+}
+
+/**
+ * The vehicle's photos: thumbnails (main photo first), add several from the gallery at once
+ * or one with the camera, and tap a thumbnail to make it the main photo or remove it.
+ * Travellers see these photos once this driver is confirmed for their trip.
+ */
+function VehiclePhotos({
+  v,
+  userId,
+  busy,
+  run,
+  demo,
+}: {
+  v: VehicleRow;
+  userId: string;
+  busy: string;
+  run: (id: string, fn: () => Promise<string | null>, done: string | (() => string)) => Promise<void>;
+  demo?: DocumentsDemo;
+}) {
+  const { t } = useT();
+  const photos = v.photos ?? [];
+  const thumb = useThumbs(photos, Boolean(demo));
+  const demoHere = demo?.vehicleId === v.id ? demo : undefined;
+  const [progress, setProgress] = useState<string | null>(demoHere?.progress ?? null);
+  const [open, setOpen] = useState<string | null>(demoHere?.openPhoto ? (photos[demoHere.openPhoto.index] ?? null) : null);
+  const full = photos.length >= MAX_VEHICLE_PHOTOS;
+  const id = "vp-" + v.id;
+
+  const add = (from: "camera" | "library") => {
+    let result: PhotosResult = { added: 0, skipped: 0, error: null };
+    void run(
+      id,
+      async () => {
+        result = await pickAndUploadPhotos(userId, v.id, from, photos.length, (n, total) =>
+          setProgress(total > 1 ? t("Subiendo " + n + " de " + total + "…", "Uploading " + n + " of " + total + "…") : t("Subiendo…", "Uploading…")),
+        );
+        setProgress(null);
+        if (result.error && result.added > 0)
+          return (
+            t(
+              result.added + (result.added === 1 ? " foto agregada. " : " fotos agregadas. "),
+              result.added + (result.added === 1 ? " photo added. " : " photos added. "),
+            ) + result.error
+          );
+        return result.error;
+      },
+      () =>
+        result.added === 0
+          ? ""
+          : (result.added === 1 ? t("Foto agregada.", "Photo added.") : t(result.added + " fotos agregadas.", result.added + " photos added.")) +
+            (result.skipped > 0
+              ? t(
+                  " " + result.skipped + (result.skipped === 1 ? " no se agregó" : " no se agregaron") + ": el máximo es " + MAX_VEHICLE_PHOTOS + " por vehículo.",
+                  " " + result.skipped + (result.skipped === 1 ? " wasn't" : " weren't") + " added: the most is " + MAX_VEHICLE_PHOTOS + " per vehicle.",
+                )
+              : ""),
+    );
+  };
+
+  const change = (action: "main" | "remove", path: string) => {
+    setOpen(null);
+    void run(
+      id,
+      async () => {
+        if (demo) return null;
+        const r = await api("/driver/photos", { action, vehicle_id: v.id, path });
+        return r.ok
+          ? null
+          : (r.error ??
+              (action === "main"
+                ? t("No se pudo cambiar la foto principal. Intente de nuevo.", "Couldn't change the main photo. Please try again.")
+                : t("No se pudo eliminar la foto. Intente de nuevo.", "Couldn't remove the photo. Please try again.")));
+      },
+      action === "main" ? t("Foto principal cambiada.", "Main photo changed.") : t("Foto eliminada.", "Photo removed."),
+    );
+  };
+
+  const working = busy === id;
+  return (
+    <View style={{ gap: 8, borderTopWidth: 1, borderTopColor: C.border, paddingTop: 10, marginTop: 4 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+        <Ionicons name={photos.length >= MIN_VEHICLE_PHOTOS ? "checkmark-circle" : "ellipse-outline"} size={20} color={photos.length >= MIN_VEHICLE_PHOTOS ? C.emerald : C.faint} />
+        <Text style={{ fontSize: 15, fontWeight: "700", color: C.text, flex: 1 }}>
+          {t(
+            "Fotos del vehículo (" + photos.length + " de " + MAX_VEHICLE_PHOTOS + ", mínimo " + MIN_VEHICLE_PHOTOS + ")",
+            "Vehicle photos (" + photos.length + " of " + MAX_VEHICLE_PHOTOS + ", at least " + MIN_VEHICLE_PHOTOS + ")",
+          )}
+        </Text>
+      </View>
+      <Text style={S.muted}>
+        {t(
+          "El exterior del vehículo, el interior y el espacio para equipaje. Los clientes las ven cuando usted queda confirmado. Si prefiere, oculte la placa.",
+          "Outside of the vehicle, the inside, and the luggage space. Travellers see these once you're confirmed. Hide the plate if you prefer.",
+        )}
+      </Text>
+      {photos.length > 0 ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+          {photos.map((p, i) => {
+            const uri = thumb(p);
+            return (
+              <Pressable
+                key={p}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  t("Foto " + (i + 1) + " de " + photos.length, "Photo " + (i + 1) + " of " + photos.length) +
+                  (i === 0 ? t(", principal", ", main") : "") +
+                  t(". Toque para ver opciones.", ". Tap for options.")
+                }
+                disabled={working}
+                onPress={() => setOpen(p)}
+                style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+              >
+                {uri ? (
+                  <Image source={{ uri }} style={{ width: 88, height: 88, borderRadius: 12, backgroundColor: C.bg }} />
+                ) : (
+                  <View style={{ width: 88, height: 88, borderRadius: 12, backgroundColor: C.bg, alignItems: "center", justifyContent: "center" }}>
+                    <Ionicons name="image-outline" size={24} color={C.faint} />
+                  </View>
+                )}
+                {i === 0 ? (
+                  <View style={{ position: "absolute", left: 6, top: 6, backgroundColor: C.emerald, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
+                    <Text style={{ color: "#fff", fontSize: 11, fontWeight: "800" }}>{t("Principal", "Main")}</Text>
+                  </View>
+                ) : null}
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      ) : null}
+      {photos.length > 1 ? <Text style={S.muted}>{t("Toque una foto para elegir la principal o eliminarla.", "Tap a photo to make it the main one or remove it.")}</Text> : null}
+      {progress ? (
+        <View accessibilityLiveRegion="polite" style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <ActivityIndicator color={C.emerald} />
+          <Text style={{ color: C.emerald, fontWeight: "700" }}>{progress}</Text>
+        </View>
+      ) : null}
+      {full ? <IconLine icon="information-circle-outline" text={capMessage()} /> : null}
+      <View style={{ flexDirection: "row", gap: 8 }}>
+        <View style={{ flex: 1 }}>
+          <Btn label={t("Tomar foto", "Take photo")} icon="camera-outline" onPress={() => add("camera")} busy={working} disabled={full} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Btn label={t("Galería", "Gallery")} icon="images-outline" alt onPress={() => add("library")} disabled={working || full} />
+        </View>
+      </View>
+      {!full ? (
+        <Text style={S.muted}>
+          {t(
+            "En la galería puede elegir varias a la vez (le quedan " + (MAX_VEHICLE_PHOTOS - photos.length) + ").",
+            "In the gallery you can choose several at once (" + (MAX_VEHICLE_PHOTOS - photos.length) + " left).",
+          )}
+        </Text>
+      ) : null}
+      <PhotoSheet
+        uri={open ? thumb(open) : undefined}
+        visible={open !== null}
+        isMain={open !== null && photos[0] === open}
+        canRemove={v.status !== "approved" || photos.length > MIN_VEHICLE_PHOTOS}
+        startConfirm={Boolean(demoHere?.openPhoto?.confirm)}
+        onClose={() => setOpen(null)}
+        onMain={() => open && change("main", open)}
+        onRemove={() => open && change("remove", open)}
+      />
+    </View>
+  );
+}
+
+/**
+ * Options for one vehicle photo, as a sheet from the bottom of the screen (the app's own
+ * Modal, like the side menu): make it the main photo, or remove it after a confirmation.
+ */
+function PhotoSheet({
+  uri,
+  visible,
+  isMain,
+  canRemove,
+  startConfirm,
+  onClose,
+  onMain,
+  onRemove,
+}: {
+  uri?: string;
+  visible: boolean;
+  isMain: boolean;
+  canRemove: boolean;
+  startConfirm?: boolean;
+  onClose: () => void;
+  onMain: () => void;
+  onRemove: () => void;
+}) {
+  const { t } = useT();
+  const [confirm, setConfirm] = useState(Boolean(startConfirm));
+  useEffect(() => {
+    if (!visible) setConfirm(false);
+  }, [visible]);
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
+      <Pressable accessibilityRole="button" accessibilityLabel={t("Cerrar", "Close")} onPress={onClose} style={{ flex: 1, backgroundColor: "rgba(10,20,15,0.45)" }} />
+      <View
+        accessibilityViewIsModal
+        style={{ backgroundColor: C.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 16, paddingBottom: 32, gap: 10 }}
+      >
+        <View style={{ alignSelf: "center", width: 40, height: 4, borderRadius: 2, backgroundColor: C.border }} />
+        {uri ? <Image source={{ uri }} resizeMode="cover" style={{ width: "100%", height: 200, borderRadius: 14, backgroundColor: C.bg }} /> : null}
+        {confirm ? (
+          <>
+            <Text style={S.h2}>{t("¿Eliminar esta foto?", "Remove this photo?")}</Text>
+            <Text style={S.muted}>{t("Los clientes ya no la verán. No se puede deshacer.", "Travellers won't see it any more. This can't be undone.")}</Text>
+            <Btn label={t("Sí, eliminar", "Yes, remove")} icon="trash-outline" color={C.red} onPress={onRemove} />
+            <Btn label={t("No, conservarla", "No, keep it")} alt onPress={() => setConfirm(false)} />
+          </>
+        ) : (
+          <>
+            {isMain ? (
+              <IconLine icon="star" color={C.emerald} text={t("Esta es la foto principal: los clientes la ven primero.", "This is the main photo: travellers see it first.")} />
+            ) : (
+              <Btn label={t("Usar como foto principal", "Use as main photo")} icon="star-outline" onPress={onMain} />
+            )}
+            {canRemove ? (
+              <Btn label={t("Eliminar", "Remove")} icon="trash-outline" alt onPress={() => setConfirm(true)} />
+            ) : (
+              <IconLine
+                icon="information-circle-outline"
+                color={C.amber}
+                text={t(
+                  "Un vehículo aprobado necesita al menos " + MIN_VEHICLE_PHOTOS + " fotos. Agregue una nueva antes de eliminar esta.",
+                  "An approved vehicle needs at least " + MIN_VEHICLE_PHOTOS + " photos. Add a new one before removing this one.",
+                )}
+              />
+            )}
+            <LinkBtn label={t("Cancelar", "Cancel")} onPress={onClose} />
+          </>
+        )}
+      </View>
+    </Modal>
   );
 }
 
@@ -546,8 +822,6 @@ function UploadRow({
   uploaded,
   renew,
   busy,
-  addLabel,
-  photosOnly,
   onPick,
 }: {
   label: string;
@@ -555,9 +829,6 @@ function UploadRow({
   uploaded: boolean;
   renew?: { ask: Pair; placeholder: Pair };
   busy: boolean;
-  addLabel?: string;
-  /** Vehicle photos: pictures only, no PDF button. */
-  photosOnly?: boolean;
   onPick: (from: UploadSource, renewed?: string) => void;
 }) {
   const { t } = useT();
@@ -591,7 +862,7 @@ function UploadRow({
       <View style={{ flexDirection: "row", gap: 8 }}>
         <View style={{ flex: 1 }}>
           <Btn
-            label={addLabel ?? (uploaded ? t("Repetir", "Retake") : t("Tomar foto", "Take photo"))}
+            label={uploaded ? t("Repetir", "Retake") : t("Tomar foto", "Take photo")}
             icon="camera-outline"
             alt={uploaded}
             onPress={() => go("camera")}
@@ -601,11 +872,9 @@ function UploadRow({
         <View style={{ flex: 1 }}>
           <Btn label={t("Galería", "Gallery")} icon="images-outline" alt onPress={() => go("library")} disabled={busy} />
         </View>
-        {!photosOnly ? (
-          <View style={{ flex: 1 }}>
-            <Btn label="PDF" icon="document-attach-outline" alt onPress={() => go("file")} disabled={busy} />
-          </View>
-        ) : null}
+        <View style={{ flex: 1 }}>
+          <Btn label="PDF" icon="document-attach-outline" alt onPress={() => go("file")} disabled={busy} />
+        </View>
       </View>
     </View>
   );

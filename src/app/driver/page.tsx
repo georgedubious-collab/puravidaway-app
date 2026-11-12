@@ -37,6 +37,7 @@ import {
   saveDriverDetails,
   saveDriverProfile,
   saveVehicle,
+  setMainVehiclePhoto,
 } from "./actions";
 import { DocumentUpload } from "./DocumentUpload";
 import { DriverHeader } from "./DriverHeader";
@@ -464,19 +465,27 @@ function VehicleCard({
       </h4>
       <p className="text-sm text-slate-500">
         {t(
-          `Al menos ${MIN_VEHICLE_PHOTOS}: una donde se vea claramente la placa, más el exterior y el interior.`,
-          `At least ${MIN_VEHICLE_PHOTOS}: one showing the licence plate clearly, plus the outside and inside.`,
+          `Al menos ${MIN_VEHICLE_PHOTOS}. El exterior del vehículo, el interior y el espacio para equipaje. Los clientes las ven cuando usted queda confirmado. Si prefiere, oculte la placa.`,
+          `At least ${MIN_VEHICLE_PHOTOS}. Outside of the vehicle, the inside, and the luggage space. Travellers see these once you're confirmed. Hide the plate if you prefer.`,
         )}
       </p>
       {photos.length > 0 && (
         <ul className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-4">
-          {photos.map((p) => (
+          {photos.map((p, i) => (
             <li key={p} className="relative">
               {thumbs[p] ? (
                 // eslint-disable-next-line @next/next/no-img-element -- private signed URL
                 <img src={thumbs[p]} alt={t("Foto del vehículo", "Vehicle photo")} className="aspect-square w-full rounded-lg object-cover" />
               ) : (
                 <div className="aspect-square w-full rounded-lg bg-slate-100" />
+              )}
+              {i === 0 ? (
+                <span className="absolute left-1 top-1 rounded bg-emerald-600 px-1.5 py-0.5 text-[10px] font-bold text-white">{t("Principal", "Main")}</span>
+              ) : (
+                <ActionForm action={setMainVehiclePhoto} lang={lang} submitLabel={t("Usar como principal", "Make main photo")} savedLabel="" className="mt-1 text-xs">
+                  <input type="hidden" name="vehicle_id" value={v.id} />
+                  <input type="hidden" name="path" value={p} />
+                </ActionForm>
               )}
               <ActionForm action={removeVehiclePhoto} lang={lang} submitLabel={t("Eliminar", "Remove")} savedLabel="" className="mt-1 text-xs">
                 <input type="hidden" name="vehicle_id" value={v.id} />

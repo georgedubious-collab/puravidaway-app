@@ -20,6 +20,8 @@ import { formatScheduledAtFor } from "@/lib/dates";
 import { englishLevelLabel, prefsSummary } from "@/lib/preferences";
 import { parsePublicLang, t as pick, type PublicLang } from "@/lib/publicLang";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { travellerPhotoPaths } from "@/lib/vehiclePhotos";
+import { CarPhotoGallery } from "./CarPhotoGallery";
 
 type Props = { params: Promise<{ token: string }>; searchParams: Promise<{ lang?: string | string[] }> };
 
@@ -168,10 +170,7 @@ export default async function TripPage({ params, searchParams }: Props) {
   const vehicleRows = (vehicles.data ?? []) as unknown as VehicleRow[];
 
   // Only the driver's profile photo and the car photos are ever signed for travellers.
-  const paths = [
-    ...driverRows.map((d) => d.documents?.driver_photo).filter((p): p is string => Boolean(p)),
-    ...vehicleRows.flatMap((v) => v.photos ?? []),
-  ];
+  const paths = travellerPhotoPaths(driverRows, vehicleRows);
   const urls: Record<string, string> = {};
   if (paths.length) {
     const { data } = await db.storage.from("driver-kyc-docs").createSignedUrls(paths, 3600);
@@ -353,18 +352,7 @@ export default async function TripPage({ params, searchParams }: Props) {
                         {[car.seats && t(`${car.seats} passenger seats`, `${car.seats} asientos para pasajeros`), ...car.offers].filter(Boolean).join(" · ")}
                       </p>
                     )}
-                    {car.photos.length > 0 && (
-                      <ul className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
-                        {car.photos.map((u) => (
-                          <li key={u}>
-                            <a href={u} target="_blank" rel="noreferrer">
-                              {/* eslint-disable-next-line @next/next/no-img-element -- short-lived private link */}
-                              <img src={u} alt={`${car.name}`} className="aspect-square w-full rounded-lg object-cover" />
-                            </a>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
+                    {car.photos.length > 0 && <CarPhotoGallery photos={car.photos} name={car.name} lang={lang} />}
                   </div>
                 </div>
               ) : (

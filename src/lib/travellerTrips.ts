@@ -3,6 +3,7 @@ import { WHATSAPP_NUMBER, bookedItemName } from "./catalog";
 import { getCatalog } from "./catalogSource";
 import { signEditable, signShown } from "./sign";
 import { createSupabaseAdminClient } from "./supabase/admin";
+import { travellerPhotoPaths } from "./vehiclePhotos";
 
 /**
  * A traveller's trips for the customer app. Travellers have no bookings "of
@@ -133,10 +134,7 @@ export async function tripsForEmail(email: string): Promise<{ trips: AppTrip[]; 
   const dRows = (drivers.data ?? []) as unknown as D[];
 
   // Only the driver's profile photo and the car photos are ever signed for travellers.
-  const paths = [
-    ...dRows.map((d) => d.documents?.driver_photo).filter((p): p is string => Boolean(p)),
-    ...vRows.flatMap((v) => (v.photos ?? []).slice(0, 6)),
-  ];
+  const paths = travellerPhotoPaths(dRows, vRows);
   const urls: Record<string, string> = {};
   if (paths.length) {
     const { data } = await db.storage.from("driver-kyc-docs").createSignedUrls(paths, 3600);
