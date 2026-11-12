@@ -104,7 +104,7 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
                         {serviceLabel(b.service_type, lang)}{" "}
                         {itemName(b)}
                         {b.pricing_mode === "bid" && (
-                          <span className="ml-1 rounded bg-amber-100 px-1.5 text-xs font-bold">{t("oferta", "offer")}</span>
+                          <span className="ml-1 rounded bg-amber-100 px-1.5 text-xs font-bold">{t("oferta del cliente", "client's offer")}</span>
                         )}
                         {b.status === "pending_bids" && (
                           <span className={`ml-1 rounded px-1.5 text-xs font-bold ${offersOn(b.id) ? "bg-emerald-100 text-emerald-900" : "bg-slate-100 text-slate-600"}`}>

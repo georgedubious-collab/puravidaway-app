@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDown, Camera, Car, Check, ChevronDown, ExternalLink, Gavel, Languages, Link2, MapPin, MessageCircle, PlusCircle, Ticket, Users } from "lucide-react";
+import { ArrowDown, Camera, Car, Check, ChevronDown, ExternalLink, Languages, Link2, MapPin, MessageCircle, PlusCircle, Ticket, Users } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { orSimilar, stopFitsRoute, stopTotalCents } from "@/lib/catalog";
 import { entranceLabel, hubName } from "@/lib/catalogEs";
@@ -18,7 +18,7 @@ import { DEFAULT_PICKUP_TIME, PICKUP_TIMES, addDays, formatShortDate, formatTime
 import { applyMultiplier, ferryCents, formatDuration, formatUSD, nightPremiumCents, perPersonCents, perPersonShare, quoteTransfer, rideCents, rideDriveCents } from "@/lib/pricing";
 import { isNightPickup, nightChip, nightPercent, nightWindow } from "@/lib/nightPremium";
 import { MAX_SHARED_PAX, rideLinkQuery, type RideLinkState } from "@/lib/shareLink";
-import { MAX_BAGS, MIN_OFFER_USD } from "@/lib/tripRequest";
+import { MAX_BAGS } from "@/lib/tripRequest";
 import { bagsSummary, defaultBags, luggageCapacity } from "@/lib/bags";
 import { vehiclePhoto } from "@/lib/photos";
 import { ridePromises } from "@/lib/trust";
@@ -30,10 +30,6 @@ const LANGUAGE_LABEL_ES: Record<DriverLanguage, string> = {
   english: "Conductor que habla inglés",
   spanish_ok: "Español o inglés básico está bien",
 };
-
-type PricingMode = "fixed" | "bid";
-
-/** Lowest offer a client may broadcast in bid mode (USD). */
 
 export function TransfersView({
   today,
@@ -66,7 +62,6 @@ export function TransfersView({
   const [date, setDate] = useState(() => initial.date ?? addDays(today, 14));
   const [pickupTime, setPickupTime] = useState(initial.pickupTime ?? DEFAULT_PICKUP_TIME);
   const [pax, setPax] = useState(initial.pax ?? 2);
-  const [mode, setMode] = useState<PricingMode>("fixed");
   const [vehicleId, setVehicleId] = useState(initial.vehicleId ?? "sedan");
   const [stopIds, setStopIds] = useState<string[]>(initial.stopIds ?? []);
   const [copied, setCopied] = useState(false);
@@ -85,7 +80,6 @@ export function TransfersView({
   const [signText, setSignText] = useState("");
   const [signHideName, setSignHideName] = useState(false);
   const signProblem = signHideName ? null : signTextProblem(cleanSignText(signText), hasContactDetails);
-  const [offer, setOffer] = useState("165");
 
   // Typed places are priced from Google's road route (fetched through our server).
   const typed = needsRoute(originPlace, destPlace);
@@ -212,13 +206,6 @@ export function TransfersView({
     [origin, destination, effectiveVehicleId, effectiveStopIds, season, catalog, route, pax, pickupTime],
   );
 
-  // Bid mode: the client's own offer (whole USD) replaces the fixed price.
-  const offerNumber = Number(offer);
-  const offerValid = Number.isFinite(offerNumber) && offerNumber >= MIN_OFFER_USD;
-  const offerCents = offerValid ? Math.round(offerNumber * 100) : 0;
-  const offerIsLow = offerValid && offerCents < quote.totalCents * 0.7;
-  const itemTotalCents = mode === "bid" ? offerCents : quote.totalCents;
-
   // SJO / LIR pickups, picked from the list or typed: flight tracking and free waiting apply.
   const airportPickup = isAirportPickup(originPlace);
   // Our towns are named in the page's language; a typed place keeps the name Google gave it.
@@ -229,7 +216,7 @@ export function TransfersView({
   const duration = (min: number) => formatDuration(min, lang);
   const vehicle = catalog.vehicles.find((v) => v.id === effectiveVehicleId)!;
   const selectedStops = catalog.stops.filter((s) => effectiveStopIds.includes(s.id));
-  const cantAdd = !priceReady || noVehicleFits || (mode === "bid" && !offerValid) || driverNotesBlocked || Boolean(signProblem);
+  const cantAdd = !priceReady || noVehicleFits || driverNotesBlocked || Boolean(signProblem);
   const price = (cents: number) => (priceReady ? formatUSD(cents) : "…");
   // Car price on a vehicle card: the ride for the date + ferries for this group.
   const ferry = ferryCents(route, pax, catalog);
@@ -270,16 +257,9 @@ export function TransfersView({
       kind: "transfer",
       id: newItemId(),
       title: `${originName} → ${destName}`,
-      detail:
-        (mode === "bid"
-          ? t(
-              `Driver bid request — your offer covers the ride${selectedStops.length ? " + stops" : ""} (fixed price would be ${formatUSD(quote.totalCents)}), ${paxText}${stopsText}${notes ? ` — ${notes}` : ""}`,
-              `Solicitud de ofertas de conductores — su oferta cubre el traslado${selectedStops.length ? " + paradas" : ""} (el precio fijo sería ${formatUSD(quote.totalCents)}), ${paxText}${stopsText}${notes ? ` — ${notes}` : ""}`,
-            )
-          : `${vehicle.name}, ${paxText}${stopsText}${notes ? ` — ${notes}` : ""}`
-        ) + (prefWords.length ? ` · ${prefWords.join(", ")}` : ""),
+      detail: `${vehicle.name}, ${paxText}${stopsText}${notes ? ` — ${notes}` : ""}` + (prefWords.length ? ` · ${prefWords.join(", ")}` : ""),
       date,
-      totalCents: itemTotalCents,
+      totalCents: quote.totalCents,
       spec: {
         kind: "transfer",
         origin,
@@ -290,8 +270,6 @@ export function TransfersView({
         stopIds: effectiveStopIds,
         pax,
         pickupTime,
-        pricing: mode === "bid" ? "bid" : "fixed",
-        offerCents: mode === "bid" ? offerCents : undefined,
         notes: notes.trim() || undefined,
         prefs: effectivePrefs,
         driverNotes: driverNotes.trim() || undefined,
@@ -306,22 +284,10 @@ export function TransfersView({
     t(
       `Hi! I'm looking at a private transfer ${originName} → ${destName} on ${date} at ${formatTime12h(pickupTime)} (Costa Rica time) for ${pax} passengers${
         selectedStops.length ? ` with stops at ${selectedStops.map((s) => s.name).join(", ")}` : ""
-      }. ${
-        mode === "bid" && offerValid
-          ? `I'd like to offer ${formatUSD(offerCents)} for the ride${selectedStops.length ? " including the stops" : ""} (fixed price shows ${price(quote.totalCents)}).`
-          : priceReady
-            ? `Quoted ${formatUSD(quote.totalCents)}.`
-            : ""
-      } Can you confirm availability?`,
+      }. ${priceReady ? `Quoted ${formatUSD(quote.totalCents)}.` : ""} Can you confirm availability?`,
       `¡Hola! Estoy viendo un traslado privado ${originName} → ${destName} el ${date} a las ${formatTime12h(pickupTime, "es")} (hora de Costa Rica) para ${paxWord(pax)}${
         selectedStops.length ? ` con paradas en ${selectedStops.map((s) => s.name).join(", ")}` : ""
-      }. ${
-        mode === "bid" && offerValid
-          ? `Quisiera ofrecer ${formatUSD(offerCents)} por el traslado${selectedStops.length ? ", paradas incluidas" : ""} (el precio fijo indica ${price(quote.totalCents)}).`
-          : priceReady
-            ? `Precio cotizado: ${formatUSD(quote.totalCents)}.`
-            : ""
-      } ¿Me pueden confirmar la disponibilidad?`,
+      }. ${priceReady ? `Precio cotizado: ${formatUSD(quote.totalCents)}.` : ""} ¿Me pueden confirmar la disponibilidad?`,
     ),
   );
 
@@ -337,8 +303,7 @@ export function TransfersView({
     ? availableStops.filter((s, i) => i < STOPS_SHOWN || effectiveStopIds.includes(s.id))
     : availableStops;
   const prefWordsNow = [...bagWords, ...prefsSummary(effectivePrefs, lang)];
-  const addLabel =
-    mode === "bid" ? t("Add offer request to your trip", "Agregar solicitud de oferta a su viaje") : t("Add this ride to your trip", "Agregar este traslado a su viaje");
+  const addLabel = t("Add this ride to your trip", "Agregar este traslado a su viaje");
 
   return (
     <section className={`space-y-5 ${cartCount === 0 ? "pb-20 lg:pb-0" : ""}`}>
@@ -420,7 +385,7 @@ export function TransfersView({
           onClick={() => document.getElementById("step-vehicle")?.scrollIntoView({ behavior: "smooth", block: "start" })}
           className={HERO_BUTTON}
         >
-          {priceReady && mode === "fixed"
+          {priceReady
             ? t(`See prices · from ${formatUSD(fromCarCents)}`, `Ver precios · desde ${formatUSD(fromCarCents)}`)
             : t("See prices", "Ver precios")}
           <ArrowDown className="h-4 w-4" aria-hidden />
@@ -434,173 +399,82 @@ export function TransfersView({
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <div className="lg:col-span-2 space-y-5">
-          {/* 2 · VEHICLE (fixed price) or OFFER (drivers bid) */}
+          {/* 2 · VEHICLE (fixed price per car) */}
           <div id="step-vehicle" className="scroll-mt-20">
             <Card>
               <StepTitle n={2} icon={<Car className="w-5 h-5 text-emerald-700" aria-hidden />}>
                 {t("Choose your vehicle", "Elija su vehículo")}
               </StepTitle>
 
-              <fieldset className="mt-3">
-                <legend className="text-sm font-bold text-slate-700">{t("How do you want your price?", "¿Cómo desea su precio?")}</legend>
-                <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {(
-                    [
-                      ["fixed", t("Fixed price now", "Precio fijo ahora")],
-                      ["bid", t("Name your price (drivers bid)", "Proponga su precio (los conductores ofertan)")],
-                    ] as [PricingMode, string][]
-                  ).map(([m, label]) => (
+              <p className="mt-2 text-sm text-slate-600">
+                {t(
+                  "The price you see is the price you pay, per car: no surge and no fuel surcharge.",
+                  "El precio que ve es el que paga, por vehículo: sin tarifas dinámicas ni recargo por combustible.",
+                )}
+              </p>
+              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {availableVehicles.map((v) => {
+                  const on = v.id === effectiveVehicleId;
+                  return (
                     <button
-                      key={m}
+                      key={v.id}
                       type="button"
-                      aria-pressed={mode === m}
-                      onClick={() => setMode(m)}
-                      className={`min-h-11 rounded-xl border-2 px-3 py-2 text-left text-sm font-bold transition flex items-center gap-2 ${
-                        mode === m ? "border-emerald-700 bg-emerald-50 text-emerald-950" : "border-slate-200 bg-white text-slate-700 hover:border-emerald-300"
+                      onClick={() => {
+                        setVehicleId(v.id);
+                        trackVehicleSelect({ from: gaFrom, to: gaTo, vehicleId: v.id, priceCents: carCents(v) });
+                      }}
+                      aria-pressed={on}
+                      className={`relative flex gap-3 text-left rounded-xl border-2 p-2.5 transition ${
+                        on ? "border-emerald-700 bg-emerald-50" : "border-slate-200 hover:border-emerald-300 bg-white"
                       }`}
                     >
-                      <span
-                        className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
-                          mode === m ? "border-emerald-700 bg-emerald-700 text-white" : "border-slate-300"
-                        }`}
-                        aria-hidden
-                      >
-                        {mode === m && <Check className="h-3 w-3" strokeWidth={4} />}
-                      </span>
-                      {label}
-                    </button>
-                  ))}
-                </div>
-                <p className="mt-2 text-sm text-slate-600">
-                  {mode === "fixed"
-                    ? t(
-                        "The price you see is the price you pay, per car: no surge and no fuel surcharge.",
-                        "El precio que ve es el que paga, por vehículo: sin tarifas dinámicas ni recargo por combustible.",
-                      )
-                    : t(
-                        "You propose a price, our partner drivers answer, and our team confirms the best match. It can take longer than a fixed price.",
-                        "Usted propone un precio, nuestros conductores asociados responden y nuestro equipo confirma la mejor opción. Puede tardar más que un precio fijo.",
-                      )}
-                </p>
-              </fieldset>
-
-              {mode === "fixed" ? (
-                <>
-                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {availableVehicles.map((v) => {
-                      const on = v.id === effectiveVehicleId;
-                      return (
-                        <button
-                          key={v.id}
-                          type="button"
-                          onClick={() => {
-                            setVehicleId(v.id);
-                            trackVehicleSelect({ from: gaFrom, to: gaTo, vehicleId: v.id, priceCents: carCents(v) });
-                          }}
-                          aria-pressed={on}
-                          className={`relative flex gap-3 text-left rounded-xl border-2 p-2.5 transition ${
-                            on ? "border-emerald-700 bg-emerald-50" : "border-slate-200 hover:border-emerald-300 bg-white"
-                          }`}
-                        >
-                          <Photo
-                            id={vehiclePhoto(v.id)}
-                            lang={lang}
-                            decorative
-                            sizes="112px"
-                            className="w-24 sm:w-28 shrink-0 self-stretch min-h-24 rounded-lg"
-                          />
-                          <span className="min-w-0 flex-1 py-0.5">
-                            {on && (
-                              <span className="float-right ml-2 inline-flex items-center gap-1 rounded-full bg-emerald-700 px-2 py-0.5 text-xs font-extrabold text-white">
-                                <Check className="h-3 w-3" strokeWidth={4} aria-hidden /> {t("Selected", "Elegido")}
-                              </span>
-                            )}
-                            <span className="block text-[15px] font-extrabold leading-snug text-slate-900">{v.name}</span>
-                            {orSimilar(v.exampleModels, lang) && (
-                              <span className="block text-xs font-semibold text-slate-600">{orSimilar(v.exampleModels, lang)}</span>
-                            )}
-                            <span className="mt-0.5 block text-xs font-bold text-amber-800">{v.badge}</span>
-                            <span className="mt-1 flex items-center gap-1 text-xs text-slate-600">
-                              <Users className="w-3.5 h-3.5 shrink-0" aria-hidden /> {t("Up to", "Hasta")} {v.maxPax} · {v.luggage}
-                            </span>
-                            <span className="mt-1.5 block text-lg font-extrabold text-emerald-700">
-                              {price(carCents(v))} <span className="text-xs font-bold text-slate-600">{t("per car", "por vehículo")}</span>
-                            </span>
-                            <span className="block text-xs font-semibold text-slate-600">
-                              {t(
-                                `from ${price(perPersonCents(carCents(v), v.maxPax))} per person (${perPersonShare(v.maxPax)} travellers)`,
-                                `desde ${price(perPersonCents(carCents(v), v.maxPax))} por persona (${perPersonShare(v.maxPax)} viajeros)`,
-                              )}
-                            </span>
-                            {ferry > 0 && (
-                              <span className="block text-xs font-semibold text-slate-600">{t("Ferry fares included", "Tarifas del ferry incluidas")}</span>
-                            )}
-                            {seasonPct !== 0 && (
-                              <span className="block text-xs font-bold text-amber-800">
-                                {season.name} {seasonPct > 0 ? "+" : "−"}
-                                {Math.abs(seasonPct)}%
-                              </span>
-                            )}
-                            {nightPickup && <span className="block text-xs font-bold text-amber-800">{nightChip(night, lang)}</span>}
+                      <Photo
+                        id={vehiclePhoto(v.id)}
+                        lang={lang}
+                        decorative
+                        sizes="112px"
+                        className="w-24 sm:w-28 shrink-0 self-stretch min-h-24 rounded-lg"
+                      />
+                      <span className="min-w-0 flex-1 py-0.5">
+                        {on && (
+                          <span className="float-right ml-2 inline-flex items-center gap-1 rounded-full bg-emerald-700 px-2 py-0.5 text-xs font-extrabold text-white">
+                            <Check className="h-3 w-3" strokeWidth={4} aria-hidden /> {t("Selected", "Elegido")}
                           </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                  {mode === "fixed" && <LuggageHint luggage={selectedVehicle?.luggage} largeBags={largeBags} />}
-                  <RidePromises airport={airportPickup} />
-                </>
-              ) : (
-                <div className="mt-4 rounded-xl border-2 border-amber-400 bg-amber-50/50 p-4">
-                  <h3 className="font-extrabold text-base text-slate-900 flex items-center gap-2">
-                    <Gavel className="w-5 h-5 text-amber-700" aria-hidden />{" "}
-                    {t("Name your offer, compare driver bids", "Proponga su oferta y compare las ofertas de los conductores")}
-                  </h3>
-                  <p className="text-sm text-slate-600 mt-1">
-                    {t(
-                      `Reference fixed price for this route: ${price(quote.totalCents)}. Hand-picked local partner drivers will bid on your request.`,
-                      `Precio fijo de referencia para esta ruta: ${price(quote.totalCents)}. Conductores locales asociados, elegidos uno por uno, harán ofertas por su solicitud.`,
-                    )}
-                  </p>
-                  <div className="flex flex-wrap items-center gap-2 mt-4">
-                    <label htmlFor="bid-offer" className="text-sm font-bold text-slate-700">
-                      {t("Your offer (USD):", "Su oferta (USD):")}
-                    </label>
-                    <input
-                      id="bid-offer"
-                      type="number"
-                      inputMode="numeric"
-                      min={MIN_OFFER_USD}
-                      value={offer}
-                      onChange={(e) => setOffer(e.target.value)}
-                      aria-invalid={!offerValid}
-                      className="w-32 min-h-11 border border-slate-300 rounded-xl px-3 text-base font-bold bg-white"
-                    />
-                  </div>
-                  {!offerValid && (
-                    <p role="alert" className="text-sm font-semibold text-red-700 mt-2">
-                      {t(
-                        `Enter an offer of at least ${formatUSD(MIN_OFFER_USD * 100)}.`,
-                        `Ingrese una oferta de al menos ${formatUSD(MIN_OFFER_USD * 100)}.`,
-                      )}
-                    </p>
-                  )}
-                  {offerIsLow && (
-                    <p className="text-sm font-semibold text-amber-800 mt-2">
-                      {t(
-                        "That's well below the fixed price, so drivers may not accept it.",
-                        "Está muy por debajo del precio fijo, por lo que es posible que los conductores no la acepten.",
-                      )}
-                    </p>
-                  )}
-                  <p className="text-sm text-slate-600 mt-3 bg-white rounded-lg p-3 border border-amber-200">
-                    {t(
-                      "Add this request to your trip and send it. Your offer goes to our approved partner drivers, our team confirms the best match, and you get an email with your driver's profile and car. Nothing is charged until then.",
-                      "Agregue esta solicitud a su viaje y envíela. Su oferta llega a nuestros conductores asociados aprobados, nuestro equipo confirma la mejor opción y usted recibe un correo con el perfil y el vehículo de su conductor. No se cobra nada hasta entonces.",
-                    )}
-                  </p>
-                </div>
-              )}
+                        )}
+                        <span className="block text-[15px] font-extrabold leading-snug text-slate-900">{v.name}</span>
+                        {orSimilar(v.exampleModels, lang) && (
+                          <span className="block text-xs font-semibold text-slate-600">{orSimilar(v.exampleModels, lang)}</span>
+                        )}
+                        <span className="mt-0.5 block text-xs font-bold text-amber-800">{v.badge}</span>
+                        <span className="mt-1 flex items-center gap-1 text-xs text-slate-600">
+                          <Users className="w-3.5 h-3.5 shrink-0" aria-hidden /> {t("Up to", "Hasta")} {v.maxPax} · {v.luggage}
+                        </span>
+                        <span className="mt-1.5 block text-lg font-extrabold text-emerald-700">
+                          {price(carCents(v))} <span className="text-xs font-bold text-slate-600">{t("per car", "por vehículo")}</span>
+                        </span>
+                        <span className="block text-xs font-semibold text-slate-600">
+                          {t(
+                            `from ${price(perPersonCents(carCents(v), v.maxPax))} per person (${perPersonShare(v.maxPax)} travellers)`,
+                            `desde ${price(perPersonCents(carCents(v), v.maxPax))} por persona (${perPersonShare(v.maxPax)} viajeros)`,
+                          )}
+                        </span>
+                        {ferry > 0 && (
+                          <span className="block text-xs font-semibold text-slate-600">{t("Ferry fares included", "Tarifas del ferry incluidas")}</span>
+                        )}
+                        {seasonPct !== 0 && (
+                          <span className="block text-xs font-bold text-amber-800">
+                            {season.name} {seasonPct > 0 ? "+" : "−"}
+                            {Math.abs(seasonPct)}%
+                          </span>
+                        )}
+                        {nightPickup && <span className="block text-xs font-bold text-amber-800">{nightChip(night, lang)}</span>}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              <LuggageHint luggage={selectedVehicle?.luggage} largeBags={largeBags} />
+              <RidePromises airport={airportPickup} />
             </Card>
           </div>
 
@@ -730,7 +604,7 @@ export function TransfersView({
                     "Empezamos con 1 maleta grande y 1 de mano por persona. Cámbielo si lleva más o menos.",
                   )}
                 </p>
-                {mode === "fixed" && <LuggageHint luggage={selectedVehicle?.luggage} largeBags={largeBags} />}
+                <LuggageHint luggage={selectedVehicle?.luggage} largeBags={largeBags} />
               </fieldset>
               <fieldset>
                 <legend className="text-sm font-bold text-slate-700 mb-2">{t("Driver's language", "Idioma del conductor")}</legend>
@@ -940,55 +814,43 @@ export function TransfersView({
             )}
 
             <div className="mt-4 bg-slate-50 p-3.5 rounded-xl space-y-1.5 text-sm">
-              {mode === "bid" ? (
-                <>
-                  <Row label={t("Fixed price (reference)", "Precio fijo (referencia)")} value={price(quote.totalCents)} />
-                  <div className="flex justify-between text-sm font-extrabold text-slate-900 pt-2 border-t border-slate-200">
-                    <span>{t("Your offer", "Su oferta")}</span>
-                    <span className="text-amber-700 text-lg">{offerValid ? formatUSD(offerCents) : "—"}</span>
-                  </div>
-                </>
-              ) : (
-                <>
-                  {/* Same season-adjusted prices as the cards; stops take the remainder so the rows always add up. */}
-                  <Row label={vehicle.name} value={price(seasonal(quote.baseCents))} />
-                  {quote.nightCents > 0 && <Row label={nightChip(night, lang)} value={`+${price(quote.nightCents)}`} />}
-                  {quote.stopsCents > 0 && (
-                    <Row
-                      label={t("Stops (optional extras)", "Paradas (extras opcionales)")}
-                      value={`+${price(quote.totalCents - quote.ferryCents - quote.nightCents - seasonal(quote.baseCents))}`}
-                      green
-                    />
-                  )}
-                  {quote.ferryCents > 0 && route && (
-                    <Row
-                      label={t(
-                        `Ferry, ${route.ferries} crossing${route.ferries > 1 ? "s" : ""} (car, driver + ${pax} passenger${pax > 1 ? "s" : ""})`,
-                        `Ferry, ${route.ferries} cruce${route.ferries > 1 ? "s" : ""} (vehículo, conductor + ${paxWord(pax)})`,
-                      )}
-                      value={`+${price(quote.ferryCents)}`}
-                    />
-                  )}
-                  {seasonPct !== 0 && (
-                    <p className="text-xs text-slate-600">
-                      {t("Prices include", "Los precios incluyen")} {season.name} {seasonPct > 0 ? "+" : "−"}
-                      {Math.abs(seasonPct)}%.
-                    </p>
-                  )}
-                  {quote.nightCents > 0 && (
-                    <p className="text-xs text-slate-600">
-                      {t(
-                        `Night pickup: rides that start ${nightWindow(night)} cost ${nightPercent(night)} more. Stops and ferry fares are not marked up.`,
-                        `Recogida nocturna: los traslados que empiezan ${nightWindow(night, "es")} cuestan un ${nightPercent(night)} más. Las paradas y las tarifas del ferry no tienen recargo.`,
-                      )}
-                    </p>
-                  )}
-                  <div className="flex justify-between text-sm font-extrabold text-slate-900 pt-2 border-t border-slate-200">
-                    <span>{t("Total private ride", "Total del traslado privado")}</span>
-                    <span className="text-emerald-700 text-lg">{price(quote.totalCents)}</span>
-                  </div>
-                </>
+              {/* Same season-adjusted prices as the cards; stops take the remainder so the rows always add up. */}
+              <Row label={vehicle.name} value={price(seasonal(quote.baseCents))} />
+              {quote.nightCents > 0 && <Row label={nightChip(night, lang)} value={`+${price(quote.nightCents)}`} />}
+              {quote.stopsCents > 0 && (
+                <Row
+                  label={t("Stops (optional extras)", "Paradas (extras opcionales)")}
+                  value={`+${price(quote.totalCents - quote.ferryCents - quote.nightCents - seasonal(quote.baseCents))}`}
+                  green
+                />
               )}
+              {quote.ferryCents > 0 && route && (
+                <Row
+                  label={t(
+                    `Ferry, ${route.ferries} crossing${route.ferries > 1 ? "s" : ""} (car, driver + ${pax} passenger${pax > 1 ? "s" : ""})`,
+                    `Ferry, ${route.ferries} cruce${route.ferries > 1 ? "s" : ""} (vehículo, conductor + ${paxWord(pax)})`,
+                  )}
+                  value={`+${price(quote.ferryCents)}`}
+                />
+              )}
+              {seasonPct !== 0 && (
+                <p className="text-xs text-slate-600">
+                  {t("Prices include", "Los precios incluyen")} {season.name} {seasonPct > 0 ? "+" : "−"}
+                  {Math.abs(seasonPct)}%.
+                </p>
+              )}
+              {quote.nightCents > 0 && (
+                <p className="text-xs text-slate-600">
+                  {t(
+                    `Night pickup: rides that start ${nightWindow(night)} cost ${nightPercent(night)} more. Stops and ferry fares are not marked up.`,
+                    `Recogida nocturna: los traslados que empiezan ${nightWindow(night, "es")} cuestan un ${nightPercent(night)} más. Las paradas y las tarifas del ferry no tienen recargo.`,
+                  )}
+                </p>
+              )}
+              <div className="flex justify-between text-sm font-extrabold text-slate-900 pt-2 border-t border-slate-200">
+                <span>{t("Total private ride", "Total del traslado privado")}</span>
+                <span className="text-emerald-700 text-lg">{price(quote.totalCents)}</span>
+              </div>
             </div>
 
             {noVehicleFits && (
@@ -1038,9 +900,9 @@ export function TransfersView({
             <div className="min-w-0" aria-live="polite">
               <p className="truncate text-xs font-semibold text-slate-600">{shortRoute}</p>
               <p className="truncate text-[15px] font-extrabold text-slate-900">
-                {mode === "bid" ? t("Your offer", "Su oferta") : vehicle.name}
+                {vehicle.name}
                 {" · "}
-                <span className="text-emerald-700">{mode === "bid" ? (offerValid ? formatUSD(offerCents) : "—") : price(quote.totalCents)}</span>
+                <span className="text-emerald-700">{price(quote.totalCents)}</span>
               </p>
             </div>
             <button

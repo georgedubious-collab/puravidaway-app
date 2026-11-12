@@ -101,8 +101,6 @@ export interface RideQuote {
    */
   night?: { percent: number; startHour: number; endHour: number; applies: boolean };
   cashFeeBps: number;
-  /** Lowest "Driver bids" offer. Older servers don't send it. */
-  minOfferCents?: number;
   vehicles: {
     id: string;
     name: string;

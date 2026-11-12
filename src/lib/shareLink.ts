@@ -3,7 +3,7 @@
  * (e.g. /?from=SJO&to=ManuelAntonio&date=2026-12-02&time=10:30&pax=3&vehicle=suv&stops=tarcoles),
  * so a link can be sent to a travel companion, a host or a hotel and opens the
  * same ride. Only route choices go in the URL: never names, contact details,
- * flight numbers, notes or offers.
+ * flight numbers or notes.
  *
  * A typed place (hotel, dock, address) is shared as its Google place id, the
  * name the traveller saw and its map point:

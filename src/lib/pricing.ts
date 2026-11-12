@@ -145,8 +145,6 @@ export interface TransferQuoteInput {
   vehicleId: string;
   stopIds: string[];
   season: Season;
-  /** In bid mode the accepted bid replaces the ride price. */
-  acceptedBidCents?: number;
   /** Google road route when an end is a typed place (see rideCents). */
   route?: RideRoute | null;
   /** Travellers, for ferry passenger fares (defaults to 1). */
@@ -168,7 +166,7 @@ export interface TransferQuote {
   subtotalCents: number;
   /** Car ferry fares, added after the season multiplier. */
   ferryCents: number;
-  /** Night-pickup premium included in totalCents (0 by day and in bid mode). */
+  /** Night-pickup premium included in totalCents (0 by day). */
   nightCents: number;
   /** The premium that was applied, in basis points (0 when none). */
   nightBps: number;
@@ -187,23 +185,19 @@ export function quoteTransfer(input: TransferQuoteInput): TransferQuote {
     .map((id) => (input.catalog?.stops ?? SIGHTSEEING_STOPS).find((s) => s.id === id))
     .filter((s): s is NonNullable<typeof s> => Boolean(s));
 
-  const baseCents = input.acceptedBidCents ?? rideCents(input.origin, input.destination, vehicle, input.catalog, input.route);
-  // Night pickup: a percentage of the driving part, after the season. Never on a traveller's own offer.
+  const baseCents = rideCents(input.origin, input.destination, vehicle, input.catalog, input.route);
+  // Night pickup: a percentage of the driving part, after the season.
   const night = input.catalog?.nightPremium ?? NIGHT_PREMIUM_DEFAULT;
-  const nightCents =
-    input.acceptedBidCents === undefined
-      ? nightPremiumCents(
-          rideDriveCents(input.origin, input.destination, vehicle, input.catalog, input.route),
-          input.season.multiplierBps,
-          input.pickupTime,
-          night,
-        )
-      : 0;
+  const nightCents = nightPremiumCents(
+    rideDriveCents(input.origin, input.destination, vehicle, input.catalog, input.route),
+    input.season.multiplierBps,
+    input.pickupTime,
+    night,
+  );
   // Each stop: the driver's part (wait + detour) + its tour part per traveller.
   const stopsCents = stops.reduce((sum, s) => sum + stopTotalCents(s, input.pax ?? 1), 0);
   const subtotalCents = baseCents + stopsCents;
-  // In bid mode the traveller's offer covers everything, ferries included.
-  const ferry = input.acceptedBidCents === undefined ? ferryCents(input.route, input.pax ?? 1, input.catalog) : 0;
+  const ferry = ferryCents(input.route, input.pax ?? 1, input.catalog);
   // Order: base → vehicle (and area) → season → night premium → pass-through costs (ferries).
   const totalCents = applyMultiplier(subtotalCents, input.season.multiplierBps) + nightCents + ferry;
 

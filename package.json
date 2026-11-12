@@ -12,8 +12,10 @@
     "test:eligibility": "node --no-warnings scripts/test-vehicle-eligibility.mjs",
     "test:sign": "node --no-warnings scripts/test-sign.mjs",
     "test:night": "node --no-warnings scripts/test-night-premium.mjs",
+    "test:fixed": "node --no-warnings scripts/test-fixed-prices.mjs",
     "test:routes": "node --no-warnings scripts/test-route-pages.mjs",
     "test:blog": "node --no-warnings scripts/test-blog.mjs",
+    "test:consent-region": "node --no-warnings scripts/test-consent-region.mjs",
     "db:seed": "node scripts/generate-catalog-seed.mjs"
   },
   "dependencies": {

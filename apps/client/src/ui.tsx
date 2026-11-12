@@ -264,7 +264,7 @@ export function Chip({ label, on, onPress, icon }: { label: string; on: boolean;
   );
 }
 
-/** Two or three choices side by side in one rounded track (Fixed price / Driver bids). */
+/** Two or three choices side by side in one rounded track. */
 export function Segments<V extends string>({ value, options, onChange }: { value: V; options: { id: V; label: string; icon?: IconName }[]; onChange: (v: V) => void }) {
   return (
     <View style={{ flexDirection: "row", backgroundColor: C.surface, borderRadius: R.pill, padding: 4 }} accessibilityRole="tablist">

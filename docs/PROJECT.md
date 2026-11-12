@@ -26,8 +26,10 @@ revenue engines in one booking flow and one cart:
 1. **Daytrip-style sightseeing transfers.** Private point-to-point transfers where travelers add
    curated 45–120 minute stops (wildlife, volcano, waterfall) along the corridor while the
    driver stays with the luggage in the locked vehicle.
-2. **GetTransfer-style driver bidding.** Travelers choose instant **Fixed Price** or **Driver
-   Bids**: they name an offer in USD and compare bids from verified local drivers.
+2. **Fixed prices, drivers compete behind the scenes.** Travellers always book at a **fixed
+   price per vehicle** (Jorge, 2026-11-11: the "Driver offers" / "name your price" option was
+   removed). Verified local drivers send offers on their payout on the job board and our team
+   picks the driver (§6.3).
 3. **1-day private eco-tours** with an optional **Smart En-Route Transfer (+$65)** that turns a
    day tour into a city-to-city hotel transfer.
 
@@ -90,8 +92,7 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
   bookings), `/driver` portal (KYC vault, vehicles, assigned trips with "Open in Waze" / "Google Maps"
   buttons for the pickup and drop-off, `src/lib/navigation.ts`; Drake Bay ends go to the Sierpe dock), trip requests saved online,
   private trip page `/trip/<code>`, tri-party trip chat with Resend email notifications.
-- Not yet built: online payment (Green Pay, §6.4), live bidding (bid mode saves a request with the
-  traveller's offer; the team handles it), GPS fleet map, `/account` for signed-in travellers
+- Not yet built: online payment (Green Pay, §6.4), GPS fleet map, `/account` for signed-in travellers
   (travellers use their private trip page instead), an in-page map (the summary links to the
   route on Google Maps instead), automatic airport / dock / 4x4 / ferry handling for typed places
   (pricing build step 4).
@@ -140,19 +141,29 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
   link-preview URLs; the preview image is `src/app/opengraph-image.tsx`. Custom 404 and error
   pages (`not-found.tsx`, `error.tsx`, `global-error.tsx`). Vercel Web Analytics
   (`@vercel/analytics`) is in the root layout and must be enabled in the Vercel dashboard.
-- **Marketing measurement behind a cookie banner (2026-11-11, `docs/SEO.md` §7).** Off unless
+- **Marketing measurement, cookie banner in Europe only (2026-11-11, `docs/SEO.md` §7).** Off unless
   its id is set in Vercel (Production only): `NEXT_PUBLIC_GA_ID` (Google Analytics 4),
   optional `NEXT_PUBLIC_CLARITY_ID`, and for later ads `NEXT_PUBLIC_GOOGLE_ADS_ID` and
   `NEXT_PUBLIC_META_PIXEL_ID`; `NEXT_PUBLIC_GSC_VERIFICATION` and
   `NEXT_PUBLIC_BING_VERIFICATION` add the Search Console / Bing ownership tags to every page.
   Ids are format-checked in `src/lib/analyticsConfig.ts`; a malformed one is ignored. With at
-  least one tool set, the root layout mounts `src/components/site/ConsentManager.tsx`: a small
-  banner (English / Spanish by page, "Accept" and "Reject" alike, "Choose" for Analytics and
-  Advertising separately, nothing pre-ticked), the choice kept in the browser's local storage
-  (`crpt-consent-v1`) for six months, and a "Cookie settings" link in the footer to change or
-  withdraw it. Google Consent Mode v2 in its basic form: no third-party script is loaded until
-  the visitor accepts, and withdrawing switches the tools off and deletes their first-party
-  cookies. Never a banner or a script on the private paths (`PRIVATE_PATHS` in
+  least one tool set, the root layout mounts `src/components/site/ConsentManager.tsx`.
+  **Region rule (Jorge, 2026-11-11):** the banner is shown only to visitors in the EEA (EU-27 +
+  Iceland, Liechtenstein, Norway), the UK and Switzerland, plus EU areas with their own country
+  code and Gibraltar / Jersey / Guernsey / Isle of Man (list in `src/lib/consentRegion.ts`,
+  `npm run test:consent-region`); everyone else gets the tools on by default with no banner and
+  can switch them off with "Cookie settings". `src/proxy.ts` reads Vercel's
+  `x-vercel-ip-country` header and sets the first-party cookie `crpt-region` = `consent` or
+  `open` (30 days, SameSite=Lax, Secure on Vercel, path `/`, only when missing or different,
+  only when a tool is switched on), so the pages stay prerendered; a missing or unknown
+  country counts as `consent`. A stored choice always wins in every region (outside Europe it
+  does not expire). Where shown, the banner: English / Spanish by page, "Accept" and "Reject"
+  alike, "Choose" for Analytics and Advertising separately, nothing pre-ticked; the choice kept
+  in the browser's local storage (`crpt-consent-v1`) for six months, and a "Cookie settings"
+  link in the footer (for every visitor) to change or withdraw it. Google Consent Mode v2 in
+  its basic form: in Europe no third-party script is loaded until the visitor accepts;
+  elsewhere the tag loads at once with analytics granted; switching off stops the tools and
+  deletes their first-party cookies. Never a banner or a script on the private paths (`PRIVATE_PATHS` in
   `src/lib/site.ts`, plus `/account` and `/chat`); arriving on one with tools running reloads
   the page clean, and trip links are never sent, not even as the referrer. Events go through
   one browser-only helper, `src/lib/analytics.ts` (`page_view`, `view_item`, `select_item`,
@@ -313,8 +324,8 @@ to 24 h. Add sightseeing stops on the way.") and a compact form card: tabs Trans
 time, Travellers and one amber "See prices" button that scrolls to the vehicles; the pre-filled
 SJO → Manuel Antonio route is labelled "Example route — change it to yours" (`src/components/BuilderHero.tsx`).
 Under it a trust strip of four true claims (`trustStrip()` in `src/lib/trust.ts`). The ride
-builder then runs in numbered steps: 2 vehicle (with "How do you want your price? Fixed price now /
-Name your price (drivers bid)"), 3 sightseeing stops (folded to three cards with "Show all"), 4
+builder then runs in numbered steps: 2 vehicle (fixed price per car; the "Name your price
+(drivers bid)" choice was removed on 2026-11-11), 3 sightseeing stops (folded to three cards with "Show all"), 4
 extras (folded, all optional), 5 the live summary (sticky on desktop). While the trip is empty, phones
 get a pinned bar "route · vehicle · $price · Add to trip"; once something is added it becomes the
 "Your trip · N items · $ · Review & book" bar. Below the builder: Popular routes (the route pages,
@@ -334,8 +345,8 @@ Legal pages (`/terms`, `/privacy`, `/cancellation`) are linked from every footer
 
 1. **Transfers & Sightseeing** — exact pick-up/drop-off by map place search (hotel, dock,
    restaurant, address; see COMPETITORS.md §2d — *built 2026-11-09: our towns plus Google place search*), date,
-   passengers, Fixed Price vs Driver Bids
-   toggle, sightseeing stop cards (duration, price, whether there is an entrance fee: free, included or paid at the gate), vehicle
+   passengers (fixed price only since 2026-11-11; the Fixed Price vs Driver Bids toggle is gone),
+   sightseeing stop cards (duration, price, whether there is an entrance fee: free, included or paid at the gate), vehicle
    cards with the price per car and "from $X per person (N travellers)", the "Every ride includes"
    list (flight tracking and the name sign at arrivals on airport pickups, 60 min free waiting, child seats free on request, free
    cancellation up to 24 h), live route timeline with total duration, flight number or hotel
@@ -666,7 +677,7 @@ Southern Nicoya 1.35, elsewhere 1.00; ferry ₡15,000 car + driver and ₡1,500 
 crossing, converted at `crc_per_usd` (₡452; checked weekly). All edited at `/admin/pricing`. Road km and drive times per town pair are in `src/lib/catalog.ts`
 (`ROUTE_KM`, `ROUTE_MINUTES`); the Drake Bay boat (75 min) is excluded from driving hours.
 `rideCents()` in `src/lib/pricing.ts` is the one implementation used by the ride builder,
-route pages, the bid reference price and the server re-check.
+route pages, the app's quotes and the server re-check.
 
 ### 6.2 Season multipliers
 | Season | Multiplier |
@@ -677,18 +688,35 @@ route pages, the bid reference price and the server re-check.
 
 Multipliers live in the database and are edited from the admin pricing manager.
 
-### 6.3 Driver bidding (marketplace)
-> **Changing (Jorge, 2026-11-09):** travellers will always get a fixed price, and drivers
-> claim jobs at a fixed payout behind the scenes; public bidding becomes "request a custom
-> quote" (`docs/PRICING.md` §6). The steps below describe what is built today.
+### 6.3 Fixed prices for travellers; drivers' offers on the job board
+> **Decided (Jorge, 2026-11-11): "Let's do fixed prices only for now."** Travellers always book
+> at the fixed price (§6.1). The "Driver offers" / "name your price" mode (travellers could offer
+> any amount from $50) was removed from the website and the customer app. The driver side is
+> unchanged. A "request a custom quote" option for groups and charters stays deferred
+> (`docs/PRICING.md` §6, step 7b).
 
-1. Client enters route, date, passengers and stops; the system shows a **reference price**
-   (the fixed price from §6.1, including the night premium when the pickup is at night, §6.6).
-2. Client can broadcast their own offer.
-3. Approved drivers see open requests and bid within a **floor/ceiling** relative to the
-   reference price.
-4. Client accepts one bid; the others are declined automatically.
-5. Costa Rica Private Transfers keeps a **platform commission** (% of the accepted bid), collected through Green Pay.
+1. The traveller chooses route, date, time, passengers and stops and books at the **fixed price**
+   (§6.1, with the season and, at night, the night premium, §6.6). Every new booking is saved
+   with `pricing_mode = 'fixed'` and status `pending_payment`.
+2. The team confirms and posts the ride to the drivers' **job board** (`/driver/jobs`, the driver
+   app's Offers screen). Drivers see only their payout, never the client's price.
+3. Approved drivers send an **offer on their payout**: the suggested payout, or an amount from
+   70% to 130% of it (`offer_job()`).
+4. The team picks the driver on the booking page with the ranking (return trip / home base,
+   rating, lower offer, electric when asked; `src/lib/matching.ts`) and accepts that offer; the
+   others are declined automatically.
+5. Costa Rica Private Transfers keeps its **platform commission** (§9 #2) from the fixed price.
+
+**Older pages and app builds.** A ride sent as a traveller's offer (`pricing: "bid"` or an
+`offerCents` field) is refused before anything is looked up, with "Please book at the fixed price
+shown; offers are no longer available." / "Por favor, reserve al precio fijo indicado; las ofertas
+ya no están disponibles." (`retiredItemError()` in `src/lib/tripRequest.ts`; the app endpoint
+translates it). A ride saved as an offer in a browser's trip before the change comes back at the
+fixed price ("prices have changed", new total shown). The app quote still returns `minOfferCents`
+($50) only because app builds from before 2026-11-11 read it; nothing new uses it.
+**Earlier bookings** made as a traveller's offer keep `pricing_mode = 'bid'` and their price; they
+show as "client's offer" in admin and like any other booking on the trip page, in driver views
+(payout only) and in emails.
 
 ### 6.4 Payments
 Decided by Jorge 2026-11-08 (replaces the 100% / 20% deposit rule):
@@ -746,9 +774,8 @@ Jorge: "24/7 arrivals. Trips that start from 10pm/4am should charge a 20% premiu
   `total_price` after pass-throughs (§9 #2), so with today's 20% commission the driver gets 80%
   of the premium. Example (SJO → Manuel Antonio, Standard Sedan, green season): $202.00 by day,
   $242.40 at night; payout $161.60 → $193.92.
-- **"Name your price":** the reference fixed price shown to the traveller, the 70% rule that
-  posts an offer to the job board, and the payout drivers' offers are measured against all
-  include the premium. The traveller's own offer is not marked up.
+- **Drivers' offers:** the payout drivers' offers are measured against includes the premium.
+  (Travellers' own offers, never marked up, were removed on 2026-11-11, §6.3.)
 - **Shown before the traveller commits,** like the season: "Night pickup +20%" / "Recogida
   nocturna +20%" on the vehicle cards and as a line with the amount in the summary (website), a
   chip on the vehicle step and on "Your ride" (app), "+20%" beside each night hour in the time
@@ -769,7 +796,8 @@ Jorge: "24/7 arrivals. Trips that start from 10pm/4am should charge a 20% premiu
   for Jorge to decide (§9 #17): a 23:30 ride ends on the next day, and a 01:00 pickup means the
   driver leaves home the evening before, while the calendar only looks at the pickup's own date;
   late-driver and no-location alerts for night pickups are emailed to the team at night.
-- Tests: `npm run test:night` (window, order of operations, pass-throughs, payout, old-style
+- Tests: `npm run test:fixed` (fixed prices only: offers refused in EN/ES, fixed requests and old
+  carts still work), `npm run test:night` (window, order of operations, pass-throughs, payout, old-style
   request) and `npm run test:db` (the same prices with the values read from the database).
 
 ---
@@ -823,7 +851,8 @@ of our towns; null = unknown; 0035) ·
 `sign_text` text (the traveller's own text for the driver's name sign, ≤ 40 characters, no contact
 details; null = none) and `sign_hide_name` bool ("Don't show my name": the sign shows the brand
 name; never together with a text); §4.6, migration 0040 ·
-`pricing_mode` (`fixed` | `bid`) · `total_price` numeric · `night_premium` numeric(10,2) (the part
+`pricing_mode` (`fixed` | `bid`; always `fixed` for new bookings since 2026-11-11, `bid` only on
+earlier bookings made as a traveller's offer, §6.3) · `total_price` numeric · `night_premium` numeric(10,2) (the part
 of `total_price` that is the night-pickup premium, 0 by day; §6.6, migration 0041) · `driver_payout` / `platform_fee` numeric
 (migration 0017; null on retired multi-day bookings) · `company_costs` (entrances / lunch / activities the company pays, deducted before the driver's share; part of `platform_fee`; 0023) · `claimed_at` (set when the team accepted an offer from the job board) · `currency` (`USD` | `CRC`) ·
 `amount_paid` numeric · `payment_mode` (`full_100` | `cash_driver`; `deposit_20` on old rows
@@ -899,8 +928,8 @@ and `season_for_date(date)` returns the season for a travel date.
   license or insurance numbers.
 - **bookings:** clients see their own; admins see all. **Drivers never read booking rows**
   (since migration 0017, restated in 0036): the row holds the client's price (`total_price`,
-  `platform_fee`, `amount_paid`, `company_costs`) and, on custom-offer rides, `client_notes` with the
-  fixed price. Drivers read only through `driver_jobs()` (open jobs, town to town) and `my_trips()`
+  `platform_fee`, `amount_paid`, `company_costs`) and, on rides booked as a traveller's offer
+  before 2026-11-11, `client_notes` with the fixed price. Drivers read only through `driver_jobs()` (open jobs, town to town) and `my_trips()`
   (their own trips), which return their payout and never the client's price (`driver_jobs()` lists
   only rides one of the driver's approved vehicles can serve by category, §5.3); stop snapshots come
   without their price (`stops_for_driver()`, 0036); the name sign comes as one computed text
@@ -939,7 +968,7 @@ multi-day trips were retired (§1, §5.5) and are not on the roadmap.
 | **2d. Checkout** | Part 1: trip requests saved online (server re-prices every item, guest name/email/WhatsApp, booking refs) + `/admin/bookings` dispatch (status, driver + vehicle, amount received, internal notes). Part 2: Green Pay (online in full; cash to the driver + 10% fee is built, 2026-11-08), webhooks, confirmation emails | **Part 1 built (PR #15)**; payment options built; Green Pay needs credentials |
 | **3. Job board & GPS** | Driver job board with fixed payouts (replaces public bidding); driver on-duty GPS broadcast to admin Leaflet map | **Job board built 2026-11-09** (`/driver/jobs`, migration 0017): the team posts a booking as "Open for drivers", drivers send offers (suggested payout or 70–130% of it), the team accepts one on the booking page, where offers are ranked (same-day return trip first, then the driver's rating — travellers are emailed to rate 1–5 stars from their trip page when a trip is marked completed, a comment counts double, `driver_reviews` + `drivers.rating_avg/rating_count`, migration 0019 — then drivers based near the pickup — `drivers.home_hub`, migration 0018 — then price, then fewer trips; `src/lib/matching.ts`) and refresh live; drivers never see the client's price. Drivers see "Return trip" / "Starts in your area" badges on the job board. Rides sent in "Driver bids" mode with an offer of 70%+ of the fixed price go to the board automatically; approved drivers are emailed each new job (`src/lib/jobAlerts.ts`) and the traveller is emailed when an offer is accepted. Drivers mark their own trips **Start trip** / **Complete trip** on the trip page (`driver_set_trip_status()`, migration 0024; from 3 h before pickup), and completing one asks the traveller for a rating at once (`src/lib/reviewRequest.ts`). Settlements (migration 0025): `/admin/payouts` lists completed, unsettled trips per driver (online: pay the payout; cash: the driver collected price + fee and owes the difference) with "Mark settled" (`bookings.driver_settled_at`); drivers see `/driver/earnings` and, on cash trips, how much to collect (`my_trips().cash_to_collect`, the one case where a driver sees the client's price). Push notifications come with the driver app (Phase 5); email today. GPS planned |
 | **4. Chat & CRM** | Tri-party trip chat (traveller via private trip link, assigned driver, team) with Resend email notifications; HubSpot sync; SMS / WhatsApp Business API | **Chat built (PR #17)**, polling every 8 s; **privacy round 2026-11-10** (§4.5): traveller ↔ driver with the team reading, contact details hidden and flagged, pushes, batched unread email, read-only 48 h after the trip; HubSpot and SMS planned |
-| **5. Mobile apps** | Driver app (GPS, push notifications, camera) first, then Client app, for App Store / Google Play; plan in §11 | **Required before launch (Jorge, 2026-11-09).** Groundwork started: `device_tokens` + Expo push sender (migration 0026, `src/lib/push.ts`), pushes for new jobs and accepted offers. Driver flows already exist as database functions the app can call directly (`driver_jobs`, `my_trips`, `offer_job`, `driver_set_trip_status`, `register_device`). `/api/v1` (2026-11-09) covers what the server must do for the apps: driver offers, withdraw, trip start/complete and trip chat, each calling the same server action as the website; the apps send their Supabase session as a bearer token (`bearerToken()` in `src/lib/supabase/server.ts`). **Driver app first version built 2026-11-09 in `apps/driver/`** (Expo SDK 58, its own project, ignored by Vercel; see its README): email-code sign-in, jobs and offers, trips with start/complete, navigation and chat, earnings, profile, push. **Location sharing built 2026-11-09 (migration 0028):** with the driver's consent in the app (`drivers.location_consent_at`), the phone reports its position from 3 h before a pickup until the trip is completed, in the background too; `report_location()` refuses anything outside that window, only the latest position is kept (`driver_locations`), the team follows trips at `/admin/live`, and the travellers on that booking see it on their trip page and in their app (Jorge, 2026-11-09; the driver's consent text says so). **Driver steps and lateness (migration 0029):** "I'm on my way" (`bookings.en_route_at`, from 6 h before pickup; opens the tracking window and emails the traveller) → "Client picked up" → "Trip ended" (erases the position, closes the window). Before the pickup the app asks `/api/v1/driver/eta` every 5 minutes; the server estimates arrival from its stored position with Google live traffic (`src/lib/eta.ts`, every 5 min in the last hour, 10 before), shows it on `/admin/live`, and emails the team once if the driver would be more than 20 minutes late (`bookings.late_alert_at`). A GitHub Action (`eta-check.yml`, every 5 minutes, `CRON_SECRET`) runs the same check for every upcoming pickup via `/api/cron/eta`, so a driver who is parked, offline or never opened the app is still caught; with no position at all 60 minutes before pickup the team gets a "no driver location" alert. **Documents in the app (2026-11-09):** details, document photos by camera, vehicles, vehicle documents and photos, renewals (`apps/driver/src/screens/Documents.tsx`; routes `/api/v1/driver/details|profile|vehicles|vehicles/save|documents`). A new driver can do everything from the phone: the first sign-in creates the account, `/api/v1/driver/apply` starts the application, and documents can be photos or PDFs. **Calendar and help (migration 0032):** drivers block days in a calendar (`driver_unavailable`, `set_unavailable()`): no jobs shown, no offers, no job alerts that day, and the team sees "unavailable that day" when assigning; a Help screen has driver FAQs and support by WhatsApp and email (`/api/v1/support`). **Driver app layout (2026-11-10, Jorge approved the mockup):** the bottom tabs became a side menu (☰, `apps/driver/src/nav.tsx`, plain React Native Modal + Animated, no navigation library): profile card (name, "Independent driver" or the application status, ★ rating), Upcoming trips (the home screen), Offers (gold count of open jobs), Availability (the calendar), Earnings, Documents, My account, then Help, the language switch and Sign out. Trips are cards with a big date block, vehicle class, small icons (airport, stops, child seat; gold = needs attention: Drake Bay boat, Gulf of Nicoya ferry, cash to collect), the route, a countdown and the driver's payout; Upcoming / Today / Past views. The trip screen shows the route with each stop's time there, the travellers' requests, "You receive", Waze and a WhatsApp button to our team (never to the client), and the next step. First build installed on Jorge's Android phone 2026-11-09 (sign-in screen reached). During development the apps are private test builds under La Familia Mágica's store accounts; they are published publicly only under the new Costa Rica Private Transfers company. **Traveller app first version built 2026-11-09 in `apps/client/`** ("CR Transfers", `com.costaricaprivatetransfers.app`): no account needed (Jorge, 2026-11-09): the app opens on "Plan a trip" with prices for anyone; sending a request asks for name, WhatsApp and email and confirms the email with a 6-digit code (Supabase email OTP, which signs them in), and "Already booked?" in My trips / Account uses the same code to see trips on another phone; trips found by the booking email (`GET /api/v1/client/trips`, `src/lib/travellerTrips.ts`), driver and car, chat and rating with the trip's private code, "Plan a trip" opens the website, pushes for confirmed / on the way / rate (`sendPushToEmail`). Booking in the app (2026-11-09): rides (place search, vehicle, stops) and day tours priced by the server (`src/lib/appQuote.ts`, `/api/v1/client/quote|tours`), sent through `/api/v1/client/trip-request`; the app offers the same ride options as the website (fixed price or "Driver bids" with an offer, driver's language, child seats, Wi-Fi, stroller, pet, message for the driver, "from $X per person", the ride promises, and the tours' region filter and Smart En-Route Transfer), with a **test checkout** (`/api/v1/client/pay-test`, `payments.provider = 'test'`, migration 0030) that switches itself off when the site is made indexable for launch. Travellers see the driver's position and arrival estimate for their own booking while the driver is sharing it (app and trip page). **Traveller app v2 (2026-11-10, Jorge approved an Airbnb-style look and a proper navigation rebuild):** React Navigation native stacks with bottom tabs Explore / My trips / Account (native slide transitions, iPhone swipe-back, slide-up panels for place search, pickup time, tour date, the email code and the rating); a new Explore home ("Where to?", popular rides with "from $X" priced by the same quote API and cached on the phone for 12 h, day tours, the four true promises, "Your next trip"); booking as five steps (Where → When & who → Your ride → Make it yours → Review & send) sharing one booking store so going back keeps every choice and the price is only re-asked when route, date, travellers or stops change; Plus Jakarta Sans throughout; the "CR route" logo and new app icons; an image system (`apps/client/src/images.ts`) with designed placeholders until our own photos are added. Same API calls and payloads as v1. **Rides rebuilt map-first (2026-11-11, Jorge approved the mockup):** the Explore tab has a "Rides \| Day tours" switch (the phone remembers the side); booking a ride is places → vehicle → "Your ride" (travellers and bags, flight number, stops, driver and extras, payment, contact details, "Request ride"), with the date, stops and extras as slide-up panels; a ride can't be sent until the traveller has opened the date panel once. Still book-ahead: our team confirms the driver. **No map while booking (Jorge, 2026-11-11: "it doesn't really provide value to the customer"):** Rides is a scrolling booking start (headline, the "From / To" card with a "Date" button, popular rides as picture cards with drive time and "from" price, the short "Every ride includes" list of the four promises, "Your next trip" when signed in); "Choose your vehicle" opens with a route summary card (pickup → drop-off, the drive time, date/time and travellers) instead of the map; the "Set on map" picker is gone (the place search covers it). The map appears only on the trip page: once a driver is assigned and the ride is close, the trip page leads with the map (driver's position, minutes to arrival, "Message driver", "Call our team"; the driver's phone is never shown), like Uber. One map component (`apps/client/src/MapView.tsx`, used only there): Apple Maps on iPhone, Google Maps on Android **only when the build has a key** (EAS variable `EXPO_PUBLIC_GOOGLE_MAPS_KEY`, read in `apps/client/app.config.ts`; Jorge still has to create it), otherwise the app's own drawn map. The line on the map is straight between the two ends (no directions API); no server, pricing or database change. Day tours screens unchanged. Not yet: real card payments, in-app account deletion. Store accounts (§11.6) are the long pole |
+| **5. Mobile apps** | Driver app (GPS, push notifications, camera) first, then Client app, for App Store / Google Play; plan in §11 | **Required before launch (Jorge, 2026-11-09).** Groundwork started: `device_tokens` + Expo push sender (migration 0026, `src/lib/push.ts`), pushes for new jobs and accepted offers. Driver flows already exist as database functions the app can call directly (`driver_jobs`, `my_trips`, `offer_job`, `driver_set_trip_status`, `register_device`). `/api/v1` (2026-11-09) covers what the server must do for the apps: driver offers, withdraw, trip start/complete and trip chat, each calling the same server action as the website; the apps send their Supabase session as a bearer token (`bearerToken()` in `src/lib/supabase/server.ts`). **Driver app first version built 2026-11-09 in `apps/driver/`** (Expo SDK 58, its own project, ignored by Vercel; see its README): email-code sign-in, jobs and offers, trips with start/complete, navigation and chat, earnings, profile, push. **Location sharing built 2026-11-09 (migration 0028):** with the driver's consent in the app (`drivers.location_consent_at`), the phone reports its position from 3 h before a pickup until the trip is completed, in the background too; `report_location()` refuses anything outside that window, only the latest position is kept (`driver_locations`), the team follows trips at `/admin/live`, and the travellers on that booking see it on their trip page and in their app (Jorge, 2026-11-09; the driver's consent text says so). **Driver steps and lateness (migration 0029):** "I'm on my way" (`bookings.en_route_at`, from 6 h before pickup; opens the tracking window and emails the traveller) → "Client picked up" → "Trip ended" (erases the position, closes the window). Before the pickup the app asks `/api/v1/driver/eta` every 5 minutes; the server estimates arrival from its stored position with Google live traffic (`src/lib/eta.ts`, every 5 min in the last hour, 10 before), shows it on `/admin/live`, and emails the team once if the driver would be more than 20 minutes late (`bookings.late_alert_at`). A GitHub Action (`eta-check.yml`, every 5 minutes, `CRON_SECRET`) runs the same check for every upcoming pickup via `/api/cron/eta`, so a driver who is parked, offline or never opened the app is still caught; with no position at all 60 minutes before pickup the team gets a "no driver location" alert. **Documents in the app (2026-11-09):** details, document photos by camera, vehicles, vehicle documents and photos, renewals (`apps/driver/src/screens/Documents.tsx`; routes `/api/v1/driver/details|profile|vehicles|vehicles/save|documents`). A new driver can do everything from the phone: the first sign-in creates the account, `/api/v1/driver/apply` starts the application, and documents can be photos or PDFs. **Calendar and help (migration 0032):** drivers block days in a calendar (`driver_unavailable`, `set_unavailable()`): no jobs shown, no offers, no job alerts that day, and the team sees "unavailable that day" when assigning; a Help screen has driver FAQs and support by WhatsApp and email (`/api/v1/support`). **Driver app layout (2026-11-10, Jorge approved the mockup):** the bottom tabs became a side menu (☰, `apps/driver/src/nav.tsx`, plain React Native Modal + Animated, no navigation library): profile card (name, "Independent driver" or the application status, ★ rating), Upcoming trips (the home screen), Offers (gold count of open jobs), Availability (the calendar), Earnings, Documents, My account, then Help, the language switch and Sign out. Trips are cards with a big date block, vehicle class, small icons (airport, stops, child seat; gold = needs attention: Drake Bay boat, Gulf of Nicoya ferry, cash to collect), the route, a countdown and the driver's payout; Upcoming / Today / Past views. The trip screen shows the route with each stop's time there, the travellers' requests, "You receive", Waze and a WhatsApp button to our team (never to the client), and the next step. First build installed on Jorge's Android phone 2026-11-09 (sign-in screen reached). During development the apps are private test builds under La Familia Mágica's store accounts; they are published publicly only under the new Costa Rica Private Transfers company. **Traveller app first version built 2026-11-09 in `apps/client/`** ("CR Transfers", `com.costaricaprivatetransfers.app`): no account needed (Jorge, 2026-11-09): the app opens on "Plan a trip" with prices for anyone; sending a request asks for name, WhatsApp and email and confirms the email with a 6-digit code (Supabase email OTP, which signs them in), and "Already booked?" in My trips / Account uses the same code to see trips on another phone; trips found by the booking email (`GET /api/v1/client/trips`, `src/lib/travellerTrips.ts`), driver and car, chat and rating with the trip's private code, "Plan a trip" opens the website, pushes for confirmed / on the way / rate (`sendPushToEmail`). Booking in the app (2026-11-09): rides (place search, vehicle, stops) and day tours priced by the server (`src/lib/appQuote.ts`, `/api/v1/client/quote|tours`), sent through `/api/v1/client/trip-request`; the app offers the same ride options as the website (fixed price only since 2026-11-11, driver's language, child seats, Wi-Fi, stroller, pet, message for the driver, "from $X per person", the ride promises, and the tours' region filter and Smart En-Route Transfer), with a **test checkout** (`/api/v1/client/pay-test`, `payments.provider = 'test'`, migration 0030) that switches itself off when the site is made indexable for launch. Travellers see the driver's position and arrival estimate for their own booking while the driver is sharing it (app and trip page). **Traveller app v2 (2026-11-10, Jorge approved an Airbnb-style look and a proper navigation rebuild):** React Navigation native stacks with bottom tabs Explore / My trips / Account (native slide transitions, iPhone swipe-back, slide-up panels for place search, pickup time, tour date, the email code and the rating); a new Explore home ("Where to?", popular rides with "from $X" priced by the same quote API and cached on the phone for 12 h, day tours, the four true promises, "Your next trip"); booking as five steps (Where → When & who → Your ride → Make it yours → Review & send) sharing one booking store so going back keeps every choice and the price is only re-asked when route, date, travellers or stops change; Plus Jakarta Sans throughout; the "CR route" logo and new app icons; an image system (`apps/client/src/images.ts`) with designed placeholders until our own photos are added. Same API calls and payloads as v1. **Rides rebuilt map-first (2026-11-11, Jorge approved the mockup):** the Explore tab has a "Rides \| Day tours" switch (the phone remembers the side); booking a ride is places → vehicle → "Your ride" (travellers and bags, flight number, stops, driver and extras, payment, contact details, "Request ride"), with the date, stops and extras as slide-up panels; a ride can't be sent until the traveller has opened the date panel once. Still book-ahead: our team confirms the driver. **No map while booking (Jorge, 2026-11-11: "it doesn't really provide value to the customer"):** Rides is a scrolling booking start (headline, the "From / To" card with a "Date" button, popular rides as picture cards with drive time and "from" price, the short "Every ride includes" list of the four promises, "Your next trip" when signed in); "Choose your vehicle" opens with a route summary card (pickup → drop-off, the drive time, date/time and travellers) instead of the map; the "Set on map" picker is gone (the place search covers it). The map appears only on the trip page: once a driver is assigned and the ride is close, the trip page leads with the map (driver's position, minutes to arrival, "Message driver", "Call our team"; the driver's phone is never shown), like Uber. One map component (`apps/client/src/MapView.tsx`, used only there): Apple Maps on iPhone, Google Maps on Android **only when the build has a key** (EAS variable `EXPO_PUBLIC_GOOGLE_MAPS_KEY`, read in `apps/client/app.config.ts`; Jorge still has to create it), otherwise the app's own drawn map. The line on the map is straight between the two ends (no directions API); no server, pricing or database change. Day tours screens unchanged. Not yet: real card payments, in-app account deletion. Store accounts (§11.6) are the long pole |
 
 ---
 
@@ -966,9 +995,11 @@ multi-day trips were retired (§1, §5.5) and are not on the roadmap.
 3. **Bid floor/ceiling** relative to the reference price (e.g. 70%–130%).
    **Recommendation 2026-11-08 (`docs/PRICING.md` §6):** travellers always get a fixed price;
    drivers claim jobs at a fixed payout behind the scenes; "name your price" becomes "request a
-   custom quote" for groups, charters and unusual routes. **Decided (Jorge, 2026-11-09).** A
-   bid floor/ceiling only matters for custom quotes and drivers' offers; set it when that is
-   built.
+   custom quote" for groups, charters and unusual routes. **Decided (Jorge, 2026-11-09).**
+   **Decided: fixed prices only for travellers (Jorge, 2026-11-11); drivers still offer on
+   payouts.** The traveller "Driver offers" / "name your price" mode is removed from the website
+   and the customer app (§6.3). Drivers' offers stay within 70%–130% of the suggested payout
+   (`offer_job()`). "Request a custom quote" (`docs/PRICING.md` step 7b) stays deferred.
 4. **Stop ↔ corridor mapping** (which stops are offered on which routes). Built 2026-11-08 as
    the "both ends" rule with reviewed lists (§5.2), **pending Jorge's confirmation**. If the
    detour cases in §5.2 matter, the next step is listing exact route pairs per stop. With exact
@@ -1059,8 +1090,11 @@ multi-day trips were retired (§1, §5.5) and are not on the roadmap.
     being built; decide before switching either on whether typed place names should leave the
     address (shared ride links would then carry only the place id). (d) `purchase` is not sent
     until real payments exist; decide then whether the paid amount or the lead is the main
-    conversion for ads. (e) Built assumption: the banner is shown to every visitor, not only
-    in the EU / UK (simplest, and Costa Rica's Ley 8968 also asks for informed consent).
+    conversion for ads. (e) **Decided (Jorge, 2026-11-11):** the banner is shown only in the
+    EEA, the UK and Switzerland; elsewhere analytics is on by default with an opt-out in the
+    footer. For the lawyer: whether this is enough under Costa Rica's Ley 8968 (it asks for
+    informed consent) and other non-European laws, and the "legitimate interest" basis now
+    stated for visitors outside Europe in the Privacy Policy's section 4.
 
 ---
 

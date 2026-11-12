@@ -20,7 +20,7 @@ export const SITE_NAME = "Costa Rica Private Transfers";
 export const SITE_TITLE = "Costa Rica Private Transfers — Airport Transfers, Sightseeing & Tours";
 export const SITE_TAGLINE = "Private Costa Rica transfers with sightseeing stops";
 export const SITE_DESCRIPTION =
-  "Private door-to-door transfers with sightseeing stops, driver bidding and 1-day private tours across Costa Rica.";
+  "Fixed-price private door-to-door transfers with sightseeing stops, and 1-day private tours across Costa Rica.";
 
 /** Private areas that search engines should never crawl. */
 export const PRIVATE_PATHS = ["/admin", "/driver", "/trip", "/login", "/auth", "/api"];

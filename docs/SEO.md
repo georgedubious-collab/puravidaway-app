@@ -155,28 +155,54 @@ Two layers, on purpose:
 
 - **Vercel Web Analytics** (already on): counts page views without cookies. Always on, needs no
   banner. Unchanged.
-- **Google Analytics 4**, behind a **cookie banner** (many travellers come from the EU and the
-  UK, where the law asks for a yes before analytics cookies). Optional extras, each off until
-  its id is set: Microsoft Clarity (recordings and heatmaps), Google Ads and the Meta pixel (for
-  later ads).
+- **Google Analytics 4**, with a **cookie banner only where the law asks for it**. Optional
+  extras, each off until its id is set: Microsoft Clarity (recordings and heatmaps), Google Ads
+  and the Meta pixel (for later ads).
 
-How the banner behaves (the code is `src/components/site/ConsentManager.tsx` and
-`src/lib/analytics.ts`):
+**Who sees the banner (Jorge, 2026-11-11: "I want real analytics data").** Only visitors in
+the European Economic Area (the 27 EU countries plus Iceland, Liechtenstein and Norway), the
+United Kingdom and Switzerland, where a yes is legally required before analytics cookies.
+Everyone else gets no banner: Google Analytics (and Clarity / the ads tools, when their ids are
+set) is on from the first page, and "Cookie settings" in the footer lets them switch it off.
 
-- **Nothing loads before the visitor says yes.** Google's script is not on the page at all
-  until then. This is Google's "Consent Mode v2" in its simplest form (the tag starts with
+- **How we know the region, without making pages slower.** The pages stay prerendered
+  (static). `src/proxy.ts` (Next's middleware) reads Vercel's `x-vercel-ip-country` header on
+  each page request and stores the answer in a small first-party cookie, **`crpt-region`**:
+  `consent` (ask first) or `open` (on by default). 30 days, `SameSite=Lax`, `Secure` on
+  Vercel, path `/`, readable by the page (it holds only that word); it is only written when
+  missing or different, and only when at least one measurement tool is switched on. The
+  banner reads it in the browser.
+- **Country list** (one place: `src/lib/consentRegion.ts`, tested by
+  `npm run test:consent-region`): EU-27 + IS, LI, NO + GB + CH, plus, on the safe side, EU
+  areas with their own country code (French overseas regions, Åland) and Gibraltar, Jersey,
+  Guernsey and the Isle of Man.
+- **Unknown country** (header missing, local runs, placeholder codes such as `XX`): treated as
+  `consent`, so the banner shows. Cookies blocked in the browser: same.
+- **A choice the visitor made always wins, in every region**: a stored Reject means nothing
+  loads, even outside Europe. Outside Europe that choice never expires (an opt-out stays an
+  opt-out); in Europe it is asked again after six months, as before.
+- The privacy text (`src/components/legal/MeasurementText.tsx`, English and Spanish) says this
+  in plain words; it still needs the lawyer's review (PROJECT.md §9 item 19).
+
+How the banner behaves where it is shown (the code is `src/components/site/ConsentManager.tsx`
+and `src/lib/analytics.ts`):
+
+- **In Europe, nothing loads before the visitor says yes.** Google's script is not on the page
+  at all until then. This is Google's "Consent Mode v2" in its simplest form (the tag starts with
   everything refused, then gets the visitor's answer); we chose it over the "advanced" form,
   where Google's script loads for everyone and sends cookieless pings, because "nothing runs
   until you accept" is the only version the Privacy Policy can state in one true sentence.
-  Cost: visitors who refuse or ignore the banner are not counted in Google Analytics (they still
-  are in Vercel Web Analytics, so the two totals will differ).
+  Cost: European visitors who refuse or ignore the banner are not counted in Google Analytics
+  (they still are in Vercel Web Analytics, so the two totals will differ). Outside Europe the
+  tag starts the same way and is switched to "granted" straight away, before anything is sent.
 - "Accept" and "Reject" look the same; "Choose" opens Analytics and Advertising as separate
   boxes, both unticked (the Advertising box only exists when an ads id is set). No wall: the
   site works the same whatever the answer, and the banner sits above the "Add to trip" bar on
   phones.
-- The answer is kept on the visitor's device for **six months**, then asked again. "Cookie
-  settings" at the bottom of every page reopens it; switching off stops the tools at once and
-  deletes their cookies for our site.
+- The answer is kept on the visitor's device for **six months**, then asked again (in Europe).
+  "Cookie settings" at the bottom of every page reopens it, for every visitor in every region
+  (outside Europe it opens as "Cookie settings" with Analytics ticked); switching off stops
+  the tools at once and deletes their cookies for our site.
 - **Never on private pages**: `/admin`, `/driver`, `/trip/<secret link>`, `/login`. No banner
   and no script there, and a trip link is never sent to Google, not even as "the page you came
   from".
@@ -193,9 +219,9 @@ What is recorded in Google Analytics (GA4's standard names, so its built-in repo
 | `page_view` | each public page | cleaned address, page title |
 | `view_item` | the ride builder shows prices for a route (once per route) | route as town codes, number of vehicle classes offered, "from" price, USD |
 | `select_item` | a vehicle class is tapped | route, vehicle class, its price |
-| `add_to_cart` | a ride or day tour is added to "Your trip" | item code, price, fixed price or bid |
-| `begin_checkout` | the trip is opened to review (phones) or the details form is first touched (desktop), once per trip | total, payment choice, fixed / bid / mixed, number of items |
-| `generate_lead` | "Send trip request" succeeded | total in USD, payment choice (`full_100` online or `cash_driver`), fixed / bid / mixed, items |
+| `add_to_cart` | a ride or day tour is added to "Your trip" | item code, price (the `pricing` fixed / bid parameter was dropped on 2026-11-11: fixed prices only) |
+| `begin_checkout` | the trip is opened to review (phones) or the details form is first touched (desktop), once per trip | total, payment choice, number of items |
+| `generate_lead` | "Send trip request" succeeded | total in USD, payment choice (`full_100` online or `cash_driver`), items |
 | `click` | a WhatsApp button, an app store link (none on the site yet) or the language switch | only the kind of link (`whatsapp`, `app_store`, `language`) |
 
 `purchase` is **not sent at all** for now: the website takes no payment (the team sends a
@@ -215,12 +241,12 @@ site that uses them.
 
 | Variable | What to paste | Where to get it | What it switches on |
 | :--- | :--- | :--- | :--- |
-| `NEXT_PUBLIC_GA_ID` | `G-` + 10 letters/digits | analytics.google.com → Admin → Create property "Costa Rica Private Transfers" → Web data stream for the site → "Measurement ID" | the cookie banner, the "Cookie settings" footer link, the Google Analytics paragraphs of the Privacy Policy and, after a yes, Google Analytics |
+| `NEXT_PUBLIC_GA_ID` | `G-` + 10 letters/digits | analytics.google.com → Admin → Create property "Costa Rica Private Transfers" → Web data stream for the site → "Measurement ID" | Google Analytics (outside Europe at once; in Europe after a yes in the cookie banner), the `crpt-region` cookie, the "Cookie settings" footer link and the Google Analytics paragraphs of the Privacy Policy |
 | `NEXT_PUBLIC_GSC_VERIFICATION` | the long code inside `content="…"` | Search Console → add property → "HTML tag" method. **Only needed if DNS verification (preferred, §7.3) is not used** | a hidden ownership tag on every page |
 | `NEXT_PUBLIC_BING_VERIFICATION` | 32 letters/digits inside `content="…"` | Bing Webmaster Tools → add site → "HTML meta tag". Not needed when Bing imports the site from Search Console | a hidden ownership tag on every page |
-| `NEXT_PUBLIC_CLARITY_ID` (optional) | about 10 lowercase letters/digits | clarity.microsoft.com → new project → Settings → Setup → "Project ID" | Microsoft Clarity, for visitors who accept Analytics; adds it to the banner and the Privacy Policy |
-| `NEXT_PUBLIC_GOOGLE_ADS_ID` (later) | `AW-` + digits | Google Ads → Tools → Google tag | the "Advertising" box in the banner; after a yes, the Google Ads tag (page visit only, no conversions yet) |
-| `NEXT_PUBLIC_META_PIXEL_ID` (later) | 15–16 digits | Meta Events Manager → Data sources → the pixel's ID | same box; after a yes, the Meta pixel (page view only) |
+| `NEXT_PUBLIC_CLARITY_ID` (optional) | about 10 lowercase letters/digits | clarity.microsoft.com → new project → Settings → Setup → "Project ID" | Microsoft Clarity, following the Analytics rule (on outside Europe, after a yes in Europe); adds it to the banner and the Privacy Policy |
+| `NEXT_PUBLIC_GOOGLE_ADS_ID` (later) | `AW-` + digits | Google Ads → Tools → Google tag | the "Advertising" box in the banner; the Google Ads tag (page visit only, no conversions yet), on outside Europe and after a yes in Europe |
+| `NEXT_PUBLIC_META_PIXEL_ID` (later) | 15–16 digits | Meta Events Manager → Data sources → the pixel's ID | same box; the Meta pixel (page view only), on outside Europe and after a yes in Europe |
 
 Use accounts that belong to Costa Rica Private Transfers (its own Google account), not to
 another brand: property and account names can show up in shared reports (PROJECT.md §10).
@@ -250,7 +276,7 @@ Before switching on Clarity or either ads tool, read "Known limits" below.
 **Known limits (2026-11-11)**
 
 - The steps 1–3 above are settings in Google's screens; the code cannot enforce them. Until
-  step 1 is done, Google Analytics may record the full page address on visitors who accepted.
+  step 1 is done, Google Analytics may record the full page address of visitors it runs for.
 - Clarity and the Meta pixel read the page address themselves, including the ride details after
   the `?` (a typed hotel's name). If that matters, the ride builder should stop putting typed
   place names in the address before these two are switched on (a small change).
@@ -260,8 +286,10 @@ Before switching on Clarity or either ads tool, read "Known limits" below.
 ### 7.3 Launch checklist, in this order
 
 1. **Create the Google Analytics property** and paste `NEXT_PUBLIC_GA_ID` in Vercel (Production
-   only); do the six settings above; redeploy. Open the site in a private window: the banner
-   shows; after "Accept", Google Analytics → Reports → Realtime shows the visit.
+   only); do the six settings above; redeploy. Open the site in a private window: from Costa
+   Rica (or anywhere outside Europe) there is no banner and Google Analytics → Reports →
+   Realtime shows the visit at once; with a VPN set to Germany or the UK the banner shows and
+   the visit appears only after "Accept".
 2. **Connect the domain** (costaricaprivatetransfers.com) in Vercel and set
    `NEXT_PUBLIC_SITE_URL` to it.
 3. **Google Search Console** (search.google.com/search-console) → Add property → **Domain** →

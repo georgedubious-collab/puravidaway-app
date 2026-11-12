@@ -20,11 +20,11 @@ const ENTRANCE: Record<Lang, Record<string, string>> = {
 function DoneBar() {
   const { t } = useT();
   const nav = useNav();
-  const { state, quoteBusy, vehicle, itemCents, offerValid } = useBooking();
+  const { quoteBusy, vehicle, itemCents } = useBooking();
   return (
     <PriceBar
-      label={state.mode === "bid" ? t("Your offer", "Su oferta") : vehicle ? "Total · " + vehicle.name : "Total"}
-      amount={!vehicle || (state.mode === "bid" && !offerValid) ? "—" : cents(itemCents)}
+      label={vehicle ? "Total · " + vehicle.name : "Total"}
+      amount={!vehicle ? "—" : cents(itemCents)}
       note={t("For the whole car, taxes included", "Por todo el vehículo, impuestos incluidos")}
       action={t("Done", "Listo")}
       icon={null}

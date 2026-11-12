@@ -155,12 +155,9 @@ check("boat fee exists", boat.extraFeeCents > 0, true);
 check("boat: the premium is 20% of the ride without the boat fee", boatNight.nightCents, Math.round((boatDay.totalCents - boat.extraFeeCents) * 0.2));
 check("boat: total = day + premium", boatNight.totalCents, boatDay.totalCents + boatNight.nightCents);
 
-// "Name your price": the reference fixed price includes the premium; the offer itself is not marked up.
-const bid = (time) => price({ ...ride(time), pricing: "bid", offerCents: 15000 });
-check("bid by day: reference = fixed price", bid("09:00").referenceCents, day.totalCents);
-check("bid at night: reference = night fixed price", bid("23:30").referenceCents, night2330.totalCents);
-check("bid at night: the offer is what is charged", bid("23:30").totalCents, 15000);
-check("bid at night: no premium on top of the offer", bid("23:30").nightCents, 0);
+// Travellers book at the fixed price only (2026-11-11): a "name your price" ride is never parsed or priced.
+check("an offer ride is not parsed", parseSpec({ ...ride("23:30"), pricing: "bid", offerCents: 15000 }), null);
+check("a ride without a pricing field is the fixed price", price({ ...ride("23:30"), pricing: undefined }).totalCents, night2330.totalCents);
 
 // Day tours are not affected (multi-day trips were retired on 2026-11-11).
 const tour = priceItem({ kind: "day_tour", tourId: "dt1", upgrade: false, pax: 2 }, GREEN, catalog);
