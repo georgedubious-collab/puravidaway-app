@@ -101,6 +101,7 @@ export async function acceptOffer(_prev: FormState, fd: FormData): Promise<FormS
     revalidatePath(`/admin/bookings/${bookingId}`);
     revalidatePath("/driver/jobs");
     revalidatePath("/driver/trips");
+    revalidatePath("/admin/dispatch");
   }, t("No pudimos aceptar esta oferta. Recargue la página e inténtelo de nuevo.", "We couldn't accept this offer. Please reload and try again."));
 }
 
@@ -131,8 +132,12 @@ export async function updateBooking(_prev: FormState, fd: FormData): Promise<For
       );
     }
 
+    // The dispatch calendar (/admin/dispatch) sends only status + assignment: a field that isn't
+    // sent keeps its value (amount received, internal notes).
+    const hasPaid = fd.has("amount_paid");
+    const hasNotes = fd.has("admin_notes");
     const paidRaw = String(fd.get("amount_paid") ?? "").trim() || "0";
-    if (!/^\d{1,7}(\.\d{1,2})?$/.test(paidRaw))
+    if (hasPaid && !/^\d{1,7}(\.\d{1,2})?$/.test(paidRaw))
       throw new InputError(t("El monto recibido debe escribirse como 45 o 45.50.", "Amount received must look like 45 or 45.50."));
     const notes = String(fd.get("admin_notes") ?? "").trim().slice(0, 2000) || null;
 
@@ -148,7 +153,7 @@ export async function updateBooking(_prev: FormState, fd: FormData): Promise<For
         status,
         assigned_driver_id: driverId,
         assigned_vehicle_id: vehicleId,
-        amount_paid: Number(paidRaw),
+        ...(hasPaid ? { amount_paid: Number(paidRaw) } : {}),
       })
       .eq("id", id)
       .select("id");
@@ -168,12 +173,15 @@ export async function updateBooking(_prev: FormState, fd: FormData): Promise<For
     if (status === "completed" && before && before.status !== "completed") {
       after(() => requestDriverReview(id));
     }
-    const n = await supabase
-      .from("booking_admin_notes")
-      .upsert({ booking_id: id, notes: notes ?? "", updated_at: new Date().toISOString() });
-    if (n.error) throw n.error;
+    if (hasNotes) {
+      const n = await supabase
+        .from("booking_admin_notes")
+        .upsert({ booking_id: id, notes: notes ?? "", updated_at: new Date().toISOString() });
+      if (n.error) throw n.error;
+    }
     revalidatePath("/admin/bookings");
     revalidatePath(`/admin/bookings/${id}`);
     revalidatePath("/admin");
+    revalidatePath("/admin/dispatch");
   }, t("No se pudo guardar la reserva. Inténtelo de nuevo.", "Couldn't save the booking. Please try again."));
 }
