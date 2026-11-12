@@ -76,7 +76,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
               <Link href={`/admin/reports?month=${shiftMonth(period.month, -1)}`} className={btn.secondary} aria-label={t("Mes anterior", "Previous month")}>
                 ←
               </Link>
-              <span className="min-w-36 text-center font-extrabold capitalize">{monthLabel(period.month, lang)}</span>
+              <span className="min-w-36 text-center font-extrabold">{monthLabel(period.month, lang)}</span>
               <Link href={`/admin/reports?month=${shiftMonth(period.month, 1)}`} className={btn.secondary} aria-label={t("Mes siguiente", "Next month")}>
                 →
               </Link>
@@ -263,7 +263,8 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
 
 function monthLabel(ym: string, lang: TeamLang): string {
   const [y, m] = ym.split("-").map(Number);
-  return new Intl.DateTimeFormat(lang === "es" ? "es-CR" : "en-US", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(Date.UTC(y, m - 1, 1)));
+  const s = new Intl.DateTimeFormat(lang === "es" ? "es-CR" : "en-US", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(Date.UTC(y, m - 1, 1)));
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 function Headline({ label, now, before, note, lang, count }: { label: string; now: number; before: number; note: string; lang: TeamLang; count?: boolean }) {
