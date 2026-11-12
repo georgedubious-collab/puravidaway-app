@@ -1,5 +1,4 @@
 import { townName } from "@/lib/matching";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AdminActionForm, type ConfirmRule } from "@/components/admin/AdminActionForm";
 import { Card, Chip, Notice, PageHeader, field, link } from "@/components/admin/ui";

@@ -2,26 +2,34 @@
 
 import { revalidatePath } from "next/cache";
 import { requireRole, type Role } from "@/lib/auth";
+import { InputError, runAction, type FormState } from "@/lib/forms/formState";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { makeT } from "@/lib/teamLang";
+import { getTeamLang } from "@/lib/teamLangServer";
 
 const ROLES: Role[] = ["client", "driver", "admin"];
 
-export async function setUserRole(formData: FormData): Promise<void> {
-  const me = await requireRole("admin", "/admin/users");
-  const userId = String(formData.get("userId") ?? "");
-  const role = String(formData.get("role") ?? "") as Role;
-  if (!ROLES.includes(role) || !userId) return;
-  // Don't let the last admin lock themselves out by accident.
-  if (userId === me.id && role !== "admin") return;
+/** Change someone's role. Returns a readable error instead of a blank error page. */
+export async function setUserRole(_prev: FormState, formData: FormData): Promise<FormState> {
+  const t = makeT(await getTeamLang());
+  return runAction(async () => {
+    const me = await requireRole("admin", "/admin/users");
+    const userId = String(formData.get("userId") ?? "");
+    const role = String(formData.get("role") ?? "") as Role;
+    if (!ROLES.includes(role) || !userId) throw new InputError(t("Elija un rol.", "Pick a role."));
+    // Don't let the last admin lock themselves out by accident.
+    if (userId === me.id && role !== "admin")
+      throw new InputError(t("No puede quitarse su propio rol de admin.", "You can't remove your own admin role."));
 
-  const supabase = (await createSupabaseServerClient())!;
-  const { error } = await supabase.from("profiles").update({ role }).eq("id", userId);
-  if (error) throw new Error(error.message);
+    const supabase = (await createSupabaseServerClient())!;
+    const { error } = await supabase.from("profiles").update({ role }).eq("id", userId);
+    if (error) throw new Error(error.message);
 
-  if (role === "driver") {
-    // New drivers get an empty KYC record in "pending" until their documents are checked.
-    const d = await supabase.from("drivers").upsert({ id: userId }, { onConflict: "id", ignoreDuplicates: true });
-    if (d.error) throw new Error(d.error.message);
-  }
-  revalidatePath("/admin/users");
+    if (role === "driver") {
+      // New drivers get an empty KYC record in "pending" until their documents are checked.
+      const d = await supabase.from("drivers").upsert({ id: userId }, { onConflict: "id", ignoreDuplicates: true });
+      if (d.error) throw new Error(d.error.message);
+    }
+    revalidatePath("/admin/users");
+  }, t("No se pudo cambiar el rol. Inténtelo de nuevo.", "Couldn't change the role. Please try again."));
 }
