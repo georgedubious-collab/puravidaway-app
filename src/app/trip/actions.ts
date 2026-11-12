@@ -18,13 +18,10 @@ import { clientLanguageNote, requestItemLine, requestPaymentLine, tripRequestEma
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
   MAX_TRIP_ITEMS,
-  RETIRED_EXPEDITION_ERROR,
-  TRAVELLER_OFFER_ERROR,
-  isRetiredExpeditionSpec,
-  isTravellerOfferSpec,
   itemTime,
   parseSpec,
   priceItem,
+  retiredItemError,
   type ItemSpec,
 } from "@/lib/tripRequest";
 
@@ -82,6 +79,11 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
     const items = Array.isArray(input.items) ? input.items : [];
     if (items.length === 0) return { ok: false, error: "Your trip is empty." };
     if (items.length > MAX_TRIP_ITEMS) return { ok: false, error: `Up to ${MAX_TRIP_ITEMS} items per request, please.` };
+    // Things an older page or app build may still send, refused before anything is looked up:
+    // multi-day trips (retired 2026-11-11) and a traveller's own offer on a ride ("name your
+    // price"; travellers book at the fixed price only since 2026-11-11).
+    const retired = retiredItemError(items);
+    if (retired) return { ok: false, error: retired };
 
     const db = createSupabaseAdminClient();
     if (!db) return { ok: false, error: "Online requests aren't switched on yet. Please send your trip on WhatsApp." };
@@ -100,11 +102,6 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
     }[] = [];
     const repriced: Record<string, number> = {};
     for (const item of items) {
-      // Multi-day trips were retired on 2026-11-11; an older page or app build may still send one.
-      if (isRetiredExpeditionSpec(item?.spec)) return { ok: false, error: RETIRED_EXPEDITION_ERROR };
-      // Travellers book at the fixed price only since 2026-11-11; an older page or app build may
-      // still send a "name your price" ride.
-      if (isTravellerOfferSpec(item?.spec)) return { ok: false, error: TRAVELLER_OFFER_ERROR };
       let spec = parseSpec(item.spec);
       if (!spec) return { ok: false, error: "One item was added on an older version of the site. Please remove it and add it again." };
       if (typeof item.date !== "string" || item.date < today) {

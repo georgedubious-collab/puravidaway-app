@@ -102,6 +102,19 @@ export function isTravellerOfferSpec(raw: unknown): boolean {
 }
 
 /**
+ * The first refusal for items an older page or app build may still send, checked before
+ * anything is looked up: a multi-day trip (retired 2026-11-11) or a ride sent as a traveller's
+ * own offer (fixed prices only since 2026-11-11). Null when every item may go on.
+ */
+export function retiredItemError(items: readonly { spec?: unknown }[]): string | null {
+  for (const item of items) {
+    if (isRetiredExpeditionSpec(item?.spec)) return RETIRED_EXPEDITION_ERROR;
+    if (isTravellerOfferSpec(item?.spec)) return TRAVELLER_OFFER_ERROR;
+  }
+  return null;
+}
+
+/**
  * A ride saved in the website cart as an offer before 2026-11-11, turned into the same ride at the
  * fixed price. The server then answers "prices have changed" and the cart shows the fixed total.
  */

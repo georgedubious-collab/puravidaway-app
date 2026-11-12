@@ -58,10 +58,6 @@ export default function TermsPage() {
             Your confirmation shows the services, dates, pickup times, places and price. Please check
             it and tell us straight away if anything is wrong.
           </li>
-          <li>
-            If you name your own price (driver offers), the trip is booked only when an offer is
-            accepted and we confirm it.
-          </li>
         </ul>
       </LegalSection>
 

@@ -88,11 +88,11 @@ export const FAQ_GROUPS: FaqGroup[] = [
         },
       },
       {
-        id: "bids",
-        q: { en: "What are \"driver bids\"?", es: "¿Qué son las \"ofertas de conductores\"?" },
+        id: "fixed-price",
+        q: { en: "Is the price fixed?", es: "¿El precio es fijo?" },
         a: {
-          en: "Instead of the fixed price, you can name your own offer for a ride. The fixed price is shown as a reference. Our partner drivers can accept it, and we email you when a driver is confirmed. Very low offers may not find a driver.",
-          es: "En lugar del precio fijo, puede proponer su propio precio para un traslado. El precio fijo aparece como referencia. Nuestros conductores asociados pueden aceptarlo, y le avisamos por correo cuando hay un conductor confirmado. Las ofertas muy bajas pueden no encontrar conductor.",
+          en: "Yes. Every ride has a fixed price per vehicle, shown before you book, with the season, any night pickup and ferry fares already included. The price you see is the price you pay.",
+          es: "Sí. Cada traslado tiene un precio fijo por vehículo, que usted ve antes de reservar, con la temporada, la recogida nocturna si aplica y el ferry ya incluidos. El precio que ve es el que paga.",
         },
       },
     ],

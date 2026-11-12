@@ -18,7 +18,7 @@ export async function GET() {
   const u = (p: string) => `${SITE_URL}${p}`;
   const text = `# ${SITE_NAME}
 
-> Private door-to-door transfers and 1-day private tours across Costa Rica, with vetted independent local drivers. Fixed price per vehicle before booking, or "driver bids" where the traveller names an offer. Support by WhatsApp and email (${CONTACT_EMAIL}). English and Spanish.
+> Private door-to-door transfers and 1-day private tours across Costa Rica, with vetted independent local drivers. Fixed price per vehicle, shown before booking. Support by WhatsApp and email (${CONTACT_EMAIL}). English and Spanish.
 
 Key facts:
 - Prices are per vehicle in USD, confirmed before payment; season and ferry fares are included in the shown price.
