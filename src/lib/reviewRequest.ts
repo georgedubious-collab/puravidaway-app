@@ -9,7 +9,9 @@ import { createSupabaseAdminClient } from "./supabase/admin";
 /**
  * Ask the traveller to rate their driver, once per booking, as soon as a trip is
  * completed (by the driver or the team). Marks bookings.review_requested_at first
- * so the email can never go out twice; the daily job sends one reminder later.
+ * so the email can never go out twice; one reminder follows 24 hours later if they
+ * haven't rated (src/lib/reviewReminder.ts, /api/cron/review-reminders). Tapping the
+ * push opens the trip with the rating panel (`rate`; older app builds open the trip).
  * Never throws.
  */
 export async function requestDriverReview(bookingId: string): Promise<void> {
@@ -38,7 +40,7 @@ export async function requestDriverReview(bookingId: string): Promise<void> {
     const lang = parsePublicLang(trip.language);
     const driver = driverFirstName(lang, who?.full_name, false);
     const ride = b.service_type === "transfer";
-    await sendPushToEmail(trip.guest_email, { ...reviewRequestPush(lang, { driver, ride }), data: { screen: "trip", id: b.id } });
+    await sendPushToEmail(trip.guest_email, { ...reviewRequestPush(lang, { driver, ride }), data: { screen: "trip", id: b.id, rate: "1" } });
     await sendEmail({
       to: trip.guest_email,
       ...reviewRequestEmail(lang, {

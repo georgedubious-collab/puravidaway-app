@@ -213,6 +213,10 @@ export default async function TripPage({ params, searchParams }: Props) {
     b.service_type === "transfer"
       ? `${lang === "es" ? placeNameFor(b.origin, lang) : b.origin} → ${lang === "es" ? placeNameFor(b.destination, lang) : b.destination}`
       : (bookedItemName(catalog.dayTours, b.catalog_item_id, lang) ?? t("Trip", "Viaje"));
+  // A completed trip that hasn't been rated: its rating form is the first thing on the page
+  // (the latest one, if there are several) instead of sitting inside its card further down.
+  const toRate = [...bookings].reverse().find((b) => b.status === "completed" && driverCard(b.assigned_driver_id) && !ratingOf(b.id));
+  const toRateDriver = toRate ? driverCard(toRate.assigned_driver_id) : null;
   /** "Chat about this ride" / "Chat sobre este traslado". */
   const chatTitle = (type: string) =>
     t(
@@ -256,6 +260,10 @@ export default async function TripPage({ params, searchParams }: Props) {
             )}
           </p>
         </div>
+
+        {toRate && toRateDriver && (
+          <RateDriver action={rateDriver} token={token} bookingId={toRate.id} driverFirstName={toRateDriver.firstName} ride={itemName(toRate)} lang={lang} />
+        )}
 
         {(locs ?? []).length > 0 && <LiveRefresh seconds={20} />}
         {bookings.map((b) => {
@@ -408,7 +416,7 @@ export default async function TripPage({ params, searchParams }: Props) {
                       `Usted calificó a ${driver.firstName} con ${ratingOf(b.id)} estrella${ratingOf(b.id) === 1 ? "" : "s"}. ¡Gracias!`,
                     )}
                   </p>
-                ) : (
+                ) : b.id === toRate?.id ? null : (
                   <RateDriver action={rateDriver} token={token} bookingId={b.id} driverFirstName={driver.firstName} lang={lang} />
                 )
               )}

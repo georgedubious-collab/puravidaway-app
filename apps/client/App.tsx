@@ -13,9 +13,10 @@ import { useEffect, useState } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { BookingProvider } from "./src/booking";
 import { LangProvider } from "./src/i18n";
-import { navigationRef, openChat, openTrip } from "./src/nav";
+import { navigationRef, openChat, openRate, openTrip } from "./src/nav";
 import { RootNavigator, navTheme } from "./src/Navigator";
 import { Preview } from "./src/preview";
+import { RatePrompt } from "./src/ratePrompt";
 import { SessionProvider, useSession } from "./src/session";
 import { supabase } from "./src/supabase";
 
@@ -69,6 +70,7 @@ export default function App() {
               <RootNavigator />
             </NavigationContainer>
             <NotificationTaps />
+            <RatePrompt />
           </BookingProvider>
         </SessionProvider>
       </SafeAreaProvider>
@@ -76,15 +78,16 @@ export default function App() {
   );
 }
 
-/** A tapped notification ("your driver is on the way", "rate your ride") opens that booking. */
+/** A tapped notification ("your driver is on the way", "rate your ride") opens that booking; a rating one opens the rating panel on it. */
 function NotificationTaps() {
   const { reload } = useSession();
   useEffect(() => {
     const sub = Notifications.addNotificationResponseReceivedListener((response) => {
-      const data = response.notification.request.content.data as { screen?: string; id?: string } | undefined;
+      const data = response.notification.request.content.data as { screen?: string; id?: string; rate?: string } | undefined;
       if (data?.screen === "trip" && data.id) {
         void reload();
-        openTrip(data.id);
+        if (data.rate) openRate(data.id);
+        else openTrip(data.id);
       }
       if (data?.screen === "chat" && data.id) {
         void reload();

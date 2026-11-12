@@ -12,7 +12,10 @@ Its own project: Vercel ignores this folder.
 - **My trips:** every ride and tour requested with that email; status, amount due and
   how it's paid; "your driver is on the way".
 - **Trip:** the driver's first name, photo, rating, languages and car photos once assigned; the
-  same chat as the trip page; a 1–5 star rating after the trip.
+  same chat as the trip page; a 1–5 star rating after the trip (stars are enough; words are
+  optional). When a trip has ended and isn't rated, the rating panel opens by itself the next time
+  the app is opened or refreshed, once per booking, never during a booking
+  (`src/ratePrompt.tsx`); the "Rate your ride" button stays on the trip.
 - **Plan a trip, in the app** (no map while booking since 2026-11-11, see below): a private ride (type any hotel, airport or address; date, time,
   travellers, vehicle, optional stops) or a day tour; contact details; pay online or cash. Every
   price comes from the server (`/api/v1/client/quote`, `/tours`) and the request goes through the
@@ -25,7 +28,8 @@ Its own project: Vercel ignores this folder.
   The position shows only while the driver is sharing it for that booking (3 hours before pickup,
   or on the way, until the trip ends). The driver's phone number is never shown.
 - **Account:** WhatsApp, terms, privacy, cancellation policy, sign out.
-- **Push notifications:** ride confirmed with a driver, driver on the way, rating request.
+- **Push notifications:** ride confirmed with a driver, driver on the way, rating request, and one
+  rating reminder 24 hours later (tapping either rating push opens the trip with the rating panel).
 
 Not yet: real card payments and account deletion
 inside the app (both stores require it before publishing).

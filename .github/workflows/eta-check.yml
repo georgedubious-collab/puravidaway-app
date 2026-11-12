@@ -1,6 +1,8 @@
 # Every 5 minutes: ask the site to check whether drivers will reach their pickups on time
 # (live traffic) and alert the team if one would be more than 20 minutes late, or isn't
 # sharing location close to the pickup. See src/lib/eta.ts.
+# Once an hour (second schedule below): send the single "please rate your driver" reminder
+# to travellers whose trip ended 24+ hours ago. See src/lib/reviewReminder.ts.
 # Needs the repository secret CRON_SECRET (same value as in Vercel). GitHub's schedule can
 # run a few minutes late; the driver app also triggers the same check while it's reporting.
 name: Driver ETA check
@@ -8,18 +10,21 @@ name: Driver ETA check
 on:
   schedule:
     - cron: "*/5 * * * *"
+    # Hourly, off the 5-minute marks. Keep this text the same as in the `reviews` job below.
+    - cron: "7 * * * *"
   workflow_dispatch:
 
 permissions: {}
 
-concurrency:
-  group: eta-check
-  cancel-in-progress: true
-
 jobs:
   check:
+    # Not on the hourly schedule: that one is only for the rating reminders.
+    if: github.event.schedule != '7 * * * *'
     runs-on: ubuntu-latest
     timeout-minutes: 3
+    concurrency:
+      group: eta-check
+      cancel-in-progress: true
     steps:
       - name: Check upcoming pickups
         env:
@@ -41,3 +46,26 @@ jobs:
         run: |
           if [ -z "$CRON_SECRET" ]; then exit 0; fi
           curl --fail-with-body -sS --max-time 60 -H "Authorization: Bearer $CRON_SECRET" "$SITE_URL/api/cron/chat-unread"
+
+  # Once an hour (and when the workflow is started by hand): the one rating reminder, 24 hours
+  # after the trip ended, by push and email. The site decides who is due, sends each reminder
+  # only once and sends nothing between 9 PM and 7 AM Costa Rica time, so calling it more
+  # often changes nothing. Vercel Cron also calls it once a day as a backstop (vercel.json).
+  reviews:
+    if: github.event.schedule == '7 * * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    concurrency:
+      group: review-reminders
+      cancel-in-progress: false
+    steps:
+      - name: Send rating reminders
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          SITE_URL: ${{ vars.SITE_URL || 'https://www.costaricaprivatetransfers.com' }}
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "::warning::CRON_SECRET is not set in GitHub, so the rating reminders did not run."
+            exit 0
+          fi
+          curl --fail-with-body -sS --max-time 60 -H "Authorization: Bearer $CRON_SECRET" "$SITE_URL/api/cron/review-reminders"

@@ -267,6 +267,22 @@ export function reviewRequestEmail(lang: PublicLang, a: Review): TravellerEmail 
   };
 }
 
+/** The single reminder, 24 hours later, to travellers with the app (the email below goes out with it). */
+export function reviewReminderPush(lang: PublicLang, a: Pick<Review, "driver" | "ride">): TravellerPush {
+  return {
+    title: t(
+      lang,
+      `A quick reminder: how was your ${a.ride ? "ride" : "trip"} with ${a.driver}?`,
+      `Un recordatorio: ¿cómo estuvo su ${a.ride ? "traslado" : "viaje"} con ${a.driver}?`,
+    ),
+    body: t(
+      lang,
+      "Tap to rate with the stars. Words are optional. We won't remind you again.",
+      "Toque para calificar con las estrellas. Escribir es opcional. No se lo recordaremos de nuevo.",
+    ),
+  };
+}
+
 export function reviewReminderEmail(lang: PublicLang, a: Review): TravellerEmail {
   return {
     lang,
@@ -277,10 +293,10 @@ export function reviewReminderEmail(lang: PublicLang, a: Review): TravellerEmail
         lang,
         `Just a gentle reminder in case it slipped by: could you rate ${a.driver} for your ${
           a.ride ? `ride ${a.origin} → ${a.destination}` : "trip"
-        }? It takes 10 seconds. A few words help even more: our best-rated drivers get more trips.`,
+        }? It takes 10 seconds: the stars are enough, and a few words are welcome if you'd like to add them. Our best-rated drivers get more trips.`,
         `Solo un recordatorio amable, por si se le pasó: ¿podría calificar a ${a.driver} por su ${
           a.ride ? `traslado ${a.origin} → ${a.destination}` : "viaje"
-        }? Toma 10 segundos. Unas palabras ayudan aún más: nuestros conductores mejor calificados reciben más viajes.`,
+        }? Toma 10 segundos: con las estrellas basta, y unas palabras son bienvenidas si desea agregarlas. Nuestros conductores mejor calificados reciben más viajes.`,
       ),
       t(lang, "This is the only reminder we'll send.", "Este es el único recordatorio que le enviaremos."),
     ],

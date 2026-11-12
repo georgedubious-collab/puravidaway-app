@@ -66,6 +66,13 @@ export function openChat(id: string): void {
   navigationRef.navigate("Chat", { id });
 }
 
+/** A tapped "rate your ride" notification: the trip, then the rating panel on top (closing it leaves the trip). */
+export function openRate(id: string): void {
+  if (!navigationRef.isReady()) return;
+  openTrip(id);
+  navigationRef.navigate("Rate", { id });
+}
+
 export function goToTab(tab: keyof TabParams): void {
   if (!navigationRef.isReady()) return;
   navigationRef.navigate("Tabs", { screen: tab });
