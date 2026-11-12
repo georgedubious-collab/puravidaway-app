@@ -4,7 +4,7 @@ import { AREA_IDS } from "@/lib/catalog";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth";
 import { isValidYmd } from "@/lib/dates";
-import { DRIVER_DOC_KEYS, MAX_VEHICLE_PHOTOS, MIN_VEHICLE_PHOTOS, RENEWABLE, VEHICLE_DOC_KEYS } from "@/lib/driverKyc";
+import { DRIVER_DOC_KEYS, MAX_VEHICLE_PHOTOS, MIN_VEHICLE_PHOTOS, RENEWABLE, VEHICLE_DOC_KEYS, VEHICLE_DOCS } from "@/lib/driverKyc";
 import { InputError, runAction, type FormState } from "@/lib/forms/formState";
 import { hasContactDetails } from "@/lib/preferences";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -286,6 +286,8 @@ export async function attachVehicleDocument(vehicleId: string, key: string, path
   return runAction(async () => {
     const me = await requireUser("/driver");
     if (!VEHICLE_DOC_KEYS.has(key)) throw new InputError(unknownDoc(t));
+    if (VEHICLE_DOCS.find((d) => d.key === key)?.imageOnly && /\.pdf$/i.test(path))
+      throw new InputError(t("Use una foto (JPG, PNG, WEBP, HEIC), no un PDF.", "Use a photo (JPG, PNG, WEBP, HEIC), not a PDF."));
     const { supabase, documents } = await vehicleFor(t, me.id, vehicleId, path);
     const patch: Record<string, unknown> = { documents: { ...documents, [key]: path } };
     const r = renewedValue(t, key, renewed);

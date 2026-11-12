@@ -989,7 +989,7 @@ decides which jobs the driver receives, §5.3, migration 0038) ·
 "electric vehicle, if available" request, not a category and no price change, §5.3, migration 0042) ·
 `ins_policy_number` · `ins_insurance_expiry` date · `dekra_inspection_expiry` date ·
 `marchamo_year` int · `has_wifi` · `child_seats` · `stroller_space` · `pet_friendly` · `documents` jsonb (`insurance`, `dekra`, `marchamo`,
-`vehicle_registration`) · `photos` jsonb array (ordered, first = main photo; at least 2 on an approved vehicle; at most 8 from the app and website, 12 in the database) · `status` · `note` ·
+`vehicle_registration`, `plate_photo`) · `photos` jsonb array (ordered, first = main photo; at least 2 on an approved vehicle; at most 8 from the app and website, 12 in the database) · `status` · `note` ·
 `needs_review` · `reviewed_at` · `reviewed_by` · `created_at`
 
 **Driver and vehicle photos (2026-11-12, Jorge: "upload several pictures, selfie plus car pics, shown
@@ -1013,6 +1013,12 @@ documents, dates and the plate, migration 0031). Travellers see the profile phot
 the trip page as a sideways-scrolling row with a full-screen viewer, the customer app as a swipeable
 row with a full-screen viewer (React Native Modal, no new native library). Only those files are ever
 signed for travellers (`travellerPhotoPaths`), never documents.
+**Licence plate photo (Jorge, 2026-11-12, option b):** each vehicle also needs one photo where the
+plate is easy to read, "for our team only" (`documents.plate_photo`, a required vehicle document,
+picture only, no PDF). Being a document, only the team and the owning driver can open it; it is never
+signed for travellers. Vehicles approved before this rule show it as missing to the team but stay
+approved and keep working; adding it the first time pauses nothing, replacing it later pauses new jobs
+for that vehicle like the other vehicle documents (`review_hold`, migration 0048).
 
 The criminal record certificate must be issued ≤ 30 days before first approval (checked by the
 approve button). Expiry warnings cover the licence, insurance, Dekra and Marchamo.

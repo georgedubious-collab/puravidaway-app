@@ -1416,6 +1416,30 @@ await expectOk("server removes the test booking", "server", "delete from public.
   await expectOk("server deletes the photo file", "server",
     `delete from storage.objects where name = '${U.driver}/vehicles/x/photo-del.jpg'`);
   await expectRows("the file is gone", "server", `select 1 from storage.objects where name = '${U.driver}/vehicles/x/photo-del.jpg'`, 0);
+
+  // Licence plate photo: a vehicle document for the team only (Jorge, 2026-11-12).
+  const plate = (n) => `${U.driver}/vehicles/30000000-0000-0000-0000-000000000001/plate_photo-${n}.jpg`;
+  await expectOk("server: approved vehicle, not paused", "server",
+    `update public.driver_vehicles set status = 'approved', review_hold = false, needs_review = false where id = ${V1}`);
+  await expectOk("driver adds the plate photo the first time", "driver",
+    `update public.driver_vehicles set documents = documents || '{"plate_photo": "${plate(1)}"}' where id = ${V1}`);
+  await expectRows("adding it the first time does not pause the approved vehicle", "admin",
+    `select 1 from public.driver_vehicles where id = ${V1} and status = 'approved' and not review_hold and documents ->> 'plate_photo' = '${plate(1)}'`, 1);
+  await expectOk("driver replaces the plate photo", "driver",
+    `update public.driver_vehicles set documents = documents || '{"plate_photo": "${plate(2)}"}' where id = ${V1}`);
+  await expectRows("replacing it pauses the vehicle like other vehicle documents", "admin",
+    `select 1 from public.driver_vehicles where id = ${V1} and status = 'approved' and review_hold`, 1);
+  await expectOk("admin checks it", "admin", `update public.driver_vehicles set needs_review = false where id = ${V1}`);
+  await expectRows("the hold clears after the team's check", "admin", `select 1 from public.driver_vehicles where id = ${V1} and not review_hold`, 1);
+  await expectBlocked("another driver cannot set this vehicle's plate photo", "pending",
+    `update public.driver_vehicles set documents = documents || '{"plate_photo": "${U.pending}/x.jpg"}' where id = ${V1}`, { affected: 0 });
+  await expectOk("server stores the plate photo file", "server",
+    `insert into storage.objects (bucket_id, name) values ('driver-kyc-docs', '${plate(2)}')`);
+  await expectRows("a traveller cannot read the plate photo file", "client", `select 1 from storage.objects where name = '${plate(2)}'`, 0);
+  await expectRows("another driver cannot read the plate photo file", "pending", `select 1 from storage.objects where name = '${plate(2)}'`, 0);
+  await expectRows("a visitor cannot read the plate photo file", "anon", `select 1 from storage.objects where name = '${plate(2)}'`, 0);
+  await expectRows("the owning driver can read it", "driver", `select 1 from storage.objects where name = '${plate(2)}'`, 1);
+  await expectRows("the team can read it", "admin", `select 1 from storage.objects where name = '${plate(2)}'`, 1);
 }
 
 // --- Dispatch calendar assigns like the booking page (2026-11-12) ---------------------------------

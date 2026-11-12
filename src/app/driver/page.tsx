@@ -522,6 +522,7 @@ function VehicleCard({
               label={docLabel(doc, lang)}
               uploaded={Boolean(v.documents?.[doc.key])}
               renew={reviewed ? renewFor(doc.key, lang) : undefined}
+              imageOnly={doc.imageOnly}
               lang={lang}
             />
           </DocRow>

@@ -70,6 +70,14 @@ check("profile photo + car photos only", signed.slice(0, 3), ["d1/photo.jpg", "d
 check("never a document", signed.some((p) => /license|id\.jpg|cr\.pdf|ins\.pdf/.test(p)), false);
 check("all car photos up to the cap, main first", signed.filter((p) => p.includes("/v2/")), Array.from({ length: 8 }, (_, i) => `d1/vehicles/v2/${i}.jpg`));
 
+// The licence plate photo is a vehicle document for the team only: never signed for travellers.
+const withPlate = [{ photos: ["d1/vehicles/v1/1.jpg"], documents: { plate_photo: "d1/vehicles/v1/plate_photo-1.jpg" } }];
+check("plate photo never signed for travellers", photos.travellerPhotoPaths(drivers, withPlate).some((p) => p.includes("plate_photo")), false);
+const kyc = read("src/lib/driverKyc.ts");
+check("plate photo is a required vehicle document", /key: "plate_photo"[\s\S]{0,400}required: true/.test(kyc), true);
+check("plate photo listed in the driver app", /key: "plate_photo"/.test(read("apps/driver/src/screens/Documents.tsx")), true);
+check("plate photo is a picture only in the app", /target\.key !== "plate_photo"/.test(app), true);
+
 // Both traveller views sign only through travellerPhotoPaths, and only for assigned bookings.
 const trips = read("src/lib/travellerTrips.ts");
 const page = read("src/app/trip/[token]/page.tsx");

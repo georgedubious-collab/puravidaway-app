@@ -16,6 +16,8 @@ export interface DocSpec {
   labelEs: string;
   hintEs?: string;
   required: boolean;
+  /** A photo only (no PDF). */
+  imageOnly?: boolean;
 }
 
 /** A document's name in the page language. */
@@ -67,6 +69,13 @@ export const VEHICLE_DOCS: DocSpec[] = [
   },
   { key: "marchamo", label: "Marchamo (current year)", labelEs: "Marchamo (año en curso)", required: true },
   { key: "vehicle_registration", label: "Registration (tarjeta de circulación)", labelEs: "Tarjeta de circulación", required: true },
+  {
+    // A vehicle DOCUMENT, not one of its `photos`: only the team and the owning driver can
+    // open it, and it is never signed for travellers (Jorge, 2026-11-12).
+    key: "plate_photo", label: "Licence plate photo (for our team only)", hint: "A photo where the plate is easy to read. Travellers never see it.",
+    labelEs: "Foto de la placa (solo para nuestro equipo)", hintEs: "Una foto donde se lea bien la placa. Los clientes no la ven.",
+    required: true, imageOnly: true,
+  },
 ];
 
 /** Photo count rules live with the other photo rules (no imports there, so tests run it directly). */
@@ -240,8 +249,8 @@ export function missingVehicleItems(v: VehicleRecord, lang: "en" | "es" = "en"):
   if (photos < MIN_VEHICLE_PHOTOS)
     out.push(
       t(
-        `Fotos (al menos ${MIN_VEHICLE_PHOTOS}, una donde se vea la placa)`,
-        `Photos (at least ${MIN_VEHICLE_PHOTOS}, one showing the licence plate)`,
+        `Fotos del vehículo (al menos ${MIN_VEHICLE_PHOTOS})`,
+        `Vehicle photos (at least ${MIN_VEHICLE_PHOTOS})`,
       ),
     );
   return out;

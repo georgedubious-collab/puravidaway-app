@@ -57,8 +57,7 @@ async function pick(from: UploadSource, allowPdf: boolean): Promise<Picked | str
  * null when it worked or the driver cancelled.
  */
 export async function pickAndUpload(userId: string, target: UploadTarget, from: UploadSource, renewed?: string): Promise<string | null> {
-  // Vehicle photos must be pictures; documents may also be PDFs.
-  const allowPdf = target.type !== "photo";
+  const allowPdf = pdfAllowed(target);
   const asset = await pick(from, allowPdf);
   if (asset === null || typeof asset === "string") return asset;
   return uploadOne(userId, target, asset, from, renewed);
@@ -128,8 +127,13 @@ export function capMessage(): string {
   );
 }
 
+/** Vehicle photos and the licence plate photo must be pictures; other documents may also be PDFs. */
+function pdfAllowed(target: UploadTarget): boolean {
+  return target.type === "driver" || (target.type === "vehicle" && target.key !== "plate_photo");
+}
+
 async function uploadOne(userId: string, target: UploadTarget, asset: Picked, from: UploadSource, renewed?: string): Promise<string | null> {
-  const allowPdf = target.type !== "photo";
+  const allowPdf = pdfAllowed(target);
   if (from === "file" && (!asset.mime || !EXT[asset.mime])) return allowPdf
       ? tr("Use un PDF o una foto (JPG, PNG, WEBP, HEIC).", "Use a PDF or a photo (JPG, PNG, WEBP, HEIC).")
       : tr("Use una foto (JPG, PNG, WEBP, HEIC).", "Use a photo (JPG, PNG, WEBP, HEIC).");

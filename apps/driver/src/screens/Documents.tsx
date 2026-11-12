@@ -41,11 +41,18 @@ const DRIVER_DOCS: { key: string; label: Pair; hint?: Pair }[] = [
     hint: ["Opcional. Los conductores que lo tienen reciben una insignia ICT.", "Optional. Drivers who have it get an ICT badge."],
   },
 ];
-const VEHICLE_DOCS: { key: string; label: Pair }[] = [
+const VEHICLE_DOCS: { key: string; label: Pair; hint?: Pair; imageOnly?: boolean }[] = [
   { key: "insurance", label: ["Póliza de seguro del INS", "INS insurance policy"] },
   { key: "dekra", label: ["Inspección Dekra / RTV", "Dekra / RTV inspection"] },
   { key: "marchamo", label: ["Marchamo (año en curso)", "Marchamo (current year)"] },
   { key: "vehicle_registration", label: ["Tarjeta de circulación", "Registration (tarjeta de circulación)"] },
+  {
+    // A document, not one of the vehicle's photos: travellers never see it.
+    key: "plate_photo",
+    label: ["Foto de la placa (solo para nuestro equipo)", "Licence plate photo (for our team only)"],
+    hint: ["Una foto donde se lea bien la placa. Los clientes no la ven.", "A photo where the plate is easy to read. Travellers never see it."],
+    imageOnly: true,
+  },
 ];
 /** Dated documents: after the first review the date changes only with a new photo of the document. */
 const RENEW: Record<string, { ask: Pair; placeholder: Pair }> = {
@@ -477,6 +484,8 @@ function VehicleCard({
         <UploadRow
           key={doc.key}
           label={t(...doc.label)}
+          hint={doc.hint ? t(...doc.hint) : undefined}
+          noPdf={doc.imageOnly}
           uploaded={Boolean(v.documents?.[doc.key])}
           renew={reviewed ? RENEW[doc.key] : undefined}
           busy={busy === "vd-" + v.id + doc.key}
@@ -822,6 +831,7 @@ function UploadRow({
   uploaded,
   renew,
   busy,
+  noPdf,
   onPick,
 }: {
   label: string;
@@ -829,6 +839,8 @@ function UploadRow({
   uploaded: boolean;
   renew?: { ask: Pair; placeholder: Pair };
   busy: boolean;
+  /** A photo only: no PDF button (the licence plate photo). */
+  noPdf?: boolean;
   onPick: (from: UploadSource, renewed?: string) => void;
 }) {
   const { t } = useT();
@@ -872,9 +884,11 @@ function UploadRow({
         <View style={{ flex: 1 }}>
           <Btn label={t("Galería", "Gallery")} icon="images-outline" alt onPress={() => go("library")} disabled={busy} />
         </View>
-        <View style={{ flex: 1 }}>
-          <Btn label="PDF" icon="document-attach-outline" alt onPress={() => go("file")} disabled={busy} />
-        </View>
+        {!noPdf ? (
+          <View style={{ flex: 1 }}>
+            <Btn label="PDF" icon="document-attach-outline" alt onPress={() => go("file")} disabled={busy} />
+          </View>
+        ) : null}
       </View>
     </View>
   );
