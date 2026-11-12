@@ -473,7 +473,7 @@ The traveller chooses what it says.
   will wait with a name sign and that it can be changed on the trip page.
 - Older customer app builds don't send the field: their bookings get the default (short name).
 
-### 4.7 Automatic messages: day-before reminder, low-rating alert, return-ride suggestion (2026-11-12, migration 0044)
+### 4.7 Automatic messages: day-before reminder, low-rating alert, return-ride suggestion (2026-11-12, migration 0045)
 Three messages the system sends by itself. Rules in `src/lib/automationRules.ts` (cases in
 `npm run test:automations`), texts in `src/lib/travellerMessages.ts` (traveller, EN/ES) and
 `src/lib/automationMessages.ts` (driver and team). All "Costa Rica time" is UTC−6. "Quiet hours"
@@ -922,9 +922,9 @@ only) · `cash_fee` numeric(10,2) (cash booking fee snapshot, 0 unless `cash_dri
 `in_progress` | `completed` | `cancelled`) · `created_at` ·
 `confirmed_at` (when the status last became confirmed, by trigger; null on bookings confirmed before
 2026-11-12) · `reminder_traveller_at` / `reminder_driver_at` (day-before reminders sent) ·
-`followup_sent_at` (return-ride suggestion sent or skipped); §4.7, migration 0044
+`followup_sent_at` (return-ride suggestion sent or skipped); §4.7, migration 0045
 
-**`email_optouts`** (migration 0044): `email` text PK (lower-case) · `scope` (`promotional`) ·
+**`email_optouts`** (migration 0045): `email` text PK (lower-case) · `scope` (`promotional`) ·
 `source` (`link` | `one_click` | `team`) · `created_at`. Addresses that unsubscribed from
 promotional emails (§4.7). **`driver_reviews.team_alerted_at`**: low-rating email sent.
 

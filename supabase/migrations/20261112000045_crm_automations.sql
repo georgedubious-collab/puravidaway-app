@@ -18,7 +18,8 @@
 --      writes it (the unsubscribe page). Admins can read it; travellers, drivers and logged-out
 --      visitors cannot see it at all.
 -- It changes no existing column, price, policy or function.
--- Run after 0043. Safe to run once, in order.
+-- Run after 0044 (booking_events, in feat/admin-redesign) or, if that is not merged yet, after 0043.
+-- Safe to run once, in order.
 
 alter table public.bookings
   add column if not exists confirmed_at          timestamptz,

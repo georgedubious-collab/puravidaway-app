@@ -1234,7 +1234,7 @@ await expectOk("server removes the test booking", "server", "delete from public.
   eq("a day tour name still wins", bookedItemName([{ id: "dt1", name: "Tour" }], "dt1"), "Tour");
 }
 
-// --- Automations (migration 0044): reminders, low-rating alert, follow-up, unsubscribe list -----
+// --- Automations (migration 0045): reminders, low-rating alert, follow-up, unsubscribe list -----
 {
   const B = "10000000-0000-0000-0000-0000000000a4";
   await expectOk("server stores a confirmed ride", "server", `
