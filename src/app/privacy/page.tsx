@@ -151,9 +151,10 @@ export default function PrivacyPage() {
           <li>
             <strong>One suggestion after a ride</strong> (legitimate interest): the morning after a
             completed ride we may email you once with a link to book the ride back and, where there are
-            some, a few day tours nearby; every such email has an unsubscribe link, and if you use it we
-            keep your email address on a do-not-send list and send you no more suggestions (emails about
-            your bookings still arrive).
+            some, a few day tours nearby; you can say no when you book (the “Don’t send me suggestions
+            after my trip” box) or with the unsubscribe link in every such email, and we then keep your
+            email address on a do-not-send list and send you no more suggestions (emails about your
+            bookings still arrive).
           </li>
           <MeasurementPurpose lang="en" />
         </ul>

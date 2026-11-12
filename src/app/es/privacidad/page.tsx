@@ -170,9 +170,11 @@ export default function PrivacidadPage() {
           <li>
             <strong>Una sugerencia después de un traslado</strong> (interés legítimo): la mañana
             siguiente a un traslado completado podemos enviarle un solo correo con un enlace para
-            reservar el regreso y, si los hay, algunos tours de un día cercanos; cada uno de esos correos
-            tiene un enlace para darse de baja, y si lo usa guardamos su correo electrónico en una lista
-            de no envío y no le enviamos más sugerencias (los correos de sus reservas siguen llegando).
+            reservar el regreso y, si los hay, algunos tours de un día cercanos; puede decir que no al
+            reservar (la casilla “No me envíen sugerencias después de mi viaje”) o con el enlace para
+            darse de baja que trae cada uno de esos correos, y entonces guardamos su correo electrónico
+            en una lista de no envío y no le enviamos más sugerencias (los correos de sus reservas siguen
+            llegando).
           </li>
           <MeasurementPurpose lang="es" />
         </ul>

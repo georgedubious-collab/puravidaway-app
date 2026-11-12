@@ -543,17 +543,21 @@ are 9 PM–7 AM Costa Rica time, as for the rating reminder. Each is marked in t
   - Traveller: date and time, pickup place, driver's first name, the car exactly as the trip page
     shows it (make/model + year, colour, plate), the name-sign text, at airports the arrivals
     promise (sign, flight tracking, 60 minutes), and the trip page (chat, "Call our team").
-    Never the driver's phone.
+    Day tours: the pickup place they gave and the time our team confirmed (or, without a place,
+    a request to write it in the trip chat). Never the driver's phone.
   - Driver: time, pickup and drop-off, travellers and bags, sign text, flight / hotel notes, notes
-    for the driver, extras, and the ferry / Drake Bay boat / "collect cash" flags as the driver app
+    for the driver, extras, the day-tour pickup place, and the ferry / Drake Bay boat / "collect cash" flags as the driver app
     shows them. Built only from what `my_trips()` already gives the driver: never the traveller's
     full name, phone, email or any price (the cash amount stays in the app).
 - **2. Low-rating alert** (`src/lib/lowRatingAlert.ts`): when a rating of **1–3 stars** is saved
   (trip page and app both go through `rateDriver()`), our team is emailed at once at
   `ADMIN_NOTIFY_EMAIL`: booking ref, route, date, driver, stars, comment and a link to
-  `/admin/bookings/<id>`. Once per rating (`driver_reviews.team_alerted_at`); the hourly job re-sends
-  any from the last 2 days that didn't go out. Email only: there is no team app yet
-  (`device_tokens.app` is `driver` or `client`). The driver is never told.
+  `/admin/bookings/<id>`. **In Spanish** with the admin pages' words ("Calificación baja", "Reserva",
+  "Ruta", "Conductor", "Abrir la reserva"), or in English when the admin whose profile has the
+  `ADMIN_NOTIFY_EMAIL` address uses English (`profiles.app_lang = 'en'`; Jorge, 2026-11-12). Once per
+  rating (`driver_reviews.team_alerted_at`); the hourly job re-sends any from the last 2 days that
+  didn't go out. Email only: there is no team app yet (`device_tokens.app` is `driver` or `client`).
+  The driver is never told.
 - **3. "Book your return / a day tour"** (`src/lib/tripFollowup.ts`, `/api/cron/trip-followups`):
   ONE email (no push) after a completed **ride**, from **7 AM the next day** (Costa Rica calendar
   day; never the day of the rating request) and at the latest on the second day after; later than
@@ -572,13 +576,33 @@ are 9 PM–7 AM Costa Rica time, as for the rating reminder. Each is marked in t
   `UNSUBSCRIBE_SECRET` (Vercel), or `CRON_SECRET` when that isn't set; changing it breaks older
   links. Booking emails (confirmations, reminders, rating requests, chat) are never affected. The
   privacy pages (EN/ES) describe this.
+- **"Don't send me suggestions after my trip" / "No me envíen sugerencias después de mi viaje"**
+  (Jorge, 2026-11-12): a tickbox, **unticked by default**, with the hint "Emails about your bookings
+  still arrive.", in the website checkout (`src/components/TripSummary.tsx`), the app's ride
+  "Your ride" step and tour "Review and send" step, and the admin manual booking form ("El viajero
+  no quiere sugerencias después del viaje"). Sent as `noSuggestions: true`; the server adds the
+  email to `email_optouts` with source `booking`. Unticked or missing (older apps) changes nothing,
+  and never takes anyone off the list.
 - **When they run:** the hourly `reviews` job of the GitHub Action `.github/workflows/eta-check.yml`
   (minute 7), with Vercel Cron once a day as a backstop (`vercel.json`: 08:00 and 08:30 Costa Rica).
-- **For the admin pages later** (not built here; `src/app/admin/**` is being redesigned): on the
-  booking page, show "Day-before reminder sent to traveller / driver" (`reminder_traveller_at`,
-  `reminder_driver_at`), "Return suggestion sent / skipped" (`followup_sent_at`), "Confirmed at"
-  (`confirmed_at`) and, on a review, "Team alerted" (`team_alerted_at`); a list of unsubscribed
-  addresses (`email_optouts`, admins can read it) with a way to add one by hand.
+- **Day-tour pickup place** (Jorge, 2026-11-12, `bookings.pickup_place`): new tour bookings ask
+  "Where should we pick you up?" / "¿Dónde lo recogemos?" with the hint "Your hotel or address in
+  {region}. Our team confirms the pickup time." (website checkout, app tour review; required there;
+  optional in the admin manual form). One line, up to 120 characters, phone numbers / emails / links
+  **refused** (server message, and the database constraint `bookings_pickup_place_shape`). Older apps
+  that don't send it still book. Shown on the traveller's trip page and app trip screen, in the
+  assigned driver's trip (`my_trips().pickup_place`, last column; driver portal "Recogida", driver
+  app route "Recogida"), in both day-before reminders, and on the admin booking page. The job board
+  never shows it. Rides keep using `origin`. Changing it is not logged in the booking history and
+  the team can't edit it yet (see below).
+- **Admin booking page** (read-only): "Lugar de recogida" on tours and "Mensajes automáticos" (when
+  each reminder and the return suggestion went out or was checked). **Still to build:** editing the
+  pickup place (then add it to `log_booking_changes()`), "Team alerted" on a review
+  (`team_alerted_at`), "Confirmed at" (`confirmed_at`), and a list of unsubscribed addresses
+  (`email_optouts`, admins can read it) with a way to add or remove one by hand.
+- The new `bookings` columns (`confirmed_at`, `reminder_*_at`, `followup_sent_at`, `pickup_place`)
+  are not in the change history's list (`log_booking_changes()`, migration 0044), so they never
+  add history rows (`npm run test:db`).
 
 ---
 
@@ -974,10 +998,11 @@ only) · `cash_fee` numeric(10,2) (cash booking fee snapshot, 0 unless `cash_dri
 `in_progress` | `completed` | `cancelled`) · `created_at` ·
 `confirmed_at` (when the status last became confirmed, by trigger; null on bookings confirmed before
 2026-11-12) · `reminder_traveller_at` / `reminder_driver_at` (day-before reminders sent) ·
-`followup_sent_at` (return-ride suggestion sent or skipped); §4.7, migration 0045
+`followup_sent_at` (return-ride suggestion sent or skipped) · `pickup_place` (day tours: hotel or
+address, ≤ 120 characters, no contact details); §4.7, migration 0045
 
 **`email_optouts`** (migration 0045): `email` text PK (lower-case) · `scope` (`promotional`) ·
-`source` (`link` | `one_click` | `team`) · `created_at`. Addresses that unsubscribed from
+`source` (`link` | `one_click` | `team` | `booking`) · `created_at`. Addresses that unsubscribed from
 promotional emails (§4.7). **`driver_reviews.team_alerted_at`**: low-rating email sent.
 
 **`booking_events`** (change history, migration 0044): `id` · `booking_id` → `bookings.id` · `at` ·
