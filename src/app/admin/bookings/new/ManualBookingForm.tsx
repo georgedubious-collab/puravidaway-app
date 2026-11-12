@@ -31,8 +31,10 @@ function PlacePicker({
 }) {
   const t = makeT(lang);
   return (
-    <div className="sm:col-span-2">
-      <p className="text-xs font-bold text-[#5F6F67]">{t("Rápido:", "Quick pick:")}</p>
+    <div className="min-w-0">
+      <p className="text-xs font-bold text-[#5F6F67]">
+        {label} · {t("rápido:", "quick pick:")}
+      </p>
       <div className="mb-2 mt-1 flex flex-wrap gap-1.5">
         {hubs.map((h) => {
           const on = isHubPlace(value) && value.hub === h.id;
@@ -272,28 +274,6 @@ export function ManualBookingForm({ lang, today, hubs, vehicles, stops, tours }:
                 </select>
                 <span className={field.hint}>{t("De noche se suma el recargo nocturno.", "Night hours add the night premium.")}</span>
               </label>
-              <PublicLangProvider lang={lang}>
-                <PlacePicker
-                  label={t("Recogida", "Pickup")}
-                  value={originPlace}
-                  hubs={hubs}
-                  lang={lang}
-                  onChange={(p) => {
-                    setOriginPlace(p);
-                    setQuote(null);
-                  }}
-                />
-                <PlacePicker
-                  label={t("Destino", "Drop-off")}
-                  value={destPlace}
-                  hubs={hubs}
-                  lang={lang}
-                  onChange={(p) => {
-                    setDestPlace(p);
-                    setQuote(null);
-                  }}
-                />
-              </PublicLangProvider>
               <label className={field.label}>
                 {t("Vehículo", "Vehicle")}
                 <select value={vehicleId} onChange={(e) => setVehicleId(e.target.value)} className={field.input}>
@@ -308,6 +288,30 @@ export function ManualBookingForm({ lang, today, hubs, vehicles, stops, tours }:
                 {t("Viajeros", "Travellers")}
                 <input name="pax" type="number" min={1} max={vehicle?.maxPax ?? 60} defaultValue={2} required className={field.input} />
               </label>
+              <div className="grid gap-4 sm:col-span-2 lg:col-span-4 lg:grid-cols-2">
+                <PublicLangProvider lang={lang}>
+                  <PlacePicker
+                    label={t("Recogida", "Pickup")}
+                    value={originPlace}
+                    hubs={hubs}
+                    lang={lang}
+                    onChange={(p) => {
+                      setOriginPlace(p);
+                      setQuote(null);
+                    }}
+                  />
+                  <PlacePicker
+                    label={t("Destino", "Drop-off")}
+                    value={destPlace}
+                    hubs={hubs}
+                    lang={lang}
+                    onChange={(p) => {
+                      setDestPlace(p);
+                      setQuote(null);
+                    }}
+                  />
+                </PublicLangProvider>
+              </div>
               <label className={field.label}>
                 {t("Maletas grandes", "Large suitcases")}
                 <input name="bags" type="number" min={0} max={20} className={field.input} />

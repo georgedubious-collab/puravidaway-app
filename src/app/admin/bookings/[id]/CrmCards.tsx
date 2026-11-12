@@ -43,7 +43,7 @@ export function WhatsAppButtons({ bookingId, buttons, lang }: { bookingId: strin
           </div>
           <details className="mt-1.5">
             <summary className="cursor-pointer text-xs font-bold text-[#047857]">{t("Ver el mensaje", "See the message")}</summary>
-            <p className="mt-1 whitespace-pre-line rounded-lg bg-[#F4F6F4] p-2.5 text-sm text-[#33443C]">{b.text}</p>
+            <p className="mt-1 whitespace-pre-line rounded-lg bg-[#F4F6F4] p-2.5 text-sm text-[#33443C] [overflow-wrap:anywhere]">{b.text}</p>
           </details>
         </li>
       ))}
@@ -62,6 +62,7 @@ export function CancelBookingForm({
   bookingId,
   bookingRef,
   pickupAt,
+  pickupText,
   amountReceived,
   hasDriver,
   testPaid,
@@ -72,6 +73,8 @@ export function CancelBookingForm({
   bookingId: string;
   bookingRef: string;
   pickupAt: string | null;
+  /** The pickup as the team reads it (Costa Rica time). */
+  pickupText: string;
   amountReceived: number;
   hasDriver: boolean;
   testPaid: boolean;
@@ -181,6 +184,7 @@ export function CancelBookingForm({
       )}
       <div role="status" aria-live="polite" className="rounded-xl border border-[#E3E8E5] bg-[#FAFBFA] p-3.5 text-sm">
         <p className="text-[#5F6F67]">
+          {t("Recogida", "Pickup")}: <strong className="text-[#14231C]">{pickupText || "—"}</strong> ·{" "}
           {t("Recibido", "Received")}: <strong className="text-[#14231C]">{money(amountReceived)}</strong>
           {by === "traveller" ? ` · ${hoursText}` : ""}
         </p>

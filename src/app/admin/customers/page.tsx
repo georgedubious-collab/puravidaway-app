@@ -125,7 +125,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
                             {c.name ?? "—"}
                           </Link>
                         </Td>
-                        <Td className="max-w-[16rem] break-all text-[#33443C]">{c.email ?? "—"}</Td>
+                        <Td className="whitespace-nowrap text-[#33443C]">{c.email ?? "—"}</Td>
                         <Td className="whitespace-nowrap text-[#33443C]">{c.phone ?? "—"}</Td>
                         <Td align="right">{c.bookings}</Td>
                         <Td align="right">{c.completed}</Td>

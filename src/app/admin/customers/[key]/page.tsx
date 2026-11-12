@@ -10,6 +10,7 @@ import { localizeCatalog } from "@/lib/catalogEs";
 import { getCatalog } from "@/lib/catalogSource";
 import { NOTE_MAX, isRepeat, parseCustomerKey, tripDay } from "@/lib/customers";
 import { customerByKey, customerTripIds } from "@/lib/customersServer";
+import { formatScheduledAt } from "@/lib/dates";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { makeT } from "@/lib/teamLang";
 import { getTeamLang } from "@/lib/teamLangServer";
@@ -57,7 +58,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ key: 
     const p = names?.find((x) => x.id === id);
     return p ? p.full_name || p.email || "—" : t("el sistema", "the system");
   };
-  const when = (iso: string) => iso.slice(0, 16).replace("T", " ");
+  const when = (iso: string) => formatScheduledAt(iso, lang);
   const tags = c.tags ?? [];
 
   return (
@@ -178,7 +179,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ key: 
         </AdminActionForm>
         {note?.updated_at && (
           <p className="mt-3 text-xs text-[#5F6F67]">
-            {t("Último cambio:", "Last changed:")} {who(note.updated_by)} · {when(note.updated_at)} UTC
+            {t("Último cambio:", "Last changed:")} {who(note.updated_by)} · {when(note.updated_at)}
           </p>
         )}
         {(noteEvents ?? []).length > 0 && (
@@ -187,7 +188,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ key: 
             <ul className="mt-2 space-y-1">
               {(noteEvents ?? []).map((e) => (
                 <li key={e.id}>
-                  {when(e.at)} UTC · {who(e.actor_id)} · {((e.after as { tags?: string[] })?.tags ?? []).join(", ") || "—"}
+                  {when(e.at)} · {who(e.actor_id)} · {((e.after as { tags?: string[] })?.tags ?? []).join(", ") || "—"}
                 </li>
               ))}
             </ul>

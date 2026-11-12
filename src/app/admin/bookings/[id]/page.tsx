@@ -721,6 +721,7 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
               bookingId={b.id}
               bookingRef={b.booking_ref}
               pickupAt={b.scheduled_at}
+              pickupText={formatScheduledAt(b.scheduled_at, lang)}
               amountReceived={Number(b.amount_paid ?? 0)}
               hasDriver={Boolean(b.assigned_driver_id)}
               testPaid={testPaid}
