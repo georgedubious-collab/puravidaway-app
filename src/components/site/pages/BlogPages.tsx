@@ -12,6 +12,7 @@ import { localizedHref, t, type PublicLang } from "@/lib/publicLang";
 import { ROUTE_PAGES, TRANSFERS_PATH, builderHref, routeLabel, routePath } from "@/lib/routePages";
 import { pageVehiclePrices } from "@/lib/routePrices";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
+import { TOURS_PATH } from "@/lib/tours/slugs";
 import { GuideCta, GuideFaqs, LinkPills, OtherWays, RidesTable, formatGuideDate, shortHubName } from "../GuideParts";
 import { JsonLd } from "../JsonLd";
 import { Photo } from "../Photo";
@@ -225,6 +226,7 @@ function pathLabel(path: string, lang: PublicLang): string {
     [AIRPORTS_PATH]: ["SJO or LIR: airport guides", "SJO o LIR: guías de aeropuertos"],
     [BLOG_PATH]: ["All travel guides", "Todas las guías de viaje"],
     "/?tab=tours": ["Private day tours", "Tours privados de un día"],
+    [TOURS_PATH]: ["Private day tours", "Tours privados de un día"],
     "/?tab=transfers": ["Trip builder", "Planificador de viajes"],
   };
   const f = fixed[path];
@@ -331,7 +333,7 @@ export async function ArticlePage({ article: a, lang }: { article: Article; lang
         <div>
           <h2 className="text-xl font-extrabold text-slate-900">{t(lang, "Related pages", "Páginas relacionadas")}</h2>
           <div className="mt-4">
-            <LinkPills links={[...a.related, "/?tab=tours"].map((p) => ({ label: pathLabel(p, lang), href: localizedHref(p, lang) }))} />
+            <LinkPills links={[...a.related, TOURS_PATH].map((p) => ({ label: pathLabel(p, lang), href: localizedHref(p, lang) }))} />
           </div>
         </div>
         <div>
@@ -456,7 +458,7 @@ export async function BlogIndexPage({ lang }: { lang: PublicLang }) {
             { label: t(lang, "Destination guides", "Guías de destinos"), href: localizedHref(DESTINATIONS_PATH, lang) },
             { label: t(lang, "Airport guides", "Guías de aeropuertos"), href: localizedHref(AIRPORTS_PATH, lang) },
             { label: t(lang, "All routes and prices", "Todas las rutas y precios"), href: localizedHref(TRANSFERS_PATH, lang) },
-            { label: t(lang, "Private day tours", "Tours privados de un día"), href: localizedHref("/?tab=tours", lang) },
+            { label: t(lang, "Private day tours", "Tours privados de un día"), href: localizedHref(TOURS_PATH, lang) },
           ]}
         />
       </PageSection>

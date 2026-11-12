@@ -19,6 +19,7 @@ import { BILINGUAL_PATHS, type PublicLang } from "../publicLang";
 import { ROUTE_PAGES, TRANSFERS_PATH, routePath } from "../routePages";
 import { pageFromPrices } from "../routePrices";
 import { LEGAL_PATHS } from "../site";
+import { TOUR_SLUGS, TOURS_PATH, tourPathFor } from "../tours/slugs";
 import { ARTICLES_PLANNING } from "./articlesPlanning";
 import { ARTICLES_ROUTES } from "./articlesRoutes";
 import type { Article, ArticleBlock } from "./types";
@@ -107,6 +108,8 @@ export function knownPaths(): Set<string> {
     ...AIRPORT_GUIDES.map((g) => airportPath(g)),
     BLOG_PATH,
     ...ARTICLES.map((a) => articlePath(a)),
+    TOURS_PATH,
+    ...Object.keys(TOUR_SLUGS).map((id) => tourPathFor(id)!),
   ]);
 }
 

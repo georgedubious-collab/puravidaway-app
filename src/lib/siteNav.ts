@@ -8,6 +8,7 @@ import { BLOG_PATH } from "./blog";
 import { AIRPORT_GUIDES, DESTINATION_GUIDES, airportPath, destinationPath } from "./guides";
 import { localizedHref, type PublicLang } from "./publicLang";
 import { ROUTE_PAGES, TRANSFERS_PATH, routeLabel, routePath } from "./routePages";
+import { TOURS_PATH } from "./tours/slugs";
 
 export interface NavLink {
   id: string;
@@ -18,7 +19,9 @@ export interface NavLink {
 
 /** Top menu, in order. */
 export const PRIMARY_NAV: NavLink[] = [
-  // The booking app (home) opens on the matching tab: ?tab=transfers|tours (Storefront.tsx).
+  // The booking app (home) opens on the matching tab: ?tab=transfers|tours (Storefront.tsx). On wide
+  // screens these two entries ARE the booking app's tab switch, so they stay on it; the route and
+  // tour pages have their own indexes (/transfers, /tours), linked from the footer and the pages.
   { id: "transfers", label: { en: "Transfers", es: "Traslados" }, href: "/?tab=transfers" },
   { id: "tours", label: { en: "Day tours", es: "Tours de un día" }, href: "/?tab=tours" },
   // Destination and airport guides (src/lib/guides); the airports are linked from that index and the footer.
@@ -74,6 +77,7 @@ export function footerColumns(lang: PublicLang): FooterColumn[] {
         ...DESTINATION_GUIDES.map((g) => ({ label: g.name[lang], href: localizedHref(destinationPath(g), lang) })),
         ...AIRPORT_GUIDES.map((a) => ({ label: a.name[lang], href: localizedHref(airportPath(a), lang) })),
         L("Travel guides", "Guías de viaje", BLOG_PATH),
+        L("Private day tours", "Tours privados de un día", TOURS_PATH),
       ],
     },
     {

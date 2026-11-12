@@ -24,6 +24,7 @@ import { ROUTE_PAGES, TRANSFERS_PATH, builderHref, routePageFor, routePath, type
 import { pageFromPrices, pageVehiclePrices } from "@/lib/routePrices";
 import { HUB_BLOCKS } from "@/lib/routes/hubs";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
+import { tourBookHref, tourPathFor } from "@/lib/tours/slugs";
 import { guarantees, ridePromises } from "@/lib/trust";
 
 /**
@@ -423,8 +424,12 @@ export async function RouteLandingPage({ page, lang }: { page: RoutePage; lang: 
                       <strong className="font-extrabold text-emerald-700">{formatUSDWhole(applyMultiplier(x.perPerson.groupCents, seasonBps))}</strong>{" "}
                       {t(lang, "per person (4 or more travellers, green season)", "por persona (4 viajeros o más, temporada verde)")}
                     </span>
-                    <Link href={localizedHref("/?tab=tours", lang)} className={`mt-3 inline-flex min-h-11 items-center gap-1.5 text-sm ${TEXT_LINK}`}>
-                      {t(lang, "See day tours and prices", "Ver tours de un día y precios")} <ArrowRight className="w-4 h-4" aria-hidden />
+                    <Link
+                      href={localizedHref(tourPathFor(x.id) ?? tourBookHref(x.id), lang)}
+                      className={`mt-3 inline-flex min-h-11 items-center gap-1.5 text-sm ${TEXT_LINK}`}
+                    >
+                      {tourPathFor(x.id) ? t(lang, "See the tour and prices", "Ver el tour y los precios") : t(lang, "See day tours and prices", "Ver tours de un día y precios")}{" "}
+                      <ArrowRight className="w-4 h-4" aria-hidden />
                     </Link>
                   </li>
                 ))}
