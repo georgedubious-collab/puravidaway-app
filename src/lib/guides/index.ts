@@ -50,6 +50,13 @@ export function guideRidePrice(origin: HubId, destination: HubId, catalog: Catal
   return pageFromPrices(origin, destination, catalog);
 }
 
+/**
+ * Words that must never appear in public page text (docs/PROJECT.md §10, CLAUDE.md): "24/7", the
+ * owner's and the sister brands' names, and multi-day trips (retired 2026-11-11). Checked at build
+ * time by the travel guides (src/lib/blog) and the day tour pages (src/lib/tours).
+ */
+export const FORBIDDEN_PUBLIC_WORDS = /24\/7|Jorge|Travel Planner|Familia M[aá]gica|costaricatravelplanner|multi-day|expedition|varios días|expedici[oó]n/i;
+
 const isHub = (v: string): v is HubId => (HUB_IDS as readonly string[]).includes(v);
 
 /**
