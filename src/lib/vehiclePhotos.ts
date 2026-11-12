@@ -12,6 +12,13 @@ export const MIN_VEHICLE_PHOTOS = 2;
 /** At most this many photos per vehicle: outside, inside and the luggage space. */
 export const MAX_VEHICLE_PHOTOS = 8;
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** True only for a file inside this driver's own folder for this vehicle (`<driver>/vehicles/<vehicle>/…`). */
+export function isOwnVehiclePath(driverId: string, vehicleId: string, path: string): boolean {
+  return UUID.test(vehicleId) && path.startsWith(`${driverId}/vehicles/${vehicleId}/`) && !path.includes("..");
+}
+
 export type PhotoChange = { ok: true; photos: string[] } | { ok: false; reason: "missing" | "minimum" };
 
 /** The list without `path`. Refused when the photo isn't on the list, or it would leave an approved vehicle below the minimum. */

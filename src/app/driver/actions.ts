@@ -11,7 +11,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { makeT } from "@/lib/teamLang";
 import { getTeamLang } from "@/lib/teamLangServer";
-import { withMainPhoto, withoutPhoto } from "@/lib/vehiclePhotos";
+import { isOwnVehiclePath, withMainPhoto, withoutPhoto } from "@/lib/vehiclePhotos";
 
 /* All writes run as the signed-in user, so row-level security and the guard
    triggers decide what is allowed: a driver can never approve themselves or
@@ -266,7 +266,7 @@ export async function removeVehicle(_prev: FormState, fd: FormData): Promise<For
 
 async function vehicleFor(t: T, meId: string, vehicleId: string, path: string) {
   if (!UUID.test(vehicleId)) throw new InputError(vehicleNotFound(t));
-  if (!path.startsWith(`${meId}/vehicles/${vehicleId}/`) || path.includes("..")) {
+  if (!isOwnVehiclePath(meId, vehicleId, path)) {
     throw new InputError(uploadFailed(t));
   }
   const supabase = await db(t);

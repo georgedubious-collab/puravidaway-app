@@ -3,7 +3,7 @@ import { useHeaderHeight } from "@react-navigation/elements";
 import * as Linking from "expo-linking";
 import { useRoute, type RouteProp } from "@react-navigation/native";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Image, KeyboardAvoidingView, Modal, Platform, Pressable, RefreshControl, ScrollView, TextInput, View, useWindowDimensions } from "react-native";
+import { Image, KeyboardAvoidingView, Modal, Platform, Pressable, RefreshControl, ScrollView, TextInput, View, useWindowDimensions, type ScrollViewInstance } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api } from "../api";
 import { useDemo } from "../demo";
@@ -455,7 +455,7 @@ function PhotoViewer({ photos, name, index, onIndex }: { photos: string[]; name:
   const { t } = useT();
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const pager = useRef<ScrollView>(null);
+  const pager = useRef<ScrollViewInstance>(null);
   const at = index ?? 0;
   const go = (i: number) => {
     const next = (i + photos.length) % photos.length;

@@ -70,7 +70,8 @@ export const VEHICLE_DOCS: DocSpec[] = [
 ];
 
 /** Photo count rules live with the other photo rules (no imports there, so tests run it directly). */
-export { MAX_VEHICLE_PHOTOS, MIN_VEHICLE_PHOTOS } from "./vehiclePhotos";
+import { MAX_VEHICLE_PHOTOS, MIN_VEHICLE_PHOTOS } from "./vehiclePhotos";
+export { MAX_VEHICLE_PHOTOS, MIN_VEHICLE_PHOTOS };
 
 export const DRIVER_DOC_KEYS = new Set(DRIVER_DOCS.map((d) => d.key));
 export const VEHICLE_DOC_KEYS = new Set(VEHICLE_DOCS.map((d) => d.key));
