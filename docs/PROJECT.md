@@ -886,8 +886,30 @@ decides which jobs the driver receives, §5.3, migration 0038) ·
 "electric vehicle, if available" request, not a category and no price change, §5.3, migration 0042) ·
 `ins_policy_number` · `ins_insurance_expiry` date · `dekra_inspection_expiry` date ·
 `marchamo_year` int · `has_wifi` · `child_seats` · `stroller_space` · `pet_friendly` · `documents` jsonb (`insurance`, `dekra`, `marchamo`,
-`vehicle_registration`) · `photos` jsonb array (at least 2, one showing the plate; at most 12) · `status` · `note` ·
+`vehicle_registration`) · `photos` jsonb array (ordered, first = main photo; at least 2 on an approved vehicle; at most 8 from the app and website, 12 in the database) · `status` · `note` ·
 `needs_review` · `reviewed_at` · `reviewed_by` · `created_at`
+
+**Driver and vehicle photos (2026-11-12, Jorge: "upload several pictures, selfie plus car pics, shown
+to a client once the driver is confirmed"):** the profile photo (`documents.driver_photo`, "Su foto")
+stays single, with the hint "a clear, friendly photo of your face, no sunglasses; travellers see it
+once you're confirmed". Vehicle `photos` are ordered: the first is the **main photo** travellers see
+first. Drivers add up to **8** per vehicle (`MAX_VEHICLE_PHOTOS`, `src/lib/vehiclePhotos.ts`; the app
+keeps a copy and `npm run test:photos` checks they match; the database still allows 12 for older
+vehicles), several at once from the phone's gallery (camera one at a time), "outside, inside and the
+luggage space; hide the plate if you prefer". On the vehicle card they tap a thumbnail to "Use as main
+photo" or "Remove" (with a confirmation); the website portal has the same two buttons. Both go through
+`deleteVehiclePhoto` / `makeMainVehiclePhoto` (`src/app/driver/actions.ts`, app route
+`/api/v1/driver/photos`): the vehicle is read and written as the signed-in driver (row-level
+security), the file must be in that driver's folder for that vehicle, and the removed file is then
+deleted from Storage with the server key (drivers have no delete right on the bucket). An approved
+vehicle never drops below **2** photos (server message, and the database refuses it too, migration
+0048). **Review rule unchanged:** photo changes (add, remove, reorder) only mark the vehicle
+"changed since last review" (`needs_review`); they do not pause jobs (`review_hold` is only for key
+documents, dates and the plate, migration 0031). Travellers see the profile photo and all car photos
+(main first, up to 8) only once the booking is confirmed / in progress / completed with that driver:
+the trip page as a sideways-scrolling row with a full-screen viewer, the customer app as a swipeable
+row with a full-screen viewer (React Native Modal, no new native library). Only those files are ever
+signed for travellers (`travellerPhotoPaths`), never documents.
 
 The criminal record certificate must be issued ≤ 30 days before first approval (checked by the
 approve button). Expiry warnings cover the licence, insurance, Dekra and Marchamo.
