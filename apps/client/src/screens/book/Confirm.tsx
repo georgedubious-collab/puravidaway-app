@@ -26,17 +26,16 @@ export function BookConfirm() {
   const { lang, t } = useT();
   const nav = useNav();
   const { email } = useSession();
-  const { state, set, chosen, quote, quoteBusy, vehicle, stopsOn, effectivePrefs, itemCents, offerValid, notesBlocked, signBlocked } = useBooking();
+  const { state, set, chosen, quote, quoteBusy, vehicle, stopsOn, effectivePrefs, itemCents, notesBlocked, signBlocked } = useBooking();
   const send = useSendRequest();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [flightOpen, setFlightOpen] = useState(Boolean(state.notes));
   const [payOpen, setPayOpen] = useState(false);
   const guest = email === null;
-  const bid = state.mode === "bid";
 
   // The price is known as soon as a vehicle is priced; `chosen` (what would be sent) also needs the date to be confirmed.
-  const priced = Boolean(vehicle) && (!bid || offerValid);
+  const priced = Boolean(vehicle);
   const feeBps = quote?.cashFeeBps ?? 0;
   const fee = Math.round((itemCents * feeBps) / 10000);
   const total = state.payMode === "cash_driver" ? itemCents + fee : itemCents;
@@ -106,8 +105,8 @@ export function BookConfirm() {
           <View style={{ flex: 1, gap: 1 }}>
             {vehicle ? <Text style={T.smallStrong}>{vehicle.name}</Text> : <Skeleton height={18} width="60%" />}
             {vehicle && orSimilar(vehicle.exampleModels, lang) ? <Text style={T.caption}>{orSimilar(vehicle.exampleModels, lang)}</Text> : null}
-            <Text style={T.caption}>{bid ? t("Your offer to drivers", "Su oferta a los conductores") : t("Fixed price for the whole vehicle", "Precio fijo por todo el vehículo")}</Text>
-            {!bid && quote?.night?.applies ? (
+            <Text style={T.caption}>{t("Fixed price for the whole vehicle", "Precio fijo por todo el vehículo")}</Text>
+            {quote?.night?.applies ? (
               <View style={{ flexDirection: "row", paddingTop: 4 }}>
                 <Badge text={nightLabel(quote.night, lang) + (vehicle?.nightCents ? " · " + cents(vehicle.nightCents) : "")} tone="gold" icon="moon-outline" />
               </View>

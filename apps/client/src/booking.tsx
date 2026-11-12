@@ -32,8 +32,6 @@ export interface BookingState {
    */
   whenSet: boolean;
   vehicleId: string;
-  mode: "fixed" | "bid";
-  offer: string;
   stopIds: string[];
   prefs: Prefs;
   driverNotes: string;
@@ -65,8 +63,6 @@ const fresh = (): BookingState => ({
   time: "09:00",
   whenSet: false,
   vehicleId: "sedan",
-  mode: "fixed",
-  offer: "",
   stopIds: [],
   prefs: DEFAULT_PREFS,
   driverNotes: "",
@@ -113,14 +109,10 @@ interface BookingValue {
   /** The chosen vehicle comes with a Spanish-speaking driver, so "English-speaking" isn't offered. */
   spanishDriver: boolean;
   effectivePrefs: Prefs;
-  minOffer: number;
-  offerCents: number;
-  offerValid: boolean;
-  offerLow: boolean;
   notesBlocked: boolean;
   /** The name-sign text is too long or has a phone number, email or link. */
   signBlocked: boolean;
-  /** What the ride costs as chosen: the fixed price, or the traveller's offer. */
+  /** What the ride costs as chosen: the fixed price of the chosen vehicle (travellers book at the fixed price only). */
   itemCents: number;
   /** The cheapest vehicle, for "from $X" before one is chosen. */
   fromCents: number | null;
@@ -233,15 +225,10 @@ export function BookingProvider({
   const stopsOn = vehicle?.allowsStops ?? true;
   const spanishDriver = vehicle?.spanishSpeakingDriver ?? false;
   const effectivePrefs: Prefs = useMemo(() => (spanishDriver ? { ...state.prefs, language: "spanish_ok" } : state.prefs), [spanishDriver, state.prefs]);
-  const minOffer = quote?.minOfferCents ?? 5000;
-  const offerNumber = Number(state.offer.replace(",", "."));
-  const offerCents = Number.isFinite(offerNumber) ? Math.round(offerNumber) * 100 : 0;
-  const offerValid = offerCents >= minOffer;
-  const offerLow = Boolean(vehicle) && offerValid && offerCents < (vehicle?.totalCents ?? 0) * 0.7;
   const notesBlocked = hasContactDetails(state.driverNotes);
   const signBlocked = !state.signHideName && signTextBlocked(state.signText);
-  const itemCents = state.mode === "bid" ? offerCents : (vehicle?.totalCents ?? 0);
-  const rideReady = Boolean(quote) && Boolean(vehicle) && !notesBlocked && !signBlocked && (state.mode === "fixed" || offerValid);
+  const itemCents = vehicle?.totalCents ?? 0;
+  const rideReady = Boolean(quote) && Boolean(vehicle) && !notesBlocked && !signBlocked;
   const fromCents = quote && quote.vehicles.length ? quote.vehicles.reduce((m, v) => Math.min(m, v.totalCents), Infinity) : null;
   const pickedStops = quote && stopsOn ? state.stopIds.filter((id) => quote.stops.some((s) => s.id === id)) : [];
   const p = effectivePrefs;
@@ -275,7 +262,6 @@ export function BookingProvider({
     return {
       title: quote.originLabel + " → " + quote.destinationLabel,
       detail:
-        (state.mode === "bid" ? t("Your offer to drivers · ", "Su oferta a los conductores · ") : "") +
         vehicle.name +
         ", " +
         plural(pax, "traveller", lang) +
@@ -294,8 +280,8 @@ export function BookingProvider({
         stopIds: pickedStops,
         pax,
         pickupTime: state.time,
-        pricing: state.mode,
-        ...(state.mode === "bid" ? { offerCents } : {}),
+        // Always the fixed price. Kept in the request because servers from before 2026-11-11 require it.
+        pricing: "fixed",
         ...(state.notes.trim() ? { notes: state.notes.trim() } : {}),
         prefs: p,
         ...(state.driverNotes.trim() ? { driverNotes: state.driverNotes.trim() } : {}),
@@ -307,7 +293,7 @@ export function BookingProvider({
     };
     // pickedStops and p are derived from the listed values.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state, tour, toursFee, quote, vehicle, rideReady, itemCents, offerCents, effectivePrefs, stopsOn, lang, t, pax, date]);
+  }, [state, tour, toursFee, quote, vehicle, rideReady, itemCents, effectivePrefs, stopsOn, lang, t, pax, date]);
 
   const latest = useRef({ chosen, state, lang });
   latest.current = { chosen, state, lang };
@@ -341,10 +327,6 @@ export function BookingProvider({
     stopsOn,
     spanishDriver,
     effectivePrefs,
-    minOffer,
-    offerCents,
-    offerValid,
-    offerLow,
     notesBlocked,
     signBlocked,
     itemCents,
