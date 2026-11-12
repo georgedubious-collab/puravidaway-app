@@ -233,7 +233,7 @@ create table if not exists public.booking_refunds (
   hours_before    numeric(8,2),
   amount_received numeric(10,2) not null default 0 check (amount_received >= 0),
   refund_policy   numeric(10,2) not null check (refund_policy >= 0),
-  refund_rule     text not null check (refund_rule in ('free_24h', 'late_or_no_show', 'we_cancelled', 'weather', 'nothing_received')),
+  refund_rule     text not null check (refund_rule in ('free_24h', 'late_or_no_show', 'we_cancelled', 'weather')),
   refund_due      numeric(10,2) not null check (refund_due >= 0 and refund_due <= amount_received),
   refund_reason   text check (refund_reason is null or char_length(refund_reason) between 3 and 500),
   refund_paid_amount numeric(10,2) check (refund_paid_amount is null or refund_paid_amount > 0),

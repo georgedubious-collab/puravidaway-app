@@ -218,7 +218,7 @@ export function Notice({ tone = "amber", children, role }: { tone?: "amber" | "r
 
 export type IconName =
   | "dashboard" | "bookings" | "live" | "drivers" | "flag" | "payouts" | "pricing" | "users"
-  | "search" | "plus" | "download" | "menu" | "close" | "inbox" | "chevron" | "alert" | "clock";
+  | "customers" | "search" | "plus" | "download" | "menu" | "close" | "inbox" | "chevron" | "alert" | "clock";
 
 const PATHS: Record<IconName, React.ReactNode> = {
   dashboard: <><rect x="3" y="3" width="7" height="9" rx="1.5" /><rect x="14" y="3" width="7" height="5" rx="1.5" /><rect x="14" y="12" width="7" height="9" rx="1.5" /><rect x="3" y="16" width="7" height="5" rx="1.5" /></>,
@@ -229,6 +229,7 @@ const PATHS: Record<IconName, React.ReactNode> = {
   payouts: <><rect x="2.5" y="6" width="19" height="13" rx="2" /><path d="M2.5 10h19M6.5 15h3" /></>,
   pricing: <><path d="M3 12V4.5A1.5 1.5 0 0 1 4.5 3H12l9 9-9 9-9-9Z" /><circle cx="7.5" cy="7.5" r="1.5" /></>,
   users: <><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14.2a6.5 6.5 0 0 1 3.5 5.8" /></>,
+  customers: <><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></>,
   search: <><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></>,
   plus: <path d="M12 5v14M5 12h14" />,
   download: <path d="M12 4v11M7 10l5 5 5-5M5 20h14" />,

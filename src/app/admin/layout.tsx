@@ -36,6 +36,7 @@ async function AdminShell({ children }: { children: React.ReactNode }) {
       count: c.bookingsToAct,
       countLabel: t(`${c.bookingsToAct} sin confirmar`, `${c.bookingsToAct} not confirmed yet`),
     },
+    { href: "/admin/customers", label: t("Clientes", "Customers"), icon: "customers", count: 0, countLabel: "" },
     {
       href: "/admin/live",
       label: t("Viajes en vivo", "Live trips"),

@@ -18,6 +18,7 @@ import { requireRole } from "@/lib/auth";
 import { bookingDue, usd, type BookingRow, type TripContact } from "@/lib/bookings";
 import { localizeCatalog } from "@/lib/catalogEs";
 import { getCatalog } from "@/lib/catalogSource";
+import { customerHref, customerKey } from "@/lib/customers";
 import { todayInCostaRica } from "@/lib/dates";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { makeT } from "@/lib/teamLang";
@@ -320,7 +321,13 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
                             )}
                           </Td>
                           <Td>
-                            <div className="font-semibold">{b.trips?.guest_name ?? "—"}</div>
+                            {b.trips ? (
+                              <Link href={customerHref(customerKey(b.trips.guest_email, b.trips.guest_phone, b.trip_id))} className={`font-semibold ${link}`}>
+                                {b.trips.guest_name ?? "—"}
+                              </Link>
+                            ) : (
+                              <div className="font-semibold">—</div>
+                            )}
                             <div className="text-xs text-[#5F6F67]">
                               {b.passenger_count ?? "?"} {(b.passenger_count ?? 0) === 1 ? t("viajero", "traveller") : t("viajeros", "travellers")}
                             </div>
