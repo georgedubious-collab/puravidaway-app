@@ -21,8 +21,8 @@ const at = (hoursFromNow: number) => new Date(Date.now() + hoursFromNow * H).toI
 const driver = { firstName: "Carlos", bio: "Born in La Fortuna, driving visitors since 2014. Ask me about the best sodas on the way!", english: "fluent", ict: true, photo: null, rating: "4.9" };
 /** Drawn stand-ins for the driver's car photos (no network in previews). */
 const carPhoto = (label: string, sky: string, body: string) =>
-  "data:image/svg+xml;utf8," +
-  encodeURIComponent(
+  "data:image/svg+xml;base64," +
+  btoa(
     `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect width="400" height="300" fill="${sky}"/>` +
       `<rect y="210" width="400" height="90" fill="#9CA3AF"/><rect x="70" y="120" width="260" height="95" rx="22" fill="${body}"/>` +
       `<rect x="100" y="135" width="80" height="40" rx="6" fill="#E0F2FE"/><rect x="200" y="135" width="100" height="40" rx="6" fill="#E0F2FE"/>` +
