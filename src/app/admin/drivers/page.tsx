@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Card, Chip, EmptyState, Notice, PageHeader } from "@/components/admin/ui";
 import { requireRole } from "@/lib/auth";
 import { addDays, todayInCostaRica } from "@/lib/dates";
 import {
@@ -35,9 +36,9 @@ export default async function DriversPage() {
 
   if (error)
     return (
-      <p className="font-semibold text-red-700">
+      <Notice tone="red" role="alert">
         {t("No se pudieron cargar los conductores", "Couldn't load drivers")}: {error.message}
-      </p>
+      </Notice>
     );
   const rows = data ?? [];
   const today = todayInCostaRica();
@@ -60,32 +61,38 @@ export default async function DriversPage() {
   ];
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-extrabold text-slate-900">{t("Conductores", "Drivers")}</h1>
-        <p className="mt-1 text-sm text-slate-600">
-          {lang === "en" ? (
+    <div className="space-y-5">
+      <PageHeader
+        title={t("Conductores", "Drivers")}
+        subtitle={
+          lang === "en" ? (
             <>
-              Drivers apply at <code>/driver</code> and upload their documents there. Open one to see the
-              documents and approve, reject or suspend.
+              Drivers apply at <code>/driver</code> and upload their documents there. Open one to see the documents and approve,
+              reject or suspend.
             </>
           ) : (
             <>
-              Los conductores se postulan en <code>/driver</code> y suben ahí sus documentos. Abra uno para ver
-              los documentos y aprobar, rechazar o suspender.
+              Los conductores se postulan en <code>/driver</code> y suben ahí sus documentos. Abra uno para ver los documentos y
+              aprobar, rechazar o suspender.
             </>
-          )}
-        </p>
-      </div>
-      {groups.map(([title, list]) => (
-        <section key={title}>
-          <h2 className="text-lg font-extrabold text-slate-900">
-            {title} <span className="text-slate-400">({list.length})</span>
-          </h2>
+          )
+        }
+      />
+      {groups.map(([title, list], gi) => (
+        <Card
+          key={title}
+          padded={false}
+          id={`drivers-g${gi}`}
+          title={
+            <>
+              {title} <span className="font-bold text-[#9AA8A1]">({list.length})</span>
+            </>
+          }
+        >
           {list.length === 0 ? (
-            <p className="mt-1 text-sm text-slate-500">{t("Ninguno.", "None.")}</p>
+            <EmptyState title={t("Ninguno.", "None.")} />
           ) : (
-            <ul className="mt-2 divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white">
+            <ul className="divide-y divide-[#EDF1EE]">
               {list.map((r) => {
                 const todo =
                   missingDriverDocs(r).length +
@@ -97,36 +104,32 @@ export default async function DriversPage() {
                 const check = vehiclesToCheck(r);
                 return (
                   <li key={r.id}>
-                    <Link href={`/admin/drivers/${r.id}`} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 hover:bg-slate-50">
-                      <span>
-                        <span className="font-bold text-slate-900">{r.profiles?.full_name || t("(aún sin nombre)", "(no name yet)")}</span>
-                        <span className="block text-sm text-slate-500">
+                    <Link href={`/admin/drivers/${r.id}`} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3.5 hover:bg-[#FAFBFA] sm:px-5">
+                      <span className="min-w-0">
+                        <span className="font-bold text-[#14231C]">{r.profiles?.full_name || t("(aún sin nombre)", "(no name yet)")}</span>
+                        <span className="block break-all text-sm text-[#5F6F67]">
                           {r.profiles?.email} ·{" "}
-                          {lang === "en"
-                            ? `${nv} vehicle${nv === 1 ? "" : "s"}`
-                            : `${nv} vehículo${nv === 1 ? "" : "s"}`}{" "}
-                          · {kycStatusLabel(r.kyc_status, lang)}
+                          {lang === "en" ? `${nv} vehicle${nv === 1 ? "" : "s"}` : `${nv} vehículo${nv === 1 ? "" : "s"}`} ·{" "}
+                          {kycStatusLabel(r.kyc_status, lang)}
                           {check > 0 && (lang === "en" ? ` · ${check} vehicle(s) to check` : ` · ${check} vehículo(s) por revisar`)}
                         </span>
                       </span>
-                      <span className="text-sm font-semibold">
+                      <span className="flex flex-wrap items-center gap-1.5">
                         {todo > 0 ? (
-                          <span className="text-amber-700">
-                            {lang === "en"
-                              ? `${todo} item${todo === 1 ? "" : "s"} missing`
-                              : `${todo} ${todo === 1 ? "dato pendiente" : "datos pendientes"}`}
-                          </span>
+                          <Chip tone="amber">
+                            {lang === "en" ? `${todo} item${todo === 1 ? "" : "s"} missing` : `${todo} ${todo === 1 ? "dato pendiente" : "datos pendientes"}`}
+                          </Chip>
                         ) : (
-                          <span className="text-emerald-700">{t("Completo", "Complete")}</span>
+                          <Chip tone="green">{t("Completo", "Complete")}</Chip>
                         )}
                         {issues.some((i) => i.blocking) ? (
-                          <span className="block text-red-700">{t("Documentos vencidos: sin viajes", "Documents expired: no trips")}</span>
+                          <Chip tone="red">{t("Documentos vencidos: sin viajes", "Documents expired: no trips")}</Chip>
                         ) : issues.length > 0 ? (
-                          <span className="block text-amber-700">
+                          <Chip tone="orange">
                             {lang === "en"
                               ? `${issues.length} expiry warning${issues.length === 1 ? "" : "s"}`
                               : `${issues.length} ${issues.length === 1 ? "aviso" : "avisos"} de vencimiento`}
-                          </span>
+                          </Chip>
                         ) : null}
                       </span>
                     </Link>
@@ -135,7 +138,7 @@ export default async function DriversPage() {
               })}
             </ul>
           )}
-        </section>
+        </Card>
       ))}
     </div>
   );

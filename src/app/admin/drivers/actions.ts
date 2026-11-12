@@ -8,7 +8,16 @@ import { InputError, runAction, type FormState } from "@/lib/forms/formState";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { makeT } from "@/lib/teamLang";
 import { getTeamLang } from "@/lib/teamLangServer";
-import { isVehicleCategory } from "@/lib/vehicleEligibility";
+import { categoryLabel, isVehicleCategory } from "@/lib/vehicleEligibility";
+import { driverDecisionNotice, firstCategoryNotice, vehicleDecisionNotice } from "@/lib/driverReviewNotices";
+import { notifyDriver } from "@/lib/driverReviewSend";
+
+/** "Toyota Hiace (ABC-123)" for the driver's own notice. */
+function vehicleText(v: { make_model?: string | null; plate?: string | null } | null): string {
+  const name = (v?.make_model ?? "").trim();
+  const plate = (v?.plate ?? "").trim();
+  return name ? (plate ? `${name} (${plate})` : name) : plate || "—";
+}
 
 const DECISIONS = ["approve", "reject", "suspend", "checked"] as const;
 type Decision = (typeof DECISIONS)[number];
@@ -32,6 +41,8 @@ export async function reviewDriver(_prev: FormState, fd: FormData): Promise<Form
     }
 
     const supabase = (await createSupabaseServerClient())!;
+    // Status before the decision: the driver is told only when it actually changes.
+    const { data: prior } = await supabase.from("drivers").select("kyc_status").eq("id", id).maybeSingle();
 
     if (decision === "approve") {
       const cur = await supabase
@@ -80,6 +91,7 @@ export async function reviewDriver(_prev: FormState, fd: FormData): Promise<Form
       const p = await supabase.from("profiles").update({ role: "driver" }).eq("id", id).neq("role", "admin");
       if (p.error) throw p.error;
     }
+    await notifyDriver(supabase, id, driverDecisionNotice((prior?.kyc_status as string | undefined) ?? null, decision, note));
     revalidatePath("/admin/drivers");
     revalidatePath(`/admin/drivers/${id}`);
     revalidatePath("/admin");
@@ -99,6 +111,7 @@ export async function reviewVehicle(_prev: FormState, fd: FormData): Promise<For
       throw new InputError(t("Agregue un mensaje corto para el conductor explicando el motivo.", "Add a short message for the driver explaining why."));
     }
     const supabase = (await createSupabaseServerClient())!;
+    const { data: prior } = await supabase.from("driver_vehicles").select("status, make_model, plate").eq("id", id).maybeSingle();
     const review = { needs_review: false, reviewed_at: new Date().toISOString(), reviewed_by: me.id };
     const patch =
       decision === "checked"
@@ -111,6 +124,11 @@ export async function reviewVehicle(_prev: FormState, fd: FormData): Promise<For
     const v = await supabase.from("driver_vehicles").update(patch).eq("id", id).select("driver_id");
     if (v.error) throw v.error;
     if (!v.data?.length) throw new InputError(t("No se encontró el vehículo.", "Vehicle not found."));
+    await notifyDriver(
+      supabase,
+      v.data[0].driver_id as string,
+      vehicleDecisionNotice((prior?.status as string | undefined) ?? null, decision, vehicleText(prior), note),
+    );
     revalidatePath("/admin/drivers");
     revalidatePath(`/admin/drivers/${v.data[0].driver_id}`);
     revalidatePath("/admin");
@@ -133,6 +151,7 @@ export async function setVehicleCategory(_prev: FormState, fd: FormData): Promis
     if (!id || (raw !== "" && !isVehicleCategory(raw))) throw new InputError(t("Elija una categoría.", "Pick a category."));
     const supabase = (await createSupabaseServerClient())!;
     const vehicle_class = raw === "" ? null : raw;
+    const { data: prior } = await supabase.from("driver_vehicles").select("vehicle_class, make_model, plate").eq("id", id).maybeSingle();
     let v = await supabase
       .from("driver_vehicles")
       .update({ vehicle_class, is_electric: fd.get("is_electric") === "on" })
@@ -144,6 +163,13 @@ export async function setVehicleCategory(_prev: FormState, fd: FormData): Promis
       v = await supabase.from("driver_vehicles").update({ vehicle_class }).eq("id", id).select("driver_id");
     if (v.error) throw v.error;
     if (!v.data?.length) throw new InputError(t("No se encontró el vehículo.", "Vehicle not found."));
+    // First time the vehicle gets a category: the driver hears which jobs it now receives.
+    const driverId = v.data[0].driver_id as string;
+    if (prior && !isVehicleCategory(prior.vehicle_class) && vehicle_class) {
+      const { data: who } = await supabase.from("profiles").select("app_lang").eq("id", driverId).maybeSingle();
+      const label = categoryLabel(vehicle_class, who?.app_lang === "en" ? "en" : "es");
+      await notifyDriver(supabase, driverId, firstCategoryNotice(false, vehicle_class, vehicleText(prior), label));
+    }
     revalidatePath("/admin/drivers");
     revalidatePath(`/admin/drivers/${v.data[0].driver_id}`);
     revalidatePath("/admin");

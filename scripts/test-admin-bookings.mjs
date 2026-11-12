@@ -145,6 +145,27 @@ eq("greeting morning", a.greeting(7, "es"), "Buenos días");
 eq("greeting afternoon", a.greeting(15, "es"), "Buenas tardes");
 eq("greeting night", a.greeting(22, "en"), "Good evening");
 
+// --- Notices to drivers about the team's decisions (src/lib/driverReviewNotices.ts) -------------
+{
+  const n = await import("../src/lib/driverReviewNotices.ts");
+  eq("vehicle approved, Spanish", n.driverNoticeText({ kind: "vehicle_approved", vehicle: "Toyota Hiace" }, "es").body,
+    "Su vehículo Toyota Hiace fue aprobado. Ya puede recibir trabajos.");
+  eq("vehicle approved, English", n.driverNoticeText({ kind: "vehicle_approved", vehicle: "Toyota Hiace" }, "en").title, "Vehicle approved");
+  const rej = n.driverNoticeText({ kind: "vehicle_rejected", vehicle: "Kia K5", note: "Falta la foto de la placa." }, "es", "Carlos");
+  eq("rejection carries the team's note", rej.body, "Su vehículo Kia K5 no fue aprobado. Mensaje de nuestro equipo: Falta la foto de la placa.");
+  eq("email greets by first name (usted)", rej.lines[0], "Hola Carlos:");
+  eq("no note, no empty line", n.driverNoticeText({ kind: "driver_rejected", note: "  " }, "es").lines.length, 3);
+  eq("approve once: first time", n.driverDecisionNotice("pending", "approve", null)?.kind, "driver_approved");
+  eq("approve once: not again", n.driverDecisionNotice("approved", "approve", null), null);
+  eq("changes checked: no notice", n.driverDecisionNotice("approved", "checked", null), null);
+  eq("suspending a driver is not one of these notices", n.driverDecisionNotice("approved", "suspend", "x"), null);
+  eq("vehicle on hold", n.vehicleDecisionNotice("approved", "suspend", "Hiace", "Seguro vencido")?.kind, "vehicle_suspended");
+  eq("vehicle hold not repeated", n.vehicleDecisionNotice("suspended", "suspend", "Hiace", null), null);
+  eq("first category only", [n.firstCategoryNotice(false, "van", "Hiace", "Van")?.kind, n.firstCategoryNotice(true, "van", "Hiace", "Van")], ["vehicle_category", null]);
+  eq("cleared category: nothing", n.firstCategoryNotice(false, null, "Hiace", "—"), null);
+  eq("no other people in a notice", JSON.stringify(n.driverNoticeText({ kind: "driver_approved" }, "es")).includes("@"), false);
+}
+
 console.log(`${passed} checks passed, ${failures.length} failed`);
 for (const x of failures) console.log("  ✗ " + x);
 process.exit(failures.length ? 1 : 0);
