@@ -29,6 +29,8 @@ export interface Demo {
   rateComment?: string;
   /** Which side of the Explore tab to open on. */
   explore?: "rides" | "tours";
+  /** Preview only: the car photo viewer open on this photo (0 = the main photo). */
+  photoViewer?: number;
 }
 
 export const DemoContext = createContext<Demo | null>(null);
