@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { after } from "next/server";
 import { localizeCatalog, placeNameFor } from "@/lib/catalogEs";
 import { getCatalog } from "@/lib/catalogSource";
+import { requireRole } from "@/lib/auth";
 import { cashAllowed, itemPaymentMode, parsePaymentMode } from "@/lib/cart";
 import { costaRicaTimestamp, todayInCostaRica } from "@/lib/dates";
 import { ADMIN_EMAIL, SITE_URL, sendEmail } from "@/lib/email";
@@ -47,7 +48,7 @@ export interface TripRequestInput {
 
 export type TripRequestResult =
   /** tripToken: the code in the traveller's private trip-page link. */
-  | { ok: true; refs: string[]; tripToken: string | null }
+  | { ok: true; refs: string[]; tripToken: string | null; /** Booking ids, for a booking entered by the team. */ ids?: string[] }
   | { ok: false; error: string }
   /** Prices changed since the item was added: the cart shows the new totals and asks again. */
   | { ok: false; error: string; repriced: Record<string, number> };
@@ -60,6 +61,26 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
  * confirms availability on WhatsApp.
  */
 export async function submitTripRequest(input: TripRequestInput): Promise<TripRequestResult> {
+  return saveTripRequest(input, null);
+}
+
+/**
+ * The team enters a booking that came by WhatsApp or phone (/admin/bookings/new): the same
+ * checks, pricing and rows as a website request, without the spam trap and request limit,
+ * no "new request" email to the team, the traveller's email only if asked, and a
+ * "created_by_team" entry in the booking's change history. Admins only.
+ */
+export async function submitTripRequestAsTeam(input: TripRequestInput, emailTraveller: boolean): Promise<TripRequestResult> {
+  const me = await requireRole("admin", "/admin/bookings/new");
+  return saveTripRequest({ ...input, website: "" }, { actorId: me.id, emailTraveller: emailTraveller === true });
+}
+
+interface TeamEntry {
+  actorId: string;
+  emailTraveller: boolean;
+}
+
+async function saveTripRequest(input: TripRequestInput, team: TeamEntry | null): Promise<TripRequestResult> {
   try {
     if (input.website) return { ok: true, refs: [], tripToken: null }; // bot: pretend it worked
     const name = String(input.name ?? "").trim();
@@ -140,7 +161,8 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
     // Abuse limit (every request emails the address given): 5 an hour per network, 3 per email.
     const h = await headers();
     const ip = (h.get("x-forwarded-for") ?? "").split(",")[0].trim() || h.get("x-real-ip") || "unknown";
-    const allowed = await db.rpc("allow_trip_request", { p_ip: ip, p_email: email });
+    // (The team entering a booking by hand is not limited.)
+    const allowed = team ? { data: true, error: null } : await db.rpc("allow_trip_request", { p_ip: ip, p_email: email });
     if (allowed.error) throw allowed.error;
     if (allowed.data !== true) {
       return { ok: false, error: "We've received several requests from you already. Please wait a little, or message us on WhatsApp." };
@@ -245,6 +267,16 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
       return { ok: false, error: "We couldn't save your request. Please try again or send it on WhatsApp." };
     }
     const refs = (data ?? []).map((r) => r.booking_ref as string);
+    const ids = (data ?? []).map((r) => r.id as string);
+    if (team) {
+      // Change history (migration 0044): who entered it, and whether the traveller got the link.
+      const events = ids.flatMap((id) => [
+        { booking_id: id, actor_id: team.actorId, action: "created_by_team", after: { source: "WhatsApp / phone", mode } },
+        ...(team.emailTraveller ? [{ booking_id: id, actor_id: team.actorId, action: "trip_link_emailed", after: {} }] : []),
+      ]);
+      const ev = await db.from("booking_events").insert(events);
+      if (ev.error) console.error("[trip request] history", ev.error.message);
+    }
     const feeTotalCents = priced.reduce((n, p) => n + feeFor(p.spec, p.totalCents), 0);
     const tripCents = priced.reduce((n, p) => n + p.totalCents, 0) + feeTotalCents;
     const total = tripCents / 100;
@@ -274,6 +306,7 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
     };
     const itemLines = itemLinesIn("en");
     after(async () => {
+      if (team && !team.emailTraveller) return; // entered by the team: the traveller gets the link only if asked
       await sendEmail({
         to: email,
         ...tripRequestEmail(lang, {
@@ -285,7 +318,7 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
           hasRide: priced.some((p) => p.spec.kind === "transfer"),
         }),
       });
-      if (ADMIN_EMAIL) {
+      if (ADMIN_EMAIL && !team) {
         await sendEmail({
           to: ADMIN_EMAIL,
           subject: `New trip request ${refs.join(", ")} · $${total.toFixed(2)}`,
@@ -302,7 +335,7 @@ export async function submitTripRequest(input: TripRequestInput): Promise<TripRe
         });
       }
     });
-    return { ok: true, refs, tripToken };
+    return { ok: true, refs, tripToken, ...(team ? { ids } : {}) };
   } catch (e) {
     console.error("[trip request]", e);
     return { ok: false, error: "We couldn't save your request. Please try again or send it on WhatsApp." };

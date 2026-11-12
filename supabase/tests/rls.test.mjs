@@ -1234,6 +1234,52 @@ await expectOk("server removes the test booking", "server", "delete from public.
   eq("a day tour name still wins", bookedItemName([{ id: "dt1", name: "Tour" }], "dt1"), "Tour");
 }
 
+// --- Booking change history (migration 0044) -----------------------------------------------------
+{
+  const B9 = "10000000-0000-0000-0000-000000000009";
+  const ev = (where) => `select count(*) as n from public.booking_events where booking_id = '${B9}' and ${where}`;
+  // Earlier sections changed booking 0009: the server set the payment mode, the admin assigned
+  // the driver + vehicle and confirmed it, and wrote an internal note.
+  await expectRows("admin's status change is in the history, with the admin as actor", "admin",
+    ev(`action = 'status' and actor_id = '${U.admin}' and before->>'status' = 'pending_payment' and after->>'status' = 'confirmed'`), 1);
+  await expectRows("admin's driver + vehicle assignment is in the history", "admin",
+    ev(`action = 'assignment' and actor_id = '${U.admin}' and after->>'driver_id' = '${U.driver}' and after->>'vehicle_id' = '30000000-0000-0000-0000-000000000001'`), 1);
+  await expectRows("internal note is in the history", "admin", ev(`action = 'notes' and actor_id = '${U.admin}' and after->>'notes' = 'VIP'`), 1);
+  await expectRows("server's changes are logged without a person", "admin", ev(`action = 'payment_mode' and actor_id is null`), 2);
+  const before = Number((await as("admin", ev("true"))).rows[0].n);
+  await expectOk("admin saves the same values again", "admin",
+    `update public.bookings set status = status, amount_paid = amount_paid, assigned_driver_id = assigned_driver_id where id = '${B9}'`);
+  await expectOk("server touches a column that is not tracked", "server",
+    `update public.bookings set review_reminded_at = now() where id = '${B9}'`);
+  await expectRows("unchanged values and untracked columns add no event", "admin", ev("true"), before);
+  await expectOk("admin records an amount received", "admin", `update public.bookings set amount_paid = 120.50 where id = '${B9}'`);
+  await expectRows("amount received logged with before and after", "admin",
+    ev(`action = 'amount_paid' and (before->>'amount_paid')::numeric = 0 and (after->>'amount_paid')::numeric = 120.50 and actor_id = '${U.admin}'`), 1);
+  await expectOk("admin edits the internal note", "admin", `update public.booking_admin_notes set notes = 'VIP, early flight' where booking_id = '${B9}'`);
+  await expectRows("note edit logged (old and new text)", "admin",
+    ev(`action = 'notes' and before->>'notes' = 'VIP' and after->>'notes' = 'VIP, early flight'`), 1);
+  await expectOk("admin settles the driver", "admin", `update public.bookings set driver_settled_at = now() where id = '${B9}'`);
+  await expectRows("settlement logged", "admin", ev(`action = 'settled' and after->>'driver_settled_at' is not null`), 1);
+  await expectOk("admin cancels the booking", "admin", `update public.bookings set status = 'cancelled' where id = '${B9}'`);
+  await expectRows("cancellation logged", "admin", ev(`action = 'status' and after->>'status' = 'cancelled'`), 1);
+  await expectOk("server records a booking entered by the team", "server",
+    `insert into public.booking_events (booking_id, actor_id, action, after) values ('${B9}', '${U.admin}', 'created_by_team', '{"mode":"full_100"}')`);
+  await expectBlocked("unknown event kind refused", "server",
+    `insert into public.booking_events (booking_id, action) values ('${B9}', 'card_number')`);
+  for (const who of ["client", "client2", "driver", "pending", "anon"]) {
+    await expectRows(`${who} cannot read the change history`, who, "select * from public.booking_events", 0);
+    await expectBlocked(`${who} cannot write the change history`, who,
+      `insert into public.booking_events (booking_id, action) values ('${B9}', 'status')`);
+  }
+  await expectBlocked("admin cannot write the history directly", "admin",
+    `insert into public.booking_events (booking_id, action) values ('${B9}', 'status')`);
+  await expectBlocked("admin cannot rewrite history", "admin", `update public.booking_events set action = 'notes'`, { affected: 0 });
+  await expectBlocked("admin cannot delete history", "admin", `delete from public.booking_events`, { affected: 0 });
+  await expectRows("history never holds chat or card columns", "admin",
+    "select 1 from information_schema.columns where table_name = 'booking_events' and column_name ~ '(message|card|chat)'", 0);
+  await expectRows("drivers still read no booking rows", "driver", "select * from public.bookings", 0);
+}
+
 // --- Report -----------------------------------------------------------------------------------
 console.log(`${passed} checks passed, ${failures.length} failed`);
 for (const f of failures) console.log("  ✗ " + f);

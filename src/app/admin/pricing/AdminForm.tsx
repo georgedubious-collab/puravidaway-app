@@ -1,44 +1,30 @@
 "use client";
 
-import { useActionState } from "react";
+import { AdminActionForm, type ConfirmRule } from "@/components/admin/AdminActionForm";
 import type { TeamLang } from "@/lib/teamLang";
 import type { FormState } from "./actions";
 
-/** A form that shows "Saved" or a plain-language error next to its button. */
+/** The pricing page's forms: the shared admin form (saved / error / in-page confirmation). */
 export function AdminForm({
   action,
   children,
   lang,
-  submitLabel = lang === "en" ? "Save" : "Guardar",
+  submitLabel,
   className = "",
+  confirm,
+  danger,
 }: {
   action: (prev: FormState, fd: FormData) => Promise<FormState>;
   children: React.ReactNode;
   lang: TeamLang;
   submitLabel?: string;
   className?: string;
+  confirm?: ConfirmRule[];
+  danger?: boolean;
 }) {
-  const [state, formAction, pending] = useActionState(action, {});
-  const en = lang === "en";
   return (
-    <form action={formAction} className={className}>
+    <AdminActionForm action={action} lang={lang} submitLabel={submitLabel} className={className} confirm={confirm} danger={danger}>
       {children}
-      <div className="flex flex-wrap items-center gap-3">
-        <button
-          type="submit"
-          disabled={pending}
-          className="min-h-10 px-4 rounded-lg bg-emerald-950 text-white text-sm font-bold disabled:opacity-50"
-        >
-          {pending ? (en ? "Saving…" : "Guardando…") : submitLabel}
-        </button>
-        <span aria-live="polite" className="text-sm">
-          {state.error ? (
-            <span className="font-semibold text-red-700">{state.error}</span>
-          ) : state.ok && !pending ? (
-            <span className="font-semibold text-emerald-700">{en ? "Saved" : "Guardado"}</span>
-          ) : null}
-        </span>
-      </div>
-    </form>
+    </AdminActionForm>
   );
 }

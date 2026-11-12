@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { ActionForm } from "@/components/ActionForm";
+import { AdminActionForm } from "@/components/admin/AdminActionForm";
+import { Card, Chip, EmptyState, Notice, PageHeader, link } from "@/components/admin/ui";
 import { requireRole } from "@/lib/auth";
 import { formatScheduledAt } from "@/lib/dates";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -42,10 +43,10 @@ export default async function FlaggedPage({ searchParams }: { searchParams: Prom
   const { data, error } = await q.returns<Flag[]>();
   if (error) {
     return (
-      <p className="text-sm text-amber-800">
+      <Notice>
         {t("Esta lista necesita la migración", "This list needs migration")} <code>20261110000034_trip_chat_privacy.sql</code>.{" "}
         {t("Se aplica sola después de la fusión; recargue en un minuto.", "It runs by itself after the merge; reload in a minute.")}
-      </p>
+      </Notice>
     );
   }
   const rows = data ?? [];
@@ -78,21 +79,21 @@ export default async function FlaggedPage({ searchParams }: { searchParams: Prom
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-extrabold text-slate-900">{t("Mensajes marcados", "Flagged messages")}</h1>
-        <p className="mt-1 text-sm text-slate-600">
-          {t(
+      <PageHeader
+        title={t("Mensajes marcados", "Flagged messages")}
+        subtitle={t(
             "Mensajes y notas donde se ocultaron datos de contacto (teléfono, correo, enlace o red social). Solo los administradores ven el texto original. Un conductor que insiste en pasar su número puede estar buscando viajes por fuera.",
             "Messages and notes where contact details (phone, email, link or social handle) were hidden. Only admins see the original text. A driver who keeps trying to pass their number may be looking for off-platform trips.",
-          )}
-        </p>
-        <p className="mt-2 text-sm">
+        )}
+      />
+      <div>
+        <p className="text-sm">
           {showAll ? (
-            <Link href="/admin/flagged" className="font-bold text-emerald-700 underline">
+            <Link href="/admin/flagged" className={link}>
               {t("Ver solo los pendientes", "Show only open ones")}
             </Link>
           ) : (
-            <Link href="/admin/flagged?all=1" className="font-bold text-emerald-700 underline">
+            <Link href="/admin/flagged?all=1" className={link}>
               {t("Ver también los revisados", "Show reviewed ones too")}
             </Link>
           )}
@@ -100,25 +101,25 @@ export default async function FlaggedPage({ searchParams }: { searchParams: Prom
       </div>
 
       {rows.length === 0 && (
-        <p className="rounded-xl border border-slate-200 bg-white p-5 text-sm text-slate-600">
-          {t("No hay mensajes marcados por revisar.", "No flagged messages to review.")}
-        </p>
+        <Card>
+          <EmptyState title={t("No hay mensajes marcados por revisar.", "No flagged messages to review.")} />
+        </Card>
       )}
 
       <ul className="space-y-3">
         {rows.map((r) => (
-          <li key={r.id} className="rounded-xl border border-slate-200 bg-white p-4">
+          <li key={r.id} className="rounded-2xl border border-[#E3E8E5] bg-white p-4 sm:p-5">
             <div className="flex flex-wrap items-baseline justify-between gap-2 text-sm">
-              <p className="font-bold text-slate-900">
+              <p className="font-bold text-[#14231C]">
                 {who(r)}
                 {r.sender_id && (perSender.get(r.sender_id) ?? 0) > 1 && (
-                  <span className="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-xs font-extrabold text-red-800">
-                    {t(`${perSender.get(r.sender_id)} veces`, `${perSender.get(r.sender_id)} times`)}
+                  <span className="ml-2">
+                    <Chip tone="red">{t(`${perSender.get(r.sender_id)} veces`, `${perSender.get(r.sender_id)} times`)}</Chip>
                   </span>
                 )}
               </p>
-              <p className="text-slate-500">
-                <Link href={`/admin/bookings/${r.booking_id}`} className="font-mono font-bold text-emerald-700 underline">
+              <p className="text-[#5F6F67]">
+                <Link href={`/admin/bookings/${r.booking_id}`} className={`font-mono ${link}`}>
                   {r.bookings?.booking_ref ?? t("Reserva", "Booking")}
                 </Link>{" "}
                 · {where(r)} · {formatScheduledAt(r.created_at, lang)}
@@ -127,23 +128,23 @@ export default async function FlaggedPage({ searchParams }: { searchParams: Prom
             <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
               <div className="rounded-lg bg-red-50 p-3">
                 <dt className="text-xs font-bold uppercase tracking-wide text-red-800">{t("Original (solo administradores)", "Original (admins only)")}</dt>
-                <dd className="mt-1 whitespace-pre-wrap break-words text-slate-900">{r.original}</dd>
+                <dd className="mt-1 whitespace-pre-wrap break-words text-[#14231C]">{r.original}</dd>
               </div>
-              <div className="rounded-lg bg-slate-50 p-3">
-                <dt className="text-xs font-bold uppercase tracking-wide text-slate-500">{t("Lo que se mostró", "What was shown")}</dt>
-                <dd className="mt-1 whitespace-pre-wrap break-words text-slate-700">{r.shown ?? "—"}</dd>
+              <div className="rounded-lg bg-[#FAFBFA] p-3">
+                <dt className="text-xs font-bold uppercase tracking-wide text-[#5F6F67]">{t("Lo que se mostró", "What was shown")}</dt>
+                <dd className="mt-1 whitespace-pre-wrap break-words text-[#33443C]">{r.shown ?? "—"}</dd>
               </div>
             </dl>
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-[#5F6F67]">
                 {r.kinds.length > 0 && `${t("Ocultado", "Hidden")}: ${r.kinds.map((k) => (KIND[k] ? t(KIND[k][0], KIND[k][1]) : k)).join(", ")}`}
               </p>
               {r.reviewed_at ? (
-                <p className="text-xs font-bold text-emerald-700">{t("Revisado", "Reviewed")}</p>
+                <Chip tone="green">{t("Revisado", "Reviewed")}</Chip>
               ) : (
-                <ActionForm action={reviewFlag} lang={lang} submitLabel={t("Marcar como revisado", "Mark reviewed")} savedLabel={t("Revisado", "Reviewed")}>
+                <AdminActionForm action={reviewFlag} lang={lang} submitLabel={t("Marcar como revisado", "Mark reviewed")} savedLabel={t("Revisado", "Reviewed")}>
                   <input type="hidden" name="flag_id" value={r.id} />
-                </ActionForm>
+                </AdminActionForm>
               )}
             </div>
           </li>

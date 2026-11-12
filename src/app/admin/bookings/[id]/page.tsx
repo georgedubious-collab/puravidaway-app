@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ActionForm } from "@/components/ActionForm";
+import { AdminActionForm } from "@/components/admin/AdminActionForm";
+import { BookingTimeline, type BookingEvent } from "@/components/admin/BookingTimeline";
+import { PaymentChip, StatusChip } from "@/components/admin/chips";
+import { Card, Chip, Detail, DetailList, Notice, PageHeader, btn, field, link } from "@/components/admin/ui";
 import { ChatBox } from "@/components/ChatBox";
 import { requireRole } from "@/lib/auth";
 import { bagsForTeam } from "@/lib/bags";
@@ -122,6 +125,40 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
     ? await supabase.from("bookings").select("id, booking_ref, service_type, scheduled_at").eq("trip_id", b.trip_id).neq("id", b.id)
     : { data: [] };
 
+  // Change history (migration 0044): who changed what, with names for the people and vehicles in it.
+  const history = await supabase
+    .from("booking_events")
+    .select("id, at, actor_id, action, before, after")
+    .eq("booking_id", b.id)
+    .order("at")
+    .limit(500)
+    .returns<BookingEvent[]>();
+  const events = history.data ?? [];
+  const personIds = [
+    ...new Set(
+      events
+        .flatMap((e) => [e.actor_id, e.before?.driver_id, e.after?.driver_id])
+        .filter((x): x is string => typeof x === "string" && UUID.test(x)),
+    ),
+  ];
+  const vehicleIds = [
+    ...new Set(events.flatMap((e) => [e.before?.vehicle_id, e.after?.vehicle_id]).filter((x): x is string => typeof x === "string" && UUID.test(x))),
+  ];
+  const [{ data: people }, { data: eventVehicles }] = await Promise.all([
+    personIds.length ? supabase.from("profiles").select("id, full_name, email").in("id", personIds) : Promise.resolve({ data: [] as { id: string; full_name: string | null; email: string | null }[] }),
+    vehicleIds.length
+      ? supabase.from("driver_vehicles").select("id, make_model, plate").in("id", vehicleIds)
+      : Promise.resolve({ data: [] as { id: string; make_model: string | null; plate: string | null }[] }),
+  ]);
+  const personName = (id: unknown) => {
+    const p = people?.find((x) => x.id === id);
+    return p ? p.full_name || p.email || null : null;
+  };
+  const vehicleName = (id: unknown) => {
+    const v = eventVehicles?.find((x) => x.id === id);
+    return v ? `${v.make_model ?? ""} ${v.plate ?? ""}`.trim() || null : null;
+  };
+
   const today = todayInCostaRica();
   const seats = b.passenger_count ?? 1;
   // Approved drivers and their approved vehicles that can legally take trips and fit the group.
@@ -200,33 +237,51 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
           );
   const guest: TripContact = b.trips ?? { guest_name: null, guest_email: null, guest_phone: null };
   const phoneDigits = guest.guest_phone?.replace(/\D/g, "") ?? "";
-  const field = "mt-1 block w-full min-h-10 rounded-lg border border-slate-300 px-2 font-normal";
   const asked = prefsSummary(b.preferences, lang);
 
-  return (
-    <div className="space-y-6">
-      {b.status === "pending_bids" && <LiveRefresh seconds={10} />}
-      <Link href="/admin/bookings" className="text-sm font-bold text-emerald-700 underline">
-        {t("← Todas las reservas", "← All bookings")}
-      </Link>
-      <div>
-        <p className="font-mono text-sm font-bold text-slate-500">{b.booking_ref}</p>
-        <h1 className="text-2xl font-extrabold text-slate-900">
-          {serviceLabel(b.service_type, lang)}: {name}
-        </h1>
-        <p className="text-sm text-slate-600">
-          {formatScheduledAt(b.scheduled_at, lang)} · {bookingStatusLabel(b.status, lang)} · {t("enviada", "sent")} {b.created_at.slice(0, 10)}
-        </p>
-      </div>
+  const cancelWarning = t(
+    `La reserva ${b.booking_ref} quedará cancelada. Nadie recibe un aviso automático: avise al viajero${b.assigned_driver_id ? " y al conductor" : ""}.${
+      Number(b.amount_paid) > 0 ? ` Ya se recibieron ${usd(b.amount_paid)}: revise el reembolso.` : ""
+    }`,
+    `Booking ${b.booking_ref} will be cancelled. Nobody is told automatically: let the traveller${b.assigned_driver_id ? " and the driver" : ""} know.${
+      Number(b.amount_paid) > 0 ? ` ${usd(b.amount_paid)} was already received: check the refund.` : ""
+    }`,
+  );
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <section className="rounded-xl border border-slate-200 bg-white p-5">
-          <h2 className="font-extrabold text-slate-900">{t("Cliente", "Client")}</h2>
-          <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
-            <Item k={t("Nombre", "Name")} v={guest.guest_name} />
-            <Item k={t("Correo", "Email")} v={guest.guest_email} />
-            <Item k="WhatsApp" v={guest.guest_phone} />
-            <Item
+  return (
+    <div className="space-y-5">
+      {b.status === "pending_bids" && <LiveRefresh seconds={10} />}
+      <PageHeader
+        back={{ href: "/admin/bookings", label: t("Todas las reservas", "All bookings") }}
+        eyebrow={b.booking_ref}
+        title={
+          <>
+            {serviceLabel(b.service_type, lang)}: {name}
+          </>
+        }
+        subtitle={
+          <span className="flex flex-wrap items-center gap-2">
+            <span>
+              {formatScheduledAt(b.scheduled_at, lang)} · {t("enviada", "sent")} {b.created_at.slice(0, 10)}
+            </span>
+            <StatusChip status={b.status} lang={lang} />
+            <PaymentChip booking={b} lang={lang} test={testPaid} />
+          </span>
+        }
+        actions={
+          <a href="#dispatch" className={btn.primary}>
+            {t("Asignar y cambiar estado", "Dispatch & status")}
+          </a>
+        }
+      />
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card title={t("Cliente", "Client")}>
+          <DetailList>
+            <Detail k={t("Nombre", "Name")} v={guest.guest_name} />
+            <Detail k={t("Correo", "Email")} v={guest.guest_email} />
+            <Detail k="WhatsApp" v={guest.guest_phone} />
+            <Detail
               k={t("Idioma", "Language")}
               v={
                 guest.language === "es"
@@ -234,8 +289,8 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
                   : t("Inglés", "English")
               }
             />
-            <Item k={t("Sus notas", "Their notes")} v={b.client_notes} />
-          </dl>
+            <Detail k={t("Sus notas", "Their notes")} v={b.client_notes} />
+          </DetailList>
           {phoneDigits && (
             <a
               href={`https://wa.me/${phoneDigits}?text=${encodeURIComponent(
@@ -245,51 +300,48 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
               )}`}
               target="_blank"
               rel="noreferrer"
-              className="mt-4 inline-flex min-h-10 items-center rounded-lg bg-emerald-700 px-4 text-sm font-bold text-white"
+              className={`mt-4 ${btn.primary}`}
             >
               {t("Escribir por WhatsApp", "Message on WhatsApp")}
             </a>
           )}
           {siblings && siblings.length > 0 && (
-            <p className="mt-4 text-sm text-slate-600">
+            <p className="mt-4 text-sm text-[#5F6F67]">
               {t("Mismo viaje:", "Same trip:")}{" "}
               {siblings.map((s, i) => (
                 <span key={s.id}>
                   {i > 0 && ", "}
-                  <Link href={`/admin/bookings/${s.id}`} className="font-mono font-bold text-emerald-700 underline">
+                  <Link href={`/admin/bookings/${s.id}`} className={`font-mono ${link}`}>
                     {s.booking_ref}
                   </Link>
                 </span>
               ))}
             </p>
           )}
-        </section>
+        </Card>
 
-        <section className="rounded-xl border border-slate-200 bg-white p-5">
-          <h2 className="font-extrabold text-slate-900">{t("Viaje", "Trip")}</h2>
-          <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
-            <Item k={t("Recogida (hora de Costa Rica)", "Pickup (Costa Rica time)")} v={formatScheduledAt(b.scheduled_at, lang)} />
+        <Card title={t("Viaje", "Trip")}>
+          <DetailList>
+            <Detail k={t("Recogida (hora de Costa Rica)", "Pickup (Costa Rica time)")} v={formatScheduledAt(b.scheduled_at, lang)} />
             {b.service_type === "transfer" && (
-              <Item k={t("Tipo de vehículo", "Vehicle class")} v={catalog.vehicles.find((v) => v.id === b.vehicle_class)?.name ?? b.vehicle_class} />
+              <Detail k={t("Tipo de vehículo", "Vehicle class")} v={catalog.vehicles.find((v) => v.id === b.vehicle_class)?.name ?? b.vehicle_class} />
             )}
-            {b.passenger_count && <Item k={t("Pasajeros", "Passengers")} v={b.passenger_count} />}
+            {b.passenger_count ? <Detail k={t("Pasajeros", "Passengers")} v={b.passenger_count} /> : null}
             {bagsForTeam(b.luggage_count, b.carry_on_count, lang) != null && (
-              <Item k={t("Maletas", "Bags")} v={bagsForTeam(b.luggage_count, b.carry_on_count, lang)} />
+              <Detail k={t("Maletas", "Bags")} v={bagsForTeam(b.luggage_count, b.carry_on_count, lang)} />
             )}
             {b.drive_minutes != null && (
-              <Item
+              <Detail
                 k={t("Tiempo de manejo", "Drive time")}
                 v={`${Math.floor(b.drive_minutes / 60)} h ${String(b.drive_minutes % 60).padStart(2, "0")} min${t(" (sin paradas)", " (without stops)")}`}
               />
             )}
-            {stops && <Item k={t("Paradas / extras", "Stops / extras")} v={stops} />}
-            {b.lodging_tier && (
-              <Item k={t("Hospedaje", "Lodging")} v={RETIRED_LODGING_TIERS[b.lodging_tier]?.[lang] ?? b.lodging_tier} />
-            )}
-            {b.flight_or_hotel_notes && <Item k={t("Notas del viaje", "Ride notes")} v={b.flight_or_hotel_notes} />}
-            {asked.length > 0 && <Item k={t("Pidió", "Asked for")} v={asked.join(", ")} />}
+            {stops && <Detail k={t("Paradas / extras", "Stops / extras")} v={stops} />}
+            {b.lodging_tier && <Detail k={t("Hospedaje", "Lodging")} v={RETIRED_LODGING_TIERS[b.lodging_tier]?.[lang] ?? b.lodging_tier} />}
+            {b.flight_or_hotel_notes && <Detail k={t("Notas del viaje", "Ride notes")} v={b.flight_or_hotel_notes} />}
+            {asked.length > 0 && <Detail k={t("Pidió", "Asked for")} v={asked.join(", ")} />}
             {b.driver_payout != null && (
-              <Item
+              <Detail
                 k={t("Pago al conductor", "Driver payout")}
                 v={`${usd(b.driver_payout)} (${t("nos quedamos", "we keep")} ${usd(b.platform_fee ?? 0)}${
                   Number(b.company_costs ?? 0) > 0
@@ -301,9 +353,9 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
                 })${b.claimed_at ? t(" · oferta aceptada de la bolsa de trabajos", " · offer accepted from the job board") : t(" · sugerido", " · suggested")}`}
               />
             )}
-            {b.driver_notes && <Item k={t("Mensaje para el conductor", "Message for driver")} v={b.driver_notes} />}
+            {b.driver_notes && <Detail k={t("Mensaje para el conductor", "Message for driver")} v={b.driver_notes} />}
             {b.service_type === "transfer" && (
-              <Item
+              <Detail
                 k={t("Rótulo", "Name sign")}
                 v={`“${signShown(b, guest.guest_name)}” ${
                   b.sign_text
@@ -314,185 +366,219 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
                 }`}
               />
             )}
-            <Item k={t("Precio", "Price")} v={`${usd(b.total_price)}${b.pricing_mode === "bid" ? t(" (oferta del cliente)", " (client's offer)") : ""}`} />
+            <Detail k={t("Precio", "Price")} v={`${usd(b.total_price)}${b.pricing_mode === "bid" ? t(" (oferta del cliente)", " (client's offer)") : ""}`} />
             {Number(b.night_premium ?? 0) > 0 && (
-              <Item k={t("Recargo nocturno", "Night premium")} v={`${usd(b.night_premium ?? 0)} ${t("(incluido en el precio)", "(included in the price)")}`} />
+              <Detail k={t("Recargo nocturno", "Night premium")} v={`${usd(b.night_premium ?? 0)} ${t("(incluido en el precio)", "(included in the price)")}`} />
             )}
-            <Item k={t("Pago", "Payment")} v={paymentText} />
-            <Item
+            <Detail k={t("Pago", "Payment")} v={paymentText} />
+            <Detail
               k={t("Recibido", "Received")}
               v={`${usd(b.amount_paid)}${testPaid ? t(" · pago de PRUEBA, no se cobró dinero", " · TEST checkout, no money was charged") : ""}`}
             />
-          </dl>
-        </section>
+          </DetailList>
+        </Card>
       </div>
 
       {(offers ?? []).length > 0 && (
-        <section className="rounded-xl border border-slate-200 bg-white p-5">
-          <h2 className="font-extrabold text-slate-900">{t("Ofertas de los conductores", "Drivers' offers")}</h2>
-          <p className="mt-1 text-xs text-slate-500">
+        <Card title={t("Ofertas de los conductores", "Drivers' offers")}>
+          <p className="text-xs leading-relaxed text-[#5F6F67]">
             {t(
               `Pago sugerido ${b.driver_payout != null ? usd(b.driver_payout) : "—"}. Ordenadas para usted: primero un conductor con viaje de regreso, luego la mejor calificación (los conductores nuevos cuentan como 4.0), luego los conductores que viven cerca, luego la oferta más baja y luego quien tiene menos viajes con nosotros. Al aceptar una se asigna el conductor, se confirma la reserva y se rechazan las demás. Las ofertas nuevas aparecen solas.`,
               `Suggested payout ${b.driver_payout != null ? usd(b.driver_payout) : "—"}. Sorted for you: a driver with a return trip first, then the better rating (new drivers count as 4.0), then drivers based nearby, then the lower offer, then fewer trips with us. Accepting one assigns the driver, confirms the booking and declines the rest. New offers appear by themselves.`,
             )}
           </p>
-          <ul className="mt-3 divide-y divide-slate-100">
+          <ul className="mt-3 divide-y divide-[#EDF1EE]">
             {ranked.map(({ o, match, home, trips }) => (
-              <li key={o.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
-                <div className="text-sm">
-                  <p className="font-bold text-slate-900">
+              <li key={o.id} className="flex flex-wrap items-start justify-between gap-3 py-3">
+                <div className="min-w-0 space-y-1 text-sm">
+                  <p className="font-bold text-[#14231C]">
                     {nameOf(o.driver_id)}{" "}
-                    <span className="font-semibold text-slate-500">
+                    <span className="font-semibold text-[#5F6F67]">
                       · {ratingText(o.driver_id)} · {trips} {trips === 1 ? t("viaje", "trip") : t("viajes", "trips")}
                       {homeOf(o.driver_id) ? ` · ${t("vive en", "based in")} ${townName(homeOf(o.driver_id), lang)}` : ""}
                     </span>
                   </p>
-                  {match && (
-                    <p className="mt-0.5 inline-block rounded bg-emerald-100 px-1.5 text-xs font-bold text-emerald-900">{matchText(match)}</p>
-                  )}
-                  {!match && home && (
-                    <p className="mt-0.5 inline-block rounded bg-sky-100 px-1.5 text-xs font-bold text-sky-900">
-                      {t("Vive cerca de la recogida", "Based near the pickup")}
-                    </p>
-                  )}
-                  <p className="text-slate-600">
+                  <div className="flex flex-wrap gap-1.5">
+                    {match && <Chip tone="green">{matchText(match)}</Chip>}
+                    {!match && home && <Chip tone="blue">{t("Vive cerca de la recogida", "Based near the pickup")}</Chip>}
+                    {offerCategoryProblem(o.vehicle_id) && <Chip tone="amber">⚠ {offerCategoryProblem(o.vehicle_id)}</Chip>}
+                    {offerIsElectric(o.vehicle_id) ? (
+                      <Chip tone="green">
+                        ⚡ {t("Vehículo eléctrico", "Electric vehicle")}
+                        {askedElectric ? ` · ${t("el viajero lo pidió", "the traveller asked for one")}` : ""}
+                      </Chip>
+                    ) : (
+                      askedElectric && (
+                        <Chip tone="amber">⚠ {t("no es eléctrico (el viajero pidió uno, si hay disponible)", "not electric (the traveller asked for one, if available)")}</Chip>
+                      )
+                    )}
+                  </div>
+                  <p className="text-[#5F6F67]">
                     {o.vehicle_snapshot?.make_model ?? t("Vehículo", "Vehicle")} {o.vehicle_snapshot?.plate ?? ""}
                     {o.vehicle_snapshot?.seats ? ` · ${o.vehicle_snapshot.seats} ${t("asientos", "seats")}` : ""} · {o.created_at.slice(0, 10)}
                   </p>
-                  {offerCategoryProblem(o.vehicle_id) && (
-                    <p className="mt-0.5 inline-block rounded bg-amber-100 px-1.5 text-xs font-bold text-amber-900">⚠ {offerCategoryProblem(o.vehicle_id)}</p>
-                  )}
-                  {offerIsElectric(o.vehicle_id) ? (
-                    <p className="mt-0.5 inline-block rounded bg-emerald-100 px-1.5 text-xs font-bold text-emerald-900">
-                      ⚡ {t("Vehículo eléctrico", "Electric vehicle")}
-                      {askedElectric ? ` · ${t("el viajero lo pidió", "the traveller asked for one")}` : ""}
-                    </p>
-                  ) : (
-                    askedElectric && (
-                      <p className="mt-0.5 inline-block rounded bg-amber-100 px-1.5 text-xs font-bold text-amber-900">
-                        ⚠ {t("no es eléctrico (el viajero pidió uno, si hay disponible)", "not electric (the traveller asked for one, if available)")}
-                      </p>
-                    )
-                  )}
-                  {o.note && <p className="text-slate-700 italic">&ldquo;{o.note}&rdquo;</p>}
+                  {o.note && <p className="italic text-[#33443C]">&ldquo;{o.note}&rdquo;</p>}
                 </div>
-                <div className="flex items-center gap-3">
-                  <span className={`text-lg font-extrabold ${Number(o.bid_amount) > Number(b.driver_payout ?? 0) ? "text-amber-700" : "text-emerald-700"}`}>
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className={`text-lg font-extrabold ${Number(o.bid_amount) > Number(b.driver_payout ?? 0) ? "text-[#B45309]" : "text-[#047857]"}`}>
                     {usd(o.bid_amount)}
                   </span>
                   {o.status === "submitted" && b.status === "pending_bids" ? (
-                    <ActionForm
+                    <AdminActionForm
                       action={acceptOffer}
                       lang={lang}
                       submitLabel={t("Aceptar oferta", "Accept")}
                       savedLabel={t("Aceptada", "Accepted")}
-                      className="inline"
+                      confirm={[
+                        {
+                          kind: "always",
+                          message: t(
+                            `Se asigna a ${nameOf(o.driver_id)}, la reserva queda confirmada con un pago al conductor de ${usd(o.bid_amount)}, y las demás ofertas se rechazan. El conductor y el viajero reciben un aviso.`,
+                            `${nameOf(o.driver_id)} gets the job, the booking is confirmed with a driver payout of ${usd(o.bid_amount)}, and the other offers are declined. The driver and the traveller are notified.`,
+                          ),
+                        },
+                      ]}
+                      confirmLabel={t("Sí, aceptar esta oferta", "Yes, accept this offer")}
                     >
                       <input type="hidden" name="bid_id" value={o.id} />
                       <input type="hidden" name="booking_id" value={b.id} />
-                    </ActionForm>
+                    </AdminActionForm>
                   ) : (
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                      {lang === "en" ? o.status : (OFFER_STATUS_ES[o.status] ?? o.status)}
-                    </span>
+                    <Chip tone={o.status === "accepted" ? "green" : "grey"}>{lang === "en" ? o.status : (OFFER_STATUS_ES[o.status] ?? o.status)}</Chip>
                   )}
                 </div>
               </li>
             ))}
           </ul>
-        </section>
+        </Card>
       )}
 
-      <section className="rounded-xl border border-slate-200 bg-white p-5">
-        <h2 className="font-extrabold text-slate-900">{t("Asignación", "Dispatch")}</h2>
-        <ActionForm action={updateBooking} lang={lang} className="mt-3 space-y-4">
-          <input type="hidden" name="id" value={b.id} />
-          <div className="grid gap-4 sm:grid-cols-2">
-            <label className="block text-sm font-bold text-slate-700">
-              {t("Estado", "Status")}
-              <select name="status" defaultValue={b.status} className={field}>
-                {BOOKING_STATUSES.map(([s]) => (
-                  <option key={s} value={s}>
-                    {bookingStatusLabel(s, lang)}
-                  </option>
-                ))}
-              </select>
+      <div id="dispatch" className="scroll-mt-20">
+        <Card title={t("Asignación y estado", "Dispatch & status")}>
+          <AdminActionForm
+            action={updateBooking}
+            lang={lang}
+            className="space-y-4"
+            confirm={[
+              { kind: "equals", field: "status", values: ["cancelled"], unlessInitial: true, message: cancelWarning },
+              {
+                kind: "changed",
+                fields: ["amount_paid"],
+                message: t("El monto recibido cambiará de {from} a {to} USD.", "The amount received will change from {from} to {to} USD."),
+              },
+            ]}
+          >
+            <input type="hidden" name="id" value={b.id} />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className={field.label}>
+                {t("Estado", "Status")}
+                <select name="status" defaultValue={b.status} className={field.input}>
+                  {BOOKING_STATUSES.map(([s]) => (
+                    <option key={s} value={s}>
+                      {bookingStatusLabel(s, lang)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className={field.label}>
+                {t("Conductor y vehículo", "Driver and vehicle")}
+                <select name="assignment" defaultValue={current} className={field.input}>
+                  <option value="">{t("Nadie todavía", "Nobody yet")}</option>
+                  {options.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                      {o.problems.length ? ` ⚠ ${o.problems.join(", ")}` : " ✓"}
+                    </option>
+                  ))}
+                </select>
+                {categoryMismatch && (
+                  <span role="alert" className="mt-2 block rounded-xl border border-[#FDE68A] bg-[#FFFBEB] p-2.5 text-sm font-semibold text-[#78350F]">
+                    ⚠{" "}
+                    {t(
+                      `El vehículo asignado (${categoryMismatch.make_model ?? "vehículo"} ${categoryMismatch.plate ?? ""}) es de categoría ${categoryLabel(categoryMismatch.vehicle_class, lang)} y el cliente reservó ${bookedClassName}. Esa categoría no cubre este viaje: confirme que el vehículo sirve o asigne otro.`,
+                      `The assigned vehicle (${categoryMismatch.make_model ?? "vehicle"} ${categoryMismatch.plate ?? ""}) is in the ${categoryLabel(categoryMismatch.vehicle_class, lang)} category and the client booked ${bookedClassName}. That category doesn't cover this trip: confirm the vehicle fits or assign another.`,
+                    )}
+                  </span>
+                )}
+              </label>
+              <label className={field.label}>
+                {t("Monto recibido (USD)", "Amount received (USD)")}
+                <input name="amount_paid" inputMode="decimal" defaultValue={b.amount_paid} className={field.input} />
+                <span className={field.hint}>{t(`A cobrar en total: ${usd(due)}`, `Total due: ${usd(due)}`)}</span>
+              </label>
+            </div>
+            <label className={field.label}>
+              {t("Notas internas (nunca se muestran al cliente ni al conductor)", "Internal notes (never shown to the client or driver)")}
+              <textarea name="admin_notes" rows={3} defaultValue={note?.notes ?? ""} className={field.textarea} />
             </label>
-            <label className="block text-sm font-bold text-slate-700">
-              {t("Conductor y vehículo", "Driver and vehicle")}
-              <select name="assignment" defaultValue={current} className={field}>
-                <option value="">{t("Nadie todavía", "Nobody yet")}</option>
-                {options.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                    {o.problems.length ? ` ⚠ ${o.problems.join(", ")}` : " ✓"}
-                  </option>
-                ))}
-              </select>
-              {categoryMismatch && (
-                <span role="alert" className="mt-2 block rounded-lg border border-amber-300 bg-amber-50 p-2 text-sm font-semibold text-amber-900">
-                  ⚠{" "}
-                  {t(
-                    `El vehículo asignado (${categoryMismatch.make_model ?? "vehículo"} ${categoryMismatch.plate ?? ""}) es de categoría ${categoryLabel(categoryMismatch.vehicle_class, lang)} y el cliente reservó ${bookedClassName}. Esa categoría no cubre este viaje: confirme que el vehículo sirve o asigne otro.`,
-                    `The assigned vehicle (${categoryMismatch.make_model ?? "vehicle"} ${categoryMismatch.plate ?? ""}) is in the ${categoryLabel(categoryMismatch.vehicle_class, lang)} category and the client booked ${bookedClassName}. That category doesn't cover this trip: confirm the vehicle fits or assign another.`,
-                  )}
-                </span>
-              )}
-            </label>
-            <label className="block text-sm font-bold text-slate-700">
-              {t("Monto recibido (USD)", "Amount received (USD)")}
-              <input name="amount_paid" inputMode="decimal" defaultValue={b.amount_paid} className={field} />
-            </label>
-          </div>
-          <label className="block text-sm font-bold text-slate-700">
-            {t("Notas internas (nunca se muestran al cliente ni al conductor)", "Internal notes (never shown to the client or driver)")}
-            <textarea name="admin_notes" rows={3} defaultValue={note?.notes ?? ""} className="mt-1 block w-full rounded-lg border border-slate-300 p-2 font-normal" />
-          </label>
-        </ActionForm>
-        {options.length === 0 && (
-          <p className="mt-3 text-sm text-slate-500">
-            {t(
-              "Todavía no hay conductores aprobados con un vehículo aprobado. Apruébelos en",
-              "No approved drivers with an approved vehicle yet. Approve them in",
-            )}{" "}
-            <Link href="/admin/drivers" className="font-bold text-emerald-700 underline">
-              {t("Conductores", "Drivers")}
-            </Link>
-            .
-          </p>
-        )}
-      </section>
-
-      <section className="rounded-xl border border-slate-200 bg-white p-5">
-        <h2 className="font-extrabold text-slate-900">{t("Chat del viaje", "Trip chat")}</h2>
-        <p className="mt-1 mb-3 text-sm text-slate-600">
-          {t(
-            "Entre el cliente y el conductor asignado; ustedes pueden leerlo y escribir. Cada mensaje les llega como notificación (o por correo). Usted puede compartir números de teléfono aquí; a los clientes y conductores se les ocultan.",
-            "Between the traveller and the assigned driver; you can read it and write. Each message reaches them as a notification (or email). You can share phone numbers here; travellers' and drivers' are hidden.",
+          </AdminActionForm>
+          {options.length === 0 && (
+            <p className="mt-3 text-sm text-[#5F6F67]">
+              {t(
+                "Todavía no hay conductores aprobados con un vehículo aprobado. Apruébelos en",
+                "No approved drivers with an approved vehicle yet. Approve them in",
+              )}{" "}
+              <Link href="/admin/drivers" className={link}>
+                {t("Conductores", "Drivers")}
+              </Link>
+              .
+            </p>
           )}
-        </p>
-        {(flagCount ?? 0) > 0 && (
-          <p className="mb-3 rounded-lg bg-red-50 p-3 text-sm font-semibold text-red-900">
-            {t(
-              `Se ocultaron datos de contacto ${flagCount} ${flagCount === 1 ? "vez" : "veces"} en esta reserva (chat o notas).`,
-              `Contact details were hidden ${flagCount} time${flagCount === 1 ? "" : "s"} on this booking (chat or notes).`,
-            )}{" "}
-            <Link href="/admin/flagged?all=1" className="underline">
-              {t("Ver los originales", "See the originals")}
-            </Link>
-          </p>
-        )}
-        <ChatBox bookingId={b.id} viewer={{ kind: "staff" }} allowContactDetails lang={lang} />
-      </section>
-    </div>
-  );
-}
+        </Card>
+      </div>
 
-function Item({ k, v }: { k: string; v: string | number | null | undefined }) {
-  return (
-    <>
-      <dt className="text-slate-500">{k}</dt>
-      <dd className="font-semibold text-slate-900 break-words">{v || v === 0 ? v : "—"}</dd>
-    </>
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+        <Card title={t("Chat del viaje", "Trip chat")}>
+          <p className="mb-3 text-sm text-[#5F6F67]">
+            {t(
+              "Entre el cliente y el conductor asignado; ustedes pueden leerlo y escribir. Cada mensaje les llega como notificación (o por correo). Usted puede compartir números de teléfono aquí; a los clientes y conductores se les ocultan.",
+              "Between the traveller and the assigned driver; you can read it and write. Each message reaches them as a notification (or email). You can share phone numbers here; travellers' and drivers' are hidden.",
+            )}
+          </p>
+          {(flagCount ?? 0) > 0 && (
+            <div className="mb-3">
+              <Notice tone="red">
+                {t(
+                  `Se ocultaron datos de contacto ${flagCount} ${flagCount === 1 ? "vez" : "veces"} en esta reserva (chat o notas).`,
+                  `Contact details were hidden ${flagCount} time${flagCount === 1 ? "" : "s"} on this booking (chat or notes).`,
+                )}{" "}
+                <Link href="/admin/flagged?all=1" className="font-bold underline">
+                  {t("Ver los originales", "See the originals")}
+                </Link>
+              </Notice>
+            </div>
+          )}
+          <ChatBox bookingId={b.id} viewer={{ kind: "staff" }} allowContactDetails lang={lang} />
+        </Card>
+
+        <Card title={t("Historial de cambios", "Change history")}>
+          {history.error ? (
+            <p className="text-sm text-[#5F6F67]">
+              {t(
+                "El historial aparece cuando termine la actualización de la base de datos (se aplica sola después de publicar).",
+                "The history shows once the database update has finished (it runs by itself after publishing).",
+              )}
+            </p>
+          ) : (
+            <>
+              <BookingTimeline
+                events={events}
+                createdAt={b.created_at}
+                lang={lang}
+                actorName={personName}
+                driverName={personName}
+                vehicleName={vehicleName}
+              />
+              <p className="mt-4 text-xs text-[#5F6F67]">
+                {t(
+                  "Se guarda solo: estado, conductor y vehículo, montos, forma de pago, hora, liquidación, rótulo y notas internas. Nunca datos de tarjeta ni mensajes del chat.",
+                  "Recorded automatically: status, driver and vehicle, amounts, payment mode, time, settlement, name sign and internal notes. Never card data or chat messages.",
+                )}
+              </p>
+            </>
+          )}
+        </Card>
+      </div>
+    </div>
   );
 }
