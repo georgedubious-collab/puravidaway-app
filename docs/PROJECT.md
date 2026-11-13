@@ -83,8 +83,8 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
   measurement paragraphs were added on 2026-11-11; those are part of the same pending review.
 - `legacy/index.html` — the original static prototype, kept as the **design reference**.
 - Logins: `/login` (email + 6-digit code), `src/proxy.ts` (session refresh on account pages),
-  `src/lib/auth.ts` (`requireRole`). `/admin` (dashboard) and `/admin/users` (roles) are live
-  once Supabase is connected.
+  `src/lib/auth.ts` (`requireRole`). `/admin` (dashboard) and `/admin/users` (roles; "Add a team member" invites a new admin
+  and creates the account, §4.2) are live once Supabase is connected.
 - **Sign-in codes are sent only by our server (2026-11-12, after bot sign-ups):** the website
   (`POST /api/auth/send-code`) and both apps (`POST /api/v1/auth/send-code`, same handler,
   `src/lib/authCodeServer.ts`, rules in `src/lib/authCode.ts`) never call Supabase's
@@ -624,6 +624,23 @@ and error states, `AdminActionForm`).
     unchanged.
   - Tests: `npm run test:admin` (label, quick filters), `npm run test:crm` (action bar, publish path),
     `npm run test:dispatch` (live trips, map focus).
+- **Usuarios y roles / adding a team member** (`/admin/users`, Jorge 2026-11-13; no migration). Plain
+  sign-in never creates an account (bot protection above), so new staff can't make one themselves.
+  A card **"Agregar una persona del equipo" / "Add a team member"** (email, optional name →
+  "Invitar como admin", after an in-page confirmation) runs `inviteAdmin` (admins only;
+  rules in `src/lib/teamInvite.ts`): no account → created with the admin API (confirmed, like the
+  sign-in code flow; the name goes to `user_metadata.full_name`, so `handle_new_user()` puts it on
+  the profile) and made admin; an account → made admin (a name it already has is kept); already admin
+  → "ya es admin", nothing changed or sent. Then a short **invitation email** (Spanish, English
+  below): sign in at `/login` with this email and the 6-digit code; tip to add "CRPT Admin" to the
+  phone's home screen and turn on alerts at `/admin/alerts`. No secret, no sign-in link, no
+  brand-separation names. There is no audit table for roles: the server log keeps one line with the
+  two account ids (no email). The **list** is a table on wide screens and one small card per person
+  on phones (360–430 px). Changing a role keeps its rules (`roleChangeProblem()`: nobody can remove
+  their own admin role); removing someone's admin asks first in the page ("deja de ser admin…",
+  "Sí, quitar admin"), and making someone admin says what an admin can see. Tests: `npm run
+  test:admin` (invite cases, self-demotion, email text), `npm run test:db` (new account profile and
+  name, who may change a role).
 - **CRM part 5 (2026-11-12, migration 0052, `npm run test:money`):**
   - **Informes / Reports** (`/admin/reports`, side menu): the money report for a month (default the
     current Costa Rica month, ← / → months) or any range of pickup days (≤ 366), compared with the
