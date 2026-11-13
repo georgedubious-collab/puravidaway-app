@@ -2,11 +2,11 @@ import type { Session } from "@supabase/supabase-js";
 import * as Notifications from "expo-notifications";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, AppState, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { registerForPush, unregisterPush } from "./src/push";
 import { LocationCard } from "./src/screens/LocationCard";
-import { stopTracking, syncTracking, type TrackingState } from "./src/tracking";
+import { heartbeat, stopTracking, syncTracking, type TrackingState } from "./src/tracking";
 import { Calendar } from "./src/screens/Calendar";
 import { Documents } from "./src/screens/Documents";
 import { Help } from "./src/screens/Help";
@@ -99,6 +99,29 @@ function Home({ session }: { session: Session }) {
     // Location sharing follows the driver's trips: on inside the trip window, off outside it.
     setTracking(await syncTracking(Boolean(d?.location_consent_at)));
   }, [userId]);
+
+  // While sharing is on and the app is open, send the position every minute even when the car
+  // isn't moving, so the team's live map doesn't show "no recent signal" at a stop or in traffic.
+  const sharing = tracking?.kind === "on";
+  useEffect(() => {
+    if (!sharing) return;
+    let timer: ReturnType<typeof setInterval> | null = null;
+    const start = () => {
+      if (timer) return;
+      void heartbeat();
+      timer = setInterval(() => void heartbeat(), 60000);
+    };
+    const stop = () => {
+      if (timer) clearInterval(timer);
+      timer = null;
+    };
+    if (AppState.currentState === "active") start();
+    const sub = AppState.addEventListener("change", (s) => (s === "active" ? start() : stop()));
+    return () => {
+      stop();
+      sub.remove();
+    };
+  }, [sharing]);
 
   // How many open jobs the driver can offer on (the gold count in the menu and on the bell).
   const loadOffers = useCallback(async () => {

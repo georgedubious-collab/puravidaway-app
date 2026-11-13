@@ -15,17 +15,21 @@ import { supabase } from "./supabase";
  */
 const TASK = "trip-location";
 
-// Must be defined at the top level so it also runs when the app is in the background.
-TaskManager.defineTask<{ locations?: Location.LocationObject[] }>(TASK, async ({ data, error }) => {
-  if (error || !data?.locations?.length) return;
-  const last = data.locations[data.locations.length - 1];
+/** At most one position every 30 seconds goes to the server (the phone may report more often). */
+const MIN_SEND_MS = 30000;
+let lastSentAt = 0;
+
+/** Send one position; false = the server no longer wants it (trip over or consent withdrawn). */
+async function sendPosition(loc: Location.LocationObject, force = false): Promise<void> {
+  if (!force && Date.now() - lastSentAt < MIN_SEND_MS) return;
+  lastSentAt = Date.now();
   try {
     const { data: accepted, error: err } = await supabase.rpc("report_location", {
-      p_lat: last.coords.latitude,
-      p_lng: last.coords.longitude,
-      p_accuracy: last.coords.accuracy,
-      p_speed: last.coords.speed,
-      p_heading: last.coords.heading,
+      p_lat: loc.coords.latitude,
+      p_lng: loc.coords.longitude,
+      p_accuracy: loc.coords.accuracy,
+      p_speed: loc.coords.speed,
+      p_heading: loc.coords.heading,
     });
     // false = no trip in the window any more (or consent withdrawn): stop sharing.
     if (!err && accepted === false) return await stopTracking();
@@ -33,7 +37,30 @@ TaskManager.defineTask<{ locations?: Location.LocationObject[] }>(TASK, async ({
   } catch {
     /* offline: the next update tries again */
   }
+}
+
+// Must be defined at the top level so it also runs when the app is in the background.
+TaskManager.defineTask<{ locations?: Location.LocationObject[] }>(TASK, async ({ data, error }) => {
+  if (error || !data?.locations?.length) return;
+  await sendPosition(data.locations[data.locations.length - 1]);
 });
+
+/**
+ * While the app is open during a trip, send the current position every minute even when
+ * the car is standing still (an iPhone only reports by distance moved, so a parked or
+ * stopped driver otherwise looked like "no recent signal" on the team's live map).
+ */
+export async function heartbeat(): Promise<void> {
+  try {
+    if (!(await Location.hasStartedLocationUpdatesAsync(TASK))) return;
+    const loc =
+      (await Location.getLastKnownPositionAsync({ maxAge: 60000 })) ??
+      (await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }));
+    if (loc) await sendPosition(loc, true);
+  } catch {
+    /* no fix right now: the next beat tries again */
+  }
+}
 
 /**
  * Every 5 minutes, ask the server whether we'll reach the pickup on time. The server
@@ -98,9 +125,11 @@ export async function syncTracking(consented: boolean): Promise<TrackingState> {
       await loadLang();
       await Location.startLocationUpdatesAsync(TASK, {
         accuracy: Location.Accuracy.Balanced,
-        // Android: a position every minute even when parked. iPhone reports by distance moved.
+        // Android: a position every minute even when parked. iPhone reports by distance moved,
+        // so a small distance keeps it reporting in slow traffic and at stops; sendPosition()
+        // passes on at most one every 30 s, and heartbeat() covers a phone standing still.
         timeInterval: 60000,
-        distanceInterval: Platform.OS === "android" ? 0 : 100,
+        distanceInterval: Platform.OS === "android" ? 0 : 20,
         pausesUpdatesAutomatically: false,
         showsBackgroundLocationIndicator: true,
         activityType: Location.ActivityType.AutomotiveNavigation,
