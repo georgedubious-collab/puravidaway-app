@@ -1,19 +1,22 @@
 import Link from "next/link";
 import { StatusChip } from "@/components/admin/chips";
-import { Card, CountBadge, DataTable, EmptyState, Icon, Td, Th, btn, link } from "@/components/admin/ui";
-import { greeting, monthBounds, pctChange, weeklyCounts, weekStart } from "@/lib/adminBookings";
-import { bookingTitle, pickupDay, vehicleClassName } from "@/lib/adminDisplay";
+import { Card, CountBadge, DataTable, EmptyState, Icon, PhoneHeader, PhoneSectionTitle, Td, Th, btn, link } from "@/components/admin/ui";
+import { greeting, monthBounds, pctChange, phoneFilterHref, statusView, weeklyCounts, weekStart } from "@/lib/adminBookings";
+import { bookingTitle, pickupDay, shortPlace, vehicleClassName } from "@/lib/adminDisplay";
+import { nextStep, nextStepText } from "@/lib/adminPhone";
+import { agoText, isLiveTrip, isStaleLocation, liveMapHref } from "@/lib/liveTrips";
+import { shortName } from "@/lib/sign";
 import { requireRole } from "@/lib/auth";
 import { usd, type BookingRow } from "@/lib/bookings";
 import { localizeCatalog } from "@/lib/catalogEs";
 import { getCatalog } from "@/lib/catalogSource";
-import { COSTA_RICA_TZ, addDays, nowMs, scheduledParts, todayInCostaRica } from "@/lib/dates";
+import { COSTA_RICA_TZ, addDays, formatTime12h, nowMs, scheduledParts, todayInCostaRica } from "@/lib/dates";
 import { driverIssues, vehicleIssues, type DriverRecord, type VehicleRecord } from "@/lib/driverKyc";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { makeT, teamLocale } from "@/lib/teamLang";
 import { getTeamLang } from "@/lib/teamLangServer";
 import { isVehicleCategory } from "@/lib/vehicleEligibility";
-import { postingState } from "@/lib/postingWindow";
+import { postingMinutesLeft, postingState } from "@/lib/postingWindow";
 
 type DriverRow = DriverRecord & {
   profiles: { full_name: string | null; email: string | null } | null;
@@ -23,8 +26,14 @@ type Pickup = Pick<
   BookingRow,
   | "id" | "booking_ref" | "scheduled_at" | "service_type" | "origin" | "destination" | "catalog_item_id" | "vehicle_class"
   | "passenger_count" | "luggage_count" | "carry_on_count" | "assigned_driver_id" | "status" | "flight_or_hotel_notes"
-  | "night_premium" | "payment_mode" | "posting_closes_at"
-> & { trips: { guest_name: string | null } | null };
+  | "night_premium" | "payment_mode" | "posting_closes_at" | "total_price" | "cash_fee" | "amount_paid"
+> & { trips: { guest_name: string | null } | null; en_route_at?: string | null };
+/** A booking without a driver in the next 48 hours ("Necesita atención"). */
+type NoDriverRow = Pick<
+  BookingRow,
+  | "id" | "booking_ref" | "scheduled_at" | "status" | "posting_closes_at" | "service_type" | "origin" | "destination" | "catalog_item_id"
+  | "vehicle_class" | "sightseeing_stops" | "driver_payout" | "total_price" | "cash_fee" | "amount_paid" | "payment_mode" | "assigned_driver_id"
+>;
 
 const PICKS = ["today", "tomorrow", "7d"] as const;
 type Pick7 = (typeof PICKS)[number];
@@ -56,7 +65,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
     supabase
       .from("bookings")
       .select(
-        "id, booking_ref, scheduled_at, service_type, origin, destination, catalog_item_id, vehicle_class, passenger_count, luggage_count, carry_on_count, assigned_driver_id, status, flight_or_hotel_notes, night_premium, payment_mode, posting_closes_at, trips(guest_name)",
+        "id, booking_ref, scheduled_at, service_type, origin, destination, catalog_item_id, vehicle_class, passenger_count, luggage_count, carry_on_count, assigned_driver_id, status, flight_or_hotel_notes, night_premium, payment_mode, posting_closes_at, total_price, cash_fee, amount_paid, en_route_at, trips(guest_name)",
       )
       .gte("scheduled_at", crDay(today))
       .lt("scheduled_at", crDay(addDays(today, 7)))
@@ -89,13 +98,15 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
       .returns<{ booking_id: string; bookings: { booking_ref: string } | null }[]>(),
     supabase
       .from("bookings")
-      .select("id, booking_ref, scheduled_at, status, posting_closes_at")
+      .select(
+        "id, booking_ref, scheduled_at, status, posting_closes_at, service_type, origin, destination, catalog_item_id, vehicle_class, sightseeing_stops, driver_payout, total_price, cash_fee, amount_paid, payment_mode, assigned_driver_id",
+      )
       .in("status", ["pending_payment", "pending_bids", "confirmed"])
       .is("assigned_driver_id", null)
       .gte("scheduled_at", new Date(now).toISOString())
       .lte("scheduled_at", new Date(now + 48 * HOUR).toISOString())
       .order("scheduled_at")
-      .returns<{ id: string; booking_ref: string; scheduled_at: string; status: string; posting_closes_at: string | null }[]>(),
+      .returns<NoDriverRow[]>(),
     supabase
       .from("bookings")
       .select("id, booking_ref, created_at, total_price, cash_fee")
@@ -227,8 +238,220 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
   const longDate = new Intl.DateTimeFormat(teamLocale(lang), { timeZone: COSTA_RICA_TZ, weekday: "long", day: "numeric", month: "long" }).format(new Date(now));
   const pickLabel: Record<Pick7, string> = { today: t("Hoy", "Today"), tomorrow: t("Mañana", "Tomorrow"), "7d": t("7 días", "7 days") };
 
+  /* ---- Phone (below lg, 2026-11-13): attention cards, today's trips with their live state ---- */
+  const offersFor = (id: string) => (offers ?? []).filter((o) => o.booking_id === id).length;
+  const attention = (noDriver.data ?? []).map((b) => ({ b, n: offersFor(b.id), step: nextStep(b, offersFor(b.id), now), posting: postingState(b, now) }));
+  const otherAlerts = alerts.filter((a) => !a.key.startsWith("nd-"));
+  const liveToday = todays.filter((b) => isLiveTrip(b, now));
+  const liveDriverIds = [...new Set(liveToday.map((b) => b.assigned_driver_id).filter((x): x is string => Boolean(x)))];
+  type LocRow = { driver_id: string; recorded_at: string; eta_at: string | null; late_min: number | null };
+  const { data: liveLocs } = liveDriverIds.length
+    ? await supabase.from("driver_locations").select("driver_id, recorded_at, eta_at, late_min").in("driver_id", liveDriverIds).returns<LocRow[]>()
+    : { data: [] as LocRow[] };
+  const timeOf = (iso: string | null | undefined) => formatTime12h(scheduledParts(iso)?.time ?? "", lang);
+  const todayState = (b: Pickup): { text: string; ok: boolean } => {
+    const who = driverName(b.assigned_driver_id);
+    if (!who) return { text: t("sin conductor", "no driver"), ok: false };
+    const short = shortName(who) ?? who;
+    if (b.status !== "confirmed" && b.status !== "in_progress") return { text: `${short} · ${statusView(b.status, lang, b).label.toLowerCase()}`, ok: b.status === "completed" };
+    if (!isLiveTrip(b, now)) return { text: `${short} · ${t("confirmado", "confirmed")}`, ok: true };
+    const loc = (liveLocs ?? []).find((l) => l.driver_id === b.assigned_driver_id);
+    if (!loc || isStaleLocation(loc.recorded_at, now)) return { text: `${short} · ${t("sin ubicación", "no location")}`, ok: false };
+    if (b.status === "in_progress") return { text: `${short} · ${t("en ruta", "on the road")} · ${agoText(loc.recorded_at, now, lang)}`, ok: true };
+    const late = loc.late_min ?? 0;
+    const eta = loc.eta_at ? ` · ${t("llega", "arrives")} ${timeOf(loc.eta_at)}` : "";
+    if (late > 5) return { text: `${short} · ${t(`${late} min tarde`, `${late} min late`)}${eta}`, ok: false };
+    return { text: `${short} · ${b.en_route_at ? t("en camino", "on the way") : t("aún no sale", "not set off yet")}${eta}`, ok: true };
+  };
+  const tripTitle = (b: Pick<BookingRow, "service_type" | "origin" | "destination" | "catalog_item_id">) =>
+    b.service_type === "transfer" ? `${shortPlace(b.origin)} → ${shortPlace(b.destination)}` : bookingTitle(b, catalog, lang);
+
+  const weeklyCard = (
+    <Card>
+      <div className="flex items-baseline justify-between">
+        <h2 className="text-base font-extrabold">{t("Reservas por semana", "Bookings per week")}</h2>
+        <span className="text-xs text-[#5F6F67]">{t("últimas 8 · recibidas", "last 8 · received")}</span>
+      </div>
+      <div className="mt-3 flex h-[110px] items-end gap-2" role="img" aria-label={weeks.map((w) => `${w.start}: ${w.n}`).join(", ")}>
+        {weeks.map((w, i) => (
+          <div
+            key={w.start}
+            title={`${t("Semana del", "Week of")} ${w.start}: ${w.n}`}
+            className={`flex-1 rounded-t-md rounded-b-sm ${i === weeks.length - 1 ? "bg-[#047857]" : "bg-[#A7D7C0]"}`}
+            style={{ height: `${Math.max(3, Math.round((w.n / top) * 100))}%` }}
+          />
+        ))}
+      </div>
+      <div className="mt-1.5 flex justify-between text-[11px] text-[#5F6F67]">
+        <span>{weeks[0].start.slice(5)}</span>
+        <span>
+          {t("esta semana", "this week")}: <strong className="text-[#14231C]">{weeks[weeks.length - 1].n}</strong>
+        </span>
+      </div>
+    </Card>
+  );
+
   return (
-    <div className="space-y-5">
+    <>
+    {/* ================= Phone (below lg) ================= */}
+    <div className="space-y-4 lg:hidden">
+      <PhoneHeader>
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-xs font-bold uppercase tracking-[0.06em] text-[#A7D7C2]">{longDate}</p>
+            <h1 className="text-lg font-extrabold">{greeting(hour, lang)}</h1>
+          </div>
+          <Link
+            href="/admin/bookings"
+            aria-label={t("Buscar reserva", "Search bookings")}
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#14432F] text-white focus-visible:outline-2 focus-visible:outline-[#F5B301]"
+          >
+            <Icon name="search" className="h-5 w-5" />
+          </Link>
+        </div>
+      </PhoneHeader>
+
+      <section aria-labelledby="ph-attention" className="space-y-2.5">
+        <PhoneSectionTitle id="ph-attention" tone={attention.length + otherAlerts.length ? "warn" : "muted"}>
+          {t("Necesita atención", "Needs attention")} · {attention.length + otherAlerts.length}
+        </PhoneSectionTitle>
+        {attention.length + otherAlerts.length === 0 && (
+          <p className="rounded-2xl border border-[#E3E8E5] bg-white px-4 py-3.5 text-sm text-[#5F6F67]">
+            {t("Todo al día. Nada urgente por ahora.", "All caught up. Nothing urgent right now.")}
+          </p>
+        )}
+        {attention.map(({ b, n, step, posting }) => {
+          const w = pickupDay(b.scheduled_at, today, lang);
+          const urgent = step === "publish" || step === "assign" || step === "repost";
+          const stops = (b.sightseeing_stops ?? []).length;
+          const bits = [
+            tripTitle(b),
+            b.service_type === "transfer" && b.vehicle_class ? vehicleClassName(b.vehicle_class, catalog, lang) : null,
+            stops ? t(`${stops} ${stops === 1 ? "parada" : "paradas"}`, `${stops} stop${stops === 1 ? "" : "s"}`) : null,
+          ].filter(Boolean);
+          return (
+            <Link
+              key={b.id}
+              href={`/admin/bookings/${b.id}${step === "choose_offer" ? "#offers" : ""}`}
+              className={`flex flex-col gap-1.5 rounded-2xl border p-3.5 text-[#14231C] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#047857] ${
+                urgent ? "border-[#FDBA74] bg-[#FFF7ED]" : "border-[#E3E8E5] bg-white"
+              }`}
+            >
+              <span className="flex flex-wrap items-center justify-between gap-2">
+                <span className="font-extrabold">
+                  {b.booking_ref} · {w.day.toLowerCase()} {w.time}
+                </span>
+                {b.status === "pending_bids" ? (
+                  <StatusChip status={b.status} lang={lang} posting={posting} offers={n} minutesLeft={postingMinutesLeft(b, now)} />
+                ) : (
+                  <span className="rounded-full bg-[#FED7AA] px-2 py-1 text-xs font-extrabold text-[#7C2D12]">{t("Sin conductor", "No driver")}</span>
+                )}
+              </span>
+              <span className="text-sm text-[#3F4F48]">{bits.join(" · ")}</span>
+              <span className={`text-[13px] font-bold ${urgent ? "text-[#9A3412]" : "text-[#047857]"}`}>
+                {nextStepText(step, lang)} <span aria-hidden>→</span>
+              </span>
+            </Link>
+          );
+        })}
+        {otherAlerts.length > 0 && (
+          <ul className="overflow-hidden rounded-2xl border border-[#E3E8E5] bg-white">
+            {otherAlerts.slice(0, 6).map((a) => (
+              <li key={a.key} className="border-t border-[#EEF2EF] first:border-t-0">
+                <Link href={a.href} className="flex min-h-11 items-center gap-3 px-3.5 py-2.5 text-[#14231C]">
+                  <span aria-hidden className={`h-2.5 w-2.5 shrink-0 rounded-full ${a.level === "red" ? "bg-[#DC2626]" : a.level === "amber" ? "bg-[#F59E0B]" : "bg-[#94A3B8]"}`} />
+                  <span className="flex min-w-0 grow flex-col">
+                    <span className="truncate text-sm font-bold">
+                      <span className="sr-only">{a.level === "red" ? t("Urgente: ", "Urgent: ") : ""}</span>
+                      {a.title}
+                    </span>
+                    <span className="truncate text-xs text-[#5F6F67]">{a.detail}</span>
+                  </span>
+                  <Icon name="chevron" className="h-4 w-4 shrink-0 text-[#9AA8A1]" />
+                </Link>
+              </li>
+            ))}
+            {otherAlerts.length > 6 && <li className="border-t border-[#EEF2EF] px-3.5 py-2.5 text-xs text-[#5F6F67]">{t(`y ${otherAlerts.length - 6} más`, `and ${otherAlerts.length - 6} more`)}</li>}
+          </ul>
+        )}
+      </section>
+
+      <section aria-labelledby="ph-today" className="space-y-2.5">
+        <div className="flex items-baseline justify-between gap-2">
+          <PhoneSectionTitle id="ph-today">
+            {t("Hoy", "Today")} · {todays.length} {todays.length === 1 ? t("viaje", "trip") : t("viajes", "trips")}
+          </PhoneSectionTitle>
+          <Link href="/admin/dispatch" className={`inline-flex min-h-11 items-center text-[13px] ${link}`}>
+            {t("Ver el día", "See the day")}
+          </Link>
+        </div>
+        {todays.length === 0 ? (
+          <p className="rounded-2xl border border-[#E3E8E5] bg-white px-4 py-3.5 text-sm text-[#5F6F67]">{t("No hay recogidas hoy.", "No pickups today.")}</p>
+        ) : (
+          <ul className="overflow-hidden rounded-2xl border border-[#E3E8E5] bg-white">
+            {todays.map((b) => {
+              const st = todayState(b);
+              const live = isLiveTrip(b, now);
+              return (
+                <li key={b.id} className="flex items-center border-t border-[#EEF2EF] first:border-t-0">
+                  <Link href={`/admin/bookings/${b.id}`} className="flex min-h-14 min-w-0 grow items-center gap-3 py-3 pl-3.5 pr-2 text-[#14231C]">
+                    <span className="w-14 shrink-0 text-sm font-extrabold">{pickupDay(b.scheduled_at, today, lang).time}</span>
+                    <span className="flex min-w-0 grow flex-col gap-0.5">
+                      <span className="truncate text-sm font-bold">{tripTitle(b)}</span>
+                      <span className={`truncate text-xs ${st.ok ? "text-[#5B6B64]" : "font-semibold text-[#B45309]"}`}>{st.text}</span>
+                    </span>
+                    <span aria-hidden className={`h-2.5 w-2.5 shrink-0 rounded-full ${st.ok ? "bg-[#10B981]" : "bg-[#F59E0B]"}`} />
+                    <span className="sr-only">{st.ok ? t("(en orden)", "(all good)") : t("(revisar)", "(check)")}</span>
+                  </Link>
+                  {live && (
+                    <Link
+                      href={liveMapHref(b.id)}
+                      aria-label={t(`Ver ${b.booking_ref} en el mapa`, `See ${b.booking_ref} on the map`)}
+                      className="mr-2 grid h-11 w-11 shrink-0 place-items-center rounded-xl text-[#047857] hover:bg-[#F1F4F2] focus-visible:outline-2 focus-visible:outline-[#047857]"
+                    >
+                      <Icon name="map" className="h-5 w-5" />
+                    </Link>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+
+      <section aria-label={t("Números", "Numbers")} className="grid grid-cols-2 gap-2.5">
+        <Link href={phoneFilterHref("to_act")} className="flex flex-col gap-1 rounded-2xl border border-[#E3E8E5] bg-white px-3.5 py-3">
+          <span className="text-xs text-[#5B6B64]">{t("Solicitudes nuevas", "New requests")}</span>
+          <span className="text-[22px] font-extrabold">{waitingPay.count ?? 0}</span>
+        </Link>
+        <div className="flex flex-col gap-1 rounded-2xl border border-[#E3E8E5] bg-white px-3.5 py-3">
+          <span className="text-xs text-[#5B6B64]">{t("Este mes", "This month")}</span>
+          <span className="text-[22px] font-extrabold">{usd(thisMonth).replace(/\.00$/, "")}</span>
+          <span className="text-[11px] text-[#5F6F67]">
+            {change === null ? t("recibido", "received") : `${change >= 0 ? "+" : ""}${change}% ${t("vs", "vs")} ${lastMonthName}`}
+          </span>
+        </div>
+      </section>
+
+      <div className="flex flex-wrap gap-2">
+        <Link href="/admin/bookings?range=7d" className={btn.secondary}>
+          {t("Próximos 7 días", "Next 7 days")}
+        </Link>
+        <Link href="/admin/bookings/new" className={btn.primary}>
+          <Icon name="plus" />
+          {t("Nueva reserva", "New booking")}
+        </Link>
+      </div>
+      {avg !== null && (
+        <p className="text-sm text-[#5F6F67]">
+          {t("Calificación media", "Average rating")}: <strong className="text-[#14231C]">★ {avg.toFixed(1)}</strong> · {stars.length} {stars.length === 1 ? t("reseña", "review") : t("reseñas", "reviews")}
+        </p>
+      )}
+      {weeklyCard}
+    </div>
+
+    {/* ================= Large screens (unchanged) ================= */}
+    <div className="hidden space-y-5 lg:block">
       <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
         <div className="min-w-0 flex-[1_1_320px]">
           <h1 className="text-2xl font-extrabold tracking-tight sm:text-[26px]">{greeting(hour, lang)}</h1>
@@ -392,7 +615,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                         )}
                       </Td>
                       <Td>
-                        <StatusChip status={b.status} lang={lang} posting={postingState(b, now)} />
+                        <StatusChip status={b.status} lang={lang} posting={postingState(b, now)} booking={b} />
                       </Td>
                     </tr>
                   );
@@ -435,31 +658,11 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
             )}
           </Card>
 
-          <Card>
-            <div className="flex items-baseline justify-between">
-              <h2 className="text-base font-extrabold">{t("Reservas por semana", "Bookings per week")}</h2>
-              <span className="text-xs text-[#5F6F67]">{t("últimas 8 · recibidas", "last 8 · received")}</span>
-            </div>
-            <div className="mt-3 flex h-[110px] items-end gap-2" role="img" aria-label={weeks.map((w) => `${w.start}: ${w.n}`).join(", ")}>
-              {weeks.map((w, i) => (
-                <div
-                  key={w.start}
-                  title={`${t("Semana del", "Week of")} ${w.start}: ${w.n}`}
-                  className={`flex-1 rounded-t-md rounded-b-sm ${i === weeks.length - 1 ? "bg-[#047857]" : "bg-[#A7D7C0]"}`}
-                  style={{ height: `${Math.max(3, Math.round((w.n / top) * 100))}%` }}
-                />
-              ))}
-            </div>
-            <div className="mt-1.5 flex justify-between text-[11px] text-[#5F6F67]">
-              <span>{weeks[0].start.slice(5)}</span>
-              <span>
-                {t("esta semana", "this week")}: <strong className="text-[#14231C]">{weeks[weeks.length - 1].n}</strong>
-              </span>
-            </div>
-          </Card>
+          {weeklyCard}
         </div>
       </div>
     </div>
+    </>
   );
 }
 

@@ -22,16 +22,24 @@ function isCurrent(pathname: string, href: string): boolean {
 
 /**
  * The admin's dark-green side menu. From large screens up it stays on the left; on phones and
- * tablets it hides behind a ☰ button and opens as a panel: focus stays inside it, Escape or
- * the × closes it, and focus goes back to the ☰ button.
+ * tablets (2026-11-13) a bottom tab bar holds Inicio / Reservas / Despacho / En vivo, and its
+ * "Más" tab opens the whole menu as a panel: focus stays inside it, Escape or the × closes it,
+ * and focus goes back to "Más".
  */
 export function AdminNav({
   items,
   footer,
   menuLabel,
   closeLabel,
+  tabs,
+  tabsLabel,
+  moreLabel,
 }: {
   items: NavItem[];
+  /** The phone's bottom tabs (below lg); the last tab "Más" opens this menu. */
+  tabs: { href: string; label: string; icon: IconName }[];
+  tabsLabel: string;
+  moreLabel: string;
   /** Language switch, signed-in email and sign out (rendered on the server). */
   footer: React.ReactNode;
   menuLabel: string;
@@ -41,6 +49,10 @@ export function AdminNav({
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const openerRef = useRef<HTMLButtonElement>(null);
+
+  const moreCurrent = !tabs.some((tab) => isCurrent(pathname, tab.href));
+  // A dot on "Más" when a page that's only in the menu needs attention.
+  const moreCount = items.some((n) => n.count > 0 && !tabs.some((tab) => tab.href === n.href));
 
   const close = useCallback(() => {
     setOpen(false);
@@ -135,22 +147,58 @@ export function AdminNav({
 
   return (
     <>
-      {/* Phones and tablets: a top bar with the ☰ button. */}
-      <div className="sticky top-0 z-30 flex items-center justify-between gap-3 bg-[#0B2E22] px-3 py-2 lg:hidden">
-        {brand}
-        <button
-          ref={openerRef}
-          type="button"
-          onClick={() => setOpen(true)}
-          aria-expanded={open}
-          aria-controls="admin-menu-panel"
-          className="inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-xl border border-[#2C5C4A] px-3 text-sm font-bold text-[#D6E9DF] focus-visible:outline-2 focus-visible:outline-[#F5B301]"
-        >
-          <Icon name="menu" className="h-5 w-5" />
-          <span>{menuLabel}</span>
-          {items.some((n) => n.count > 0) && <span aria-hidden className="h-2 w-2 rounded-full bg-[#F5B301]" />}
-        </button>
-      </div>
+      {/* Phones and tablets: a slim brand bar on top… */}
+      <div className="sticky top-0 z-30 flex items-center bg-[#0B2E22] px-3 py-1 pt-[max(0.25rem,env(safe-area-inset-top))] lg:hidden">{brand}</div>
+
+      {/* …and the tab bar at the bottom (2026-11-13): Inicio / Reservas / Despacho / En vivo / Más.
+          The tabs are plain links (they work without JavaScript); "Más" opens the side menu. */}
+      <nav
+        aria-label={tabsLabel}
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-[#E3E8E5] bg-white pb-[env(safe-area-inset-bottom)] lg:hidden"
+      >
+        <ul className="mx-auto grid h-[60px] max-w-[640px] grid-cols-5 px-1">
+          {tabs.map((tab) => {
+            const on = isCurrent(pathname, tab.href);
+            const n = items.find((x) => x.href === tab.href);
+            return (
+              <li key={tab.href} className="min-w-0">
+                <Link
+                  href={tab.href}
+                  aria-current={on ? "page" : undefined}
+                  className={`relative flex h-full min-h-11 flex-col items-center justify-center gap-0.5 rounded-xl px-0.5 text-[11px] leading-tight focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#047857] ${
+                    on ? "font-extrabold text-[#047857]" : "font-semibold text-[#5B6B64]"
+                  }`}
+                >
+                  <Icon name={tab.icon} className="h-[22px] w-[22px]" />
+                  <span className="max-w-full truncate">{tab.label}</span>
+                  {n && n.count > 0 && (
+                    <span className="absolute right-[calc(50%-22px)] top-1 min-w-[18px] rounded-full bg-[#F5B301] px-1 text-center text-[10px] font-extrabold leading-[16px] text-[#3A2A00]">
+                      <span aria-hidden>{n.count}</span>
+                      <span className="sr-only">{n.countLabel}</span>
+                    </span>
+                  )}
+                </Link>
+              </li>
+            );
+          })}
+          <li className="min-w-0">
+            <button
+              ref={openerRef}
+              type="button"
+              onClick={() => setOpen(true)}
+              aria-expanded={open}
+              aria-controls="admin-menu-panel"
+              className={`relative flex h-full min-h-11 w-full flex-col items-center justify-center gap-0.5 rounded-xl px-0.5 text-[11px] leading-tight focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#047857] ${
+                moreCurrent ? "font-extrabold text-[#047857]" : "font-semibold text-[#5B6B64]"
+              }`}
+            >
+              <Icon name="menu" className="h-[22px] w-[22px]" />
+              <span className="max-w-full truncate">{moreLabel}</span>
+              {moreCount && <span aria-hidden className="absolute right-[calc(50%-16px)] top-1.5 h-2 w-2 rounded-full bg-[#F5B301]" />}
+            </button>
+          </li>
+        </ul>
+      </nav>
 
       {open && (
         <div className="fixed inset-0 z-50 lg:hidden">

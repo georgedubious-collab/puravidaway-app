@@ -400,6 +400,58 @@ ok("typed place without a route is refused (never priced as a guess)", threw);
   ok("the edit card is shown only when the booking can be edited", readFileSync(new URL("../src/app/admin/bookings/[id]/page.tsx", import.meta.url), "utf8").includes("canEditPlaces(b.status) && (b.service_type"));
 }
 
+// --- The booking page on a phone (2026-11-13): the sticky action bar (src/lib/adminPhone.ts) ------
+{
+  const { readFileSync } = await import("node:fs");
+  const ph = await import("../src/lib/adminPhone.ts");
+  const NOW = Date.parse("2026-11-13T10:00:00-06:00");
+  const iso = (ms) => new Date(ms).toISOString();
+  const base = { status: "pending_payment", assigned_driver_id: null, driver_payout: 325.6, scheduled_at: iso(NOW + 24 * 3600000), posting_closes_at: null, en_route_at: null };
+  const ctx = { openOffers: 0, now: NOW, hasWhatsApp: true, canEdit: true };
+  eq("paid new request, no driver, not posted → Publicar", ph.primaryAction(base, ctx), "publish");
+  eq("confirmed without a driver → Publicar", ph.primaryAction({ ...base, status: "confirmed" }, ctx), "publish");
+  eq("no payout → can't post: Asignar", ph.primaryAction({ ...base, driver_payout: null }, ctx), "assign");
+  eq("pickup passed → Asignar", ph.primaryAction({ ...base, scheduled_at: iso(NOW - 60000) }, ctx), "assign");
+  const closed = { ...base, status: "pending_bids", posting_closes_at: iso(NOW - 60000) };
+  const open = { ...base, status: "pending_bids", posting_closes_at: iso(NOW + 30 * 60000) };
+  eq("posting closed, no offers → Volver a publicar", ph.primaryAction(closed, ctx), "repost");
+  eq("offers waiting → Ver ofertas (closed)", ph.primaryAction(closed, { ...ctx, openOffers: 2 }), "offers");
+  eq("offers waiting → Ver ofertas (open)", ph.primaryAction(open, { ...ctx, openOffers: 1 }), "offers");
+  eq("open posting, no offers yet → Asignar", ph.primaryAction(open, ctx), "assign");
+  const assigned = { ...base, status: "confirmed", assigned_driver_id: "d1" };
+  eq("with a driver → WhatsApp messages", ph.primaryAction(assigned, ctx), "whatsapp");
+  eq("…no number → nothing big", ph.primaryAction(assigned, { ...ctx, hasWhatsApp: false }), "none");
+  eq("cancelled / completed → nothing big", [ph.primaryAction({ ...base, status: "cancelled" }, ctx), ph.primaryAction({ ...assigned, status: "completed" }, ctx)], ["none", "none"]);
+  eq("secondary: assign + change pickup", ph.secondaryActions(base, ctx), ["assign", "edit"]);
+  eq("secondary: no duplicate assign when it's the big button", ph.secondaryActions({ ...base, driver_payout: null }, ctx), ["edit"]);
+  eq("secondary: not editable → no change-pickup", ph.secondaryActions(base, { ...ctx, canEdit: false }), ["assign"]);
+  const soon = { ...assigned, scheduled_at: iso(NOW + 60 * 60000) };
+  eq("secondary: live trip → Ver en el mapa", ph.secondaryActions(soon, ctx), ["assign", "edit", "map"]);
+  eq("secondary: cancelled → none", ph.secondaryActions({ ...base, status: "cancelled" }, ctx), []);
+
+  eq("publish = the status form with pending_bids and nobody", ph.publishFields("b1"), [["id", "b1"], ["status", "pending_bids"], ["assignment", ""]]);
+  eq("attention next steps", [ph.nextStep(base, 0, NOW), ph.nextStep(closed, 2, NOW), ph.nextStep(closed, 0, NOW), ph.nextStep(open, 0, NOW), ph.nextStep({ ...base, driver_payout: null }, 0, NOW)],
+    ["publish", "choose_offer", "repost", "waiting", "assign"]);
+  eq("next step words (Spanish first)", [ph.nextStepText("publish", "es"), ph.nextStepText("choose_offer", "es"), ph.nextStepText("repost", "en")],
+    ["Publicar para conductores", "Elegir una oferta", "Post it again"]);
+
+  // "Publicar para conductores" reuses the existing posting path: the booking page's updateBooking
+  // (driver alerts when the status becomes pending_bids) and the database trigger (1-hour window).
+  const page = readFileSync(new URL("../src/app/admin/bookings/[id]/page.tsx", import.meta.url), "utf8");
+  const bar = page.slice(page.indexOf('primary === "publish"'), page.indexOf('primary === "repost"'));
+  ok("publish button sends updateBooking with publishFields", bar.includes("action={updateBooking}") && bar.includes("publishFields(b.id)"));
+  ok("publish asks first, in the page (no window.confirm)", bar.includes('kind: "always"') && !page.includes("window.confirm"));
+  const actions = readFileSync(new URL("../src/app/admin/bookings/actions.ts", import.meta.url), "utf8");
+  ok("updateBooking alerts the drivers when a booking is posted", /status === "pending_bids" && before && before\.status !== "pending_bids"\) \{\s*after\(\(\) => notifyDriversOfJobs\(\[id\]\)\)/.test(actions));
+  ok("updateBooking keeps the amount and notes when they aren't sent", actions.includes('fd.has("amount_paid")') && actions.includes('fd.has("admin_notes")'));
+  const mig = readFileSync(new URL("../supabase/migrations/20261112000054_posting_window.sql", import.meta.url), "utf8");
+  ok("the database opens the 1-hour window whatever path posts it", mig.includes("new.posting_closes_at := now() + interval '1 hour'"));
+  ok("repost button uses the existing repostJob", page.slice(page.indexOf('primary === "repost"')).includes("action={repostJob}"));
+  ok("the sticky bar sits above the tab bar, phones only", page.includes("sticky bottom-[calc(60px+env(safe-area-inset-bottom))]") && page.includes("lg:hidden"));
+  const server = readFileSync(new URL("../src/lib/adminBookingsServer.ts", import.meta.url), "utf8");
+  ok("Por atender filters on both statuses", server.includes('status === "to_act") out = out.in("status", [...TO_ACT_STATUSES])'));
+}
+
 console.log(`${passed} checks passed, ${failures.length} failed`);
 for (const f of failures) console.log("  ✗ " + f);
 process.exit(failures.length ? 1 : 0);

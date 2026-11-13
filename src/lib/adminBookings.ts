@@ -11,6 +11,12 @@ export const PAGE_SIZE = 25;
 
 export const LIST_STATUSES = ["pending_payment", "pending_bids", "confirmed", "in_progress", "completed", "cancelled"] as const;
 export type ListStatus = (typeof LIST_STATUSES)[number];
+/**
+ * "Por atender" on the phone (2026-11-13): the same bookings the side menu's Reservas badge counts
+ * (src/lib/adminCounts.ts, bookingsToAct): new requests and bookings open for drivers.
+ */
+export const TO_ACT_STATUSES = ["pending_payment", "pending_bids"] as const;
+export type StatusFilter = ListStatus | "all" | "to_act";
 
 export const RANGES = ["upcoming", "today", "tomorrow", "7d", "30d", "past", "all", "custom"] as const;
 export type RangeId = (typeof RANGES)[number];
@@ -18,7 +24,7 @@ export type RangeId = (typeof RANGES)[number];
 export interface BookingFilters {
   /** Search text, already cleaned (sanitizeSearch). Empty = no search. */
   q: string;
-  status: ListStatus | "all";
+  status: StatusFilter;
   range: RangeId;
   /** Custom range (YYYY-MM-DD, inclusive); only used when range = "custom". */
   from: string;
@@ -77,7 +83,7 @@ export function defaultSort(range: RangeId): "asc" | "desc" {
 export function parseBookingFilters(p: Params): BookingFilters {
   const q = sanitizeSearch(one(p, "q"));
   const s = one(p, "status");
-  const status = (LIST_STATUSES as readonly string[]).includes(s) ? (s as ListStatus) : "all";
+  const status: StatusFilter = (LIST_STATUSES as readonly string[]).includes(s) ? (s as ListStatus) : s === "to_act" ? "to_act" : "all";
   let from = one(p, "from");
   let to = one(p, "to");
   from = isYmd(from) ? from : "";
@@ -193,6 +199,32 @@ export function bookingsHref(f: BookingFilters, change: Partial<BookingFilters> 
   return s ? `${base}?${s}` : base;
 }
 
+/* ---------- Phone quick filters (2026-11-13) ---------- */
+
+export const PHONE_FILTERS = ["to_act", "today", "upcoming", "all"] as const;
+export type PhoneFilter = (typeof PHONE_FILTERS)[number];
+
+/**
+ * The four chips above the phone's booking cards, as links onto the list's own filters:
+ *   Por atender = status to_act, every date, soonest first (the side menu's badge);
+ *   Hoy = range today; Próximas = the default (from today); Todas = range all.
+ * A quick filter starts clean: other filters and the search are dropped.
+ */
+export function phoneFilterHref(id: PhoneFilter, base = "/admin/bookings"): string {
+  const clean = parseBookingFilters({});
+  const change: Partial<BookingFilters> =
+    id === "to_act" ? { status: "to_act", range: "all", sort: "asc" } : id === "today" ? { range: "today" } : id === "all" ? { range: "all" } : {};
+  return bookingsHref(clean, change, base);
+}
+
+/** Which quick filter the current list is, or null (a search or other filters are in use). */
+export function activePhoneFilter(f: BookingFilters): PhoneFilter | null {
+  if (f.q || f.type !== "all" || f.driver !== "all") return null;
+  if (f.status === "to_act") return f.range === "all" ? "to_act" : null;
+  if (f.status !== "all") return null;
+  return f.range === "today" ? "today" : f.range === "upcoming" ? "upcoming" : f.range === "all" ? "all" : null;
+}
+
 /* ---------- Chips ---------- */
 
 export type Tone = "green" | "amber" | "orange" | "blue" | "grey" | "red";
@@ -214,6 +246,35 @@ const STATUS_SHORT: Record<string, [string, string]> = {
   completed: ["Completada", "Completed"],
   cancelled: ["Cancelada", "Cancelled"],
 };
+
+/** The money fields that tell a paid new request from one still waiting for payment. */
+export interface PaidFields {
+  total_price?: number | string | null;
+  cash_fee?: number | string | null;
+  amount_paid?: number | string | null;
+  payment_mode?: string | null;
+}
+
+/**
+ * A new request (pending_payment) whose money is all in: amount received ≥ price + cash fee, the
+ * same rule as the "Pagado" payment chip (paymentState). Test checkouts count: they record the
+ * amount like a real payment (src/lib/testCheckout.ts) and carry their own "PRUEBA" chip.
+ */
+export function isPaidRequest(status: string, b: PaidFields | null | undefined): boolean {
+  if (status !== "pending_payment" || !b || b.total_price == null) return false;
+  return (
+    paymentState({ status, total_price: b.total_price, cash_fee: b.cash_fee, amount_paid: b.amount_paid ?? 0, payment_mode: b.payment_mode ?? null }) === "paid"
+  );
+}
+
+/**
+ * The admin's status chip words and colour. A paid new request says "Solicitud nueva · pagada"
+ * (green) instead of "Esperando pago" (Jorge, 2026-11-13). Team only: travellers' texts unchanged.
+ */
+export function statusView(status: string, lang: "es" | "en", b?: PaidFields | null): { label: string; tone: Tone } {
+  if (isPaidRequest(status, b)) return { label: lang === "en" ? "New request · paid" : "Solicitud nueva · pagada", tone: "green" };
+  return { label: statusShort(status, lang), tone: STATUS_TONE[status] ?? "grey" };
+}
 
 /** Short status words for chips and tabs. */
 export function statusShort(status: string, lang: "es" | "en"): string {

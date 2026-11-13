@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { csvFileName, parseBookingFilters, paymentLabel, paymentState, statusShort, toCsv } from "@/lib/adminBookings";
+import { csvFileName, parseBookingFilters, paymentLabel, paymentState, statusView, toCsv } from "@/lib/adminBookings";
 import { allBookings, searchIds } from "@/lib/adminBookingsServer";
 import { bookingTitle, vehicleClassName } from "@/lib/adminDisplay";
 import { requireRole } from "@/lib/auth";
@@ -84,7 +84,7 @@ export async function GET(req: NextRequest) {
       money(b.amount_paid),
       paymentModeLabel(b.payment_mode, lang),
       paymentLabel(paymentState(b), lang),
-      statusShort(b.status, lang),
+      statusView(b.status, lang, b).label,
       b.trips?.guest_name ?? "",
       b.trips?.guest_email ?? "",
       b.trips?.guest_phone ?? "",

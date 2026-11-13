@@ -1,10 +1,14 @@
 import Link from "next/link";
 import { PaymentChip, StatusChip } from "@/components/admin/chips";
-import { Card, DataTable, EmptyState, Icon, Notice, PageHeader, Td, Th, btn, field, link } from "@/components/admin/ui";
+import { Card, DataTable, EmptyState, Icon, Notice, PageHeader, PhoneHeader, Td, Th, btn, field, link } from "@/components/admin/ui";
 import { LiveRefresh } from "@/components/LiveRefresh";
 import {
   LIST_STATUSES,
+  PHONE_FILTERS,
+  TO_ACT_STATUSES,
+  activePhoneFilter,
   bookingsHref,
+  phoneFilterHref,
   pageCount,
   pageSpan,
   parseBookingFilters,
@@ -20,7 +24,7 @@ import { localizeCatalog } from "@/lib/catalogEs";
 import { getCatalog } from "@/lib/catalogSource";
 import { customerHref, customerKey } from "@/lib/customers";
 import { nowMs, todayInCostaRica } from "@/lib/dates";
-import { postingLabel, postingState } from "@/lib/postingWindow";
+import { postingLabel, postingMinutesLeft, postingState } from "@/lib/postingWindow";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { makeT } from "@/lib/teamLang";
 import { getTeamLang } from "@/lib/teamLangServer";
@@ -39,7 +43,7 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
   const supabase = (await createSupabaseServerClient())!;
 
   const ids = await searchIds(supabase, f.q);
-  const [page, counts, rawCatalog, driverList] = await Promise.all([
+  const [page, counts, rawCatalog, driverList, toAct] = await Promise.all([
     bookingsPage<Row>(supabase, SELECT, f, today, ids),
     statusCounts(supabase, f, today, ids),
     getCatalog(),
@@ -48,6 +52,8 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
       .select("id, profiles!drivers_id_fkey(full_name)")
       .eq("kyc_status", "approved")
       .returns<{ id: string; profiles: { full_name: string | null } | null }[]>(),
+    // "Por atender · N" on the phone: the same count as the side menu's Reservas badge.
+    supabase.from("bookings").select("id", { count: "exact", head: true }).in("status", [...TO_ACT_STATUSES]),
   ]);
   const catalog = localizeCatalog(rawCatalog, lang);
   const rows = page.data;
@@ -84,124 +90,198 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
     custom: t("Fechas exactas (abajo)", "Exact dates (below)"),
   };
 
+  // The search and filters card: shown as is from large screens up, folded under "Más filtros" on phones.
+  const filtersCard = (
+  <Card>
+    <form method="get" action="/admin/bookings" className="flex flex-col gap-3">
+      {f.status !== "all" && <input type="hidden" name="status" value={f.status} />}
+      <div className="flex flex-wrap items-end gap-2.5">
+        <label className="min-w-0 flex-[1_1_300px]">
+          <span className="sr-only">{t("Buscar reservas", "Search bookings")}</span>
+          <span className="flex min-h-11 items-center gap-2 rounded-xl border border-[#DCE3DF] bg-white px-3 focus-within:border-[#047857] focus-within:ring-2 focus-within:ring-[#047857]/20">
+            <Icon name="search" className="h-[18px] w-[18px] shrink-0 text-[#5F6F67]" />
+            <input
+              name="q"
+              type="search"
+              defaultValue={f.q}
+              placeholder={t("Código, nombre del viajero, correo o conductor", "Code, traveller name, email or driver")}
+              className="min-w-0 grow bg-transparent text-sm outline-none"
+            />
+          </span>
+        </label>
+        <label className="text-xs font-bold text-[#5F6F67]">
+          {t("Fecha", "Date")}
+          <select name="range" defaultValue={f.range} className={`${field.input} mt-0.5 w-auto`}>
+            {(["upcoming", "today", "tomorrow", "7d", "30d", "past", "all", "custom"] as const).map((r) => (
+              <option key={r} value={r}>
+                {RANGE_LABEL[r]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="text-xs font-bold text-[#5F6F67]">
+          {t("Tipo", "Type")}
+          <select name="type" defaultValue={f.type} className={`${field.input} mt-0.5 w-auto`}>
+            <option value="all">{t("Todos", "All")}</option>
+            <option value="transfer">{t("Traslados", "Rides")}</option>
+            <option value="day_tour">{t("Tours de un día", "Day tours")}</option>
+          </select>
+        </label>
+        <label className="text-xs font-bold text-[#5F6F67]">
+          {t("Conductor", "Driver")}
+          <select name="driver" defaultValue={f.driver} className={`${field.input} mt-0.5 w-auto max-w-[14rem]`}>
+            <option value="all">{t("Todos", "All")}</option>
+            <option value="none">{t("Sin conductor", "No driver yet")}</option>
+            {(driverList.data ?? []).map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.profiles?.full_name ?? t("Conductor", "Driver")}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <details className="group" open={f.range === "custom"}>
+        <summary className="inline-flex min-h-9 cursor-pointer items-center text-sm font-bold text-[#047857]">
+          {t("Fechas exactas", "Exact dates")}
+        </summary>
+        <div className="mt-2 flex flex-wrap items-end gap-2.5">
+          <label className="text-xs font-bold text-[#5F6F67]">
+            {t("Desde", "From")}
+            <input type="date" name="from" defaultValue={f.from} className={`${field.input} mt-0.5 w-auto`} />
+          </label>
+          <label className="text-xs font-bold text-[#5F6F67]">
+            {t("Hasta", "To")}
+            <input type="date" name="to" defaultValue={f.to} className={`${field.input} mt-0.5 w-auto`} />
+          </label>
+          <p className="pb-2 text-xs text-[#5F6F67]">{t("Fecha de recogida, hora de Costa Rica.", "Pickup date, Costa Rica time.")}</p>
+        </div>
+      </details>
+      <div className="flex flex-wrap items-center gap-2">
+        <button type="submit" className={btn.primary}>
+          {t("Buscar y filtrar", "Search & filter")}
+        </button>
+        {filtered && (
+          <Link href="/admin/bookings" className={btn.secondary}>
+            {t("Quitar filtros", "Clear filters")}
+          </Link>
+        )}
+      </div>
+    </form>
+    <nav aria-label={t("Filtrar por estado", "Filter by status")} className="mt-4 flex flex-wrap gap-1.5 border-t border-[#EDF1EE] pt-3">
+      {(["all", ...LIST_STATUSES] as const).map((s) => {
+        const on = f.status === s;
+        return (
+          <Link
+            key={s}
+            href={bookingsHref(f, { status: s })}
+            aria-current={on ? "page" : undefined}
+            className={`inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3 text-[13px] font-bold ${
+              on ? "border-[#0B2E22] bg-[#0B2E22] text-white" : "border-[#DCE3DF] bg-white text-[#33443C] hover:bg-[#F1F4F2]"
+            }`}
+          >
+            {s === "all" ? t("Todas", "All") : statusShort(s, lang)}
+            <span className={`rounded-full px-1.5 text-xs ${on ? "bg-[#1F4A3A] text-white" : "bg-[#F1F4F2] text-[#5F6F67]"}`}>{counts[s]}</span>
+          </Link>
+        );
+      })}
+    </nav>
+  </Card>
+  );
+  const quick = activePhoneFilter(f);
+  const QUICK_LABEL = {
+    to_act: `${t("Por atender", "To handle")} · ${toAct.count ?? 0}`,
+    today: t("Hoy", "Today"),
+    upcoming: t("Próximas", "Upcoming"),
+    all: t("Todas", "All"),
+  } as const;
+
   return (
     <div className="space-y-4">
       {openIds.length > 0 && <LiveRefresh seconds={15} />}
-      <PageHeader
-        title={t("Reservas", "Bookings")}
-        subtitle={
-          lang === "en"
-            ? `${total} booking${total === 1 ? "" : "s"} · sorted by pickup time${f.sort === "desc" ? " (latest first)" : ""}`
-            : `${total} ${total === 1 ? "reserva" : "reservas"} · ordenadas por fecha de recogida${f.sort === "desc" ? " (las más recientes primero)" : ""}`
-        }
-        actions={
-          <>
-            <a href={bookingsHref(f, {}, "/admin/bookings/export")} className={btn.secondary} download>
-              <Icon name="download" />
-              {t("Exportar CSV", "Export CSV")}
-            </a>
-            <Link href="/admin/bookings/new" className={btn.primary}>
-              <Icon name="plus" />
-              {t("Nueva reserva", "New booking")}
-            </Link>
-          </>
-        }
-      />
-
-      <Card>
-        <form method="get" action="/admin/bookings" className="flex flex-col gap-3">
+      {/* ================= Phone (below lg) ================= */}
+      <PhoneHeader>
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="text-xl font-extrabold">{t("Reservas", "Bookings")}</h1>
+          <Link
+            href="/admin/bookings/new"
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-[#F59E0B] px-3.5 text-sm font-extrabold text-[#1F1300] focus-visible:outline-2 focus-visible:outline-white"
+          >
+            <Icon name="plus" className="h-4 w-4" />
+            {t("Nueva", "New")}
+          </Link>
+        </div>
+        <form method="get" action="/admin/bookings" role="search" className="mt-3">
           {f.status !== "all" && <input type="hidden" name="status" value={f.status} />}
-          <div className="flex flex-wrap items-end gap-2.5">
-            <label className="min-w-0 flex-[1_1_300px]">
-              <span className="sr-only">{t("Buscar reservas", "Search bookings")}</span>
-              <span className="flex min-h-11 items-center gap-2 rounded-xl border border-[#DCE3DF] bg-white px-3 focus-within:border-[#047857] focus-within:ring-2 focus-within:ring-[#047857]/20">
-                <Icon name="search" className="h-[18px] w-[18px] shrink-0 text-[#5F6F67]" />
-                <input
-                  name="q"
-                  type="search"
-                  defaultValue={f.q}
-                  placeholder={t("Código, nombre del viajero, correo o conductor", "Code, traveller name, email or driver")}
-                  className="min-w-0 grow bg-transparent text-sm outline-none"
-                />
-              </span>
-            </label>
-            <label className="text-xs font-bold text-[#5F6F67]">
-              {t("Fecha", "Date")}
-              <select name="range" defaultValue={f.range} className={`${field.input} mt-0.5 w-auto`}>
-                {(["upcoming", "today", "tomorrow", "7d", "30d", "past", "all", "custom"] as const).map((r) => (
-                  <option key={r} value={r}>
-                    {RANGE_LABEL[r]}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="text-xs font-bold text-[#5F6F67]">
-              {t("Tipo", "Type")}
-              <select name="type" defaultValue={f.type} className={`${field.input} mt-0.5 w-auto`}>
-                <option value="all">{t("Todos", "All")}</option>
-                <option value="transfer">{t("Traslados", "Rides")}</option>
-                <option value="day_tour">{t("Tours de un día", "Day tours")}</option>
-              </select>
-            </label>
-            <label className="text-xs font-bold text-[#5F6F67]">
-              {t("Conductor", "Driver")}
-              <select name="driver" defaultValue={f.driver} className={`${field.input} mt-0.5 w-auto max-w-[14rem]`}>
-                <option value="all">{t("Todos", "All")}</option>
-                <option value="none">{t("Sin conductor", "No driver yet")}</option>
-                {(driverList.data ?? []).map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.profiles?.full_name ?? t("Conductor", "Driver")}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <details className="group" open={f.range === "custom"}>
-            <summary className="inline-flex min-h-9 cursor-pointer items-center text-sm font-bold text-[#047857]">
-              {t("Fechas exactas", "Exact dates")}
-            </summary>
-            <div className="mt-2 flex flex-wrap items-end gap-2.5">
-              <label className="text-xs font-bold text-[#5F6F67]">
-                {t("Desde", "From")}
-                <input type="date" name="from" defaultValue={f.from} className={`${field.input} mt-0.5 w-auto`} />
-              </label>
-              <label className="text-xs font-bold text-[#5F6F67]">
-                {t("Hasta", "To")}
-                <input type="date" name="to" defaultValue={f.to} className={`${field.input} mt-0.5 w-auto`} />
-              </label>
-              <p className="pb-2 text-xs text-[#5F6F67]">{t("Fecha de recogida, hora de Costa Rica.", "Pickup date, Costa Rica time.")}</p>
-            </div>
-          </details>
-          <div className="flex flex-wrap items-center gap-2">
-            <button type="submit" className={btn.primary}>
-              {t("Buscar y filtrar", "Search & filter")}
-            </button>
-            {filtered && (
-              <Link href="/admin/bookings" className={btn.secondary}>
-                {t("Quitar filtros", "Clear filters")}
-              </Link>
-            )}
-          </div>
+          {f.range !== "upcoming" && f.range !== "custom" && <input type="hidden" name="range" value={f.range} />}
+          <label className="flex min-h-11 items-center gap-2 rounded-xl bg-white px-3 text-[#5B6B64] focus-within:ring-2 focus-within:ring-[#F5B301]">
+            <Icon name="search" className="h-[18px] w-[18px] shrink-0" />
+            <span className="sr-only">{t("Buscar reservas", "Search bookings")}</span>
+            <input
+              name="q"
+              type="search"
+              defaultValue={f.q}
+              enterKeyHint="search"
+              placeholder={t("Nombre, correo o CRPT-…", "Name, email or CRPT-…")}
+              className="min-h-11 min-w-0 grow bg-transparent text-[15px] text-[#14231C] outline-none"
+            />
+          </label>
         </form>
-        <nav aria-label={t("Filtrar por estado", "Filter by status")} className="mt-4 flex flex-wrap gap-1.5 border-t border-[#EDF1EE] pt-3">
-          {(["all", ...LIST_STATUSES] as const).map((s) => {
-            const on = f.status === s;
-            return (
-              <Link
-                key={s}
-                href={bookingsHref(f, { status: s })}
-                aria-current={on ? "page" : undefined}
-                className={`inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3 text-[13px] font-bold ${
-                  on ? "border-[#0B2E22] bg-[#0B2E22] text-white" : "border-[#DCE3DF] bg-white text-[#33443C] hover:bg-[#F1F4F2]"
-                }`}
-              >
-                {s === "all" ? t("Todas", "All") : statusShort(s, lang)}
-                <span className={`rounded-full px-1.5 text-xs ${on ? "bg-[#1F4A3A] text-white" : "bg-[#F1F4F2] text-[#5F6F67]"}`}>{counts[s]}</span>
+      </PhoneHeader>
+      <nav aria-label={t("Filtros rápidos", "Quick filters")} className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:-mx-6 sm:px-6 lg:hidden">
+        {PHONE_FILTERS.map((id) => {
+          const on = quick === id;
+          return (
+            <Link
+              key={id}
+              href={phoneFilterHref(id)}
+              aria-current={on ? "page" : undefined}
+              className={`inline-flex min-h-11 shrink-0 items-center rounded-full px-3.5 text-[13px] ${
+                on ? "bg-[#0B2E22] font-extrabold text-white" : "border border-[#CBD5CF] bg-white font-bold text-[#14231C]"
+              }`}
+            >
+              {QUICK_LABEL[id]}
+            </Link>
+          );
+        })}
+      </nav>
+      <details className="group lg:hidden" open={quick === null && (f.type !== "all" || f.driver !== "all" || f.range === "custom" || (f.status !== "all" && f.status !== "to_act"))}>
+        <summary className="inline-flex min-h-11 cursor-pointer items-center gap-1 text-sm font-bold text-[#047857]">
+          {t("Más filtros, estado y CSV", "More filters, status & CSV")}
+        </summary>
+        <div className="mt-2 space-y-3">
+          {filtersCard}
+          <a href={bookingsHref(f, {}, "/admin/bookings/export")} className={btn.secondary} download>
+            <Icon name="download" />
+            {t("Exportar CSV", "Export CSV")}
+          </a>
+        </div>
+      </details>
+
+      {/* ================= Large screens (unchanged) ================= */}
+      <div className="hidden lg:block">
+        <PageHeader
+          title={t("Reservas", "Bookings")}
+          subtitle={
+            lang === "en"
+              ? `${total} booking${total === 1 ? "" : "s"} · sorted by pickup time${f.sort === "desc" ? " (latest first)" : ""}`
+              : `${total} ${total === 1 ? "reserva" : "reservas"} · ordenadas por fecha de recogida${f.sort === "desc" ? " (las más recientes primero)" : ""}`
+          }
+          actions={
+            <>
+              <a href={bookingsHref(f, {}, "/admin/bookings/export")} className={btn.secondary} download>
+                <Icon name="download" />
+                {t("Exportar CSV", "Export CSV")}
+              </a>
+              <Link href="/admin/bookings/new" className={btn.primary}>
+                <Icon name="plus" />
+                {t("Nueva reserva", "New booking")}
               </Link>
-            );
-          })}
-        </nav>
-      </Card>
+            </>
+          }
+        />
+  
+      </div>
+      <div className="hidden lg:block">{filtersCard}</div>
 
       {page.error ? (
         <Notice tone="red" role="alert">
@@ -215,7 +295,7 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
           <p className="mt-1 text-xs opacity-80">{page.error.message}</p>
         </Notice>
       ) : (
-        <Card padded={false}>
+        <Card padded={false} className="max-lg:overflow-visible max-lg:rounded-none max-lg:border-0 max-lg:bg-transparent">
           {rows.length === 0 ? (
             <EmptyState
               title={filtered ? t("Ninguna reserva coincide", "No bookings match") : t("No hay reservas próximas", "No upcoming bookings")}
@@ -238,40 +318,53 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
             />
           ) : (
             <>
-              {/* Phones: one card per booking. */}
-              <ul className="divide-y divide-[#EDF1EE] md:hidden">
+              {/* Phones and tablets (below lg, 2026-11-13): one card per booking. */}
+              <ul className="space-y-2.5 lg:hidden">
                 {rows.map((b) => {
                   const when = pickupDay(b.scheduled_at, today, lang);
+                  const posting = postingState(b, now);
+                  const what =
+                    b.service_type === "transfer"
+                      ? vehicleClassName(b.vehicle_class, catalog, lang)
+                      : `${b.passenger_count ?? "?"} ${(b.passenger_count ?? 0) === 1 ? t("persona", "person") : t("personas", "people")}`;
                   return (
                     <li key={b.id}>
-                      <Link href={`/admin/bookings/${b.id}`} className="block px-4 py-3.5 hover:bg-[#FAFBFA]">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="text-sm font-extrabold">
-                              {when.day} · {when.time}
-                            </p>
-                            <p className="truncate font-semibold">{bookingTitle(b, catalog, lang)}</p>
-                            <p className="text-xs text-[#5F6F67]">
-                              <span className="font-mono font-bold text-[#047857]">{b.booking_ref}</span> · {b.trips?.guest_name ?? "—"} ·{" "}
-                              {b.passenger_count ?? "?"} {t("viajeros", "travellers")}
-                            </p>
-                          </div>
-                          <p className="shrink-0 text-right font-extrabold">{usd(bookingDue(b))}</p>
-                        </div>
-                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                          <StatusChip status={b.status} lang={lang} posting={postingState(b, now)} />
-                          <PaymentChip booking={b} lang={lang} test={isTest(b.id)} />
-                          <span className="text-xs text-[#5F6F67]">
-                            {driverName(b.assigned_driver_id) ?? t("sin conductor", "no driver")}
+                      <Link
+                        href={`/admin/bookings/${b.id}`}
+                        className="flex flex-col gap-2 rounded-2xl border border-[#E3E8E5] bg-white p-3.5 text-[#14231C] hover:border-[#A7D7C0] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#047857]"
+                      >
+                        <span className="flex flex-wrap items-center justify-between gap-2">
+                          <span className="font-mono text-[13px] font-bold text-[#5B6B64]">{b.booking_ref}</span>
+                          <StatusChip
+                            status={b.status}
+                            lang={lang}
+                            posting={posting}
+                            booking={b}
+                            offers={b.status === "pending_bids" && (posting === "closed" || offersOn(b.id) > 0) ? offersOn(b.id) : undefined}
+                            minutesLeft={postingMinutesLeft(b, now)}
+                          />
+                        </span>
+                        <span className="text-base font-extrabold leading-snug">
+                          {b.service_type === "day_tour" ? `${t("Tour", "Tour")}: ` : ""}
+                          {bookingTitle(b, catalog, lang)}
+                        </span>
+                        <span className="flex items-end justify-between gap-2 text-[13px] text-[#3F4F48]">
+                          <span className="min-w-0">
+                            {when.day} · {when.time} · {what}
+                            <span className="block truncate text-xs text-[#5F6F67]">
+                              {b.trips?.guest_name ?? "—"} · {driverName(b.assigned_driver_id) ?? t("sin conductor", "no driver")}
+                              {isTest(b.id) ? ` · ${t("PRUEBA", "TEST")}` : ""}
+                            </span>
                           </span>
-                        </div>
+                          <span className="shrink-0 text-[15px] font-extrabold text-[#14231C]">{usd(bookingDue(b)).replace(/\.00$/, "")}</span>
+                        </span>
                       </Link>
                     </li>
                   );
                 })}
               </ul>
-              {/* Larger screens: the table. */}
-              <div className="hidden md:block">
+              {/* Large screens: the table. */}
+              <div className="hidden lg:block">
                 <DataTable minWidth={980} caption={t("Reservas", "Bookings")}>
                   <thead>
                     <tr>
@@ -352,7 +445,7 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
                             <PaymentChip booking={b} lang={lang} test={isTest(b.id)} />
                           </Td>
                           <Td>
-                            <StatusChip status={b.status} lang={lang} posting={postingState(b, now)} />
+                            <StatusChip status={b.status} lang={lang} posting={postingState(b, now)} booking={b} />
                           </Td>
                         </tr>
                       );

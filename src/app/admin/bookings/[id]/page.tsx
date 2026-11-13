@@ -39,6 +39,13 @@ import { HUBS } from "@/lib/catalog";
 import { canEditPlaces } from "@/lib/bookingEdit";
 import { storedRidePlace } from "@/lib/places";
 import { EditTripCard } from "./EditTripCard";
+// The admin on a phone (2026-11-13): summary first, a sticky action bar (src/lib/adminPhone.ts).
+import { Icon, PhoneSectionTitle, SoftChip } from "@/components/admin/ui";
+import { statusView } from "@/lib/adminBookings";
+import { shortPlace } from "@/lib/adminDisplay";
+import { primaryAction, publishFields, secondaryActions } from "@/lib/adminPhone";
+import { busySpan, durationText } from "@/lib/dispatch";
+import { liveMapHref } from "@/lib/liveTrips";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 type DriverRow = DriverRecord & { profiles: { full_name: string | null } | null; driver_vehicles: VehicleRecord[] };
@@ -313,9 +320,177 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
   const posting = postingState(b, now);
   const openOffers = (offers ?? []).filter((o) => o.status === "submitted").length;
 
+  // ---- Phone (below lg, 2026-11-13) ----
+  const editable = canEditPlaces(b.status) && (b.service_type === "transfer" || b.service_type === "day_tour");
+  const actionCtx = { openOffers, now, hasWhatsApp: hasWaNumber, canEdit: editable };
+  const primary = primaryAction(b, actionCtx);
+  const secondary = secondaryActions(b, actionCtx);
+  const span = busySpan(b, { stops: catalog.stops, dayTours: catalog.dayTours });
+  const view = statusView(b.status, lang, b);
+  const catalogStops = b.service_type === "transfer" ? (b.sightseeing_stops ?? []).filter((x) => !ownStops.some((o) => o.id === x.id)) : [];
+  const restOf = (place: string | null | undefined) => (place ?? "").split(",").slice(1).join(",").trim();
+  const bags = bagsForTeam(b.luggage_count, b.carry_on_count, lang);
+  const pax = b.passenger_count ?? 0;
+  const primaryCls =
+    "flex min-h-[52px] w-full items-center justify-center gap-2 rounded-2xl bg-[#047857] px-4 text-base font-extrabold text-white hover:bg-[#065F46] disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#047857]";
+  const secondaryCls =
+    "flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-[#CBD5CF] bg-white px-2 text-center text-sm font-bold leading-tight text-[#14231C] hover:bg-[#F1F4F2] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#047857]";
+
   return (
     <div className="space-y-5">
       {posting === "open" && <LiveRefresh seconds={10} />}
+
+      {/* ================= Phone (below lg): header, trip, traveller, money ================= */}
+      <div className="-mx-4 -mt-5 flex items-center gap-2 bg-[#0B2E22] px-2 py-2.5 text-white sm:-mx-6 sm:px-4 lg:hidden">
+        <Link
+          href="/admin/bookings"
+          aria-label={t("Volver a reservas", "Back to bookings")}
+          className="grid h-11 w-11 shrink-0 place-items-center rounded-xl focus-visible:outline-2 focus-visible:outline-[#F5B301]"
+        >
+          <Icon name="back" className="h-[22px] w-[22px]" />
+        </Link>
+        <div className="flex min-w-0 grow flex-col">
+          <h1 className="font-mono text-base font-extrabold">{b.booking_ref}</h1>
+          <p className="truncate text-xs text-[#A7D7C2]">
+            {posting === "closed" ? t("Publicación cerrada", "Posting closed") : view.label}
+            {b.status === "pending_payment" && view.tone === "green" ? ` ${usd(b.amount_paid).replace(/\.00$/, "")}` : ""}
+            {testPaid ? ` · ${t("PRUEBA", "TEST")}` : ""}
+          </p>
+        </div>
+        <Link
+          href={`/admin/dispatch?d=${scheduledParts(b.scheduled_at)?.ymd ?? ""}`}
+          aria-label={t("Ver en el calendario", "See on the calendar")}
+          className="grid h-11 w-11 shrink-0 place-items-center rounded-xl focus-visible:outline-2 focus-visible:outline-[#F5B301]"
+        >
+          <Icon name="bookings" className="h-[22px] w-[22px]" />
+        </Link>
+      </div>
+
+      <div className="space-y-3 lg:hidden">
+        <section aria-label={t("Viaje", "Trip")} className="space-y-3 rounded-2xl border border-[#E3E8E5] bg-white p-4">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-2">
+            <p className="text-xl font-extrabold">{formatScheduledAt(b.scheduled_at, lang)}</p>
+            {span && (
+              <p className="text-[13px] text-[#5B6B64]">
+                {span.estimated ? "≈ " : "~"}
+                {durationText(span.minutes)}
+              </p>
+            )}
+          </div>
+          {b.service_type === "transfer" ? (
+            <ol className="space-y-2.5 text-sm">
+              <li className="flex gap-3">
+                <span aria-hidden className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-[#047857]" />
+                <span className="min-w-0 break-words">
+                  <b>{shortPlace(b.origin)}</b>
+                  {restOf(b.origin) ? ` · ${restOf(b.origin)}` : ""}
+                </span>
+              </li>
+              {catalogStops.map((x) => (
+                <li key={x.id} className="flex gap-3 text-[#3F4F48]">
+                  <span aria-hidden className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[#F59E0B]" />
+                  <span className="min-w-0 break-words">{savedStopLabel(x, catalog.stops)}</span>
+                </li>
+              ))}
+              {ownStops.map((x) => (
+                <li key={x.id} className="flex gap-3 text-[#3F4F48]">
+                  <span aria-hidden className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[#F59E0B]" />
+                  <span className="min-w-0 break-words">
+                    {x.name} · {stopTimeText(x.minutes)}
+                  </span>
+                </li>
+              ))}
+              <li className="flex gap-3">
+                <span aria-hidden className="mt-1 h-2.5 w-2.5 shrink-0 rounded-[2px] bg-[#0B2E22]" />
+                <span className="min-w-0 break-words">
+                  <b>{shortPlace(b.destination)}</b>
+                  {restOf(b.destination) ? ` · ${restOf(b.destination)}` : ""}
+                </span>
+              </li>
+            </ol>
+          ) : (
+            <div className="text-sm">
+              <p className="font-extrabold">{name}</p>
+              <p className="text-[#3F4F48]">
+                {t("Recogida:", "Pickup:")} {b.pickup_place || t("(no indicado)", "(not given)")}
+              </p>
+            </div>
+          )}
+          <div className="flex flex-wrap gap-1.5">
+            {b.service_type === "transfer" && b.vehicle_class && <SoftChip>{bookedClassName}</SoftChip>}
+            {pax > 0 && <SoftChip>{pax} {pax === 1 ? t("persona", "person") : t("personas", "people")}</SoftChip>}
+            {bags && <SoftChip>{bags}</SoftChip>}
+            {b.service_type === "transfer" && (
+              <SoftChip tone="amber">
+                {t("Rótulo", "Sign")}: “{signShown(b, guest.guest_name)}”
+              </SoftChip>
+            )}
+            {Number(b.night_premium ?? 0) > 0 && <SoftChip>{t("Nocturno", "Night")}</SoftChip>}
+          </div>
+          {(b.flight_or_hotel_notes || b.client_notes) && (
+            <p className="text-[13px] text-[#3F4F48] [overflow-wrap:anywhere]">{[b.flight_or_hotel_notes, b.client_notes].filter(Boolean).join(" · ")}</p>
+          )}
+        </section>
+
+        <section aria-labelledby="ph-traveller" className="space-y-2.5 rounded-2xl border border-[#E3E8E5] bg-white p-4">
+          <PhoneSectionTitle id="ph-traveller">{t("Viajero", "Traveller")}</PhoneSectionTitle>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex min-w-0 flex-col">
+              {custKey ? (
+                <Link href={customerHref(custKey)} className={`truncate ${link}`}>
+                  {guest.guest_name ?? t("(sin nombre)", "(no name)")}
+                </Link>
+              ) : (
+                <span className="truncate font-bold">{guest.guest_name ?? "—"}</span>
+              )}
+              <span className="text-[13px] text-[#5B6B64]">{guest.language === "es" ? t("Español", "Spanish") : t("Inglés", "English")}</span>
+            </div>
+            {hasWaNumber && (
+              <a
+                href="#whatsapp"
+                className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl bg-[#DCFCE7] px-3 text-sm font-extrabold text-[#14532D] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#047857]"
+              >
+                <Icon name="message" className="h-4 w-4" />
+                WhatsApp
+              </a>
+            )}
+          </div>
+        </section>
+
+        <section aria-labelledby="ph-money" className="space-y-2 rounded-2xl border border-[#E3E8E5] bg-white p-4 text-sm">
+          <PhoneSectionTitle id="ph-money">{t("Dinero", "Money")}</PhoneSectionTitle>
+          <p className="flex justify-between gap-2">
+            <span>{t("Precio", "Price")}</span>
+            <b>{usd(due)}</b>
+          </p>
+          <p className="flex justify-between gap-2 text-[#3F4F48]">
+            <span>{t("Pago al conductor", "Driver payout")}</span>
+            <span>{b.driver_payout != null ? usd(b.driver_payout) : "—"}</span>
+          </p>
+          <p className="flex justify-between gap-2 text-[#3F4F48]">
+            <span>{t("Nuestra parte", "Our share")}</span>
+            <span>{b.driver_payout != null ? usd(b.platform_fee ?? 0) : "—"}</span>
+          </p>
+          <p className="flex justify-between gap-2 text-[#3F4F48]">
+            <span>{t("Recibido", "Received")}</span>
+            <span>
+              {usd(b.amount_paid)}
+              {testPaid ? ` · ${t("PRUEBA", "TEST")}` : ""}
+            </span>
+          </p>
+        </section>
+
+        <a
+          href="#history"
+          className="flex min-h-12 items-center justify-between rounded-2xl border border-[#E3E8E5] bg-white px-4 text-sm font-bold text-[#14231C]"
+        >
+          <span>{t("Historial, chat y notas", "History, chat & notes")}</span>
+          <Icon name="chevron" className="h-4 w-4 text-[#9AA8A1]" />
+        </a>
+      </div>
+
+      {/* ================= Large screens (unchanged) ================= */}
+      <div className="hidden lg:block">
       <PageHeader
         back={{ href: "/admin/bookings", label: t("Todas las reservas", "All bookings") }}
         eyebrow={b.booking_ref}
@@ -329,7 +504,7 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
             <span>
               {formatScheduledAt(b.scheduled_at, lang)} · {t("enviada", "sent")} {b.created_at.slice(0, 10)}
             </span>
-            <StatusChip status={b.status} lang={lang} posting={posting} />
+            <StatusChip status={b.status} lang={lang} posting={posting} booking={b} />
             <PaymentChip booking={b} lang={lang} test={testPaid} />
           </span>
         }
@@ -352,6 +527,7 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
           </>
         }
       />
+      </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card title={t("Cliente", "Client")}>
@@ -596,6 +772,7 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
       )}
 
       {(offers ?? []).length > 0 && (
+        <div id="offers" className="scroll-mt-20">
         <Card title={t("Ofertas de los conductores", "Drivers' offers")}>
           <p className="text-xs leading-relaxed text-[#5F6F67]">
             {t(
@@ -667,6 +844,7 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
             ))}
           </ul>
         </Card>
+        </div>
       )}
 
       <div id="dispatch" className="scroll-mt-20">
@@ -972,7 +1150,7 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
           <ChatBox bookingId={b.id} viewer={{ kind: "staff" }} allowContactDetails lang={lang} />
         </Card>
 
-        <Card title={t("Historial de cambios", "Change history")}>
+        <Card id="history" title={t("Historial de cambios", "Change history")}>
           {history.error ? (
             <p className="text-sm text-[#5F6F67]">
               {t(
@@ -1000,6 +1178,96 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
           )}
         </Card>
       </div>
+
+      {/* ================= Phone: the sticky action bar, above the tab bar ================= */}
+      {(primary !== "none" || secondary.length > 0) && (
+        <div
+          role="region"
+          aria-label={t("Acciones", "Actions")}
+          className="sticky bottom-[calc(60px+env(safe-area-inset-bottom))] z-30 -mx-4 space-y-2 border-t border-[#E3E8E5] bg-white px-4 py-3 shadow-[0_-6px_16px_rgba(11,46,34,0.06)] sm:-mx-6 sm:px-6 lg:hidden"
+        >
+          {primary === "publish" && (
+            <AdminActionForm
+              action={updateBooking}
+              lang={lang}
+              buttonClassName={primaryCls}
+              submitLabel={t("Publicar para conductores", "Post to drivers")}
+              savedLabel={t("Publicada", "Posted")}
+              confirmLabel={t("Sí, publicar", "Yes, post it")}
+              confirm={[
+                {
+                  kind: "always",
+                  message: t(
+                    `La reserva pasa a «Abierta para conductores»: va a la bolsa de trabajos por ${POSTING_WINDOW_MINUTES} minutos y se avisa a los conductores que pueden tomarla (pago sugerido ${b.driver_payout != null ? usd(b.driver_payout) : "—"}).`,
+                    `The booking becomes "Open for drivers": it goes on the job board for ${POSTING_WINDOW_MINUTES} minutes and the drivers who can take it are alerted (suggested payout ${b.driver_payout != null ? usd(b.driver_payout) : "—"}).`,
+                  ),
+                },
+              ]}
+            >
+              {publishFields(b.id).map(([k, v]) => (
+                <input key={k} type="hidden" name={k} value={v} />
+              ))}
+            </AdminActionForm>
+          )}
+          {primary === "repost" && (
+            <AdminActionForm
+              action={repostJob}
+              lang={lang}
+              buttonClassName={primaryCls}
+              submitLabel={t("Volver a publicar", "Repost")}
+              savedLabel={t("Publicada", "Posted")}
+              confirmLabel={t("Sí, volver a publicar", "Yes, repost")}
+              confirm={[
+                {
+                  kind: "always",
+                  message: t(
+                    `La reserva vuelve a la bolsa de trabajos por ${POSTING_WINDOW_MINUTES} minutos y se avisa otra vez a los conductores que pueden tomarla. Las ofertas recibidas se mantienen.`,
+                    `The booking goes back on the job board for ${POSTING_WINDOW_MINUTES} minutes and the drivers who can take it are alerted again. Offers already received stay.`,
+                  ),
+                },
+              ]}
+            >
+              <input type="hidden" name="booking_id" value={b.id} />
+            </AdminActionForm>
+          )}
+          {primary === "offers" && (
+            <a href="#offers" className={primaryCls}>
+              {t(`Ver ofertas (${openOffers})`, `See offers (${openOffers})`)}
+            </a>
+          )}
+          {primary === "assign" && (
+            <a href="#dispatch" className={primaryCls}>
+              {t("Asignar conductor", "Assign a driver")}
+            </a>
+          )}
+          {primary === "whatsapp" && (
+            <a href="#whatsapp" className={primaryCls}>
+              <Icon name="message" className="h-5 w-5" />
+              {t("Mensajes de WhatsApp", "WhatsApp messages")}
+            </a>
+          )}
+          {secondary.length > 0 && (
+            <div className={`grid gap-2 ${secondary.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
+              {secondary.map((a, i) =>
+                a === "map" ? (
+                  <Link key={a} href={liveMapHref(b.id)} className={`${secondaryCls} ${secondary.length === 3 && i === 2 ? "col-span-2" : ""}`}>
+                    <Icon name="map" className="h-4 w-4" />
+                    {t("Ver en el mapa", "See on the map")}
+                  </Link>
+                ) : a === "edit" ? (
+                  <a key={a} href="#edit-trip" className={secondaryCls}>
+                    {t("Cambiar recogida u hora", "Change pickup or time")}
+                  </a>
+                ) : (
+                  <a key={a} href="#dispatch" className={secondaryCls}>
+                    {b.assigned_driver_id ? t("Cambiar conductor", "Change driver") : t("Asignar conductor", "Assign a driver")}
+                  </a>
+                ),
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

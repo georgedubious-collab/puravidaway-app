@@ -83,8 +83,21 @@ async function AdminShell({ children }: { children: React.ReactNode }) {
         menuLabel={t("Menú", "Menu")}
         closeLabel={t("Cerrar el menú", "Close the menu")}
         footer={<MenuFooter lang={lang} email={me.email} />}
+        tabsLabel={t("Menú principal", "Main menu")}
+        moreLabel={t("Más", "More")}
+        tabs={[
+          { href: "/admin", label: t("Inicio", "Home"), icon: "home" },
+          { href: "/admin/bookings", label: t("Reservas", "Bookings"), icon: "list" },
+          { href: "/admin/dispatch", label: t("Despacho", "Dispatch"), icon: "bookings" },
+          { href: "/admin/live", label: t("En vivo", "Live"), icon: "live" },
+        ]}
       />
-      <main id="admin-main" tabIndex={-1} className="min-w-0 flex-1 px-4 pb-10 pt-5 outline-none sm:px-6 lg:px-8 lg:pt-7">
+      {/* Phones: room at the bottom for the tab bar (60px + the home-indicator area). */}
+      <main
+        id="admin-main"
+        tabIndex={-1}
+        className="min-w-0 flex-1 px-4 pb-[calc(84px+env(safe-area-inset-bottom))] pt-5 outline-none sm:px-6 lg:px-8 lg:pb-10 lg:pt-7"
+      >
         <div className="mx-auto max-w-[1280px]">{children}</div>
       </main>
     </div>
