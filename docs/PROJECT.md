@@ -1004,6 +1004,31 @@ Multipliers live in the database and are edited from the admin pricing manager.
    others are declined automatically.
 5. Costa Rica Private Transfers keeps its **platform commission** (§9 #2) from the fixed price.
 
+**Posting window (Jorge, 2026-11-12, migration 0054, `src/lib/postingWindow.ts`).**
+- A posting is **open for 1 hour** (`bookings.posted_at` / `posting_closes_at`, set by a database
+  trigger every time a booking becomes `pending_bids`: the team choosing "Open for drivers", or a
+  driver removed from a confirmed booking). After the hour the job leaves the board (website
+  `/driver/jobs`, the driver app's Offers screen, `driver_jobs()`) and `offer_job()` refuses new
+  offers with "This job is no longer open." / "Este trabajo ya no está disponible." (checked in the
+  database, not just hidden). The new-job alerts and the job board page say offers are open for 1 hour.
+- The status **stays `pending_bids`**, so the admin still treats it as needing a driver everywhere
+  (counters, lists, dispatch calendar, "Necesita atención", the 12-hour "Sin conductor" alert, which is
+  unchanged and still includes unpaid bookings). The admin shows **"Publicación cerrada · N ofertas"**
+  (status chip "Publicación cerrada", orange). Offers received during the hour stay and **can still be
+  accepted** after it closes (`accept_offer()` unchanged).
+- **"Volver a publicar" / "Repost"** (booking page card "Publicación en la bolsa de trabajos", and the
+  dispatch calendar's side panel), on a closed posting without a driver: `repost_job()` (admins only)
+  opens a new hour, keeps the offers, writes `booking_events` `reposted`; then the drivers get the
+  new-job alerts again (`notifyDriversOfJobs`, same eligibility: approved, vehicle category and seats
+  fit, not unavailable that day).
+- **Automatic repost 48 hours before pickup**, once per booking: the 5-minute check
+  (`/api/cron/eta`) calls `auto_repost_jobs()` (service role), which claims `bookings.auto_reposted_at`
+  and opens a new hour for every booking still on the board without a driver whose pickup is within
+  48 hours, if it was **created and last posted more than 48 hours before pickup** and its window is
+  closed; then the drivers are alerted and `booking_events` gets `auto_reposted` (system). Not between
+  9 PM and 7 AM Costa Rica time (the hour would fall while drivers sleep): it waits for the first check
+  after 7 AM. Bookings never posted (`pending_payment`) are not posted automatically.
+
 **Older pages and app builds.** A ride sent as a traveller's offer (`pricing: "bid"` or an
 `offerCents` field) is refused before anything is looked up, with "Please book at the fixed price
 shown; offers are no longer available." / "Por favor, reserve al precio fijo indicado; las ofertas
@@ -1201,7 +1226,9 @@ name; never together with a text); §4.6, migration 0040 ·
 `pricing_mode` (`fixed` | `bid`; always `fixed` for new bookings since 2026-11-11, `bid` only on
 earlier bookings made as a traveller's offer, §6.3) · `total_price` numeric · `night_premium` numeric(10,2) (the part
 of `total_price` that is the night-pickup premium, 0 by day; §6.6, migration 0041) · `driver_payout` / `platform_fee` numeric
-(migration 0017; null on retired multi-day bookings) · `company_costs` (entrances / lunch / activities the company pays, deducted before the driver's share; part of `platform_fee`; 0023) · `claimed_at` (set when the team accepted an offer from the job board) · `currency` (`USD` | `CRC`) ·
+(migration 0017; null on retired multi-day bookings) · `company_costs` (entrances / lunch / activities the company pays, deducted before the driver's share; part of `platform_fee`; 0023) · `claimed_at` (set when the team accepted an offer from the job board) · `posted_at` / `posting_closes_at`
+(the job board posting's 1-hour window; drivers see and offer only before `posting_closes_at`) and
+`auto_reposted_at` (the automatic repost 48 h before pickup, once); §6.3, migration 0054 · `currency` (`USD` | `CRC`) ·
 `amount_paid` numeric · `payment_mode` (`full_100` | `cash_driver`; `deposit_20` on old rows
 only) · `cash_fee` numeric(10,2) (cash booking fee snapshot, 0 unless `cash_driver`) · `assigned_driver_id` →
 `drivers.id` (nullable) · `status` (`pending_payment` | `pending_bids` | `confirmed` |
@@ -1233,7 +1260,8 @@ promotional emails (§4.7). **`driver_reviews.team_alerted_at`**: low-rating ema
 (`status` | `assignment` | `amount_paid` | `price` | `payout` | `payment_mode` | `schedule` |
 `settled` | `sign` | `notes` | `created_by_team` | `trip_link_emailed`; since migration 0049 also
 `cancellation` | `refund` | `refund_paid` (trigger on `booking_refunds`) and `driver_removed` |
-`whatsapp_opened` | `notified` (written by the server)) · `before` / `after` jsonb
+`whatsapp_opened` | `notified` (written by the server); since migration 0054 `reposted` (the team's
+"Volver a publicar") | `auto_reposted` (the automatic repost 48 h before pickup)) · `before` / `after` jsonb
 (only the changed fields). Written by triggers on `bookings` and `booking_admin_notes` (so every path
 is covered: admin pages, accepting an offer, the driver app, the traveller's sign) and by the server
 for bookings entered by the team. Never card data, never chat messages.
@@ -1358,7 +1386,9 @@ and `season_for_date(date)` returns the season for a travel date.
   traveller's phone or email** (§4.5). `chat_reads`,
   `request_log` and the rate-limit functions are server-only. Approved drivers see **open** requests (`pending_bids`) only through the
   `open_trip_requests()` function: towns, date, vehicle, passengers and price, without the client's id,
-  exact coordinates or flight/hotel notes, until a bid is accepted.
+  exact coordinates or flight/hotel notes, until a bid is accepted. Since migration 0054 the job board
+  (`driver_jobs()`) and `offer_job()` only take postings inside their 1-hour window (§6.3);
+  `repost_job()` is admins only and `auto_repost_jobs()` runs only for the service role.
 - **bids:** drivers create and manage their own; the amount can change only while the request is
   open and the driver is still approved (withdrawing is always allowed); the booking's client
   reads bids on their booking; admins see all.
@@ -1561,6 +1591,17 @@ multi-day trips were retired (§1, §5.5) and are not on the roadmap.
     as for any booking; (f) the per-email limit can only be checked once the email is known (always
     when the trip is sent); two trips sent at the very same moment could both use the last allowed
     use; (g) checking a code with a typed hotel asks Google for the route again (one more Routes call).
+23. **Job board posting window (decided, Jorge, 2026-11-12, §6.3, migration 0054).** (a) A posting is
+    open for offers for 1 hour; after it, drivers no longer see it or can offer; the offers received
+    stay and the team can still accept one. (b) "Volver a publicar" opens a new hour and alerts the
+    drivers again. (c) A booking still without a driver 48 hours before pickup is posted again
+    automatically, once; bookings created less than 48 hours before pickup are skipped. (d) The
+    "Sin conductor" alert (pickup within 12 h, unpaid included) is unchanged. Assumed until Jorge says
+    otherwise: (e) the automatic repost waits until 7 AM when it comes due between 9 PM and 7 AM
+    Costa Rica time; (f) it only covers bookings the team already posted (not unpaid requests still
+    "waiting for payment"), and is skipped when the team (re)posted it less than 48 hours before
+    pickup; (g) "Volver a publicar" is offered only once the hour is over (not to extend an open one);
+    (h) postings already open when the change goes live get one more hour from then.
 
 ---
 

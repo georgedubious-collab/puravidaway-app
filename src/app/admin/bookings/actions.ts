@@ -52,6 +52,48 @@ export async function acceptOffer(_prev: FormState, fd: FormData): Promise<FormS
   }, t("No pudimos aceptar esta oferta. Recargue la página e inténtelo de nuevo.", "We couldn't accept this offer. Please reload and try again."));
 }
 
+/**
+ * "Volver a publicar" (Jorge, 2026-11-12; src/lib/postingWindow.ts): a closed posting goes back on
+ * the job board for another hour. The database function checks it (admin, no driver, window
+ * closed, pickup ahead) and writes the history ('reposted'); then the drivers get the new-job
+ * alerts again (same eligibility as the first posting). Offers already received stay.
+ */
+export async function repostJob(_prev: FormState, fd: FormData): Promise<FormState> {
+  const t = makeT(await getTeamLang());
+  return runAction(async () => {
+    await requireRole("admin", "/admin/bookings");
+    const id = String(fd.get("booking_id") ?? "");
+    if (!UUID.test(id)) throw new InputError(t("No se encontró la reserva.", "Booking not found."));
+    const supabase = (await createSupabaseServerClient())!;
+    const { error } = await supabase.rpc("repost_job", { p_booking: id });
+    if (error) {
+      const known: Record<string, [string, string]> = {
+        "This posting is still open.": ["Esta publicación sigue abierta.", "This posting is still open."],
+        "Only a booking open for drivers and without a driver can be posted again.": [
+          "Solo se puede volver a publicar una reserva abierta para conductores y sin conductor.",
+          "Only a booking open for drivers and without a driver can be posted again.",
+        ],
+        "This booking has no driver payout, so it cannot go on the job board.": [
+          "Esta reserva no tiene pago al conductor, así que no puede ir a la bolsa de trabajos.",
+          "This booking has no driver payout, so it cannot go on the job board.",
+        ],
+        "The pickup time has passed.": ["La hora de recogida ya pasó.", "The pickup time has passed."],
+        "Booking not found.": ["No se encontró la reserva.", "Booking not found."],
+        "Only the team can post a job again.": ["Solo el equipo puede volver a publicar.", "Only the team can post a job again."],
+      };
+      const k = known[error.message];
+      if (k) throw new InputError(t(k[0], k[1]));
+      throw new Error(error.message);
+    }
+    after(() => notifyDriversOfJobs([id]));
+    revalidatePath("/admin/bookings");
+    revalidatePath(`/admin/bookings/${id}`);
+    revalidatePath("/admin");
+    revalidatePath("/admin/dispatch");
+    revalidatePath("/driver/jobs");
+  }, t("No se pudo volver a publicar. Recargue la página e inténtelo de nuevo.", "Couldn't post it again. Please reload and try again."));
+}
+
 /** Status, assigned driver + vehicle, money received and internal notes for one booking. */
 export async function updateBooking(_prev: FormState, fd: FormData): Promise<FormState> {
   const t = makeT(await getTeamLang());
@@ -144,7 +186,8 @@ export async function updateBooking(_prev: FormState, fd: FormData): Promise<For
       after(send);
     }
 
-    // Just opened for drivers: email approved drivers about the job.
+    // Just opened for drivers: email approved drivers about the job. The database opens a 1-hour
+    // posting window on the way in (migration 0054 trigger), whatever path set the status.
     if (status === "pending_bids" && before && before.status !== "pending_bids") {
       after(() => notifyDriversOfJobs([id]));
     }

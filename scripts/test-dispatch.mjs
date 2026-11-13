@@ -155,8 +155,8 @@ eq("long names are cut", d.shortPlace("A very long hotel name that goes on, Town
 
 // --- The page assigns through the booking page's own actions -----------------------------------
 const page = readFileSync(new URL("../src/app/admin/dispatch/page.tsx", import.meta.url), "utf8");
-eq("calendar imports updateBooking and acceptOffer from the booking actions",
-  /import \{ acceptOffer, updateBooking \} from "\.\.\/bookings\/actions"/.test(page), true);
+eq("calendar imports updateBooking, acceptOffer and repostJob from the booking actions",
+  /import \{ acceptOffer, repostJob, updateBooking \} from "\.\.\/bookings\/actions"/.test(page), true);
 eq("calendar asks before assigning", /kind: "always"/.test(page), true);
 eq("calendar never shows traveller email or phone", /guest_email|guest_phone/.test(page), false);
 const actions = readFileSync(new URL("../src/app/admin/bookings/actions.ts", import.meta.url), "utf8");
@@ -213,6 +213,51 @@ eq("updateBooking keeps the internal notes when the calendar doesn't send them",
   const actionsSrc = readFileSync(new URL("../src/app/admin/bookings/actions.ts", import.meta.url), "utf8");
   eq("updateBooking notifies only through shouldNotifyAssignment", /shouldNotifyAssignment\(before\.assigned_driver_id, driverId\)/.test(actionsSrc), true);
   eq("acceptOffer and updateBooking share the same sender", (actionsSrc.match(/prepareAssignmentNotices\(/g) ?? []).length, 2);
+}
+
+// --- Job board posting window (Jorge, 2026-11-12; src/lib/postingWindow.ts, migration 0054) ---
+{
+  const pw = await import("../src/lib/postingWindow.ts");
+  const NOW = Date.parse("2026-11-20T10:00:00-06:00");
+  const iso = (ms) => new Date(ms).toISOString();
+  const open = { status: "pending_bids", posting_closes_at: iso(NOW + 35 * 60000) };
+  const closed = { status: "pending_bids", posting_closes_at: iso(NOW - 60000) };
+  eq("window is 1 hour, auto repost at 48 h", [pw.POSTING_WINDOW_MINUTES, pw.AUTO_REPOST_HOURS], [60, 48]);
+  eq("posting state: open / closed / not on the board / posted before the window existed", [
+    pw.postingState(open, NOW),
+    pw.postingState(closed, NOW),
+    pw.postingState({ status: "confirmed", posting_closes_at: open.posting_closes_at }, NOW),
+    pw.postingState({ status: "pending_bids", posting_closes_at: null }, NOW),
+  ], ["open", "closed", null, "closed"]);
+  eq("minutes left", [pw.postingMinutesLeft(open, NOW), pw.postingMinutesLeft(closed, NOW)], [35, 0]);
+  eq("team label (Spanish first)", [pw.postingLabel("closed", 2, 0, "es"), pw.postingLabel("closed", 1, 0, "en"), pw.postingLabel("open", 0, 35, "es")],
+    ["Publicación cerrada · 2 ofertas", "Posting closed · 1 offer", "Abierta · quedan 35 min · 0 ofertas"]);
+  const job = { ...closed, assigned_driver_id: null, driver_payout: 120, scheduled_at: iso(NOW + 30 * 3600000) };
+  eq("repost offered on a closed posting without a driver", pw.canRepost(job, NOW), true);
+  eq("…not while still open", pw.canRepost({ ...job, posting_closes_at: open.posting_closes_at }, NOW), false);
+  eq("…not with a driver", pw.canRepost({ ...job, assigned_driver_id: "d1" }, NOW), false);
+  eq("…not after pickup", pw.canRepost({ ...job, scheduled_at: iso(NOW - 60000) }, NOW), false);
+  eq("…not without a payout", pw.canRepost({ ...job, driver_payout: null }, NOW), false);
+
+  // The automatic repost run: claims in the database, then alerts the drivers about those jobs only.
+  const calls = [];
+  const deps = (ids) => ({ claim: async () => { calls.push("claim"); return ids; }, notify: async (x) => { calls.push(["notify", x]); } });
+  eq("daytime run reposts and alerts", await pw.runAutoRepost(deps(["b1", "b2"]), new Date(NOW)), 2);
+  eq("…drivers alerted for the claimed bookings", calls, ["claim", ["notify", ["b1", "b2"]]]);
+  calls.length = 0;
+  eq("nothing due: no alert", [await pw.runAutoRepost(deps([]), new Date(NOW)), calls], [0, ["claim"]]);
+  calls.length = 0;
+  const night = new Date(Date.parse("2026-11-20T23:30:00-06:00"));
+  const early = new Date(Date.parse("2026-11-21T06:55:00-06:00"));
+  eq("not at night (9 PM–7 AM Costa Rica): waits, claims nothing", [await pw.runAutoRepost(deps(["b1"]), night), await pw.runAutoRepost(deps(["b1"]), early), calls], [0, 0, []]);
+  eq("…7 AM: runs", await pw.runAutoRepost(deps(["b1"]), new Date(Date.parse("2026-11-21T07:00:00-06:00"))), 1);
+
+  // "Volver a publicar" goes through the database function, then the same driver alerts.
+  const actionsSrc = readFileSync(new URL("../src/app/admin/bookings/actions.ts", import.meta.url), "utf8");
+  const repost = actionsSrc.slice(actionsSrc.indexOf("export async function repostJob"), actionsSrc.indexOf("export async function updateBooking"));
+  eq("repost: database function, then the new-job alerts", [/rpc\("repost_job"/.test(repost), /notifyDriversOfJobs\(\[id\]\)/.test(repost)], [true, true]);
+  const cronSrc = readFileSync(new URL("../src/app/api/cron/eta/route.ts", import.meta.url), "utf8");
+  eq("the 5-minute check runs the automatic repost", /autoRepostJobs\(\)/.test(cronSrc), true);
 }
 
 if (failures.length) {

@@ -92,6 +92,19 @@ export function describeEvent(e: BookingEvent, lang: TeamLang, who: { driver: Lo
         title: t("Avisos de cancelación enviados", "Cancellation notices sent"),
         detail: [a.traveller ? t("viajero (correo)", "traveller (email)") : "", a.driver ? t("conductor (correo)", "driver (email)") : ""].filter(Boolean).join(" · ") || t("nadie", "nobody"),
       };
+    // Job board posting window (migration 0054).
+    case "reposted":
+      return {
+        title: t("Publicada otra vez para los conductores (1 hora)", "Posted again to the drivers (1 hour)"),
+        detail: `${t("abierta hasta", "open until")} ${formatScheduledAt(a.posting_closes_at as string, lang)}${
+          a.offers !== undefined ? ` · ${t("ofertas ya recibidas", "offers already received")}: ${Number(a.offers)}` : ""
+        } · ${t("conductores avisados", "drivers alerted")}`,
+      };
+    case "auto_reposted":
+      return {
+        title: t("Publicada otra vez automáticamente, 48 h antes de la recogida", "Posted again automatically, 48 h before pickup"),
+        detail: `${t("abierta hasta", "open until")} ${formatScheduledAt(a.posting_closes_at as string, lang)} · ${t("conductores avisados", "drivers alerted")}`,
+      };
     default:
       return { title: e.action };
   }

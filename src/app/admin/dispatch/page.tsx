@@ -5,7 +5,7 @@ import { requireRole } from "@/lib/auth";
 import { statusShort, weekStart } from "@/lib/adminBookings";
 import type { BookingStatus } from "@/lib/bookings";
 import { getCatalog } from "@/lib/catalogSource";
-import { addDays, costaRicaTimestamp, isValidYmd, scheduledParts, todayInCostaRica } from "@/lib/dates";
+import { addDays, costaRicaTimestamp, isValidYmd, nowMs, scheduledParts, todayInCostaRica } from "@/lib/dates";
 import { vehicleRoadLegal, type DriverRecord, type VehicleRecord } from "@/lib/driverKyc";
 import {
   CLASH_BUFFER_MINUTES,
@@ -28,7 +28,8 @@ import { makeT, type TeamLang } from "@/lib/teamLang";
 import { getTeamLang } from "@/lib/teamLangServer";
 import { categoryLabel, isVehicleCategory, jobClassLabel, seatsFit, vehicleCanServe } from "@/lib/vehicleEligibility";
 import { AdminActionForm } from "@/components/admin/AdminActionForm";
-import { acceptOffer, updateBooking } from "../bookings/actions";
+import { acceptOffer, repostJob, updateBooking } from "../bookings/actions";
+import { POSTING_WINDOW_MINUTES, canRepost, postingLabel, postingMinutesLeft, postingState } from "@/lib/postingWindow";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -43,6 +44,8 @@ type Row = SpanBooking & {
   assigned_driver_id: string | null;
   assigned_vehicle_id: string | null;
   driver_payout: number | string | null;
+  /** End of the job board posting's hour (migration 0054). */
+  posting_closes_at: string | null;
   preferences: Partial<RidePrefs> | null;
   /** The traveller's name only: no email or phone on the calendar. */
   trips: { guest_name: string | null } | null;
@@ -95,7 +98,7 @@ export default async function DispatchPage({ searchParams }: { searchParams: Pro
     supabase
       .from("bookings")
       .select(
-        "id, booking_ref, status, service_type, catalog_item_id, scheduled_at, origin, destination, origin_coords, destination_coords, sightseeing_stops, drive_minutes, vehicle_class, passenger_count, assigned_driver_id, assigned_vehicle_id, driver_payout, preferences, trips(guest_name), bids(id, driver_id, vehicle_id, bid_amount, status)",
+        "id, booking_ref, status, service_type, catalog_item_id, scheduled_at, origin, destination, origin_coords, destination_coords, sightseeing_stops, drive_minutes, vehicle_class, passenger_count, assigned_driver_id, assigned_vehicle_id, driver_payout, posting_closes_at, preferences, trips(guest_name), bids(id, driver_id, vehicle_id, bid_amount, status)",
       )
       .neq("status", "cancelled")
       .gte("scheduled_at", costaRicaTimestamp(fromDay, "00:00"))
@@ -350,6 +353,7 @@ export default async function DispatchPage({ searchParams }: { searchParams: Pro
           cat={cat}
           lang={lang}
           today={today}
+          now={nowMs()}
           closeHref={href(day)}
         />
       )}
@@ -497,6 +501,7 @@ function AssignPanel({
   cat,
   lang,
   today,
+  now,
   closeHref,
 }: {
   booking: Row | undefined;
@@ -507,6 +512,7 @@ function AssignPanel({
   cat: SpanCatalog;
   lang: TeamLang;
   today: string;
+  now: number;
   closeHref: string;
 }) {
   const t = makeT(lang);
@@ -561,6 +567,7 @@ function AssignPanel({
       ? `${shortPlace(b.origin, b.origin_coords, lang)} → ${shortPlace(b.destination, b.destination_coords, lang)}`
       : `${span?.fromPlace ? `${span.fromPlace} · ` : ""}${catalog.dayTours.find((x) => x.id === b.catalog_item_id)?.name ?? t("Tour", "Tour")}`
     : "";
+  const posting = b ? postingState(b, now) : null;
   const nextStatusDefault = b?.status === "pending_bids" ? "confirmed" : (b?.status ?? "confirmed");
 
   return (
@@ -601,13 +608,40 @@ function AssignPanel({
                   .join(" · ")}
               </p>
               <div className="mt-2 flex flex-wrap items-center gap-2">
-                <StatusChip status={b.status} lang={lang} />
+                <StatusChip status={b.status} lang={lang} posting={posting} />
                 {span?.estimated && <Chip tone="amber">{t("Duración estimada", "Estimated length")}</Chip>}
                 <Link href={`/admin/bookings/${b.id}`} className={`text-sm ${link}`}>
                   {t("Abrir la reserva", "Open the booking")}
                 </Link>
               </div>
             </Card>
+
+            {posting && (
+              <Card>
+                <p className="text-sm font-extrabold text-[#14231C]">{postingLabel(posting, offers.length, postingMinutesLeft(b, now), lang)}</p>
+                {canRepost(b, now) && (
+                  <AdminActionForm
+                    action={repostJob}
+                    lang={lang}
+                    className="mt-2"
+                    submitLabel={t("Volver a publicar", "Repost")}
+                    savedLabel={t("Publicada", "Posted")}
+                    confirmLabel={t("Sí, volver a publicar", "Yes, repost")}
+                    confirm={[
+                      {
+                        kind: "always",
+                        message: t(
+                          `La reserva vuelve a la bolsa de trabajos por ${POSTING_WINDOW_MINUTES} minutos y se avisa otra vez a los conductores que pueden tomarla. Las ofertas recibidas se mantienen.`,
+                          `The booking goes back on the job board for ${POSTING_WINDOW_MINUTES} minutes and the drivers who can take it are alerted again. Offers already received stay.`,
+                        ),
+                      },
+                    ]}
+                  >
+                    <input type="hidden" name="booking_id" value={b.id} />
+                  </AdminActionForm>
+                )}
+              </Card>
+            )}
 
             {b.assigned_driver_id ? (
               <Notice tone="green" role="status">

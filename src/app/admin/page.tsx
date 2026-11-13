@@ -13,6 +13,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { makeT, teamLocale } from "@/lib/teamLang";
 import { getTeamLang } from "@/lib/teamLangServer";
 import { isVehicleCategory } from "@/lib/vehicleEligibility";
+import { postingState } from "@/lib/postingWindow";
 
 type DriverRow = DriverRecord & {
   profiles: { full_name: string | null; email: string | null } | null;
@@ -22,7 +23,7 @@ type Pickup = Pick<
   BookingRow,
   | "id" | "booking_ref" | "scheduled_at" | "service_type" | "origin" | "destination" | "catalog_item_id" | "vehicle_class"
   | "passenger_count" | "luggage_count" | "carry_on_count" | "assigned_driver_id" | "status" | "flight_or_hotel_notes"
-  | "night_premium" | "payment_mode"
+  | "night_premium" | "payment_mode" | "posting_closes_at"
 > & { trips: { guest_name: string | null } | null };
 
 const PICKS = ["today", "tomorrow", "7d"] as const;
@@ -55,7 +56,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
     supabase
       .from("bookings")
       .select(
-        "id, booking_ref, scheduled_at, service_type, origin, destination, catalog_item_id, vehicle_class, passenger_count, luggage_count, carry_on_count, assigned_driver_id, status, flight_or_hotel_notes, night_premium, payment_mode, trips(guest_name)",
+        "id, booking_ref, scheduled_at, service_type, origin, destination, catalog_item_id, vehicle_class, passenger_count, luggage_count, carry_on_count, assigned_driver_id, status, flight_or_hotel_notes, night_premium, payment_mode, posting_closes_at, trips(guest_name)",
       )
       .gte("scheduled_at", crDay(today))
       .lt("scheduled_at", crDay(addDays(today, 7)))
@@ -88,13 +89,13 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
       .returns<{ booking_id: string; bookings: { booking_ref: string } | null }[]>(),
     supabase
       .from("bookings")
-      .select("id, booking_ref, scheduled_at, status")
+      .select("id, booking_ref, scheduled_at, status, posting_closes_at")
       .in("status", ["pending_payment", "pending_bids", "confirmed"])
       .is("assigned_driver_id", null)
       .gte("scheduled_at", new Date(now).toISOString())
       .lte("scheduled_at", new Date(now + 48 * HOUR).toISOString())
       .order("scheduled_at")
-      .returns<{ id: string; booking_ref: string; scheduled_at: string; status: string }[]>(),
+      .returns<{ id: string; booking_ref: string; scheduled_at: string; status: string; posting_closes_at: string | null }[]>(),
     supabase
       .from("bookings")
       .select("id, booking_ref, created_at, total_price, cash_fee")
@@ -149,8 +150,8 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
       level: "red",
       title: t(`${b.booking_ref} sin conductor`, `${b.booking_ref} has no driver`),
       detail: `${t("Recogida", "Pickup")} ${w.day.toLowerCase()} ${w.time} · ${
-        n ? t(`${n} ${n === 1 ? "oferta recibida" : "ofertas recibidas"}`, `${n} offer${n === 1 ? "" : "s"} in`) : t("sin ofertas todavía", "no offers yet")
-      }`,
+        postingState(b, now) === "closed" ? `${t("publicación cerrada", "posting closed")} · ` : ""
+      }${n ? t(`${n} ${n === 1 ? "oferta recibida" : "ofertas recibidas"}`, `${n} offer${n === 1 ? "" : "s"} in`) : t("sin ofertas todavía", "no offers yet")}`,
       href: `/admin/bookings/${b.id}`,
     });
   }
@@ -391,7 +392,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                         )}
                       </Td>
                       <Td>
-                        <StatusChip status={b.status} lang={lang} />
+                        <StatusChip status={b.status} lang={lang} posting={postingState(b, now)} />
                       </Td>
                     </tr>
                   );

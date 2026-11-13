@@ -79,8 +79,8 @@ async function Jobs() {
         <h1 className="text-2xl font-extrabold text-slate-900">{tt("Trabajos disponibles", "Open jobs")}</h1>
         <p className="mt-1 text-sm text-slate-600">
           {tt(
-            "Cada trabajo muestra un pago sugerido. Envíe una oferta por ese monto, o proponga el suyo, y nuestro equipo elige un conductor. Si lo eligen a usted, el lugar exacto de recogida, las solicitudes del cliente y el chat aparecen en ",
-            "Each job shows a suggested payout. Send an offer at that amount, or name your own, and our team picks a driver. When you're chosen, the exact pickup place, the traveller's requests and the chat open under ",
+            "Cada trabajo muestra un pago sugerido y recibe ofertas durante 1 hora desde que se publica. Envíe una oferta por ese monto, o proponga el suyo, y nuestro equipo elige un conductor. Si lo eligen a usted, el lugar exacto de recogida, las solicitudes del cliente y el chat aparecen en ",
+            "Each job shows a suggested payout and takes offers for 1 hour after it's posted. Send an offer at that amount, or name your own, and our team picks a driver. When you're chosen, the exact pickup place, the traveller's requests and the chat open under ",
           )}
           <Link href="/driver/trips" className="font-bold text-emerald-700 underline">
             {tt("Mis viajes", "Your trips")}

@@ -19,7 +19,8 @@ import { bookingDue, usd, type BookingRow, type TripContact } from "@/lib/bookin
 import { localizeCatalog } from "@/lib/catalogEs";
 import { getCatalog } from "@/lib/catalogSource";
 import { customerHref, customerKey } from "@/lib/customers";
-import { todayInCostaRica } from "@/lib/dates";
+import { nowMs, todayInCostaRica } from "@/lib/dates";
+import { postingLabel, postingState } from "@/lib/postingWindow";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { makeT } from "@/lib/teamLang";
 import { getTeamLang } from "@/lib/teamLangServer";
@@ -34,6 +35,7 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
   const t = makeT(lang);
   const f = parseBookingFilters(await searchParams);
   const today = todayInCostaRica();
+  const now = nowMs();
   const supabase = (await createSupabaseServerClient())!;
 
   const ids = await searchIds(supabase, f.q);
@@ -257,7 +259,7 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
                           <p className="shrink-0 text-right font-extrabold">{usd(bookingDue(b))}</p>
                         </div>
                         <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                          <StatusChip status={b.status} lang={lang} />
+                          <StatusChip status={b.status} lang={lang} posting={postingState(b, now)} />
                           <PaymentChip booking={b} lang={lang} test={isTest(b.id)} />
                           <span className="text-xs text-[#5F6F67]">
                             {driverName(b.assigned_driver_id) ?? t("sin conductor", "no driver")}
@@ -314,11 +316,16 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
                                 {t("oferta del cliente", "client's offer")}
                               </span>
                             )}
-                            {b.status === "pending_bids" && (
-                              <span className={`mt-0.5 inline-block rounded px-1.5 text-xs font-bold ${offers ? "bg-[#D1FAE5] text-[#065F46]" : "bg-[#F1F4F2] text-[#5F6F67]"}`}>
-                                {offers} {offers === 1 ? t("oferta de conductor", "driver offer") : t("ofertas de conductores", "driver offers")}
-                              </span>
-                            )}
+                            {b.status === "pending_bids" &&
+                              (postingState(b, now) === "closed" ? (
+                                <span className="mt-0.5 inline-block rounded bg-[#FFEDD5] px-1.5 text-xs font-bold text-[#9A3412]">
+                                  {postingLabel("closed", offers, 0, lang)}
+                                </span>
+                              ) : (
+                                <span className={`mt-0.5 inline-block rounded px-1.5 text-xs font-bold ${offers ? "bg-[#D1FAE5] text-[#065F46]" : "bg-[#F1F4F2] text-[#5F6F67]"}`}>
+                                  {offers} {offers === 1 ? t("oferta de conductor", "driver offer") : t("ofertas de conductores", "driver offers")}
+                                </span>
+                              ))}
                           </Td>
                           <Td>
                             {b.trips ? (
@@ -345,7 +352,7 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
                             <PaymentChip booking={b} lang={lang} test={isTest(b.id)} />
                           </Td>
                           <Td>
-                            <StatusChip status={b.status} lang={lang} />
+                            <StatusChip status={b.status} lang={lang} posting={postingState(b, now)} />
                           </Td>
                         </tr>
                       );
