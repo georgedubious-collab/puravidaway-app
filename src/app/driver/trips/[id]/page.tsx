@@ -11,6 +11,7 @@ import { bagsForTeam } from "@/lib/bags";
 import { bookingStatusLabel, serviceLabel, usd, type DriverTrip } from "@/lib/bookings";
 import { bookedItemName } from "@/lib/catalog";
 import { getCatalog } from "@/lib/catalogSource";
+import { customStopsOf, savedStopLabel, stopTimeText } from "@/lib/customStops";
 import { formatScheduledAt, formatTime12h, scheduledParts } from "@/lib/dates";
 import { googleMapsUrl, navTarget, wazeUrl, type NavTarget } from "@/lib/navigation";
 import { prefsSummary } from "@/lib/preferences";
@@ -81,13 +82,15 @@ async function Trip({ params, searchParams }: { params: Promise<{ id: string }>;
       ? `${b.origin} → ${b.destination}`
       : (bookedItemName(catalog.dayTours, b.catalog_item_id, lang) ?? tt("Viaje", "Trip"));
   const stops = (b.sightseeing_stops ?? [])
-    .map((s) => (s.id === "en_route_upgrade" ? "Smart En-Route Transfer" : (catalog.stops.find((x) => x.id === s.id)?.name ?? s.id)))
+    .map((s) => savedStopLabel(s, catalog.stops))
     .join(", ");
   const asked = prefsSummary(b.preferences, lang);
   // I'm on my way → Client picked up → Trip ended.
   const nextStep: keyof ReturnType<typeof steps> = b.status === "in_progress" ? "completed" : b.en_route_at ? "in_progress" : "en_route";
   const pickup = b.service_type === "transfer" ? navTarget(b.origin, b.origin_coords) : null;
   const dropoff = b.service_type === "transfer" ? navTarget(b.destination, b.destination_coords) : null;
+  // The traveller's own stops, in the order to drive them: name, minutes there, map point.
+  const ownStops = b.service_type === "transfer" ? customStopsOf(b.sightseeing_stops) : [];
 
   return (
     <div className="space-y-5">
@@ -191,6 +194,17 @@ async function Trip({ params, searchParams }: { params: Promise<{ id: string }>;
           </p>
           <div className="mt-3 space-y-4">
             {pickup && <NavRow title={tt("Hacia la recogida", "To the pickup")} t={pickup} lang={lang} />}
+            {ownStops.map((s, i) => (
+              <NavRow
+                key={s.id}
+                title={tt(
+                  `Parada ${i + 1} · ${stopTimeText(s.minutes)} en el lugar (usted espera con el equipaje)`,
+                  `Stop ${i + 1} · ${stopTimeText(s.minutes)} there (you wait with the luggage)`,
+                )}
+                t={{ label: s.address && s.address !== s.name ? `${s.name}, ${s.address}` : s.name, point: { lat: s.lat, lng: s.lng }, placeId: s.place_id }}
+                lang={lang}
+              />
+            ))}
             {dropoff && (
               <NavRow
                 title={tt("Hacia el destino (cuando sus clientes estén a bordo)", "To the drop-off (once your travellers are on board)")}

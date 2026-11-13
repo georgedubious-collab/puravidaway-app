@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { api, type ApiResult } from "./api";
 import { TOWNS } from "./format";
-import type { Place, RideQuote, Tour } from "./types";
+import type { OwnStop, Place, RideQuote, Tour } from "./types";
 
 /**
  * Prices always come from the server (POST /client/quote, GET /client/tours).
@@ -34,6 +34,8 @@ export interface QuoteInput {
   time?: string;
   pax: number;
   stopIds: string[];
+  /** The traveller's own stops (place id, name, minutes); the server measures and prices them. */
+  customStops?: OwnStop[];
   /** The app's language, so names and badges come back in it. */
   lang: "en" | "es";
 }
@@ -42,10 +44,11 @@ const quotes = new Map<string, RideQuote>();
 
 /** The price of a ride. The request body is exactly what the server expects; good answers are remembered. */
 export async function fetchQuote(q: QuoteInput): Promise<ApiResult<{ quote: RideQuote }>> {
-  const key = JSON.stringify([q.from, q.to, q.date, q.pax, q.stopIds, q.lang, q.time ?? ""]);
+  const own = (q.customStops ?? []).map(({ id, label, minutes }) => ({ id, label, minutes }));
+  const key = JSON.stringify([q.from, q.to, q.date, q.pax, q.stopIds, q.lang, q.time ?? "", own]);
   const hit = quotes.get(key);
   if (hit) return { ok: true, data: { quote: hit } };
-  const res = await api<{ quote: RideQuote }>("/client/quote", { from: q.from, to: q.to, date: q.date, ...(q.time ? { time: q.time } : {}), pax: q.pax, stopIds: q.stopIds, lang: q.lang });
+  const res = await api<{ quote: RideQuote }>("/client/quote", { from: q.from, to: q.to, date: q.date, ...(q.time ? { time: q.time } : {}), pax: q.pax, stopIds: q.stopIds, ...(own.length ? { customStops: own } : {}), lang: q.lang });
   if (res.ok && res.data) quotes.set(key, res.data.quote);
   return res;
 }

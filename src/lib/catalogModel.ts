@@ -23,6 +23,7 @@ import {
   type SightseeingStop,
   type VehicleClass,
 } from "./catalog";
+import { CUSTOM_STOP_LIMITS_DEFAULT, type CustomStopLimits } from "./customStops";
 import { NIGHT_PREMIUM_DEFAULT, type NightPremium } from "./nightPremium";
 import { DRIVER_COMMISSION_BPS_DEFAULT } from "./payout";
 import { easterSunday } from "./pricing";
@@ -57,6 +58,8 @@ export interface CatalogData {
   waitPerHourCents: number;
   /** Night-pickup premium and its hours (pricing_settings, migration 0041). */
   nightPremium: NightPremium;
+  /** Limits for "add your own stop" (pricing_settings, migration 0057; src/lib/customStops.ts). */
+  customStopLimits: CustomStopLimits;
 }
 
 /** Season for a travel date: highest-priority range that contains it, else the default season. */
@@ -106,4 +109,5 @@ export const BUILT_IN_CATALOG: CatalogData = {
   driverCommissionBps: DRIVER_COMMISSION_BPS_DEFAULT,
   waitPerHourCents: WAIT_PER_HOUR_CENTS_DEFAULT,
   nightPremium: NIGHT_PREMIUM_DEFAULT,
+  customStopLimits: CUSTOM_STOP_LIMITS_DEFAULT,
 };

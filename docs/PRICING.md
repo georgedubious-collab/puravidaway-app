@@ -194,6 +194,58 @@ whether our stop price **includes** it or whether they **pay at the gate**. The 
 don't include it (prices stay comparable with Daytrip's) and show "Park entrance ~$X, paid at the
 gate" on the card.
 
+### 5.1 Travellers' own stops (built 2026-11-12, migration 0057)
+
+Jorge's example: La Fortuna → La Fortuna Waterfall → Proyecto Asis → Else Kientzler Garden →
+Quepos. Until now only the five catalog stops could be added. Now, next to them, "Add your own
+stop" / "Agregue su propia parada": the traveller searches any place (the same Google search as
+pickup and drop-off) and picks how long to stay (30 min, 1 h, 1 h 30, 2 h, 3 h). Website and
+customer app. Code: `src/lib/customStops.ts`; tests: `npm run test:stops`, `npm run test:db`.
+
+```
+own stop = waiting time × hourly wait rate            (pricing_settings.wait_per_hour, $20/h today)
+         + extra road km × per-km rate                (the ride formula's, $0.90 today)
+         + extra driving minutes × per-hour rate      (the ride formula's, $10/h today)
+         rounded to whole dollars, then × the season multiplier
+```
+
+- It is **the same sum, in the same code, as the driver's part of a catalog stop** (§5). What the
+  code does today, and so what own stops do: the season multiplier applies; the vehicle factor,
+  the area factor and the night premium do **not** (a van pays the same for a stop as a sedan);
+  each stop is rounded to whole dollars before the season. Note: §5 above describes the detour as
+  "detour km × per-km rate", but the code has always charged the detour's **driving minutes** at
+  the per-hour rate too; own stops follow the code (PROJECT.md §9 #25e).
+- **Extra km / minutes** come from Google Routes: the route pickup → stops in the traveller's
+  order → drop-off, minus the direct route. Stop *n* pays what it adds on top of the stops before
+  it, so each card shows its own price and the order matters.
+- **No tour part, no guide, no entrance.** The card says "Entrance tickets not included; paid at
+  the place" / "Entradas no incluidas; se pagan en el lugar".
+- **Driver's share:** the whole amount is split by the usual commission (80% to the driver today),
+  like a catalog stop's driver part. Promo codes (§9) discount it like the ride; the cash fee is
+  charged on the total.
+- **Limits** (assumed, editable at `/admin/pricing`): 3 own stops per ride; 4 hours at stops in
+  total (own + catalog); 90 minutes of extra driving. Past them: "For a longer route, message us
+  and we'll quote it." / "Para un recorrido más largo, escríbanos y le cotizamos." with the
+  WhatsApp link.
+- **The server prices it.** The page and the app send only the place, its name and the minutes;
+  the server looks the place up, measures the detour and prices it again when the trip is sent.
+- **Google cost:** one cached route request per own stop (30 days) plus the direct route, at most
+  4 per new combination; nothing when the same combination is asked again.
+
+Worked example (Standard Sedan, 2 travellers, green season; the two detours are road estimates
+used in the tests, the live site asks Google):
+
+| Part | How | Amount |
+| :--- | :--- | ---: |
+| Ride La Fortuna → Manuel Antonio / Quepos | town table, formula §4 | $290 |
+| La Fortuna Waterfall, 1 h 30 | $30.00 waiting + 11 km × $0.90 = $9.90 + 24 min × $10/h = $4.00 → $43.90 | $44 |
+| Proyecto Asis, 2 h | $40.00 waiting + 24 km × $0.90 = $21.60 + 38 min × $10/h = $6.33 → $67.93 | $68 |
+| **Total** | green season ×1.00 (high season ×1.15 = $462.30) | **$402** |
+| Driver's payout | 80% | $321.60 |
+| Our share | 20% | $80.40 |
+
+Door to door: 4 h 50 direct + 62 min of extra driving + 3 h 30 at the stops.
+
 ## 6. Bidding vs flat rates — my recommendation
 
 > **Decided (Jorge, 2026-11-11): "Let's do fixed prices only for now."** Travellers always book
@@ -240,6 +292,7 @@ it moves to the driver side.
 | 4b (part) ✅ | **Built 2026-11-09.** Typed airports: a typed pickup that Google itself lists as an airport at SJO or LIR gets the same flight-tracking / free-waiting promises and flight-number prompt as the listed airport (`isAirportPickup()`); hotels and car-rental offices next to the terminals do not | — |
 | 4b | **Special places** still to do: Sierpe dock / Drake boat fares, 4x4-only areas | List of 4x4-only areas; Drake boat fares (private boat and per seat) |
 | 5 ✅ | **Built 2026-11-09** (migration 0021). **Stops priced as wait + detour** (driver's part) **+ a per-person tour part** for guided stops, see §5. Park-fee amounts on cards still to do | Wait rate ✅ ($20/h); confirm the per-person tour amounts |
+| 5c ✅ | **Built 2026-11-12** (migration 0057). **Travellers' own stops**: any place from the place search with the time there, priced by the stop rule from Google's detour, with limits; see §5.1 | Confirm the limits (3 stops, 4 h, 90 min) and whether detour minutes are charged |
 | 5b ✅ | **Built 2026-11-09** (migration 0022). **Day tours priced per person, tiered by group size** (1 / 2–3 / 4+), like costaricatravelplanner.com (e.g. Arenal full day $350 / $295 / $275 pp); the tour builder has a travellers selector and shows the total and the per-person rate. Replaces the flat per-group tour prices | Confirm the per-person tiers for our 4 tours (PROJECT.md §5.4) |
 | 6 | **Zone prices** for the busiest pairs (optional) | Prices for those pairs |
 | 7a ✅ | **Built 2026-11-09** (migration 0017). **Driver job board with offers**: the team posts a booking ("Open for drivers"); approved drivers see it at `/driver/jobs` with a **suggested payout only** (never the client's price; route town to town until assigned) and send an offer at that amount or their own (70–130%), with a note. The team compares offers on the booking page, ranked for it (a driver with a same-day **return trip** ending where this job starts first, then the **better-rated** driver (travellers rate after every completed trip; a rating with a comment counts double; new drivers count as 4.0), then drivers **based near the pickup**, then the lower offer, then fewer trips with us; new offers appear live) and accepts one: driver + vehicle assigned, booking confirmed, the offer becomes the payout, other offers declined. Suggested payout = (price − pass-through costs such as ferry tickets) × (1 − commission) + pass-through; commission 20% at `/admin/pricing` → Drivers' payout | Commission ✅ (20%) |

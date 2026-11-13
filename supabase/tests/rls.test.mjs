@@ -2040,6 +2040,64 @@ await expectOk("server removes the test booking", "server", "delete from public.
   await expectOk("server cleans up", "server", `delete from public.bookings where id in ('${PE}', '${PT}')`);
 }
 
+// --- Migration 0057: "add your own stop" (src/lib/customStops.ts) -------------------------------
+{
+  const CS = "57000000-0000-0000-0000-000000000001";
+  const OWN = `[{"id":"tarcoles","price":15},
+    {"id":"custom-1","custom":true,"name":"La Fortuna Waterfall","address":"Alajuela, La Fortuna","place_id":"ChIJwaterfallAAAAAA","lat":10.4433,"lng":-84.6712,"minutes":90,"detour_km":11,"detour_min":24,"price":44},
+    {"id":"custom-2","custom":true,"name":"Proyecto Asis","place_id":"ChIJasisAAAAAAAAAA","lat":10.4,"lng":-84.5,"minutes":120,"detour_km":24,"detour_min":38,"price":68}]`;
+  await expectRows("own-stop limits seeded: 3 stops, 4 hours at stops, 90 min of extra driving", "anon",
+    "select 1 from public.pricing_settings where custom_stop_max = 3 and custom_stop_max_wait_min = 240 and custom_stop_max_detour_min = 90", 1);
+  await expectBlocked("visitor cannot change the own-stop limits", "anon", "update public.pricing_settings set custom_stop_max = 5", { affected: 0 });
+  await expectBlocked("client cannot change the own-stop limits", "client", "update public.pricing_settings set custom_stop_max_detour_min = 480", { affected: 0 });
+  await expectBlocked("driver cannot change the own-stop limits", "driver", "update public.pricing_settings set custom_stop_max_wait_min = 720", { affected: 0 });
+  await expectBlocked("more than 5 own stops refused", "admin", "update public.pricing_settings set custom_stop_max = 6");
+  await expectBlocked("a detour limit above 8 hours refused", "admin", "update public.pricing_settings set custom_stop_max_detour_min = 481");
+  await expectOk("admin changes the limits", "admin", "update public.pricing_settings set custom_stop_max = 2, custom_stop_max_wait_min = 300, custom_stop_max_detour_min = 60");
+  await expectRows("visitor reads the new limits (the booking page uses them)", "anon",
+    "select 1 from public.pricing_settings where custom_stop_max = 2 and custom_stop_max_wait_min = 300 and custom_stop_max_detour_min = 60", 1);
+  await expectOk("admin puts the limits back", "admin", "update public.pricing_settings set custom_stop_max = 3, custom_stop_max_wait_min = 240, custom_stop_max_detour_min = 90");
+
+  // 235 min direct + 62 min of extra driving to the two own stops = 297 saved as the drive time.
+  await expectOk("server saves a confirmed ride with a catalog stop and two own stops", "server", `
+    insert into public.bookings (id, client_id, service_type, vehicle_class, total_price, driver_payout, platform_fee, status, assigned_driver_id, passenger_count, scheduled_at,
+      origin, destination, origin_coords, destination_coords, drive_minutes, sightseeing_stops)
+    values ('${CS}', '${U.client}', 'transfer', 'sedan', 400, 320, 80, 'confirmed', '${U.driver}', 2, now() + interval '9 days',
+      'La Fortuna / Arenal', 'Manuel Antonio', '{"lat":10.47,"lng":-84.64,"place_id":"hub:Arenal","town":"Arenal"}',
+      '{"lat":9.4,"lng":-84.15,"place_id":"hub:ManuelAntonio","town":"ManuelAntonio"}', 297, '${OWN}')`);
+  await expectRows("the driver gets every stop in order, the own ones with name, minutes and map point", "driver",
+    `select 1 from public.my_trips() where id = '${CS}' and jsonb_array_length(sightseeing_stops) = 3
+        and sightseeing_stops->1->>'name' = 'La Fortuna Waterfall' and (sightseeing_stops->1->>'minutes')::int = 90
+        and (sightseeing_stops->1->>'lat')::numeric = 10.4433 and sightseeing_stops->2->>'name' = 'Proyecto Asis'`, 1);
+  await expectRows("…and never what the traveller paid for them", "driver",
+    `select 1 from public.my_trips() where id = '${CS}' and (sightseeing_stops::text ~ 'price' or sightseeing_stops::text ~ '(44|68)[,}]')`, 0);
+  // 297 drive (own detours inside) + Tárcoles 45 at the stop + 90 + 120 at the own stops = 552 min.
+  await expectRows("arrival = pickup + drive time (with the own stops' extra driving) + time at every stop", "driver",
+    `select 1 from public.my_trips() where id = '${CS}' and arrive_at - scheduled_at = interval '552 minutes'`, 1);
+  await expectOk("server saves a broken own stop (minutes as text, a non-object entry)", "server",
+    `update public.bookings set sightseeing_stops = '[{"id":"custom-1","custom":true,"name":"X","minutes":"ninety"}, "oops", {"id":"custom-2","custom":true,"name":"Y","minutes":30}]' where id = '${CS}'`);
+  await expectRows("…the arrival estimate still works and counts only real minutes", "driver",
+    `select 1 from public.my_trips() where id = '${CS}' and arrive_at - scheduled_at = interval '327 minutes'`, 1);
+  await expectRows("the assigned driver still cannot read the booking row (price)", "driver", `select total_price from public.bookings where id = '${CS}'`, 0);
+  await expectRows("the traveller reads their own booking with the stops and their prices", "client",
+    `select 1 from public.bookings where id = '${CS}' and jsonb_array_length(sightseeing_stops) = 3`, 1);
+  await expectRows("another traveller cannot", "client2", `select 1 from public.bookings where id = '${CS}'`, 0);
+
+  // Job board: the same list without prices.
+  await expectOk("server posts a ride with an own stop to the job board", "server", `
+    update public.bookings set status = 'pending_bids', assigned_driver_id = null, posted_at = now(), posting_closes_at = now() + interval '1 hour', sightseeing_stops = '${OWN}' where id = '${CS}'`);
+  const job = (await as("driver", `select sightseeing_stops::text as s, to_jsonb(j)::text as row from public.driver_jobs() j where id = '${CS}'`)).rows[0];
+  const check = (name, got, want) => (got === want ? passed++ : failures.push(`${name}: expected ${want}, got ${got}`));
+  check("job board lists the own stop by name with its time", Boolean(job) && /La Fortuna Waterfall/.test(job.s) && /"minutes": ?90/.test(job.s), true);
+  check("job board never shows a stop's price", Boolean(job) && !/price/.test(job.row), true);
+  check("job board never shows the client's price (400)", Boolean(job) && !/\b400\b/.test(job.row), true);
+  await expectRows("my_trips() keeps its columns (pickup_place last) and no price or contact columns", "admin",
+    "select 1 from pg_proc where proname = 'my_trips' and pg_get_function_result(oid) ~ 'carry_on_count smallint, sign_text text, pickup_place text\\)$' and pg_get_function_result(oid) !~ '(guest_|email|phone|total_price|platform_fee|amount_paid|client_notes|company_costs|pricing_mode|sign_hide_name)'", 1);
+  await expectRows("a visitor and another driver get nothing from my_trips()", "anon", "select * from public.my_trips()", 0);
+  await expectRows("…nor does a driver it isn't assigned to", "pending", `select * from public.my_trips() where id = '${CS}'`, 0);
+  await expectOk("server cleans up", "server", `delete from public.bookings where id = '${CS}'`);
+}
+
 // --- Report -----------------------------------------------------------------------------------
 console.log(`${passed} checks passed, ${failures.length} failed`);
 for (const f of failures) console.log("  ✗ " + f);

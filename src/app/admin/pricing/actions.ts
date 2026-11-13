@@ -60,6 +60,9 @@ const FIELD_ES: Record<string, string> = {
   ride_per_hour: "Por hora de manejo",
   ride_minimum_fare: "Tarifa mínima",
   wait_per_hour: "Tarifa de espera",
+  custom_stop_max: "Paradas propias por traslado",
+  custom_stop_max_wait_hours: "Horas en paradas",
+  custom_stop_max_detour_min: "Minutos de desvío",
   commission_percent: "Nuestra comisión",
   ferry_vehicle_fare_crc: "Carro + conductor (ferry)",
   ferry_passenger_fare_crc: "Por pasajero (ferry)",
@@ -352,6 +355,29 @@ async function saveWaitRateImpl(fd: FormData) {
 
 export async function saveWaitRate(_prev: FormState, fd: FormData): Promise<FormState> {
   return run(() => saveWaitRateImpl(fd));
+}
+
+/** Limits for "add your own stop" (migration 0057; src/lib/customStops.ts). */
+async function saveCustomStopLimitsImpl(fd: FormData) {
+  await requireRole("admin", "/admin/pricing");
+  const hours = decimal(fd, "custom_stop_max_wait_hours", 0.5, 12);
+  const supabase = (await createSupabaseServerClient())!;
+  const { data, error } = await supabase
+    .from("pricing_settings")
+    .upsert({
+      id: true,
+      custom_stop_max: int(fd, "custom_stop_max", 0, 5),
+      custom_stop_max_wait_min: Math.round(hours * 60),
+      custom_stop_max_detour_min: int(fd, "custom_stop_max_detour_min", 0, 480),
+    })
+    .select("id");
+  if (error) throw new Error(error.message);
+  if (!data?.length) throw NOTHING_SAVED;
+  done();
+}
+
+export async function saveCustomStopLimits(_prev: FormState, fd: FormData): Promise<FormState> {
+  return run(() => saveCustomStopLimitsImpl(fd));
 }
 
 /** Platform commission on rides / day tours, entered as a percent (20 = 20%), stored as basis points. */

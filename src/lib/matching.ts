@@ -7,6 +7,7 @@
  * and the driver job board.
  */
 import { AREA_IDS, HUBS, routeMinutes, type AreaId, type HubId } from "./catalog";
+import { isStoredCustomStop } from "./customStops";
 import { scheduledParts } from "./dates";
 
 /** The bits of a booking the matching needs (works for BookingRow and DriverTrip). */
@@ -37,7 +38,10 @@ export function townOf(text: string | null | undefined, coords: Record<string, u
   return text ? (HUB_NAME_TO_ID.get(text) ?? null) : null;
 }
 
-/** When the car is free again: pickup + road time (Google's for typed places, our table for towns) + 45 min per stop. */
+/**
+ * When the car is free again: pickup + road time (Google's for typed places, our table for towns)
+ * + 45 min per catalog stop; a traveller's own stop counts its minutes there + its extra driving.
+ */
 const DEFAULT_MINUTES = 240;
 const STOP_MINUTES = 45;
 export function tripDurationMinutes(b: TripLike): number {
@@ -47,7 +51,11 @@ export function tripDurationMinutes(b: TripLike): number {
   const d = townOf(b.destination, b.destination_coords);
   const isHub = (x: AreaId | null): x is HubId => x !== null && HUBS.some((h) => h.id === x);
   const road = Number.isFinite(fromRoute) && fromRoute > 0 ? fromRoute : isHub(o) && isHub(d) ? routeMinutes(o, d) : DEFAULT_MINUTES;
-  return road + (b.sightseeing_stops?.length ?? 0) * STOP_MINUTES;
+  const stops = (b.sightseeing_stops ?? []).reduce(
+    (n, s) => n + (isStoredCustomStop(s) ? Math.max(0, Number(s.minutes) || 0) + Math.max(0, Number(s.detour_min) || 0) : STOP_MINUTES),
+    0,
+  );
+  return road + stops;
 }
 
 export interface ReturnMatch {

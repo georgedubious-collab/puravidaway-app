@@ -100,6 +100,16 @@ const EXACT: Record<string, string> = {
     "En Bahía Drake uno se mueve en lancha o a pie. Escríbanos por WhatsApp y le ayudamos.",
   "That ride is longer than we quote online. Please message us on WhatsApp.":
     "Ese traslado es más largo de lo que cotizamos en línea. Por favor, escríbanos por WhatsApp.",
+  // The traveller's own stops (customStopErrors in src/lib/customStops.ts)
+  "Those stops add more driving than we can price online. For a longer route, message us and we'll quote it.":
+    "Esas paradas agregan más recorrido del que podemos cotizar en línea. Para un recorrido más largo, escríbanos y le cotizamos.",
+  "We can't add your own stops online right now. For a longer route, message us and we'll quote it.":
+    "Por ahora no podemos agregar sus propias paradas en línea. Para un recorrido más largo, escríbanos y le cotizamos.",
+  "That place is already on this ride. Pick a different stop.": "Ese lugar ya está en este traslado. Elija otra parada.",
+  "That stop can't be reached by road on this ride. For a longer route, message us and we'll quote it.":
+    "Esa parada no se puede alcanzar por carretera en este traslado. Para un recorrido más largo, escríbanos y le cotizamos.",
+  "We couldn't check the road distance for your stops. Please try again.":
+    "No pudimos verificar la distancia por carretera de sus paradas. Por favor, inténtelo de nuevo.",
 };
 
 /** Messages with a number or a vehicle name inside. */
@@ -119,6 +129,15 @@ const PATTERNS: [RegExp, (m: RegExpMatchArray) => string][] = [
   [
     /^The (.+) has a Spanish-speaking driver\. Choose another vehicle for an English-speaking driver\.$/,
     (m) => `El vehículo ${m[1]} tiene conductor de habla hispana. Elija otro vehículo si desea un conductor que hable inglés.`,
+  ],
+  [
+    /^You can add up to (\d+) stops of your own\. For a longer route, message us and we'll quote it\.$/,
+    (m) => `Puede agregar hasta ${m[1]} paradas propias. Para un recorrido más largo, escríbanos y le cotizamos.`,
+  ],
+  [
+    /^Stops can add up to ([\d.]+) (hours?|minutes) in total\. For a longer route, message us and we'll quote it\.$/,
+    (m) =>
+      `Las paradas pueden sumar hasta ${m[1]} ${m[2] === "minutes" ? "minutos" : m[2] === "hour" ? "hora" : "horas"} en total. Para un recorrido más largo, escríbanos y le cotizamos.`,
   ],
   [/^Offers must be between \$(\d+) and \$(\d+)\.$/, (m) => `Las ofertas deben estar entre $${m[1]} y $${m[2]}.`],
 ];

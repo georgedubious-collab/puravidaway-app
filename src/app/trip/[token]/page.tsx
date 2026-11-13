@@ -16,6 +16,7 @@ import { TRIP_TOKEN, bookingDue, serviceLabel, usd, type BookingRow, type Bookin
 import { localizeCatalog, placeNameFor } from "@/lib/catalogEs";
 import { bookedItemName } from "@/lib/catalog";
 import { getCatalog } from "@/lib/catalogSource";
+import { CUSTOM_STOP_ENTRANCE, isStoredCustomStop, savedStopLabel } from "@/lib/customStops";
 import { formatScheduledAtFor } from "@/lib/dates";
 import { englishLevelLabel, prefsSummary } from "@/lib/preferences";
 import { parsePublicLang, t as pick, type PublicLang } from "@/lib/publicLang";
@@ -208,6 +209,7 @@ export default async function TripPage({ params, searchParams }: Props) {
     };
   };
 
+  const stopCatalog = catalog.stops;
   const itemName = (b: BookingRow) =>
     b.service_type === "transfer"
       ? `${lang === "es" ? placeNameFor(b.origin, lang) : b.origin} → ${lang === "es" ? placeNameFor(b.destination, lang) : b.destination}`
@@ -269,6 +271,10 @@ export default async function TripPage({ params, searchParams }: Props) {
           const driver = driverCard(b.assigned_driver_id);
           const car = carCard(b.assigned_vehicle_id);
           const asked = prefsSummary(b.preferences, lang);
+          // Stops on a ride: the catalog's and the traveller's own ("La Fortuna Waterfall (1 h 30 min)").
+          const rideStops = b.service_type === "transfer" ? (b.sightseeing_stops ?? []) : [];
+          const stopNames = rideStops.map((s) => savedStopLabel(s, stopCatalog));
+          const hasOwnStops = rideStops.some(isStoredCustomStop);
           const showDriver = driver && car && ["confirmed", "in_progress", "completed"].includes(b.status);
           return (
             <section key={b.id} className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5">
@@ -282,6 +288,12 @@ export default async function TripPage({ params, searchParams }: Props) {
                   {b.service_type !== "transfer" && b.pickup_place && (
                     <p className="text-sm text-slate-600">
                       {t("Pickup:", "Recogida:")} <span className="font-semibold text-slate-900">{b.pickup_place}</span>
+                    </p>
+                  )}
+                  {stopNames.length > 0 && (
+                    <p className="text-sm text-slate-600">
+                      {t("Stops:", "Paradas:")} <span className="font-semibold text-slate-900">{stopNames.join(" · ")}</span>
+                      {hasOwnStops && <span className="block text-xs text-slate-500">{CUSTOM_STOP_ENTRANCE[lang]}</span>}
                     </p>
                   )}
                   {asked.length > 0 && <p className="text-sm text-slate-600">{t("You asked for:", "Usted pidió:")} {asked.join(", ")}</p>}

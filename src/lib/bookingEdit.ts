@@ -10,6 +10,11 @@
  *     (priceItem: season, vehicle, stops, night premium, ferries), then the promo code (50/50) and
  *     the driver's payout (commission after pass-throughs and company costs). An accepted offer's
  *     amount stays as the payout unless the team ticks "update the driver's payout too".
+ *   - A ride with the traveller's own stops (src/lib/customStops.ts) keeps them. When the pickup
+ *     or drop-off changes, the server measures their detours again on the new route: the drive
+ *     time and the stops' saved detours follow at once, and "use the new price" prices them on
+ *     the new route. If they no longer fit the limits there (too far), the price is kept with a
+ *     warning and the stops stay as they were.
  *   - The history (booking_events) gets the change from the database trigger (migration 0056).
  *   - Messages: the traveller (their booking language) and the assigned driver (Spanish unless
  *     their app is in English; push + email) — the driver's never hold the traveller's contact
@@ -21,6 +26,7 @@
 import { usd } from "./bookings";
 import { placeNameFor } from "./catalogEs";
 import type { CatalogData } from "./catalogModel";
+import { customStopsOf, isStoredCustomStop } from "./customStops";
 import { costaRicaTimestamp, formatScheduledAt, formatScheduledAtFor, isValidYmd, scheduledParts } from "./dates";
 import type { Email } from "./emailHtml";
 import { hasDriverPayout, splitPayout } from "./payout";
@@ -212,10 +218,15 @@ export function affectsPrice(changes: Change[]): boolean {
   return changes.some((c) => c.field === "origin" || c.field === "destination" || c.field === "scheduled_at");
 }
 
-/** The booking as a website item, to price it again with priceItem (src/lib/tripRequest.ts). */
+/**
+ * The booking as a website item, to price it again with priceItem (src/lib/tripRequest.ts).
+ * The traveller's own stops go in as saved (place id, name, minutes); the caller passes their
+ * detours to priceItem.
+ */
 export function specForBooking(b: EditableBooking, input: BookingEditInput, origin: RidePlace | null, destination: RidePlace | null): ItemSpec | null {
   const pax = Math.max(1, Number(b.passenger_count ?? 1) || 1);
-  const stops = (b.sightseeing_stops ?? []).map((s) => s.id);
+  const stops = (b.sightseeing_stops ?? []).filter((s) => !isStoredCustomStop(s)).map((s) => s.id);
+  const own = customStopsOf(b.sightseeing_stops).map((s) => ({ id: s.place_id, label: s.name, minutes: s.minutes }));
   if (b.service_type === "day_tour") {
     if (!b.catalog_item_id) return null;
     return { kind: "day_tour", tourId: b.catalog_item_id, upgrade: stops.includes("en_route_upgrade"), pax };
@@ -229,6 +240,7 @@ export function specForBooking(b: EditableBooking, input: BookingEditInput, orig
     ...(isHubPlace(destination) ? {} : { destinationPlace: { id: destination.id, label: cleanPlaceLabel(destination.label) || destination.id } }),
     vehicleId: b.vehicle_class,
     stopIds: stops.filter((s) => s !== "en_route_upgrade"),
+    ...(own.length ? { customStops: own } : {}),
     pax,
     pickupTime: input.time,
     ...(b.preferences && Object.keys(b.preferences).length ? { prefs: b.preferences as RidePrefs } : {}),

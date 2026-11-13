@@ -297,6 +297,21 @@ ok("typed place without a route is refused (never priced as a guess)", threw);
   const spec = be.specForBooking(booking, moved, sjo, b2);
   ok("the booking becomes a website ride spec (typed drop-off, same vehicle)", spec.kind === "transfer" && spec.destinationPlace?.id === hotelB.id && spec.vehicleId === "sedan" && !spec.originPlace);
   const priced = trip.priceItem(spec, "2099-06-15", catalog, route);
+  {
+    // A ride with the traveller's own stop (src/lib/customStops.ts): the edit keeps it and prices it
+    // again from the detour the server measured on the new route, never as an unknown catalog stop.
+    const own = { id: "custom-1", custom: true, name: "Rainmaker Park", place_id: "ChIJrainmakerAAAAAA", lat: 9.5, lng: -84.2, minutes: 60, detour_km: 14, detour_min: 30, price: 38 };
+    const withOwn = be.specForBooking({ ...booking, sightseeing_stops: [own] }, moved, sjo, b2);
+    eq("own stop: kept on the spec as place, name and minutes; no catalog stop made of it", [withOwn.stopIds, withOwn.customStops], [[], [{ id: own.place_id, label: "Rainmaker Park", minutes: 60 }]]);
+    const measured = [{ id: own.place_id, label: own.name, lat: 9.5, lng: -84.2, minutes: 60, detourKm: 20, detourMin: 40 }];
+    // 1 h × $20 + 20 km × $0.90 + 40 min × $10/h = $44.67 → $45.
+    eq("own stop: 'use the new price' prices it on the new route", trip.priceItem(withOwn, "2099-06-15", catalog, route, measured).totalCents - priced.totalCents, 4500);
+    let msg = "";
+    try { trip.priceItem(withOwn, "2099-06-15", catalog, route, []); } catch (e) { msg = e.message; }
+    ok("own stop: without the server's measurement the price is refused (and so kept)", /couldn't check the road distance for your stops/.test(msg));
+    try { msg = ""; trip.priceItem(withOwn, "2099-06-15", catalog, route, [{ ...measured[0], detourMin: 120 }]); } catch (e) { msg = e.message; }
+    ok("own stop: too far on the new route → refused with the 'message us' text (price kept with a warning)", /message us and we'll quote it/.test(msg));
+  }
   const website = quoteTransfer({ origin: "SJO", destination: "ManuelAntonio", vehicleId: "sedan", stopIds: [], season: seasonForYmd("2099-06-15", catalog), catalog, route, pax: 2, pickupTime: "23:00" });
   eq("new price = the website's price for that ride and time", priced.totalCents, website.totalCents);
   ok("a 23:00 pickup carries the night premium", priced.nightCents > 0);

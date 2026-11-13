@@ -227,12 +227,14 @@ export function needsRoute(a: Pick<RidePlace, "id">, b: Pick<RidePlace, "id">): 
 }
 
 /** Free Google Maps link with the route, for the traveller to look at. */
-export function mapsDirectionsUrl(a: LatLng, b: LatLng): string {
+export function mapsDirectionsUrl(a: LatLng, b: LatLng, via: readonly LatLng[] = []): string {
   const q = new URLSearchParams({
     api: "1",
     origin: `${a.lat},${a.lng}`,
     destination: `${b.lat},${b.lng}`,
     travelmode: "driving",
   });
+  // The traveller's own stops, in order.
+  if (via.length) q.set("waypoints", via.map((p) => `${p.lat},${p.lng}`).join("|"));
   return `https://www.google.com/maps/dir/?${q}`;
 }

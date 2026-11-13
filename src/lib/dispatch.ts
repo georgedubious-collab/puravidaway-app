@@ -12,6 +12,9 @@
  *     minutes (ROUTE_MINUTES, Drake Bay already includes the boat); otherwise the road route saved
  *     with the booking; otherwise UNKNOWN_DRIVE_MINUTES, marked "estimated". This is the same
  *     sum the driver app shows as "Arrives approx." (public.my_trips(), migration 0035).
+ *     A traveller's own stop (src/lib/customStops.ts) adds its minutes there; the extra driving
+ *     to reach it is already inside bookings.drive_minutes (added here only when the drive time
+ *     comes from one of the fallbacks).
  *   - Day tour: the tour's length in the catalog (durationHours), DEFAULT_TOUR_MINUTES if unknown.
  *     It starts and ends in its region's town; the Osa tour in Puerto Jiménez (Jorge, 2026-11-12;
  *     one of our towns since the same day, so travel to and from it is timed like any other town).
@@ -29,6 +32,7 @@
  *   Cancelled bookings never clash.
  */
 import { HUB_IDS, routeMinutes, type AreaId, type HubId } from "./catalog";
+import { isStoredCustomStop } from "./customStops";
 import { formatTime12h, scheduledParts } from "./dates";
 import { townOf } from "./matching";
 
@@ -128,7 +132,8 @@ export function busySpan(b: SpanBooking, cat: SpanCatalog): BusySpan | null {
     const saved = Number(b.drive_minutes);
     const route = Number((b.origin_coords as { route?: { totalMinutes?: unknown } } | null | undefined)?.route?.totalMinutes);
     let drive: number;
-    if (b.drive_minutes != null && Number.isFinite(saved) && saved > 0) drive = saved;
+    const hasSaved = b.drive_minutes != null && Number.isFinite(saved) && saved > 0;
+    if (hasSaved) drive = saved;
     else if (isHub(from) && isHub(to)) drive = routeMinutes(from, to);
     else if (Number.isFinite(route) && route > 0) drive = route;
     else {
@@ -136,6 +141,7 @@ export function busySpan(b: SpanBooking, cat: SpanCatalog): BusySpan | null {
       estimated = true;
     }
     const stops = (b.sightseeing_stops ?? []).reduce((sum, s) => {
+      if (isStoredCustomStop(s)) return sum + Math.max(0, Number(s.minutes) || 0) + (hasSaved ? 0 : Math.max(0, Number(s.detour_min) || 0));
       const c = cat.stops.find((x) => x.id === s.id);
       return sum + (c ? c.durationMin + c.detourMin : UNKNOWN_STOP_MINUTES);
     }, 0);
