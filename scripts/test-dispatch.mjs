@@ -76,6 +76,15 @@ eq("an old booking with the town's name only", d.busySpan({ ...ride(null, null, 
 }
 eq("a stop no longer in the catalog counts 45 min", d.busySpan(ride("SJO", "Arenal", "08:00", { drive_minutes: 100, sightseeing_stops: [{ id: "gone" }] }), CAT).minutes, 145);
 {
+  // A traveller's own stop (src/lib/customStops.ts): its minutes there count; the extra driving to
+  // reach it is already inside the saved drive time, and is added when there is no saved time.
+  const own = { id: "custom-1", custom: true, name: "La Fortuna Waterfall", place_id: "ChIJwaterfallAAAAAA", lat: 10.44, lng: -84.67, minutes: 90, detour_km: 11, detour_min: 24 };
+  eq("own stop: saved drive time (detour inside) + time there", d.busySpan(ride("SJO", "Arenal", "08:00", { drive_minutes: 204, sightseeing_stops: [own] }), CAT).minutes, 204 + 90);
+  eq("own stop, no saved drive time: town table + detour + time there", d.busySpan(ride("SJO", "Arenal", "08:00", { sightseeing_stops: [own] }), CAT).minutes, routeMinutes("SJO", "Arenal") + 24 + 90);
+  eq("own stop next to a catalog stop", d.busySpan(ride("SJO", "Arenal", "08:00", { drive_minutes: 204, sightseeing_stops: [{ id: stop.id }, own] }), CAT).minutes, 204 + 90 + stop.durationMin + stop.detourMin);
+  eq("an own stop is never counted as an unknown 45-minute stop", d.busySpan(ride("SJO", "Arenal", "08:00", { drive_minutes: 100, sightseeing_stops: [{ ...own, minutes: 30 }] }), CAT).minutes, 130);
+}
+{
   const tour = { id: "t1", booking_ref: "CRPT-T1", status: "confirmed", service_type: "day_tour", catalog_item_id: "dt1", scheduled_at: at("07:00"), sightseeing_stops: [] };
   const s = d.busySpan(tour, CAT);
   eq("day tour: the catalog length (8 h)", s.minutes, 480);

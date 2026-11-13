@@ -30,15 +30,21 @@ export function PlaceInput({
   label,
   value,
   onChange,
+  towns = true,
+  placeholder,
 }: {
   label: string;
-  value: RidePlace;
+  /** The chosen place; null for a search box that starts empty (a stop to add). */
+  value: RidePlace | null;
   onChange: (p: RidePlace) => void;
+  /** False: only typed places (no list of our towns), for "add your own stop". */
+  towns?: boolean;
+  placeholder?: string;
 }) {
   const lang = usePublicLang();
   const t = useT();
   // Our towns are named in the page's language; a typed place keeps Google's name.
-  const shown = isHubPlace(value) ? hubName(value.hub, lang) : value.label;
+  const shown = !value ? "" : isHubPlace(value) ? hubName(value.hub, lang) : value.label;
   const id = useId();
   const listId = `${id}-list`;
   const [open, setOpen] = useState(false);
@@ -55,9 +61,9 @@ export function PlaceInput({
   // Just opened (text is still the current place): list every town.
   const browsing = query === "" || query === shown;
   // Match the name in either language ("airport" and "aeropuerto" both find SJO).
-  const hubs = HUBS.filter(
-    (h) => browsing || fold(h.name).includes(fold(query)) || fold(hubName(h.id, lang)).includes(fold(query)),
-  );
+  const hubs = towns
+    ? HUBS.filter((h) => browsing || fold(h.name).includes(fold(query)) || fold(hubName(h.id, lang)).includes(fold(query)))
+    : [];
   const wantGoogle = open && !browsing && query.length >= 3 && !searchOff;
   const google = wantGoogle && found.q === query ? found.items : [];
   const searching = wantGoogle && found.q !== query;
@@ -161,7 +167,7 @@ export function PlaceInput({
           aria-activedescendant={open && active >= 0 ? `${id}-opt-${active}` : undefined}
           autoComplete="off"
           value={open ? text : shown}
-          placeholder={t("Airport, town, hotel or address", "Aeropuerto, pueblo, hotel o dirección")}
+          placeholder={placeholder ?? t("Airport, town, hotel or address", "Aeropuerto, pueblo, hotel o dirección")}
           onFocus={(e) => {
             setText(shown);
             setOpen(true);
@@ -182,7 +188,7 @@ export function PlaceInput({
           <Loader2 className="w-4 h-4 text-slate-500 absolute right-3 top-1/2 -translate-y-1/2 animate-spin" aria-hidden />
         )}
       </div>
-      {open && (
+      {open && (towns || !browsing || searchOff) && (
         <ul
           id={listId}
           role="listbox"
@@ -229,9 +235,14 @@ export function PlaceInput({
               {t("No places found. Try a hotel name, town or address.", "No encontramos lugares. Pruebe con el nombre de un hotel, un pueblo o una dirección.")}
             </li>
           )}
-          {browsing && !searchOff && (
+          {browsing && !searchOff && towns && (
             <li className="px-3 py-2 text-xs text-slate-500">
               {t("Or type a hotel, dock, restaurant or address.", "O escriba un hotel, muelle, restaurante o dirección.")}
+            </li>
+          )}
+          {searchOff && !towns && (
+            <li className="px-3 py-2 text-xs text-slate-500">
+              {t("Place search isn't available right now. Message us and we'll add your stop.", "La búsqueda de lugares no está disponible en este momento. Escríbanos y agregamos su parada.")}
             </li>
           )}
           {error && <li className="px-3 py-2 text-xs font-semibold text-red-700">{error}</li>}

@@ -10,6 +10,7 @@ import { bagsForTeam } from "@/lib/bags";
 import { BOOKING_STATUSES, bookingDue, bookingStatusLabel, serviceLabel, usd, type BookingRow, type OfferRow, type TripContact } from "@/lib/bookings";
 import { RETIRED_LODGING_TIERS, bookedItemName } from "@/lib/catalog";
 import { getCatalog } from "@/lib/catalogSource";
+import { customStopsOf, savedStopLabel, stopTimeText } from "@/lib/customStops";
 import { formatScheduledAt, nowMs, scheduledParts, todayInCostaRica } from "@/lib/dates";
 import { canTakeTrips, type DriverRecord, type VehicleRecord } from "@/lib/driverKyc";
 import { prefMismatches, prefsSummary } from "@/lib/preferences";
@@ -257,8 +258,10 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
       ? `${b.origin} → ${b.destination}`
       : (bookedItemName(catalog.dayTours, b.catalog_item_id, lang) ?? b.catalog_item_id);
   const stops = (b.sightseeing_stops ?? [])
-    .map((s) => (s.id === "en_route_upgrade" ? "Smart En-Route Transfer" : (catalog.stops.find((x) => x.id === s.id)?.name ?? s.id)))
+    .map((s) => savedStopLabel(s, catalog.stops))
     .join(", ");
+  // The traveller's own stops ("add your own stop"), in their order.
+  const ownStops = b.service_type === "transfer" ? customStopsOf(b.sightseeing_stops) : [];
   const cashFee = Number(b.cash_fee ?? 0);
   const due = bookingDue(b);
   const paymentText =
@@ -410,10 +413,41 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
             {b.drive_minutes != null && (
               <Detail
                 k={t("Tiempo de manejo", "Drive time")}
-                v={`${Math.floor(b.drive_minutes / 60)} h ${String(b.drive_minutes % 60).padStart(2, "0")} min${t(" (sin paradas)", " (without stops)")}`}
+                v={`${Math.floor(b.drive_minutes / 60)} h ${String(b.drive_minutes % 60).padStart(2, "0")} min${
+                  ownStops.length
+                    ? t(" (con el desvío a las paradas propias; sin el tiempo en las paradas)", " (with the detour to the traveller's own stops; without the time at stops)")
+                    : t(" (sin paradas)", " (without stops)")
+                }`}
               />
             )}
             {stops && <Detail k={t("Paradas / extras", "Stops / extras")} v={stops} />}
+            {ownStops.length > 0 && (
+              <Detail
+                k={t("Paradas propias del cliente", "Traveller's own stops")}
+                v={
+                  <ol className="list-decimal space-y-1 pl-5">
+                    {ownStops.map((s) => (
+                      <li key={s.id}>
+                        <a
+                          href={`https://www.google.com/maps/search/?api=1&query=${s.lat},${s.lng}&query_place_id=${encodeURIComponent(s.place_id)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={link}
+                        >
+                          {s.name}
+                        </a>
+                        {" · "}
+                        {stopTimeText(s.minutes)} {t("en el lugar", "there")} · {t("desvío", "detour")} {s.detour_km} km / {s.detour_min} min
+                        {s.price != null ? ` · ${usd(s.price)} ${t("antes de temporada", "before the season")}` : ""}
+                        <span className="block text-xs font-normal text-[#5F6F67]">
+                          {t("Entradas no incluidas: el cliente las paga en el lugar.", "Entrance tickets not included: the traveller pays at the place.")}
+                        </span>
+                      </li>
+                    ))}
+                  </ol>
+                }
+              />
+            )}
             {b.lodging_tier && <Detail k={t("Hospedaje", "Lodging")} v={RETIRED_LODGING_TIERS[b.lodging_tier]?.[lang] ?? b.lodging_tier} />}
             {b.flight_or_hotel_notes && <Detail k={t("Notas del viaje", "Ride notes")} v={b.flight_or_hotel_notes} />}
             {asked.length > 0 && <Detail k={t("Pidió", "Asked for")} v={asked.join(", ")} />}

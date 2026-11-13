@@ -94,7 +94,13 @@ export function TripDetail({
   const { t, lang } = useT();
   const pickup = trip.service_type === "transfer" ? target(trip.origin, trip.origin_coords) : null;
   const dropoff = trip.service_type === "transfer" ? target(trip.destination, trip.destination_coords) : null;
-  const stopList = (trip.sightseeing_stops ?? []).map((s) => ({ name: names.stops[s.id] ?? s.id, minutes: names.stopMinutes?.[s.id] }));
+  // Catalog stops by their catalog name and time; a traveller's own stop carries its name, the
+  // minutes there and its map point (so it can be opened in Waze or Google Maps).
+  const stopList = (trip.sightseeing_stops ?? []).map((s) =>
+    s.custom && s.name
+      ? { name: s.name, minutes: s.minutes, nav: typeof s.lat === "number" && typeof s.lng === "number" ? ({ label: s.name, lat: s.lat, lng: s.lng } as Target) : null }
+      : { name: names.stops[s.id] ?? s.id, minutes: names.stopMinutes?.[s.id], nav: null },
+  );
   const cash = trip.cash_to_collect == null ? 0 : Number(trip.cash_to_collect);
   const stage = tripStage(trip, lang);
   const facts = tripFacts(trip);
@@ -179,6 +185,7 @@ export function TripDetail({
               title={s.name}
               sub={s.minutes ? t("Parada ", "Stop ") + duration(s.minutes) : t("Parada", "Stop")}
               last={i === stopList.length - 1 && !dropoff}
+              nav={s.nav}
             />
           ))}
           {dropoff ? (
@@ -355,7 +362,8 @@ function Row({ label, value }: { label: string; value: string }) {
  * One place on the route: an emerald ring for the pickup, gold rings for the stops
  * on the way, a solid emerald dot for the drop-off, joined by a thin line.
  */
-function Stop({ kind, title, sub, last }: { kind: "start" | "mid" | "end"; title: string; sub: string; last?: boolean }) {
+function Stop({ kind, title, sub, last, nav }: { kind: "start" | "mid" | "end"; title: string; sub: string; last?: boolean; nav?: Target | null }) {
+  const { t } = useT();
   return (
     <View style={{ flexDirection: "row", gap: 12 }}>
       <View style={{ width: 14, alignItems: "center" }}>
@@ -375,6 +383,12 @@ function Stop({ kind, title, sub, last }: { kind: "start" | "mid" | "end"; title
       <View style={{ flex: 1, paddingBottom: last ? 0 : 14 }}>
         <Text style={{ fontSize: 15, fontWeight: "700", color: C.text }}>{title}</Text>
         <Text style={{ fontSize: 12.5, color: C.muted }}>{sub}</Text>
+        {nav ? (
+          <View style={{ flexDirection: "row", gap: 18, paddingTop: 2 }}>
+            <LinkBtn label="Waze" icon="navigate" onPress={() => void Linking.openURL(waze(nav))} />
+            <LinkBtn label={t("Google Maps", "Google Maps")} icon="map-outline" onPress={() => void Linking.openURL(gmaps(nav))} />
+          </View>
+        ) : null}
       </View>
     </View>
   );

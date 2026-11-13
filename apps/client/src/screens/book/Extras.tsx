@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import * as Linking from "expo-linking";
 import { Pressable, View } from "react-native";
 import { cents, useBooking } from "../../booking";
 import { plural } from "../../format";
@@ -6,9 +7,11 @@ import { pick } from "../../haptics";
 import { useT, type Lang } from "../../i18n";
 import { photoFor } from "../../images";
 import { useNav } from "../../nav";
+import { driveTime } from "../../prices";
+import { useSession } from "../../session";
 import { Photo } from "../../Photo";
 import { C, S, SP, T } from "../../theme";
-import { Bar, Card, Choice, FieldLabel, Input, Page, Text } from "../../ui";
+import { Bar, Btn, Card, Choice, FieldLabel, Input, Page, Text, Toggle } from "../../ui";
 import { PriceBar } from "./parts";
 
 const ENTRANCE: Record<Lang, Record<string, string>> = {
@@ -37,14 +40,16 @@ function DoneBar() {
 /** Slide-up panel: sightseeing stops on the way, each with its price, how long it adds and its entrance. All optional. */
 export function BookStops() {
   const { lang, t } = useT();
-  const { state, toggleStop, quote, vehicle, stopsOn } = useBooking();
+  const { state, toggleStop, quote, vehicle, stopsOn, ownStopsOn } = useBooking();
   const stops = quote?.stops ?? [];
   return (
     <Page footer={<DoneBar />}>
       <Bar style="dark" />
       <Text style={T.body}>
         {stops.length === 0
-          ? t("There are no stops to add on this route yet.", "Aún no hay paradas para agregar en esta ruta.")
+          ? ownStopsOn && stopsOn
+            ? t("There are no ready-made stops on this route yet. Add your own below.", "Aún no hay paradas listas en esta ruta. Agregue la suya abajo.")
+            : t("There are no stops to add on this route yet.", "Aún no hay paradas para agregar en esta ruta.")
           : stopsOn
             ? t("Your driver waits while you visit. The price of each stop is added to your ride.", "Su conductor espera mientras usted la visita. El precio de cada parada se suma a su traslado.")
             : t((vehicle?.name ?? "This vehicle") + " is a direct ride. Choose another vehicle to add stops.", (vehicle?.name ?? "Este vehículo") + " es un traslado directo. Elija otro vehículo para agregar paradas.")}
@@ -88,7 +93,99 @@ export function BookStops() {
             );
           })
         : null}
+      {stopsOn && ownStopsOn ? <OwnStops /> : null}
     </Page>
+  );
+}
+
+const OWN_ENTRANCE: Record<Lang, string> = {
+  en: "Entrance tickets not included; paid at the place",
+  es: "Entradas no incluidas; se pagan en el lugar",
+};
+
+/**
+ * "Add your own stop": any place from the place search and how long to stay. The server
+ * measures the extra driving and prices each stop (waiting time + extra driving); nothing is
+ * calculated here. Past the limits the server says so and the traveller is pointed to our team.
+ */
+function OwnStops() {
+  const { lang, t } = useT();
+  const nav = useNav();
+  const { whatsapp } = useSession();
+  const { state, set, quote, quoteBusy, ownStops, ownStopsError, ownStopsAskUs } = useBooking();
+  const custom = quote?.custom;
+  if (!custom) return null;
+  const mine = state.customStops;
+  const choices = custom.minuteChoices.filter((m) => m <= custom.limits.maxWaitMinutes);
+  const full = mine.length >= custom.limits.maxStops;
+  const askUs = () => void Linking.openURL("https://wa.me/" + whatsapp + "?text=" + encodeURIComponent(t("Hi! I'd like a quote for a ride with several stops.", "¡Hola! Quisiera una cotización para un traslado con varias paradas.")));
+  return (
+    <Card>
+      <Text accessibilityRole="header" style={T.h3}>
+        {t("Add your own stop", "Agregue su propia parada")}
+      </Text>
+      <Text style={T.small}>
+        {t(
+          "A waterfall, a garden, a restaurant: search any place and choose how long you stay. Up to " + custom.limits.maxStops + " stops, in the order you add them. The price is the waiting time plus the extra driving.",
+          "Una catarata, un jardín, un restaurante: busque cualquier lugar y elija cuánto tiempo se queda. Hasta " + custom.limits.maxStops + " paradas, en el orden en que las agrega. El precio es el tiempo de espera más el recorrido adicional.",
+        )}
+      </Text>
+      {mine.map((s, i) => {
+        const priced = ownStops[i] && ownStops[i].id === s.id && ownStops[i].minutes === s.minutes ? ownStops[i] : null;
+        return (
+          <View key={s.id} style={{ borderWidth: 2, borderColor: C.emerald, borderRadius: 16, padding: SP.md, gap: 6 }}>
+            <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 10 }}>
+              <Text style={[T.bodyStrong, { flex: 1 }]}>{i + 1 + ". " + s.label}</Text>
+              <Text style={[T.bodyStrong, { color: C.emerald }]}>{priced ? "+" + cents(priced.cents) : quoteBusy && !ownStopsError ? "…" : ""}</Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t("Remove ", "Quitar ") + s.label}
+                hitSlop={12}
+                onPress={() => {
+                  pick();
+                  set({ customStops: mine.filter((x) => x.id !== s.id) });
+                }}
+              >
+                <Ionicons name="trash-outline" size={22} color={C.body} />
+              </Pressable>
+            </View>
+            <Text style={T.caption}>{t("Time there", "Tiempo en el lugar")}</Text>
+            <View accessibilityRole="radiogroup" style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+              {choices.map((m) => (
+                <Toggle key={m} icon="time-outline" label={driveTime(m)} on={s.minutes === m} onPress={() => set({ customStops: mine.map((x) => (x.id === s.id ? { ...x, minutes: m } : x)) })} />
+              ))}
+            </View>
+            {priced ? (
+              <Text style={T.caption}>
+                {priced.detourMin > 0 || priced.detourKm > 0
+                  ? t("Adds " + Math.round(priced.detourKm) + " km / " + driveTime(priced.detourMin) + " of driving", "Agrega " + Math.round(priced.detourKm) + " km / " + driveTime(priced.detourMin) + " de recorrido")
+                  : t("On your way", "Queda de camino")}
+              </Text>
+            ) : null}
+            <Text style={T.caption}>{OWN_ENTRANCE[lang]}</Text>
+          </View>
+        );
+      })}
+      {ownStopsError ? (
+        <Text accessibilityRole="alert" style={S.error}>
+          {ownStopsError}
+        </Text>
+      ) : null}
+      {(ownStopsError && ownStopsAskUs) || full ? (
+        <>
+          {full && !ownStopsError ? (
+            <Text style={T.small}>
+              {t(
+                "That's the most stops of your own on one ride. For a longer route, message us and we'll quote it.",
+                "Ese es el máximo de paradas propias en un traslado. Para un recorrido más largo, escríbanos y le cotizamos.",
+              )}
+            </Text>
+          ) : null}
+          {whatsapp ? <Btn alt icon="logo-whatsapp" label={t("Message our team", "Escribir a nuestro equipo")} onPress={askUs} /> : null}
+        </>
+      ) : null}
+      {!full ? <Btn alt icon="search" label={mine.length ? t("Add another stop", "Agregar otra parada") : t("Search a place", "Buscar un lugar")} onPress={() => nav.navigate("PlaceSearch", { field: "stop" })} /> : null}
+    </Card>
   );
 }
 

@@ -21,6 +21,7 @@ import {
   type RideFormula,
 } from "./catalog";
 import { BUILT_IN_CATALOG, type CatalogData } from "./catalogModel";
+import { CUSTOM_STOP_LIMITS_DEFAULT, type CustomStopLimits } from "./customStops";
 import { NIGHT_PREMIUM_DEFAULT, type NightPremium } from "./nightPremium";
 import { DRIVER_COMMISSION_BPS_DEFAULT } from "./payout";
 import { PINNED_PRICES_DEFAULT, readPinnedPrices } from "./pinnedPrices";
@@ -51,7 +52,7 @@ export async function getCatalog(): Promise<CatalogData> {
 }
 
 /** Only successful database reads are cached (a thrown error is never stored). */
-const cachedDatabaseCatalog = unstable_cache(loadDatabaseCatalog, ["catalog-v10"], {
+const cachedDatabaseCatalog = unstable_cache(loadDatabaseCatalog, ["catalog-v11"], {
   tags: [CATALOG_TAG],
   revalidate: 3600,
 });
@@ -173,6 +174,7 @@ async function loadDatabaseCatalog(): Promise<CatalogData> {
       waitPerHourCents,
       nightPremium: readNightPremium(settings.data),
       pinnedPrices,
+      customStopLimits: readCustomStopLimits(settings.data),
       driverCommissionBps: bpsOrNull(settings.data?.driver_commission_bps == null ? null : Number(settings.data.driver_commission_bps) / 10000, 0, 5000) ?? DRIVER_COMMISSION_BPS_DEFAULT,
     };
   }
@@ -242,6 +244,22 @@ function readRideFormula(row: Record<string, unknown> | null | undefined): RideF
  * the columns are missing and the built-in values apply; a value outside its allowed range
  * also falls back, so a bad row can never price a ride wildly.
  */
+/**
+ * Limits for "add your own stop" (migration 0057). A missing column (before the migration) or a
+ * value out of range falls back to the built-in limit.
+ */
+function readCustomStopLimits(row: Record<string, unknown> | null | undefined): CustomStopLimits {
+  const int = (v: unknown, min: number, max: number, fallback: number) => {
+    const n = v == null ? NaN : Number(v);
+    return Number.isInteger(n) && n >= min && n <= max ? n : fallback;
+  };
+  return {
+    maxStops: int(row?.custom_stop_max, 0, 5, CUSTOM_STOP_LIMITS_DEFAULT.maxStops),
+    maxWaitMinutes: int(row?.custom_stop_max_wait_min, 30, 720, CUSTOM_STOP_LIMITS_DEFAULT.maxWaitMinutes),
+    maxDetourMinutes: int(row?.custom_stop_max_detour_min, 0, 480, CUSTOM_STOP_LIMITS_DEFAULT.maxDetourMinutes),
+  };
+}
+
 function readNightPremium(row: Record<string, unknown> | null | undefined): NightPremium {
   const int = (v: unknown, min: number, max: number, fallback: number) => {
     const n = v == null ? NaN : Number(v);

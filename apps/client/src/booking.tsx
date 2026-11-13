@@ -4,7 +4,7 @@ import { cleanSignText, hasContactDetails, signBlocked as signTextBlocked } from
 import { plural, usd } from "./format";
 import { useT } from "./i18n";
 import { HUBS, crDatePlus, fetchQuote, fetchTours, time12, validDate } from "./prices";
-import type { Chosen, Place, Prefs, RideQuote, Sent, Tour } from "./types";
+import type { Chosen, OwnStop, Place, Prefs, RideQuote, Sent, Tour } from "./types";
 
 /**
  * The trip being planned. One small store shared by every booking step, so
@@ -33,6 +33,8 @@ export interface BookingState {
   whenSet: boolean;
   vehicleId: string;
   stopIds: string[];
+  /** "Add your own stop": places from the place search with the minutes there, in the traveller's order. */
+  customStops: OwnStop[];
   prefs: Prefs;
   driverNotes: string;
   /** Flight number or hotel name. */
@@ -68,6 +70,7 @@ const fresh = (): BookingState => ({
   whenSet: false,
   vehicleId: "sedan",
   stopIds: [],
+  customStops: [],
   prefs: DEFAULT_PREFS,
   driverNotes: "",
   notes: "",
@@ -112,6 +115,14 @@ interface BookingValue {
   vehicle: RideQuote["vehicles"][number] | undefined;
   /** Whether the chosen vehicle takes stops on the way. */
   stopsOn: boolean;
+  /** The server offers "add your own stop" on this ride (older servers don't). */
+  ownStopsOn: boolean;
+  /** The traveller's own stops as the server priced them (empty while loading, or when they can't be priced). */
+  ownStops: NonNullable<RideQuote["custom"]>["stops"];
+  /** Why the own stops can't be booked online, in the app's language; "" when fine. */
+  ownStopsError: string;
+  /** That refusal ends with "message us": show the contact button. */
+  ownStopsAskUs: boolean;
   /** The chosen vehicle comes with a Spanish-speaking driver, so "English-speaking" isn't offered. */
   spanishDriver: boolean;
   effectivePrefs: Prefs;
@@ -197,6 +208,10 @@ export function BookingProvider({
   const fromId = from?.id ?? "";
   const toId = to?.id ?? "";
   const stopsKey = state.stopIds.join(",");
+  // The traveller's own stops change the price too (place, minutes, order).
+  const ownKey = state.customStops.map((s) => s.id + ":" + s.minutes).join(",");
+  const ownRef = useRef(state.customStops);
+  ownRef.current = state.customStops;
   // The pickup time changes the price at night (night premium). Like the stops, a new time
   // keeps the prices on screen while the new ones load.
   const timeKey = state.time;
@@ -217,19 +232,24 @@ export function BookingProvider({
     lastRoute.current = routeKey;
     setQuoteBusy(true);
     setQuoteError("");
-    void fetchQuote({ from: fromId, to: toId, date, time: timeKey, pax, stopIds: stopsKey ? stopsKey.split(",") : [], lang }).then((res) => {
-      if (!live) return;
-      setQuoteBusy(false);
-      if (!res.ok || !res.data) {
-        setQuote(null);
-        return setQuoteError(res.error ?? tRef.current("We couldn't price that ride.", "No pudimos calcular el precio de ese traslado."));
-      }
-      setQuote(res.data.quote);
-    });
+    const ask = () =>
+      void fetchQuote({ from: fromId, to: toId, date, time: timeKey, pax, stopIds: stopsKey ? stopsKey.split(",") : [], customStops: ownRef.current, lang }).then((res) => {
+        if (!live) return;
+        setQuoteBusy(false);
+        if (!res.ok || !res.data) {
+          setQuote(null);
+          return setQuoteError(res.error ?? tRef.current("We couldn't price that ride.", "No pudimos calcular el precio de ese traslado."));
+        }
+        setQuote(res.data.quote);
+      });
+    // Own stops cost the server a road lookup each: a short pause, so several quick changes ask once.
+    const timer = ownKey ? setTimeout(ask, 400) : null;
+    if (!timer) ask();
     return () => {
       live = false;
+      if (timer) clearTimeout(timer);
     };
-  }, [routeKey, stopsKey, timeKey, fromId, toId, date, pax, isDemo, lang]);
+  }, [routeKey, stopsKey, ownKey, timeKey, fromId, toId, date, pax, isDemo, lang]);
 
   // ---- Tours: loaded while a tour is being planned.
   const toursKey = state.kind === "tour" && validDate(date) ? date + "|" + pax : "";
@@ -257,11 +277,20 @@ export function BookingProvider({
   const notesBlocked = hasContactDetails(state.driverNotes);
   const signBlocked = !state.signHideName && signTextBlocked(state.signText);
   const itemCents = vehicle?.totalCents ?? 0;
-  const rideReady = Boolean(quote) && Boolean(vehicle) && !notesBlocked && !signBlocked;
+  // Own stops: offered when the server knows them; part of the ride only on a vehicle that takes
+  // stops. The ride can't be sent while they are being priced or can't be priced online.
+  const ownStopsOn = Boolean(quote?.custom && quote.custom.limits.maxStops > 0);
+  const ownWanted = ownStopsOn && stopsOn ? state.customStops : [];
+  const ownAnswer = quote?.custom;
+  const ownMatches = Boolean(ownAnswer) && !ownAnswer!.error && ownAnswer!.stops.length === ownWanted.length && ownAnswer!.stops.every((s, i) => s.id === ownWanted[i].id && s.minutes === ownWanted[i].minutes);
+  const ownStops = ownWanted.length && ownMatches ? ownAnswer!.stops : [];
+  const ownStopsError = ownWanted.length && ownAnswer?.error ? ownAnswer.error : "";
+  const ownPending = ownWanted.length > 0 && !ownMatches;
+  const rideReady = Boolean(quote) && Boolean(vehicle) && !notesBlocked && !signBlocked && !ownPending;
   const fromCents = quote && quote.vehicles.length ? quote.vehicles.reduce((m, v) => Math.min(m, v.totalCents), Infinity) : null;
   const pickedStops = quote && stopsOn ? state.stopIds.filter((id) => quote.stops.some((s) => s.id === id)) : [];
   const p = effectivePrefs;
-  const extrasCount = pickedStops.length + (p.childSeats ? 1 : 0) + (p.boosters ? 1 : 0) + Number(p.wifi) + Number(p.stroller) + Number(p.pets) + Number(Boolean(p.electric)) + (state.driverNotes.trim() ? 1 : 0) + (state.notes.trim() ? 1 : 0);
+  const extrasCount = pickedStops.length + ownStops.length + (p.childSeats ? 1 : 0) + (p.boosters ? 1 : 0) + Number(p.wifi) + Number(p.stroller) + Number(p.pets) + Number(Boolean(p.electric)) + (state.driverNotes.trim() ? 1 : 0) + (state.notes.trim() ? 1 : 0);
 
   const tour = tours?.find((x) => x.id === state.tourId);
 
@@ -295,7 +324,7 @@ export function BookingProvider({
         vehicle.name +
         ", " +
         plural(pax, "traveller", lang) +
-        (pickedStops.length ? " + " + plural(pickedStops.length, "stop", lang) : "") +
+        (pickedStops.length + ownStops.length ? " + " + plural(pickedStops.length + ownStops.length, "stop", lang) : "") +
         " · " + bagsSummary(bagsFor(state), lang) +
         t(" · pickup ", " · recogida ") +
         time12(state.time) +
@@ -308,6 +337,8 @@ export function BookingProvider({
         ...quote.base,
         vehicleId: vehicle.id,
         stopIds: pickedStops,
+        // The traveller's own stops; the server looks each place up and prices it again. Older servers ignore it.
+        ...(ownStops.length ? { customStops: ownStops.map(({ id, label, minutes }) => ({ id, label, minutes })) } : {}),
         pax,
         pickupTime: state.time,
         // Always the fixed price. Kept in the request because servers from before 2026-11-11 require it.
@@ -321,7 +352,7 @@ export function BookingProvider({
         ...(state.signHideName ? { signHideName: true } : cleanSignText(state.signText) ? { signText: cleanSignText(state.signText) } : {}),
       },
     };
-    // pickedStops and p are derived from the listed values.
+    // pickedStops, ownStops and p are derived from the listed values.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, tour, toursFee, quote, vehicle, rideReady, itemCents, effectivePrefs, stopsOn, lang, t, pax, date]);
 
@@ -433,6 +464,10 @@ export function BookingProvider({
     quoteError,
     vehicle,
     stopsOn,
+    ownStopsOn,
+    ownStops,
+    ownStopsError,
+    ownStopsAskUs: Boolean(ownStopsError && ownAnswer?.askUs),
     spanishDriver,
     effectivePrefs,
     notesBlocked,

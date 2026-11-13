@@ -1,6 +1,7 @@
 import "server-only";
 import { WHATSAPP_NUMBER, bookedItemName } from "./catalog";
 import { getCatalog } from "./catalogSource";
+import { isStoredCustomStop } from "./customStops";
 import { signEditable, signShown } from "./sign";
 import { createSupabaseAdminClient } from "./supabase/admin";
 import { travellerPhotoPaths } from "./vehiclePhotos";
@@ -46,6 +47,11 @@ export interface AppBooking {
   sign: { text: string | null; hideName: boolean; shown: string; editable: boolean } | null;
   /** Day tours: the hotel or address where we pick them up (bookings.pickup_place). Null on rides and older tours. */
   pickupPlace: string | null;
+  /**
+   * Stops on a ride, in order: the catalog's (minutes null) and the traveller's own (`own`, with
+   * the minutes there; entrance tickets are paid at the place). Empty on tours. Older apps ignore it.
+   */
+  stops: { name: string; minutes: number | null; own: boolean }[];
 }
 
 export interface AppTrip {
@@ -70,10 +76,10 @@ export async function tripsForEmail(email: string): Promise<{ trips: AppTrip[]; 
   if (!trips?.length) return out;
 
   const COLUMNS =
-    "id, trip_id, booking_ref, service_type, catalog_item_id, origin, destination, scheduled_at, status, en_route_at, passenger_count, total_price, cash_fee, amount_paid, payment_mode, assigned_driver_id, assigned_vehicle_id";
+    "id, trip_id, booking_ref, service_type, catalog_item_id, origin, destination, sightseeing_stops, scheduled_at, status, en_route_at, passenger_count, total_price, cash_fee, amount_paid, payment_mode, assigned_driver_id, assigned_vehicle_id";
   type Row = {
     id: string; trip_id: string; booking_ref: string; service_type: string; catalog_item_id: string | null;
-    origin: string | null; destination: string | null; scheduled_at: string | null; status: string; en_route_at: string | null;
+    origin: string | null; destination: string | null; sightseeing_stops: { id: string }[] | null; scheduled_at: string | null; status: string; en_route_at: string | null;
     passenger_count: number | null; total_price: number | string; cash_fee: number | string | null; amount_paid: number | string | null;
     payment_mode: string | null; assigned_driver_id: string | null; assigned_vehicle_id: string | null;
     sign_text?: string | null; sign_hide_name?: boolean | null; pickup_place?: string | null;
@@ -206,6 +212,14 @@ export async function tripsForEmail(email: string): Promise<{ trips: AppTrip[]; 
             }
           : null,
       pickupPlace: b.service_type === "transfer" ? null : (b.pickup_place ?? null),
+      stops:
+        b.service_type === "transfer"
+          ? (Array.isArray(b.sightseeing_stops) ? b.sightseeing_stops : []).map((s) =>
+              isStoredCustomStop(s)
+                ? { name: s.name, minutes: Math.round(Number(s.minutes)), own: true }
+                : { name: catalog.stops.find((x) => x.id === s.id)?.name ?? s.id, minutes: null, own: false },
+            )
+          : [],
     };
   };
 

@@ -2,6 +2,14 @@ import "server-only";
 import { unstable_cache } from "next/cache";
 import type { HubId } from "./catalog";
 import {
+  customStopErrors,
+  detoursFromRoads,
+  type CustomStopLimits,
+  type CustomStopSpec,
+  type PricedCustomStop,
+} from "./customStops";
+import { hasContactDetails } from "./preferences";
+import {
   areaOf,
   boatMinutes,
   cleanPlaceLabel,
@@ -159,7 +167,7 @@ interface Road {
   ferries: number;
 }
 
-async function fetchRoute(a: LatLng, b: LatLng): Promise<Road> {
+async function fetchRoute(a: LatLng, b: LatLng, via: readonly LatLng[] = []): Promise<Road> {
   const data = await google("https://routes.googleapis.com/directions/v2:computeRoutes", {
     method: "POST",
     // Step maneuvers tell us where the route takes a car ferry (still the Essentials tier).
@@ -167,6 +175,8 @@ async function fetchRoute(a: LatLng, b: LatLng): Promise<Road> {
     body: {
       origin: { location: { latLng: { latitude: a.lat, longitude: a.lng } } },
       destination: { location: { latLng: { latitude: b.lat, longitude: b.lng } } },
+      // The traveller's own stops, in their order (totals cover every leg). Up to 10 stay in the Essentials tier.
+      ...(via.length ? { intermediates: via.map((p) => ({ location: { latLng: { latitude: p.lat, longitude: p.lng } } })) } : {}),
       travelMode: "DRIVE",
       routingPreference: "TRAFFIC_UNAWARE",
     },
@@ -199,6 +209,74 @@ function roadBetween(a: LatLng, b: LatLng): Promise<Road> {
   if (straightKm(a, b) < 0.05) return Promise.resolve({ km: 0, drivingMinutes: 0, ferries: 0 });
   const key = `${round5(a.lat)},${round5(a.lng)}>${round5(b.lat)},${round5(b.lng)}`;
   return unstable_cache(() => fetchRoute(a, b), ["gmaps-route-v2", key], { revalidate: CACHE_SECONDS })();
+}
+
+/** The road route pickup, then the stops in order, then the drop-off; cached like every route. */
+function roadVia(a: LatLng, via: readonly LatLng[], b: LatLng): Promise<Road> {
+  if (via.length === 0) return roadBetween(a, b);
+  const pt = (p: LatLng) => `${round5(p.lat)},${round5(p.lng)}`;
+  const key = [a, ...via, b].map(pt).join(">");
+  return unstable_cache(() => fetchRoute(a, b, via), ["gmaps-route-v2", key], { revalidate: CACHE_SECONDS })();
+}
+
+/**
+ * A stop is never asked of Google when even a straight line to it is clearly too far: with this
+ * many straight-line km per allowed detour minute (72 km/h as the crow flies, which no road in
+ * Costa Rica gives), the detour limit can't be met. Keeps far-off or made-up stops from costing
+ * route requests.
+ */
+const STRAIGHT_KM_PER_DETOUR_MINUTE = 1.2;
+
+/**
+ * The traveller's own stops for a ride (src/lib/customStops.ts), looked up on the server: each
+ * place again by its Google id (cached, usually already looked up by the place search), then
+ * what each stop adds to the drive: the route through stops 1..n minus the route through stops
+ * 1..n-1, from Google Routes. One cached route request per stop, plus the direct route (also
+ * needed between two of our towns, whose price comes from our own tables). Nothing but the
+ * place id, the name and the minutes is taken from the browser.
+ *
+ * Throws a MapsError the traveller can read when the stops can't be priced online: too many,
+ * a place twice, a stop only a boat reaches, one that adds a ferry, or clearly too far.
+ * The time and detour limits themselves are checked by customStopsProblem() where the price is made.
+ */
+export async function resolveCustomStops(
+  origin: RidePlace,
+  destination: RidePlace,
+  specs: readonly CustomStopSpec[],
+  limits: CustomStopLimits,
+): Promise<PricedCustomStop[]> {
+  if (specs.length === 0) return [];
+  if (limits.maxStops <= 0) throw new MapsError(customStopErrors.off);
+  if (specs.length > limits.maxStops) throw new MapsError(customStopErrors.tooMany(limits.maxStops));
+  const ids = specs.map((s) => s.id);
+  if (new Set(ids).size !== ids.length || ids.includes(origin.id) || ids.includes(destination.id)) {
+    throw new MapsError(customStopErrors.twice);
+  }
+  if (origin.hub === "DrakeBay" && destination.hub === "DrakeBay") throw new MapsError(customStopErrors.boat);
+  const places = await Promise.all(specs.map((s) => resolvePlace(s.id, s.label)));
+  // Around Drake Bay there is no road for our cars.
+  if (places.some((p) => p.hub === "DrakeBay")) throw new MapsError(customStopErrors.boat);
+  const a = roadEnd(origin);
+  const b = roadEnd(destination);
+  const points = places.map((p) => ({ lat: p.lat, lng: p.lng }));
+  const line = [a, ...points, b];
+  let straight = -straightKm(a, b);
+  for (let i = 1; i < line.length; i++) straight += straightKm(line[i - 1], line[i]);
+  if (straight > limits.maxDetourMinutes * STRAIGHT_KM_PER_DETOUR_MINUTE) throw new MapsError(customStopErrors.tooFar);
+  const [direct, ...cumulative] = await Promise.all([roadBetween(a, b), ...points.map((_, i) => roadVia(a, points.slice(0, i + 1), b))]);
+  if (cumulative[cumulative.length - 1].km > MAX_ROUTE_KM) throw new MapsError(customStopErrors.tooFar);
+  const detours = detoursFromRoads(direct, cumulative);
+  if (!detours) throw new MapsError(customStopErrors.boat);
+  return specs.map((s, i) => ({
+    id: s.id,
+    // The name the traveller saw, unless it carries contact details (then Google's address): drivers read it.
+    label: hasContactDetails(places[i].label) ? places[i].address || "Stop" : places[i].label,
+    ...(places[i].address ? { address: places[i].address } : {}),
+    lat: places[i].lat,
+    lng: places[i].lng,
+    minutes: s.minutes,
+    ...detours[i],
+  }));
 }
 
 /** Longest ride we quote automatically (Peñas Blancas → Panama border is ~650 km). */

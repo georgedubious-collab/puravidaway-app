@@ -39,7 +39,8 @@ export function PlaceSearch() {
   const demo = useDemo();
   const { field } = useRoute<RouteProp<RootParams, "PlaceSearch">>().params;
   const { state, set } = useBooking();
-  const current = state[field];
+  const isStop = field === "stop";
+  const current = isStop ? null : state[field];
   const [text, setText] = useState(demo?.found ? "Tabac" : "");
   const [found, setFound] = useState<Suggestion[]>(demo?.found ?? []);
   const [searching, setSearching] = useState(false);
@@ -78,8 +79,13 @@ export function PlaceSearch() {
 
   function choose(place: Place, remember: boolean) {
     pick();
+    if (isStop) {
+      // One more stop of the traveller's own, 1 hour to start with; never the pickup, the drop-off or a place twice.
+      const taken = [state.from?.id, state.to?.id, ...state.customStops.map((s) => s.id)];
+      if (!taken.includes(place.id)) set({ customStops: [...state.customStops, { id: place.id, label: place.label, minutes: 60 }] });
+    }
     // A new pickup or drop-off means new stops on the way.
-    set({ [field]: place, stopIds: [] });
+    else set({ [field]: place, stopIds: [], customStops: [] });
     if (remember) {
       const next = [place, ...recent.filter((r) => r.id !== place.id)].slice(0, 5);
       AsyncStorage.setItem(RECENT_KEY, JSON.stringify(next)).catch(() => {});
@@ -102,9 +108,10 @@ export function PlaceSearch() {
     }
   }
 
-  const hubs = HUBS.filter((h) => q.length < 2 || h.label.toLowerCase().includes(q.toLowerCase()));
+  // A stop is any place from the search; our towns and airports are pickups and drop-offs.
+  const hubs = isStop ? [] : HUBS.filter((h) => q.length < 2 || h.label.toLowerCase().includes(q.toLowerCase()));
   const recents = q.length < 2 ? recent.filter((r) => !r.id.startsWith("hub:")) : [];
-  const label = field === "from" ? t("Pickup", "Recogida") : t("Drop-off", "Destino");
+  const label = field === "from" ? t("Pickup", "Recogida") : isStop ? t("Stop", "Parada") : t("Drop-off", "Destino");
 
   return (
     <KeyboardAvoidingView style={S.screen} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={header}>
@@ -117,7 +124,7 @@ export function PlaceSearch() {
             value={text}
             onChangeText={setText}
             autoFocus={!demo}
-            placeholder={t("Airport, town, hotel or address", "Aeropuerto, pueblo, hotel o dirección")}
+            placeholder={isStop ? t("Waterfall, garden, restaurant…", "Catarata, jardín, restaurante…") : t("Airport, town, hotel or address", "Aeropuerto, pueblo, hotel o dirección")}
             placeholderTextColor={C.faint}
             autoCorrect={false}
             returnKeyType="search"
@@ -147,7 +154,7 @@ export function PlaceSearch() {
         ))}
         {q.length >= 3 ? (
           <>
-            <Text style={[T.label, { marginTop: 16, marginBottom: 4 }]}>{t("Hotels and addresses", "Hoteles y direcciones")}</Text>
+            <Text style={[T.label, { marginTop: 16, marginBottom: 4 }]}>{isStop ? t("Places", "Lugares") : t("Hotels and addresses", "Hoteles y direcciones")}</Text>
             {searching && found.length === 0 ? (
               <View style={{ gap: 14, paddingVertical: 10 }}>
                 <Skeleton height={20} width="70%" />
@@ -161,7 +168,11 @@ export function PlaceSearch() {
             {found.length > 0 ? <Text style={[T.caption, { textAlign: "right", paddingTop: 8 }]}>{t("Powered by Google", "Con tecnología de Google")}</Text> : null}
           </>
         ) : q.length < 2 ? (
-          <Text style={[T.small, { paddingTop: 16 }]}>{t("Staying somewhere else? Type the hotel's name or the address.", "¿Se hospeda en otro lugar? Escriba el nombre del hotel o la dirección.")}</Text>
+          <Text style={[T.small, { paddingTop: 16 }]}>
+            {isStop
+              ? t("Type the name of the place you'd like to visit on the way.", "Escriba el nombre del lugar que quiere visitar en el camino.")
+              : t("Staying somewhere else? Type the hotel's name or the address.", "¿Se hospeda en otro lugar? Escriba el nombre del hotel o la dirección.")}
+          </Text>
         ) : null}
       </ScrollView>
     </KeyboardAvoidingView>

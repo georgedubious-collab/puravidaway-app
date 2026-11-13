@@ -16,6 +16,7 @@ import {
   type HubId,
   type Region,
 } from "@/lib/catalog";
+import { CUSTOM_STOP_LIMITS_DEFAULT } from "@/lib/customStops";
 import { DRIVER_COMMISSION_BPS_DEFAULT } from "@/lib/payout";
 import { PIN_CLASS_ALIAS } from "@/lib/pinnedPrices";
 import { formatUSD, nightPremiumCents, rideCents } from "@/lib/pricing";
@@ -40,6 +41,7 @@ import {
   saveDriverCommission,
   saveNightPremium,
   saveWaitRate,
+  saveCustomStopLimits,
   saveFerryFares,
   savePaymentSettings,
   saveRideFormula,
@@ -62,6 +64,8 @@ interface Settings {
   ferry_vehicle_fare_crc?: number; ferry_passenger_fare_crc?: number; crc_per_usd?: number;
   driver_commission_bps?: number;
   wait_per_hour?: number;
+  /* From migration 0057; undefined until it has run. */
+  custom_stop_max?: number; custom_stop_max_wait_min?: number; custom_stop_max_detour_min?: number;
   /* From migration 0041; undefined until it has run. */
   night_premium_bps?: number; night_start_hour?: number; night_end_hour?: number;
 }
@@ -123,6 +127,13 @@ export default async function PricingPage() {
           Math.round(waitPerHour * 100),
         )
       : Math.round(Number(x.price ?? 0) * 100);
+  // Migration 0057: "add your own stop" and its limits.
+  const ownStopsReady = ps.data?.custom_stop_max !== undefined;
+  const ownStops = {
+    max: ps.data?.custom_stop_max ?? CUSTOM_STOP_LIMITS_DEFAULT.maxStops,
+    waitHours: (ps.data?.custom_stop_max_wait_min ?? CUSTOM_STOP_LIMITS_DEFAULT.maxWaitMinutes) / 60,
+    detourMin: ps.data?.custom_stop_max_detour_min ?? CUSTOM_STOP_LIMITS_DEFAULT.maxDetourMinutes,
+  };
   const tourPP = (x: Stop) => Math.round(Number(x.tour_price_pp ?? 0) * 100);
   const commissionReady = ps.data?.driver_commission_bps !== undefined;
   // Migration 0041: night pickups.
@@ -463,6 +474,34 @@ export default async function PricingPage() {
               "The driver gets their usual share of it (80% at today's commission).",
             )}
           </p>
+        </Card>
+        <Card>
+          <h3 className="text-sm font-extrabold text-[#12241C]">{t("Paradas propias del cliente", "Travellers' own stops")}</h3>
+          <p className="mt-1 mb-3 text-xs text-[#5F6F67]">
+            {t(
+              "En un traslado, el cliente puede agregar cualquier lugar que encuentre en el buscador y decir cuánto tiempo se queda. Precio de cada parada = minutos en la parada × la tarifa de espera de arriba + km y minutos extra de manejo (la ruta con las paradas menos la ruta directa, según Google) a las tarifas de la fórmula de traslados, redondeado a dólares enteros; luego la temporada. Sin guía ni entradas: el cliente paga las entradas en el lugar. Si un traslado pasa de estos límites, la página le pide al cliente que nos escriba para cotizarlo.",
+              "On a ride, the traveller can add any place the search finds and say how long they stay. Each stop's price = minutes at the stop × the waiting rate above + extra km and driving minutes (the route through the stops minus the direct route, from Google) at the ride formula's rates, rounded to whole dollars; then the season. No guide and no tickets: the traveller pays entrances at the place. Past these limits the page asks the traveller to message us for a quote.",
+            )}
+          </p>
+          {!ownStopsReady && (
+            <p className="mb-3 text-sm text-amber-800">
+              {t(
+                "Estos límites se podrán cambiar cuando termine la actualización automática de la base de datos (unos minutos después de publicar). Mientras tanto se usan los valores que ve aquí.",
+                "These limits can be changed once the automatic database update has finished (a few minutes after publishing). Until then the values shown here apply.",
+              )}
+            </p>
+          )}
+          <AdminForm lang={lang} action={saveCustomStopLimits} className="grid gap-3 sm:grid-cols-6 items-end">
+            <Field l={t("Paradas propias por traslado (0 = apagado)", "Own stops per ride (0 = off)")} className="sm:col-span-2">
+              <input name="custom_stop_max" type="number" min={0} max={5} step={1} defaultValue={ownStops.max} className={input} disabled={!ownStopsReady} />
+            </Field>
+            <Field l={t("Máximo de horas en paradas (propias + del catálogo)", "Most hours at stops (own + catalog)")} className="sm:col-span-2">
+              <input name="custom_stop_max_wait_hours" inputMode="decimal" defaultValue={ownStops.waitHours} className={input} disabled={!ownStopsReady} />
+            </Field>
+            <Field l={t("Máximo de minutos extra de manejo", "Most extra driving minutes")} className="sm:col-span-2">
+              <input name="custom_stop_max_detour_min" type="number" min={0} max={480} step={5} defaultValue={ownStops.detourMin} className={input} disabled={!ownStopsReady} />
+            </Field>
+          </AdminForm>
         </Card>
         {(s.data ?? []).map((x) => (
           <Card key={x.id}>

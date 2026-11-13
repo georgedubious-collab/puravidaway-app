@@ -353,6 +353,8 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
 ## 4. Product modules
 
 ### 4.1 Customer storefront (public)
+Since 2026-11-12 a ride can also carry the traveller's **own stops** ("Add your own stop", any
+place from the place search with the time there, priced automatically): see §5.2.
 Layout (decided 2026-10-14): a booking **app first**, not a marketing site. The home page opens
 on the trip builder; the trip is a persistent sidebar on desktop and a bottom bar + drawer on
 phones.
@@ -887,6 +889,58 @@ Notes:
   Manuel Antonio ↔ Sierpe/Drake Bay and SJO ↔ Monteverde, which need a detour.
 - Park entrance fees: chosen per stop in /admin/pricing as free (no ticket, e.g. Tárcoles),
   included in our stop price, or paid at the gate; the card says which.
+- **Add your own stop (Jorge, 2026-11-12, migration 0057, `src/lib/customStops.ts`; `docs/PRICING.md` §5.1).**
+  On a ride (not on day tours), next to the catalog stops: "Add your own stop" / "Agregue su propia
+  parada". The traveller searches any place with the same place search as pickup and drop-off
+  (Google, Costa Rica only; not our towns) and picks how long to stay: 30 min, 1 h, 1 h 30, 2 h or
+  3 h. Website (step 3 of the ride builder) and customer app ("Stops along the way" panel).
+  - **Price of each own stop = the driver's part of a catalog stop, with the same code**
+    (`stopPriceCents()`): minutes there × the waiting rate (`pricing_settings.wait_per_hour`, $20/h
+    today) + extra road km × per-km + extra driving minutes × per-hour (the ride formula's rates),
+    rounded to whole dollars; then the season multiplier, like every stop. **Not** multiplied by
+    the vehicle or area factor and **not** by the night premium (catalog stops aren't either). No
+    tour part, no guide, no company-paid cost: the card says "Entrance tickets not included; paid
+    at the place" / "Entradas no incluidas; se pagan en el lugar".
+  - **Extra driving** = Google's road route pickup → stops in the traveller's order → drop-off,
+    minus the direct route. Stop *n* is charged what it adds on top of the stops before it (the
+    route through stops 1..n minus the route through 1..n−1; never negative), so each card shows
+    its own price. Catalog stops keep their fixed detours and are not part of that route. One
+    cached Google Routes request per own stop, plus the direct route (also asked between two of
+    our towns, whose ride price still comes from our own tables).
+  - **The server is the only source of the price.** A request carries only the Google place id,
+    the name the traveller saw and the minutes (`customStops` on the ride's item); the server looks
+    each place up again, measures the detours and prices everything (`resolveCustomStops()` in
+    `src/lib/googleMaps.ts`, `priceItem()`); anything else sent about a stop is ignored.
+  - **Limits** (`pricing_settings.custom_stop_max` / `custom_stop_max_wait_min` /
+    `custom_stop_max_detour_min`, edited at `/admin/pricing` → "Paradas propias del cliente";
+    assumed values, §9 #25): at most **3** own stops per ride; at most **4 hours at stops in
+    total**, own and catalog stops together (a ride with catalog stops only is never refused by
+    it); at most **90 minutes of extra driving** for all own stops. Also refused: the same place
+    twice (or the pickup / drop-off as a stop), a stop around Drake Bay (boat only), a stop that
+    adds a ferry crossing, and any own stop on Economy (a direct ride). A refusal is friendly and
+    points to our team ("For a longer route, message us and we'll quote it." / "Para un recorrido
+    más largo, escríbanos y le cotizamos.") with the WhatsApp link; the ride can't be added or
+    sent until the stops are changed.
+  - **Money:** the whole amount is shared with the driver by the usual commission (80% to the
+    driver today), exactly like a catalog stop's driver part; a promo code discounts it like the
+    ride (50/50); the cash booking fee is charged on the total as always.
+  - **Time:** the extra driving is part of the ride's drive time (`bookings.drive_minutes`, the
+    summary's "Driving"), the minutes there are stop time; the dispatch calendar, the driver's
+    "Arrives approx." and driver matching count both (§6.5).
+  - **Who sees what:** the trip summary, the request email, the trip page and the customer app list
+    the stops by name with their time; the team's booking page lists each own stop with a map
+    link, its time, detour and price before the season; drivers (job board, offers, trip screen,
+    website and app) see the name, the time there, the order and Waze / Google Maps buttons,
+    never a price (the database removes every stop's `price` before a driver sees the list).
+  - **Team's trip edit (§4.2):** own stops are kept. When the pickup or drop-off changes, their
+    detours are measured again on the new route (drive time and saved detours follow at once) and
+    "Usar el precio nuevo" prices them there; if they no longer fit the limits, the price is kept
+    with the usual warning and the stops stay as saved. The manual booking form has no own-stop
+    field yet (the team adds catalog stops there as before).
+  - **Cost and abuse:** routes and places are cached for 30 days, the page and the app wait 0.4 s
+    before asking, a stop that is clearly too far even in a straight line is refused without
+    asking Google, and a new combination costs at most 4 route requests (the direct route + one per stop); Google Cloud's daily caps
+    (`docs/PRICING.md` §3.1) are the backstop. Share links don't carry own stops.
 - **Poás + Doka at 120 min is tight.** Poás requires advance timed-entry tickets, and adding Doka
   makes it two separate visits. Consider splitting it into two stops or extending the time.
 
@@ -1040,9 +1094,11 @@ ride       = round_to_dollar(standard × vehicle factor × area factor)
              + vehicle extra fee
 stop       = round_to_dollar(minutes at stop × wait rate/60 + detour km × per km + detour min × per hour/60)
              + tour price per person × travellers
+own stop   = round_to_dollar(minutes there × wait rate/60 + extra km × per km + extra min × per hour/60)
+             (a traveller's own stop, §5.2: extra = route through the stops − route before it; no tour part)
 night      = round_to_cent(round_to_dollar(standard × vehicle factor × area factor) × season multiplier × night %)
              only when the pickup time is in the night window (§6.6), else 0
-transfer   = (ride + Σ selected stop prices) × season multiplier
+transfer   = (ride + Σ selected stop prices + Σ own stop prices) × season multiplier
              + night
              + ferries × (car-and-driver fare + passengers × passenger fare)
 ```
@@ -1187,6 +1243,8 @@ Pending Jorge's confirmation.
 priced with (`bookings.drive_minutes`: Google's route for typed places, `ROUTE_MINUTES` between two of
 our towns). `my_trips()` returns `arrive_at` = pickup (or the actual pickup once the trip started) +
 drive time + each stop's time there and its detour (`sightseeing_stops.duration_min + detour_min`).
+A traveller's own stop (§5.2, migration 0057): its extra driving is already inside
+`bookings.drive_minutes`, and `my_trips()` adds the minutes there.
 The driver app shows it on the drop-off ("Llegada aprox. 3:45 p. m." / "Arrives approx. 3:45 PM"),
 the driver portal as "Llegada aprox.". No drive time → nothing shown, never a straight-line guess.
 
@@ -1333,7 +1391,7 @@ approve button). Expiry warnings cover the licence, insurance, Dekra and Marcham
 retired multi-day trip on bookings made before 2026-11-11; `expedition` and `lodging_tier` are kept
 only for those) · `origin` text (place name + address) · `origin_coords` jsonb (`lat`, `lng`,
 `place_id`, `town`, and `route` = the Google road km / minutes the price was made from, null
-between two of our towns) · `destination` text · `destination_coords` jsonb (same, without route) · `sightseeing_stops` jsonb (array of stop IDs + snapshot prices) · `vehicle_class` ·
+between two of our towns) · `destination` text · `destination_coords` jsonb (same, without route) · `sightseeing_stops` jsonb (array of stop IDs + snapshot prices; a traveller's own stop, §5.2, is one more entry after them, in order: `{ id: "custom-1", custom: true, name, address, place_id, lat, lng, minutes, detour_km, detour_min, price }`, where `price` is USD before the season and the only money in it; no new table and no RLS change) · `vehicle_class` ·
 `lodging_tier` · `scheduled_at` timestamptz · `passenger_count` int · `flight_or_hotel_notes` ·
 `luggage_count` smallint (**large suitcases**, 0–20, null = not given; migration 0035) ·
 `carry_on_count` smallint (carry-ons, 0–20, null = not given: older bookings and older app builds, which
@@ -1437,6 +1495,7 @@ and `season_for_date(date)` returns the season for a travel date.
 - `lodging_tiers` — id, expedition_id (nullable = applies to all), name, surcharge. Retired with
   the expeditions (same migration).
 - `seasons` — id, name, multiplier, date ranges
+- `pricing_settings` (own-stop limits, migration 0057): `custom_stop_max` smallint (default 3, 0–5; 0 = off), `custom_stop_max_wait_min` smallint (default 240, 30–720), `custom_stop_max_detour_min` smallint (default 90, 0–480).
 - `pricing_settings` — a single row (`id` = true): `cash_fee_bps` int (default 1000 = 10%, 0–5000),
   ride formula `ride_base_fare`, `ride_per_km`, `ride_per_hour`, `ride_minimum_fare` (USD),
   ferry fares `ferry_vehicle_fare_crc`, `ferry_passenger_fare_crc` (colones per crossing) and
@@ -1748,6 +1807,26 @@ multi-day trips were retired (§1, §5.5) and are not on the roadmap.
     reminders; closer than that, nothing is re-sent; (h) a ride's stored `route` follows the new
     places even when the price is kept (it is the route the driver will drive); (i) the flight / hotel
     notes field is also where the team writes "lobby / gate / room" details (no new column).
+25. **Travellers' own stops: limits and assumptions to confirm (open, built 2026-11-12, §5.2,
+    migration 0057).** Decided by Jorge: build it with an automatic price by the existing stop rule
+    (waiting time × the wait rate + detour). Assumed until Jorge says otherwise, all editable at
+    `/admin/pricing` where noted: (a) at most **3** own stops per ride (editable); (b) at most
+    **4 hours at stops in total**, own + catalog stops together, only on rides that have an own
+    stop (editable); (c) at most **90 minutes of extra driving** for all own stops (editable);
+    past any of these the page says "For a longer route, message us and we'll quote it" with the
+    WhatsApp link; (d) times offered: 30 min, 1 h, 1 h 30, 2 h, 3 h; (e) the detour is charged for
+    **km and for driving minutes** (per-km $0.90 and per-hour $10 today), because that is what the
+    catalog stops' code does; `docs/PRICING.md` §5 words it as "detour km × per-km rate" only, so
+    say if the minutes should not be charged; (f) stops are driven in the order they were added;
+    each is charged what it adds on top of the earlier ones; (g) like catalog stops: season
+    applies, vehicle / area factor and night premium don't, so a van pays the same for a stop as a
+    sedan; (h) not offered on Economy, around Drake Bay, or when the stop adds a ferry crossing;
+    (i) drivers on the job board see the stops' names and times before they are assigned (the
+    pickup and drop-off stay town-level there); (j) the stop's name is what the traveller picked
+    in the search; if it carries a phone number, email or link it is replaced by Google's address;
+    (k) the manual booking form (/admin/bookings/new) has no own-stop field yet; (l) share links
+    and route pages don't carry own stops; (m) no rate limit of our own on price checks with own
+    stops beyond the cache, the 0.4 s pause and Google Cloud's daily caps.
 26. **Pinned route prices: assumptions to confirm (open, built 2026-11-12, §6.1, migration 0058).**
     Decided by Jorge: SJO ↔ Puerto Jiménez "a little under Daytrip", the same both ways. Assumed
     until Jorge says otherwise: (a) the numbers: Economy $489, Standard $499, Minivan $549, Van

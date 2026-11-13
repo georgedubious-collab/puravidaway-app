@@ -263,7 +263,11 @@ Status as of 2026-11-08 in brackets.
    cancellation up to 24 h; luggage on each vehicle card.]** The driver's language is a per-ride request, **not** a
    blanket promise: a cheaper Spanish-speaking Economy class is planned.
 3. Sightseeing stops show duration and whether entrance fees are included. **[Done: free /
-   included / paid at the gate (`entrance`), edited in /admin/pricing.]**
+   included / paid at the gate (`entrance`), edited in /admin/pricing. Since 2026-11-12 travellers
+   can also add their own stop (any place, 30 min to 3 h); its card shows the time there, what it
+   adds to the drive and "Entrance tickets not included; paid at the place" (PROJECT.md §5.2).
+   The price follows Daytrip's stop logic (driver distance + wait time, §1); whether the three
+   benchmarks let travellers add a free-form stop online was not checked.]**
 4. ~~Bid mode shows the fixed price as reference and warns on unrealistic offers.~~ **[Retired
    2026-11-11 (Jorge): fixed prices only.]** Travellers always book at the fixed price, like
    Daytrip and Welcome Pickups; there is no traveller bid mode any more (GetTransfer's model,

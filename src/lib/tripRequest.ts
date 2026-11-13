@@ -5,6 +5,7 @@
  */
 import { HUBS, stopFitsRoute, type HubId } from "./catalog";
 import { seasonForYmd, type CatalogData } from "./catalogModel";
+import { customStopErrors, customStopsProblem, parseCustomStops, type CustomStopSpec, type PricedCustomStop } from "./customStops";
 import { DEFAULT_PICKUP_TIME, DEFAULT_TOUR_TIME, isValidPickupTime, isValidYmd } from "./dates";
 import { cleanPlaceLabel, isGooglePlaceId, type RideRoute } from "./places";
 import { hasContactDetails, parsePrefs, type RidePrefs } from "./preferences";
@@ -65,6 +66,12 @@ export type ItemSpec =
       destinationPlace?: SpecPlace;
       vehicleId: string;
       stopIds: string[];
+      /**
+       * The traveller's own stops, in their order (src/lib/customStops.ts): a Google place and
+       * the minutes there. The server looks each place up again and works out the detour and the
+       * price itself. Older pages and app builds don't send it.
+       */
+      customStops?: CustomStopSpec[];
       pax: number;
       /**
        * Pickup time, Costa Rica time, "HH:MM" (any hour, quarter hours). A time in the night
@@ -200,6 +207,8 @@ export function parseSpec(raw: unknown): ItemSpec | null {
     const originPlace = parseSpecPlace(o.originPlace);
     const destinationPlace = parseSpecPlace(o.destinationPlace);
     if (originPlace === null || destinationPlace === null) return null;
+    const customStops = parseCustomStops(o.customStops);
+    if (customStops === null) return null;
     return {
       kind: "transfer",
       origin: o.origin as HubId,
@@ -208,6 +217,7 @@ export function parseSpec(raw: unknown): ItemSpec | null {
       ...(destinationPlace ? { destinationPlace } : {}),
       vehicleId: o.vehicleId as string,
       stopIds: o.stopIds as string[],
+      ...(customStops.length ? { customStops } : {}),
       pax: o.pax as number,
       pickupTime: (o.pickupTime as string | undefined) ?? DEFAULT_PICKUP_TIME,
       notes: (o.notes as string | undefined) || undefined,
@@ -255,9 +265,18 @@ export interface PricedItem {
  * Price one item from the catalog for its travel date. Throws a readable
  * Error when the item can't be booked as specified (e.g. vehicle switched off).
  * Rides with a typed place need `route`, looked up on the server
- * (src/lib/googleMaps.ts, resolveTransfer).
+ * (src/lib/googleMaps.ts, resolveTransfer). Rides with the traveller's own stops need
+ * `customStops`: the same stops as in the spec, looked up on the server with their detours
+ * (resolveCustomStops); nothing about them is taken from the browser but the place id, the
+ * name and the minutes.
  */
-export function priceItem(spec: ItemSpec, date: string, catalog: CatalogData, route?: RideRoute | null): PricedItem {
+export function priceItem(
+  spec: ItemSpec,
+  date: string,
+  catalog: CatalogData,
+  route?: RideRoute | null,
+  customStops?: readonly PricedCustomStop[] | null,
+): PricedItem {
   if (!isValidYmd(date)) throw new Error("A travel date is missing.");
   const season = seasonForYmd(date, catalog);
 
@@ -279,7 +298,8 @@ export function priceItem(spec: ItemSpec, date: string, catalog: CatalogData, ro
     if (vehicle.onlyForHubs && !vehicle.onlyForHubs.includes(spec.origin) && !vehicle.onlyForHubs.includes(spec.destination)) {
       throw new Error(`The ${vehicle.name} isn't available on this route.`);
     }
-    if (!vehicle.allowsStops && spec.stopIds.length > 0) {
+    const ownStops = spec.customStops ?? [];
+    if (!vehicle.allowsStops && (spec.stopIds.length > 0 || ownStops.length > 0)) {
       throw new Error(`The ${vehicle.name} is a direct ride without stops. Remove the stops or choose another vehicle.`);
     }
     if (vehicle.spanishSpeakingDriver && spec.prefs?.language === "english") {
@@ -291,7 +311,16 @@ export function priceItem(spec: ItemSpec, date: string, catalog: CatalogData, ro
         throw new Error("One of the stops is no longer offered on this route.");
       }
     }
-    const quote = quoteTransfer({ ...spec, season, catalog, route: typed ? route : null });
+    // Own stops: every one must have been looked up on the server (same places, same order),
+    // and together with the catalog stops they must stay inside the limits.
+    const priced = ownStops.length ? (customStops ?? []) : [];
+    if (priced.length !== ownStops.length || priced.some((p, i) => p.id !== ownStops[i].id || p.minutes !== ownStops[i].minutes)) {
+      throw new Error(customStopErrors.unchecked);
+    }
+    const catalogStopMinutes = spec.stopIds.reduce((n, id) => n + (catalog.stops.find((s) => s.id === id)?.durationMin ?? 0), 0);
+    const ownProblem = customStopsProblem(priced, catalogStopMinutes, catalog.customStopLimits);
+    if (ownProblem) throw new Error(ownProblem);
+    const quote = quoteTransfer({ ...spec, customStops: priced, season, catalog, route: typed ? route : null });
     // Guided stops: the per-person tour part (guide, entrance, activity) is paid by the company.
     const stopTourCosts = spec.stopIds.reduce(
       (n, id) => n + (catalog.stops.find((s) => s.id === id)?.tourPerPersonCents ?? 0) * spec.pax,

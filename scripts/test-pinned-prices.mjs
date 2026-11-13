@@ -120,6 +120,31 @@ const stopNight = price(ride("SJO", "ManuelAntonio", "sedan", { stopIds: ["tarco
 check("…the night premium is 20% of the pinned ride, not of the stops", stopNight.nightCents, Math.round(19900 * 0.2));
 check("a class with no pin on that route keeps the formula", price(ride("SJO", "ManuelAntonio", "van"), GREEN, maPins).totalCents, price(ride("SJO", "ManuelAntonio", "van"), GREEN, formulaOnly).totalCents);
 
+// The traveller's own stops (src/lib/customStops.ts, migration 0057) on a pinned route: the pin
+// replaces only the ride part; the own stops are priced on top by the usual stop rule.
+{
+  const { customStopCents } = await import("../src/lib/customStops.ts");
+  const own = [{ id: "ChIJ_own_stop_0001", label: "Mirador", lat: 9.1, lng: -83.7, minutes: 60, detourKm: 6, detourMin: 12 }];
+  const ownSpec = (o, d, extra = {}) => ride(o, d, "sedan", { customStops: own.map(({ id, label, minutes }) => ({ id, label, minutes })), ...extra });
+  const ownPrice = (spec, date, cat, route) => priceItem(parseSpec(spec), date, cat, route, own);
+  const ownCents = customStopCents(own[0], catalog);
+  check("an own stop has a price", ownCents > 0, true);
+  const pinnedOwn = ownPrice(ownSpec("SJO", "PuertoJimenez"), GREEN, catalog);
+  const formulaOwn = ownPrice(ownSpec("SJO", "PuertoJimenez"), GREEN, formulaOnly);
+  check("pinned route + own stop = the pin + the stop", pinnedOwn.totalCents, 49900 + ownCents);
+  check("…the stop costs the same as on the formula price", pinnedOwn.totalCents - 49900, formulaOwn.totalCents - 42300);
+  check("…in high season both carry the season", ownPrice(ownSpec("SJO", "PuertoJimenez"), HIGH, catalog).totalCents, Math.round((49900 + ownCents) * 1.15));
+  const ownNight = ownPrice(ownSpec("SJO", "PuertoJimenez", { pickupTime: "23:00" }), GREEN, catalog);
+  check("…at night only the pinned ride is marked up", [ownNight.nightCents, ownNight.totalCents], [9980, 49900 + ownCents + 9980]);
+  const ownPay = splitPayout(pinnedOwn.totalCents, pinnedOwn.passThroughCents, catalog, pinnedOwn.companyCostCents);
+  check("…payout = 80% of the pin + the stop", ownPay.payoutCents, Math.round((49900 + ownCents) * 0.8));
+  const q = pricing.quoteTransfer({ origin: "PuertoJimenez", destination: "SJO", vehicleId: "van", stopIds: [], customStops: own, pax: 6, season: seasonForYmd(GREEN, catalog), catalog });
+  check("…quote parts (the app's quote and the edit card use these)", [q.baseCents, q.customStopsCents, q.stopsCents, q.totalCents], [60500, ownCents, ownCents, 60500 + ownCents]);
+  check("…drive time = the town table + the detour", [q.driveMinutes, q.stopsMinutes], [360 + 12, 60]);
+  const typedOwn = ownPrice(ownSpec("SJO", "PuertoJimenez", { destinationPlace: { id: "ChIJ_test_place_0009", label: "A lodge" } }), GREEN, catalog, { km: 372, drivingMinutes: 365, totalMinutes: 365, ferries: 0, zones: true });
+  check("…a hotel in the zone with an own stop: still the pin + the stop", typedOwn.totalCents, 49900 + ownCents);
+}
+
 // The 4x4 + Sierpe boat combo follows the 4x4's pin and stays exactly its boat fee above it.
 const combo = catalog.vehicles.find((v) => v.id === "sierpe_combo");
 const drakePins = { ...catalog, pinnedPrices: [{ origin: "SJO", destination: "DrakeBay", vehicleId: "4x4", cents: 40000, bothWays: true }] };
@@ -261,10 +286,10 @@ check("route page of another route is unchanged", pageFromPrices("SJO", "ManuelA
 // price through quoteTransfer() / priceItem() with the live catalog (checked in their source).
 const src = (p) => readFileSync(new URL(`../src/${p}`, import.meta.url), "utf8");
 check("app quote API → quoteTransfer with the live catalog", /await getCatalog\(\)/.test(src("lib/appQuote.ts")) && /quoteTransfer\(\{/.test(src("lib/appQuote.ts")), true);
-check("website request → priceItem with the live catalog", /await getCatalog\(\)/.test(src("app/trip/actions.ts")) && /priceItem\(spec, item\.date, catalog, ride\?\.route\)/.test(src("app/trip/actions.ts")), true);
+check("website request → priceItem with the live catalog", /await getCatalog\(\)/.test(src("app/trip/actions.ts")) && /priceItem\(spec, item\.date, catalog, ride\?\.route\b/.test(src("app/trip/actions.ts")), true);
 check("manual booking → priceItem with the live catalog", /await getCatalog\(\)/.test(src("app/admin/bookings/new/actions.ts")) && /priceItem\(s, date, catalog, route\)/.test(src("app/admin/bookings/new/actions.ts")), true);
-check("booking edit → priceItem with the live catalog", /priceItem\(spec, input\.date, catalog, route\)/.test(src("lib/bookingEditServer.ts")), true);
-check("priceItem → quoteTransfer → rideDriveCents → the pin", /quoteTransfer\(\{ \.\.\.spec, season, catalog/.test(src("lib/tripRequest.ts")) && /withPinnedPrice\(formulaCents, catalog\?\.pinnedPrices/.test(src("lib/pricing.ts")), true);
+check("booking edit → priceItem with the live catalog", /priceItem\(spec, input\.date, catalog, route\b/.test(src("lib/bookingEditServer.ts")), true);
+check("priceItem → quoteTransfer → rideDriveCents → the pin", /quoteTransfer\(\{ \.\.\.spec, [^}]*\bcatalog\b/.test(src("lib/tripRequest.ts")) && /withPinnedPrice\(formulaCents, catalog\?\.pinnedPrices/.test(src("lib/pricing.ts")), true);
 check("the live catalog reads the pins (so the price cache carries them)", /from\("pinned_route_prices"\)/.test(src("lib/catalogSource.ts")) && /pinnedPrices,/.test(src("lib/catalogSource.ts")), true);
 const quote = pricing.quoteTransfer({ origin: "SJO", destination: "PuertoJimenez", vehicleId: "sedan", stopIds: [], pax: 2, season: seasonForYmd(GREEN, catalog), catalog, pickupTime: "09:00" });
 check("quoteTransfer: base, total and drive time", [quote.baseCents, quote.totalCents, quote.driveMinutes], [49900, 49900, 360]);
