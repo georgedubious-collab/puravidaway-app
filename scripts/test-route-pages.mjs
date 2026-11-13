@@ -113,6 +113,25 @@ for (const p of ROUTE_PAGES) {
   ok(`${name}: Spanish is not the English text`, p.lead.es !== p.lead.en && p.road.es !== p.road.en && p.faqs.every((f) => f.a.es !== f.a.en));
 }
 
+// Pinned route prices (docs/PRICING.md §4.5): the pages of a pinned route show the pinned
+// "from" price in both directions, and removing the pin brings the formula back.
+{
+  const noPins = { ...BUILT_IN_CATALOG, pinnedPrices: [] };
+  for (const slug of ["sjo-airport-to-puerto-jimenez", "puerto-jimenez-to-sjo-airport"]) {
+    const p = ROUTE_PAGES.find((x) => x.slug === slug);
+    ok(`${slug}: page exists`, Boolean(p));
+    if (!p) continue;
+    const pinned = pageFromPrices(p.origin, p.destination, BUILT_IN_CATALOG);
+    ok(`${slug}: "from" is the pinned Economy price`, pinned.fromCents === 48900 && pinned.cheapest.id === "economy", String(pinned.fromCents));
+    const table = pageVehiclePrices(p.origin, p.destination, BUILT_IN_CATALOG).map((c) => c.cents).join(",");
+    ok(`${slug}: class table is the pinned prices`, table === "48900,49900,54900,58500,60500", table);
+    const formula = pageFromPrices(p.origin, p.destination, noPins);
+    ok(`${slug}: without the pin the formula price is back`, formula.fromCents === (p.origin === "SJO" ? 38100 : 43800), String(formula.fromCents));
+  }
+  const other = ROUTE_PAGES.filter((p) => !(p.origin === "PuertoJimenez" || p.destination === "PuertoJimenez"));
+  ok("every other route page keeps its formula price", other.every((p) => pageFromPrices(p.origin, p.destination, BUILT_IN_CATALOG).fromCents === pageFromPrices(p.origin, p.destination, noPins).fromCents));
+}
+
 if (failures.length) {
   console.error(`Route pages: ${failures.length} failed, ${passed} passed`);
   for (const f of failures) console.error(`  ✗ ${f}`);

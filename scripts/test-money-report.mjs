@@ -61,6 +61,23 @@ const ride = (totalCents, passThroughCents = 0) => ({ kind: "transfer", totalCen
 const tour = (totalCents, companyCostCents) => ({ kind: "day_tour", totalCents, passThroughCents: 0, companyCostCents });
 const ctx = (items, over = {}) => ({ today: TODAY, usesTotal: 0, usesByEmail: 0, items, ...over });
 
+// --- Promo codes on a pinned route price (docs/PRICING.md §4.5) -----------------------------------
+// The pin only replaces the ride's base price; a code is worked out from the pinned total as usual.
+{
+  const pinnedRide = trip.priceItem(trip.parseSpec({ kind: "transfer", origin: "SJO", destination: "PuertoJimenez", vehicleId: "sedan", stopIds: [], pax: 2, pickupTime: "09:00" }), "2027-06-15", catalog);
+  eq("pinned route: SJO → Puerto Jiménez, Standard, green season", pinnedRide.totalCents, 49900);
+  const pinnedItem = { kind: "transfer", totalCents: pinnedRide.totalCents, passThroughCents: pinnedRide.passThroughCents, companyCostCents: pinnedRide.companyCostCents, boatCents: pinnedRide.boatCents };
+  const pay = splitPayout(pinnedRide.totalCents, pinnedRide.passThroughCents, catalog, pinnedRide.companyCostCents);
+  eq("pinned route: payout 80%, our share 20%", [pay.payoutCents, pay.feeCents], [39920, 9980]);
+  eq("pinned route: the most a code may take off (twice our commission)", pr.maxDiscountCents(pinnedItem, catalog), 19960);
+  const line = pr.applyPromo(code({ value: 15 }), [pinnedItem], catalog).lines[0];
+  eq("pinned route: 15% code, odd cent stays with us", [line.discountCents, line.driverCents, line.platformCents], [7485, 3742, 3743]);
+  eq("pinned route: money after the code", pr.discountedMoney(pinnedRide.totalCents, pay, line), { totalCents: 42415, payoutCents: 36178, feeCents: 6237 });
+  const capped = pr.applyPromo(code({ value: 75 }), [pinnedItem], catalog).lines[0];
+  eq("pinned route: a 75% code is capped", [capped.discountCents, capped.platformCents <= pay.feeCents], [19960, true]);
+  eq("pinned route: cash booking fee on what is left", cashFeeCents(42415, catalog.cashFeeBps), 4242);
+}
+
 // --- Promo codes: can it be used? ----------------------------------------------------------------
 eq("valid code → no problem", pr.promoProblem(code(), ctx([ride(20000)])), null);
 eq("inactive", pr.promoProblem(code({ active: false }), ctx([ride(20000)])), "inactive");

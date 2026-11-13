@@ -18,6 +18,7 @@ import {
 } from "@/lib/catalog";
 import { CUSTOM_STOP_LIMITS_DEFAULT } from "@/lib/customStops";
 import { DRIVER_COMMISSION_BPS_DEFAULT } from "@/lib/payout";
+import { PIN_CLASS_ALIAS } from "@/lib/pinnedPrices";
 import { formatUSD, nightPremiumCents, rideCents } from "@/lib/pricing";
 import { NIGHT_PREMIUM_DEFAULT, hourLabel, nightPercent, nightPremiumOn, nightWindow, type NightPremium } from "@/lib/nightPremium";
 import { requireRole } from "@/lib/auth";
@@ -29,8 +30,11 @@ import Link from "next/link";
 import { PageHeader, SectionHeading } from "@/components/admin/ui";
 import type { ConfirmRule } from "@/components/admin/AdminActionForm";
 import {
+  addPinnedRoute,
   addSeasonRange,
   addStop,
+  removePinnedRoute,
+  savePinnedRoute,
   deleteSeasonRange,
   saveDayTour,
   saveAreaFactors,
@@ -70,6 +74,7 @@ interface Settings {
 const EXAMPLES: [HubId, HubId][] = [
   ["LIR", "Tamarindo"], ["SJO", "Arenal"], ["SJO", "ManuelAntonio"], ["SJO", "Tamarindo"], ["Arenal", "Monteverde"], ["SJO", "Sierpe"],
 ];
+interface Pin { origin_hub: HubId; destination_hub: HubId; vehicle_class_id: string; price: number; both_ways: boolean }
 interface Stop { id: string; name: string; description: string; duration_min: number; price: number | null; detour_km?: number; detour_min?: number; tour_price_pp?: number; park_fee_included: boolean; entrance?: string; corridors: string[]; active: boolean }
 interface Tour { id: string; region: Region; name: string; duration_hours: number; price: number | null; price_pp_solo?: number; price_pp_small?: number; price_pp_group?: number; cost_pp?: number; en_route_upgrade_price: number; active: boolean }
 interface Expedition { id: string; name: string; days: number; nights: number; base_price: number; active: boolean }
@@ -85,7 +90,7 @@ export default async function PricingPage() {
   const lang = await getTeamLang();
   const t = makeT(lang);
   const db = (await createSupabaseServerClient())!;
-  const [v, s, tours, e, l, se, r, ps, hp] = await Promise.all([
+  const [v, s, tours, e, l, se, r, ps, hp, pins] = await Promise.all([
     db.from("vehicle_classes").select("*").order("sort_order").returns<Vehicle[]>(),
     db.from("sightseeing_stops").select("*").order("sort_order").returns<Stop[]>(),
     db.from("day_tours").select("*").order("sort_order").returns<Tour[]>(),
@@ -95,6 +100,7 @@ export default async function PricingPage() {
     db.from("season_ranges").select("*").order("starts_on").returns<Range[]>(),
     db.from("pricing_settings").select("*").maybeSingle<Settings>(),
     db.from("hub_pricing").select("hub_id, area_factor").returns<{ hub_id: AreaId; area_factor: number }[]>(),
+    db.from("pinned_route_prices").select("origin_hub, destination_hub, vehicle_class_id, price, both_ways").order("origin_hub").order("destination_hub").returns<Pin[]>(),
   ]);
   const cashFeeBps = ps.data?.cash_fee_bps ?? CASH_FEE_BPS_DEFAULT;
   // Migration 0013 adds the formula columns and hub_pricing.
@@ -155,6 +161,18 @@ export default async function PricingPage() {
     areaFactorBps: areaBps,
   };
   const hubName = (id: HubId) => HUBS.find((h) => h.id === id)?.name ?? id;
+  // Pinned prices (migration 0058): one card per town pair. The combo class follows the 4x4.
+  const pinsReady = !pins.error;
+  const pinClasses = (v.data ?? []).filter((x) => !PIN_CLASS_ALIAS[x.id]);
+  const pinnedRoutes = [...new Map((pins.data ?? []).map((x) => [`${x.origin_hub}|${x.destination_hub}`, x])).values()].map((first) => ({
+    origin: first.origin_hub,
+    destination: first.destination_hub,
+    bothWays: first.both_ways,
+    prices: new Map((pins.data ?? []).filter((x) => x.origin_hub === first.origin_hub && x.destination_hub === first.destination_hub).map((x) => [x.vehicle_class_id, Number(x.price)])),
+  }));
+  /** What the formula charges for a class on a route today (no stops, green season, without the pin). */
+  const formulaPrice = (a: HubId, b: HubId, x: Vehicle) =>
+    rideCents(a, b, { priceFactorBps: Math.round(Number(x.price_factor ?? 1) * 10000), extraFeeCents: 0 }, exampleCatalog);
   const liveLabel = t("Visible", "Live");
   const priceChange = (fields: string[], what: string): ConfirmRule[] => [
     {
@@ -283,6 +301,109 @@ export default async function PricingPage() {
             ))}
           </AdminForm>
         </Card>
+      </Section>
+
+      <Section
+        title={t("Precios fijos por ruta", "Pinned route prices")}
+        note={t(
+          "Para una ruta entre dos de nuestros pueblos puede fijar usted el precio de cada vehículo: ese precio reemplaza al de la fórmula (ya con el factor del vehículo y el de zona). Encima se aplican igual que siempre la temporada, el recargo nocturno, las paradas, el ferry o el bote, el cargo por efectivo, los códigos promocionales y el pago al conductor. Un vehículo que deje vacío sigue con la fórmula. El combo 4x4 + bote usa el precio fijo del 4x4 más el bote. Vale también para hoteles y direcciones dentro de esos pueblos; un lugar más lejano se cobra con la fórmula, y nunca menos que el precio fijo si el viaje es igual de largo o más.",
+          "For a route between two of our towns you can set each vehicle's price yourself: it replaces the formula's price (already with the vehicle and area factors). The season, night premium, stops, ferry or boat, cash fee, promo codes and the driver's payout apply on top as always. A vehicle left empty keeps the formula. The 4x4 + boat combo uses the 4x4's pinned price plus the boat. It also counts for hotels and addresses inside those towns; a place further away is priced by the formula, and never below the pinned price when the ride is as long or longer.",
+        )}
+      >
+        {!pinsReady ? (
+          <Card>
+            <p className="text-sm text-amber-800">
+              {t(
+                "Esta sección aparece cuando la migración 20261112000058_pinned_route_prices.sql se haya aplicado (se aplica sola después de publicar el cambio).",
+                "This section appears once migration 20261112000058_pinned_route_prices.sql has been applied (it runs by itself after the change is published).",
+              )}
+            </p>
+          </Card>
+        ) : (
+          <>
+            {pinnedRoutes.length === 0 && (
+              <Card>
+                <p className="text-sm text-[#5F6F67]">{t("Ninguna ruta tiene precio fijo: todas usan la fórmula.", "No route has a pinned price: every route uses the formula.")}</p>
+              </Card>
+            )}
+            {pinnedRoutes.map((route) => {
+              const arrow = route.bothWays ? "↔" : "→";
+              const routeName = `${hubName(route.origin)} ${arrow} ${hubName(route.destination)}`;
+              return (
+                <Card key={`${route.origin}|${route.destination}`}>
+                  <p className="mb-3 text-base font-extrabold text-[#14231C]">{routeName}</p>
+                  <AdminForm
+                    lang={lang}
+                    action={savePinnedRoute}
+                    confirm={priceChange([...pinClasses.map((x) => `price_${x.id}`), "both_ways"], t(`el precio fijo de ${routeName}`, `the pinned price of ${routeName}`))}
+                    className="grid gap-3 grid-cols-2 sm:grid-cols-6 items-start"
+                  >
+                    <input type="hidden" name="origin_hub" value={route.origin} />
+                    <input type="hidden" name="destination_hub" value={route.destination} />
+                    {pinClasses.map((x) => {
+                      const there = formulaPrice(route.origin, route.destination, x);
+                      const back = formulaPrice(route.destination, route.origin, x);
+                      return (
+                        <Field key={x.id} l={`${x.name}${x.active ? "" : t(" (oculto)", " (hidden)")} (USD)`}>
+                          <input name={`price_${x.id}`} inputMode="decimal" defaultValue={route.prices.get(x.id) ?? ""} placeholder={t("fórmula", "formula")} className={input} />
+                          <span className="mt-1 block text-xs font-normal text-[#5F6F67]">
+                            {t("Fórmula", "Formula")}: {formatUSD(there)}
+                            {route.bothWays && back !== there ? ` · ${t("de regreso", "way back")} ${formatUSD(back)}` : ""}
+                          </span>
+                        </Field>
+                      );
+                    })}
+                    <label className="col-span-2 flex items-center gap-2 text-sm font-bold min-h-10 sm:col-span-6">
+                      <input type="checkbox" name="both_ways" defaultChecked={route.bothWays} /> {t("Mismo precio en los dos sentidos", "Same price both ways")}
+                    </label>
+                  </AdminForm>
+                  <AdminForm
+                    lang={lang}
+                    action={removePinnedRoute}
+                    submitLabel={t("Quitar precio fijo", "Remove pinned price")}
+                    danger
+                    confirm={[{ kind: "always", message: t(`Se quita el precio fijo de ${routeName}: las reservas nuevas vuelven al precio de la fórmula. Las reservas ya hechas mantienen su precio.`, `The pinned price of ${routeName} is removed: new bookings go back to the formula price. Existing bookings keep their price.`) }]}
+                    className="mt-3"
+                  >
+                    <input type="hidden" name="origin_hub" value={route.origin} />
+                    <input type="hidden" name="destination_hub" value={route.destination} />
+                  </AdminForm>
+                </Card>
+              );
+            })}
+            <Card>
+              <p className="mb-3 text-sm font-extrabold text-[#14231C]">{t("Agregar una ruta con precio fijo", "Add a route with a pinned price")}</p>
+              <AdminForm
+                lang={lang}
+                action={addPinnedRoute}
+                submitLabel={t("Agregar ruta", "Add route")}
+                confirm={[{ kind: "always", message: t("Los precios que escribió reemplazan a la fórmula en esa ruta para las reservas nuevas del sitio web y de la app. Las reservas ya hechas mantienen su precio.", "The prices you entered replace the formula on that route for new bookings on the website and app. Existing bookings keep their price.") }]}
+                className="grid gap-3 grid-cols-2 sm:grid-cols-6 items-end"
+              >
+                <Field l={t("Desde", "From")} className="col-span-2 sm:col-span-3">
+                  <select name="origin_hub" defaultValue="" required className={input}>
+                    <option value="" disabled>{t("Elija un pueblo", "Choose a town")}</option>
+                    {HUBS.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}
+                  </select>
+                </Field>
+                <Field l={t("Hasta", "To")} className="col-span-2 sm:col-span-3">
+                  <select name="destination_hub" defaultValue="" required className={input}>
+                    <option value="" disabled>{t("Elija un pueblo", "Choose a town")}</option>
+                    {HUBS.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}
+                  </select>
+                </Field>
+                {pinClasses.map((x) => (
+                  <Field key={x.id} l={`${x.name} (USD)`}>
+                    <input name={`price_${x.id}`} inputMode="decimal" placeholder={t("fórmula", "formula")} className={input} />
+                  </Field>
+                ))}
+                <label className="col-span-2 flex items-center gap-2 text-sm font-bold min-h-10 sm:col-span-6">
+                  <input type="checkbox" name="both_ways" defaultChecked /> {t("Mismo precio en los dos sentidos", "Same price both ways")}
+                </label>
+              </AdminForm>
+            </Card>
+          </>
+        )}
       </Section>
 
       <Section

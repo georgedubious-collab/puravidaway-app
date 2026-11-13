@@ -1087,8 +1087,10 @@ await expectRows("drivers' functions never return the night premium (it is part 
   {
     const areas = (await as("anon", "select hub_id, area_factor from public.hub_pricing")).rows;
     const seasonRows = (await as("anon", "select id, multiplier from public.seasons")).rows;
+    // The formula itself, without the route's pinned price (migration 0058, checked further down).
     const pjCatalog = {
       ...catalog,
+      pinnedPrices: [],
       areaFactorBps: { ...catalog.areaFactorBps, ...Object.fromEntries(areas.map((r) => [r.hub_id, Math.round(Number(r.area_factor) * 10000)])) },
       seasons: catalog.seasons.map((s) => {
         const row = seasonRows.find((r) => r.id === s.id);
@@ -1115,6 +1117,85 @@ await expectRows("drivers' functions never return the night premium (it is part 
     const changed = Math.round(Number((await as("anon", "select area_factor from public.hub_pricing where hub_id = 'PuertoJimenez'")).rows[0].area_factor) * 10000);
     expectEq("…the price follows the database", pj("PuertoJimenez", "SJO", "sedan", DATE, { ...pjCatalog, areaFactorBps: { ...pjCatalog.areaFactorBps, PuertoJimenez: changed } }).totalCents, 52900);
     await expectOk("admin restores the Puerto Jiménez area factor", "admin", "update public.hub_pricing set area_factor = 1.15 where hub_id = 'PuertoJimenez'");
+
+    // Migration 0058: pinned route prices. Read by everyone, written by admins only; the
+    // server's price functions run with the pins read from this database, as a visitor.
+    const { readPinnedPrices } = await import("../../src/lib/pinnedPrices.ts");
+    const { HUB_IDS } = await import("../../src/lib/catalog.ts");
+    const { applyPromo, maxDiscountCents } = await import("../../src/lib/promo.ts");
+    const { pageFromPrices } = await import("../../src/lib/routePrices.ts");
+    const T = "public.pinned_route_prices";
+    const pinCatalog = async () => ({
+      ...pjCatalog,
+      pinnedPrices: readPinnedPrices((await as("anon", `select origin_hub, destination_hub, vehicle_class_id, price, both_ways from ${T}`)).rows, HUB_IDS),
+    });
+    await expectRows("pinned prices: RLS is on", "server", `select 1 from pg_class where oid = '${T}'::regclass and relrowsecurity`, 1);
+    await expectRows("visitor reads the pinned prices (5 classes, SJO ↔ Puerto Jiménez)", "anon", `select * from ${T}`, 5);
+    await expectRows("seeded: Economy $489, Standard $499, Minivan $549, 4x4 $585, Van $605, both ways", "anon",
+      `select 1 from ${T} where origin_hub = 'SJO' and destination_hub = 'PuertoJimenez' and both_ways
+        and (vehicle_class_id, price) in (('economy', 489), ('sedan', 499), ('suv', 549), ('4x4', 585), ('van', 605))`, 5);
+    for (const who of ["anon", "client", "driver", "pending"]) {
+      await expectBlocked(`${who} cannot change a pinned price`, who, `update ${T} set price = 1`, { affected: 0 });
+      await expectBlocked(`${who} cannot add a pinned price`, who, `insert into ${T} (origin_hub, destination_hub, vehicle_class_id, price) values ('SJO', 'Arenal', 'sedan', 1)`);
+      await expectBlocked(`${who} cannot remove a pinned price`, who, `delete from ${T}`, { affected: 0 });
+    }
+    await expectRows("…nothing changed", "anon", `select 1 from ${T} where price in (489, 499, 549, 585, 605)`, 5);
+    await expectBlocked("unknown town refused", "admin", `insert into ${T} (origin_hub, destination_hub, vehicle_class_id, price) values ('Narnia', 'SJO', 'sedan', 100)`);
+    await expectBlocked("same town twice refused", "admin", `insert into ${T} (origin_hub, destination_hub, vehicle_class_id, price) values ('SJO', 'SJO', 'sedan', 100)`);
+    await expectBlocked("unknown vehicle class refused", "admin", `insert into ${T} (origin_hub, destination_hub, vehicle_class_id, price) values ('SJO', 'Arenal', 'limo', 100)`);
+    await expectBlocked("zero price refused", "admin", `insert into ${T} (origin_hub, destination_hub, vehicle_class_id, price) values ('SJO', 'Arenal', 'sedan', 0)`);
+    await expectBlocked("absurd price refused", "admin", `insert into ${T} (origin_hub, destination_hub, vehicle_class_id, price) values ('SJO', 'Arenal', 'sedan', 90000)`);
+    await expectBlocked("the same route and class twice refused", "admin", `insert into ${T} (origin_hub, destination_hub, vehicle_class_id, price) values ('SJO', 'PuertoJimenez', 'sedan', 480)`);
+
+    let pinned = await pinCatalog();
+    expectEq("pinned: SJO → Puerto Jiménez, Standard", pj("SJO", "PuertoJimenez", "sedan", DATE, pinned).totalCents, 49900);
+    expectEq("pinned: Puerto Jiménez → SJO costs the same", pj("PuertoJimenez", "SJO", "sedan", DATE, pinned).totalCents, 49900);
+    expectEq("pinned: Economy, Minivan, 4x4, Van",
+      ["economy", "suv", "4x4", "van"].map((id) => pj("SJO", "PuertoJimenez", id, DATE, pinned).totalCents).join(), "48900,54900,58500,60500");
+    expectEq("pinned: high season = pin × the database multiplier", pj("SJO", "PuertoJimenez", "sedan", "2027-01-20", pinned).totalCents, Math.round((49900 * high.multiplierBps) / 10000));
+    const pinNight = priceItem(parseSpec({ kind: "transfer", origin: "SJO", destination: "PuertoJimenez", vehicleId: "sedan", stopIds: [], pax: 2, pickupTime: "23:30", pricing: "fixed" }), DATE, pinned);
+    expectEq("pinned: night premium on top (database %)", pinNight.nightCents, Math.round((49900 * pinned.nightPremium.bps) / 10000));
+    expectEq("pinned: night total", pinNight.totalCents, 49900 + pinNight.nightCents);
+    const pinDay = pj("SJO", "PuertoJimenez", "sedan", DATE, pinned);
+    const keepShare = 1 - pinned.driverCommissionBps / 10000;
+    expectEq("pinned: driver payout = the driver's share of the pinned price", splitPayout(pinDay.totalCents, pinDay.passThroughCents, pinned, pinDay.companyCostCents).payoutCents, Math.round(49900 * keepShare));
+    const pinItem = { kind: "transfer", totalCents: pinDay.totalCents, passThroughCents: pinDay.passThroughCents, companyCostCents: pinDay.companyCostCents, boatCents: pinDay.boatCents };
+    expectEq("pinned: a promo code is capped at twice our commission on the pinned price", maxDiscountCents(pinItem, pinned), Math.round(49900 * (1 - keepShare) * 2));
+    expectEq("pinned: 10% code = $49.90, half from the driver", applyPromo({ discount_type: "percent", value: 10, applies_to: "both" }, [pinItem], pinned).lines[0].driverCents, 2495);
+    expectEq("pinned: the route page's \"from\" price", pageFromPrices("SJO", "PuertoJimenez", pinned).fromCents, 48900);
+    expectEq("pinned: other routes unchanged (Manuel Antonio → Puerto Jiménez)", pj("ManuelAntonio", "PuertoJimenez", "sedan", DATE, pinned).totalCents, 26900);
+    expectEq("pinned: other routes unchanged (SJO → Manuel Antonio)", pj("SJO", "ManuelAntonio", "sedan", DATE, pinned).totalCents, 20200);
+
+    await expectOk("admin changes a pinned price", "admin", `update ${T} set price = 515 where origin_hub = 'SJO' and destination_hub = 'PuertoJimenez' and vehicle_class_id = 'sedan'`);
+    await expectRows("…updated_at moved", "anon", `select 1 from ${T} where vehicle_class_id = 'sedan' and price = 515 and updated_at >= now() - interval '1 minute'`, 1);
+    pinned = await pinCatalog();
+    expectEq("…the price follows the database", pj("SJO", "PuertoJimenez", "sedan", DATE, pinned).totalCents, 51500);
+    await expectOk("admin makes the route one-way", "admin", `update ${T} set both_ways = false where origin_hub = 'SJO' and destination_hub = 'PuertoJimenez'`);
+    pinned = await pinCatalog();
+    expectEq("…to Puerto Jiménez pinned, back by the formula", [pj("SJO", "PuertoJimenez", "sedan", DATE, pinned).totalCents, pj("PuertoJimenez", "SJO", "sedan", DATE, pinned).totalCents].join(), "51500,48600");
+    await expectOk("admin pins the way back at its own price", "admin", `insert into ${T} (origin_hub, destination_hub, vehicle_class_id, price, both_ways) values ('PuertoJimenez', 'SJO', 'sedan', 525, false)`);
+    pinned = await pinCatalog();
+    expectEq("…each direction its own price", [pj("SJO", "PuertoJimenez", "sedan", DATE, pinned).totalCents, pj("PuertoJimenez", "SJO", "sedan", DATE, pinned).totalCents].join(), "51500,52500");
+    await expectOk("admin removes one class's pin", "admin", `delete from ${T} where vehicle_class_id = 'van'`);
+    pinned = await pinCatalog();
+    expectEq("…that class is back on the formula, the others stay pinned", [pj("SJO", "PuertoJimenez", "van", DATE, pinned).totalCents, pj("SJO", "PuertoJimenez", "economy", DATE, pinned).totalCents].join(), "57100,48900");
+    await expectOk("admin removes every pin", "admin", `delete from ${T}`);
+    pinned = await pinCatalog();
+    expectEq("…no pins left", pinned.pinnedPrices.length, 0);
+    expectEq("…the route is back on the formula, both ways", [pj("SJO", "PuertoJimenez", "sedan", DATE, pinned).totalCents, pj("PuertoJimenez", "SJO", "sedan", DATE, pinned).totalCents].join(), "42300,48600");
+    // Running the migration again (it never should, but must be harmless) seeds only what is missing.
+    await db.exec(readFileSync(join(dir, "20261112000058_pinned_route_prices.sql"), "utf8"));
+    await expectRows("re-running the migration restores the seed once", "anon", `select * from ${T}`, 5);
+    await db.exec(readFileSync(join(dir, "20261112000058_pinned_route_prices.sql"), "utf8"));
+    await expectRows("…and never duplicates or overwrites", "anon", `select * from ${T}`, 5);
+    await expectOk("admin edits, then the migration runs again", "admin", `update ${T} set price = 510 where vehicle_class_id = 'sedan'`);
+    await db.exec(readFileSync(join(dir, "20261112000058_pinned_route_prices.sql"), "utf8"));
+    await expectRows("…the admin's price is kept", "anon", `select 1 from ${T} where vehicle_class_id = 'sedan' and price = 510`, 1);
+    await expectOk("admin restores the seeded price", "admin", `update ${T} set price = 499 where vehicle_class_id = 'sedan'`);
+    await expectOk("server adds a temporary vehicle class", "server", `insert into public.vehicle_classes (id, name, max_pax, luggage, badge, sort_order) values ('tmp_class', 'Tmp', 2, '', '', 99)`);
+    await expectOk("…with a pinned price", "admin", `insert into ${T} (origin_hub, destination_hub, vehicle_class_id, price) values ('SJO', 'Arenal', 'tmp_class', 150)`);
+    await expectOk("a vehicle class that is deleted takes its pins with it (no orphan rows)", "server", `delete from public.vehicle_classes where id = 'tmp_class'`);
+    await expectRows("…gone", "anon", `select * from ${T} where vehicle_class_id = 'tmp_class'`, 0);
   }
 
   // The team changes the settings in /admin/pricing: prices follow the database.

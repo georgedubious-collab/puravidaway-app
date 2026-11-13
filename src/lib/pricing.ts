@@ -29,6 +29,7 @@ import {
 import type { CatalogData } from "./catalogModel";
 import { customStopCents, type CustomStopInputs } from "./customStops";
 import { NIGHT_PREMIUM_DEFAULT, nightBpsFor, type NightPremium } from "./nightPremium";
+import { withPinnedPrice } from "./pinnedPrices";
 import type { RideRoute } from "./places";
 
 export function applyMultiplier(cents: number, multiplierBps: number): number {
@@ -74,8 +75,8 @@ export function formatDuration(minutes: number, lang: "en" | "es" = "en"): strin
 export function rideCents(
   origin: HubId,
   destination: HubId,
-  vehicle: Pick<VehicleClass, "priceFactorBps" | "extraFeeCents">,
-  catalog?: Pick<CatalogData, "rideFormula" | "areaFactorBps">,
+  vehicle: Pick<VehicleClass, "priceFactorBps" | "extraFeeCents"> & { id?: string },
+  catalog?: Pick<CatalogData, "rideFormula" | "areaFactorBps"> & Partial<Pick<CatalogData, "pinnedPrices">>,
   route?: RideRoute | null,
 ): number {
   if (!route && origin === destination) return 0;
@@ -86,12 +87,17 @@ export function rideCents(
  * The driving part of rideCents(): standard × vehicle factor × area factor, rounded to whole
  * dollars, WITHOUT the vehicle's extra fee (the Drake Bay river boat). This is the amount the
  * night-pickup premium is charged on.
+ *
+ * A pinned price for the two towns and the vehicle's class (catalog.pinnedPrices,
+ * docs/PRICING.md §4.5) replaces the formula here, so the season, the night premium and
+ * everything else apply on top of it exactly as on any other ride. A vehicle passed without
+ * its `id` (the admin's formula examples) always gets the formula.
  */
 export function rideDriveCents(
   origin: HubId,
   destination: HubId,
-  vehicle: Pick<VehicleClass, "priceFactorBps">,
-  catalog?: Pick<CatalogData, "rideFormula" | "areaFactorBps">,
+  vehicle: Pick<VehicleClass, "priceFactorBps"> & { id?: string },
+  catalog?: Pick<CatalogData, "rideFormula" | "areaFactorBps"> & Partial<Pick<CatalogData, "pinnedPrices">>,
   route?: RideRoute | null,
 ): number {
   if (!route && origin === destination) return 0;
@@ -103,7 +109,8 @@ export function rideDriveCents(
   const formula = f.baseFareCents + f.perKmCents * km + (f.perHourCents * drivingMinutes) / 60;
   const standard = Math.max(f.minimumFareCents, formula);
   const scaled = (standard * vehicle.priceFactorBps * areaBps) / 1e8;
-  return Math.round(scaled / 100) * 100;
+  const formulaCents = Math.round(scaled / 100) * 100;
+  return withPinnedPrice(formulaCents, catalog?.pinnedPrices, origin, destination, vehicle.id, route, routeKm(origin, destination));
 }
 
 /**

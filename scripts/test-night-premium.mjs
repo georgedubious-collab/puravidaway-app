@@ -155,6 +155,15 @@ check("boat fee exists", boat.extraFeeCents > 0, true);
 check("boat: the premium is 20% of the ride without the boat fee", boatNight.nightCents, Math.round((boatDay.totalCents - boat.extraFeeCents) * 0.2));
 check("boat: total = day + premium", boatNight.totalCents, boatDay.totalCents + boatNight.nightCents);
 
+// A pinned route price (docs/PRICING.md §4.5) is marked up like the formula's: +20% of the pin, after the season.
+const pinned = (time, date = GREEN) => price({ ...ride(time), destination: "PuertoJimenez" }, date);
+check("pinned route by day (SJO → Puerto Jiménez, Standard)", pinned("09:00").totalCents, 49900);
+check("pinned route at night: +20% of the pinned price", pinned("23:30").nightCents, 9980);
+check("pinned route at night: total", pinned("23:30").totalCents, 59880);
+check("pinned route, high season at night: pin × season × 1.2", pinned("23:30", HIGH).totalCents, Math.round(49900 * 1.15 * 1.2));
+check("pinned route: payout rises by 80% of the premium",
+  splitPayout(pinned("23:30").totalCents, 0, catalog, 0).payoutCents - splitPayout(pinned("09:00").totalCents, 0, catalog, 0).payoutCents, Math.round(9980 * 0.8));
+
 // Travellers book at the fixed price only (2026-11-11): a "name your price" ride is never parsed or priced.
 check("an offer ride is not parsed", parseSpec({ ...ride("23:30"), pricing: "bid", offerCents: 15000 }), null);
 check("a ride without a pricing field is the fixed price", price({ ...ride("23:30"), pricing: undefined }).totalCents, night2330.totalCents);
