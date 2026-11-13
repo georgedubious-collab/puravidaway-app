@@ -195,4 +195,25 @@ export const HUB_BLOCKS: Record<HubId, HubBlock> = {
         "Sí. Escriba su hotel o alojamiento exacto en el planificador de viajes; las playas cercanas quedan a poca distancia.",
       ),
   },
+  PuertoJimenez: {
+    slug: "puerto-jimenez",
+    name: { en: "Puerto Jiménez", es: "Puerto Jiménez" },
+    esFrom: "de Puerto Jiménez",
+    esTo: "a Puerto Jiménez",
+    long: "Puerto Jiménez on the Osa Peninsula, the road gateway to Corcovado",
+    esFromLong: "de Puerto Jiménez, en la península de Osa, la entrada por carretera a Corcovado",
+    esToLong: "a Puerto Jiménez, en la península de Osa, la entrada por carretera a Corcovado",
+    place: {
+      en: "your hotel or lodge in Puerto Jiménez, or the town's small airstrip",
+      es: "su hotel o lodge en Puerto Jiménez, o la pequeña pista de aterrizaje del pueblo",
+    },
+    pickupFaq: hotelPickup("Puerto Jiménez", "Puerto Jiménez"),
+    arrivalFaq: () =>
+      faq(
+        "Can we visit Corcovado from Puerto Jiménez?",
+        "¿Podemos visitar Corcovado desde Puerto Jiménez?",
+        "Yes, Puerto Jiménez is the usual base on the road side of the park. Corcovado needs a certified guide and SINAC permits booked in advance, and overnights at Sirena Station have limited space, so book your guide early; the guide and the permit are booked separately from your ride.",
+        "Sí, Puerto Jiménez es la base habitual del lado del parque al que se llega por carretera. Corcovado requiere un guía certificado y permisos del SINAC reservados con anticipación, y las noches en la Estación Sirena tienen cupo limitado, así que conviene reservar el guía con tiempo; el guía y el permiso se reservan aparte de su traslado.",
+      ),
+  },
 };

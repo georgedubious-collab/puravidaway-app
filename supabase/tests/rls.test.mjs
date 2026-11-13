@@ -164,8 +164,8 @@ await expectBlocked("client cannot change the ride formula", "client", "update p
 await expectOk("admin changes the ride formula", "admin", "update public.pricing_settings set ride_per_km = 0.75");
 await expectBlocked("negative per-km price is refused", "admin", "update public.pricing_settings set ride_per_km = -1");
 await expectOk("admin resets the ride formula", "admin", "update public.pricing_settings set ride_per_km = 0.90");
-await expectRows("visitor reads the 9 town + 1 extra area factors", "anon", "select * from public.hub_pricing", 10);
-await expectRows("Osa pickups cost 15% more", "anon", "select * from public.hub_pricing where hub_id in ('Sierpe','DrakeBay') and area_factor = 1.15", 2);
+await expectRows("visitor reads the 10 town + 1 extra area factors", "anon", "select * from public.hub_pricing", 11);
+await expectRows("Osa pickups cost 15% more (Sierpe, Drake Bay, Puerto Jiménez)", "anon", "select * from public.hub_pricing where hub_id in ('Sierpe','DrakeBay','PuertoJimenez') and area_factor = 1.15", 3);
 await expectBlocked("visitor cannot change an area factor", "anon", "update public.hub_pricing set area_factor = 1", { affected: 0 });
 await expectBlocked("client cannot change an area factor", "client", "update public.hub_pricing set area_factor = 1", { affected: 0 });
 await expectBlocked("client cannot add a town", "client", "insert into public.hub_pricing (hub_id) values ('SJO')");
@@ -666,6 +666,12 @@ await expectRows("commission setting seeded", "anon", "select * from public.pric
 await expectOk("driver sets their home town", "driver", `update public.drivers set home_hub = 'Arenal' where id = '${U.driver}'`);
 await expectRows("home town change does not send the driver back to review", "admin",
   `select 1 from public.drivers where id = '${U.driver}' and home_hub = 'Arenal' and not needs_review`, 1);
+await expectOk("driver can be based in Puerto Jiménez", "driver", `update public.drivers set home_hub = 'PuertoJimenez' where id = '${U.driver}'`);
+await expectRows("…saved", "driver", `select 1 from public.drivers where id = '${U.driver}' and home_hub = 'PuertoJimenez'`, 1);
+await expectOk("…and Southern Nicoya still allowed", "driver", `update public.drivers set home_hub = 'SouthNicoya' where id = '${U.driver}'`);
+await expectRows("one home-town check on drivers", "server",
+  "select 1 from pg_constraint where conrelid = 'public.drivers'::regclass and contype = 'c' and pg_get_constraintdef(oid) like '%home_hub%'", 1);
+await expectOk("driver back to La Fortuna", "driver", `update public.drivers set home_hub = 'Arenal' where id = '${U.driver}'`);
 await expectBlocked("unknown home town refused", "driver", `update public.drivers set home_hub = 'Paris' where id = '${U.driver}'`);
 
 // Migration 0019: travellers rate drivers; a comment counts double.
@@ -1075,6 +1081,41 @@ await expectRows("drivers' functions never return the night premium (it is part 
   // Travellers book at the fixed price only (2026-11-11): an offer is never parsed, so never priced.
   expectEq("a traveller's offer is not parsed", parseSpec({ ...ride("23:30"), pricing: "bid", offerCents: 15000 }), null);
   console.log(`  night pickups (values from the database): ${shown.join(" · ")}; driver payout ${usd(payDay)} → ${usd(payNight)}`);
+
+  // Migration 0055: Puerto Jiménez, priced like every other town with the area factor and the
+  // season multipliers read from this database (never hard-coded).
+  {
+    const areas = (await as("anon", "select hub_id, area_factor from public.hub_pricing")).rows;
+    const seasonRows = (await as("anon", "select id, multiplier from public.seasons")).rows;
+    const pjCatalog = {
+      ...catalog,
+      areaFactorBps: { ...catalog.areaFactorBps, ...Object.fromEntries(areas.map((r) => [r.hub_id, Math.round(Number(r.area_factor) * 10000)])) },
+      seasons: catalog.seasons.map((s) => {
+        const row = seasonRows.find((r) => r.id === s.id);
+        return row ? { ...s, multiplierBps: Math.round(Number(row.multiplier) * 10000) } : s;
+      }),
+    };
+    expectEq("Puerto Jiménez area factor read from the database", pjCatalog.areaFactorBps.PuertoJimenez, 11500);
+    const pj = (o, d, vehicleId, date, cat = pjCatalog) =>
+      priceItem(parseSpec({ kind: "transfer", origin: o, destination: d, vehicleId, stopIds: [], pax: 2, pickupTime: "08:00", pricing: "fixed" }), date, cat);
+    // Standard: max($120, $30 + $0.90 × km + $10 × hours) × vehicle × pickup area, whole dollars.
+    expectEq("SJO → Puerto Jiménez, Standard, green season ($30 + 370 km + 6 h)", pj("SJO", "PuertoJimenez", "sedan", DATE).totalCents, 42300);
+    expectEq("Puerto Jiménez → SJO costs the Osa area factor more (×1.15)", pj("PuertoJimenez", "SJO", "sedan", DATE).totalCents, 48600);
+    expectEq("Manuel Antonio → Puerto Jiménez, Standard", pj("ManuelAntonio", "PuertoJimenez", "sedan", DATE).totalCents, 26900);
+    expectEq("Sierpe → Puerto Jiménez, Standard (Osa pickup)", pj("Sierpe", "PuertoJimenez", "sedan", DATE).totalCents, 19700);
+    expectEq("SJO → Puerto Jiménez, Economy (×0.90)", pj("SJO", "PuertoJimenez", "economy", DATE).totalCents, 38100);
+    expectEq("SJO → Puerto Jiménez, Van (×1.35)", pj("SJO", "PuertoJimenez", "van", DATE).totalCents, 57100);
+    const high = seasonForYmd("2027-01-20", pjCatalog);
+    expectEq("high season multiplier from the database", high.multiplierBps, Math.round(Number(seasonRows.find((r) => r.id === "high")?.multiplier) * 10000));
+    expectEq("SJO → Puerto Jiménez in high season = green price × the database multiplier",
+      pj("SJO", "PuertoJimenez", "sedan", "2027-01-20").totalCents, Math.round((42300 * high.multiplierBps) / 10000));
+    expectEq("the drive time comes from the town table (6 h)",
+      quoteTransfer({ origin: "SJO", destination: "PuertoJimenez", vehicleId: "sedan", stopIds: [], pax: 2, season: high, catalog: pjCatalog }).driveMinutes, 360);
+    await expectOk("admin changes the Puerto Jiménez area factor", "admin", "update public.hub_pricing set area_factor = 1.25 where hub_id = 'PuertoJimenez'");
+    const changed = Math.round(Number((await as("anon", "select area_factor from public.hub_pricing where hub_id = 'PuertoJimenez'")).rows[0].area_factor) * 10000);
+    expectEq("…the price follows the database", pj("PuertoJimenez", "SJO", "sedan", DATE, { ...pjCatalog, areaFactorBps: { ...pjCatalog.areaFactorBps, PuertoJimenez: changed } }).totalCents, 52900);
+    await expectOk("admin restores the Puerto Jiménez area factor", "admin", "update public.hub_pricing set area_factor = 1.15 where hub_id = 'PuertoJimenez'");
+  }
 
   // The team changes the settings in /admin/pricing: prices follow the database.
   await expectOk("admin changes the night premium and its hours", "admin",

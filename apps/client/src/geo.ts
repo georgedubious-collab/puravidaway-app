@@ -20,6 +20,7 @@ export const HUB_POINTS: Record<string, LatLng> = {
   DrakeBay: { lat: 8.6948, lng: -83.6683 },
   PuertoViejo: { lat: 9.6559, lng: -82.7544 },
   Tamarindo: { lat: 10.2993, lng: -85.8371 },
+  PuertoJimenez: { lat: 8.5336, lng: -83.3058 },
 };
 
 /** The whole country, for a map with nothing (or one pin) on it. */

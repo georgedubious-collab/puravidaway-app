@@ -26,6 +26,7 @@ const ABOUT: Record<Lang, Record<string, string>> = {
     DrakeBay: "Osa Peninsula, reached by boat",
     PuertoViejo: "Caribbean coast",
     Tamarindo: "Guanacaste beaches",
+    PuertoJimenez: "Osa Peninsula, gateway to Corcovado",
   },
   es: {
     SJO: "Aeropuerto internacional de San José",
@@ -37,6 +38,7 @@ const ABOUT: Record<Lang, Record<string, string>> = {
     DrakeBay: "Península de Osa, se llega en bote",
     PuertoViejo: "Costa del Caribe",
     Tamarindo: "Playas de Guanacaste",
+    PuertoJimenez: "Península de Osa, entrada a Corcovado",
   },
 };
 

@@ -53,8 +53,8 @@ const kinds = (target, others) => d.findClashes(target, others, CAT).map((c) => 
 
 // --- Constants --------------------------------------------------------------------------------
 eq("buffer is 2 hours (Jorge, 2026-11-12)", d.CLASH_BUFFER_MINUTES, 120);
-eq("longest drive between our towns (Drake Bay ↔ Puerto Viejo)", d.LONGEST_ROUTE_MINUTES, 555);
-eq("unknown places are only checked inside longest drive + buffer", d.CHECK_TRAVEL_WINDOW_MINUTES, 675);
+eq("longest drive between our towns (Puerto Viejo ↔ Puerto Jiménez)", d.LONGEST_ROUTE_MINUTES, 585);
+eq("unknown places are only checked inside longest drive + buffer", d.CHECK_TRAVEL_WINDOW_MINUTES, 705);
 
 // --- Busy span --------------------------------------------------------------------------------
 const stop = SIGHTSEEING_STOPS[0];
@@ -81,10 +81,15 @@ eq("a stop no longer in the catalog counts 45 min", d.busySpan(ride("SJO", "Aren
   eq("day tour: the catalog length (8 h)", s.minutes, 480);
   eq("…starts and ends in its region's town", [s.from, s.to], ["Arenal", "Arenal"]);
   const osa = d.busySpan({ ...tour, catalog_item_id: "dt3" }, CAT);
-  eq("Osa tour: Puerto Jiménez, not one of our towns", [osa.from, osa.to, osa.fromPlace, osa.toPlace], [null, null, "Puerto Jiménez", "Puerto Jiménez"]);
-  const osaClash = d.findClashes(ride("Sierpe", "SJO", "17:30"), [{ ...tour, id: "osa", catalog_item_id: "dt3" }], CAT);
-  eq("…a ride after it: check the travel time, naming Puerto Jiménez", [osaClash.map((c) => c.kind), d.clashText(osaClash[0], "es")],
-    [["check_travel"], "Revise el tiempo de traslado desde CRPT-T1 (3 h 30 min libres; Puerto Jiménez está fuera de nuestras zonas)"]);
+  eq("Osa tour: starts and ends in Puerto Jiménez, one of our towns", [osa.from, osa.to, osa.fromPlace, osa.toPlace], ["PuertoJimenez", "PuertoJimenez", null, null]);
+  const osaTour = { ...tour, id: "osa", catalog_item_id: "dt3" }; // 07:00 + 7 h → free at 14:00 in Puerto Jiménez
+  const osaClash = d.findClashes(ride("Sierpe", "SJO", "17:30"), [osaTour], CAT);
+  eq("…a ride from Sierpe after it: Puerto Jiménez → Sierpe 2 h + 2 h margin, too tight (no more \"Revisar traslado\")",
+    [osaClash.map((c) => [c.kind, c.gapMinutes, c.neededMinutes]), d.clashText(osaClash[0], "es")],
+    [[["too_tight", 210, 240]], "Muy justo después de CRPT-T1: 3 h 30 min libres, necesita 4 h (manejo + 2 h de margen)"]);
+  eq("…from Sierpe with enough time: fine", kinds(ride("Sierpe", "SJO", "18:00"), [osaTour]), []);
+  eq("…a ride from Puerto Jiménez itself 2 h after it: fine", kinds(ride("PuertoJimenez", "SJO", "16:00"), [osaTour]), []);
+  eq("…a ride into Puerto Jiménez before the tour must arrive 2 h early", kinds(ride("SJO", "PuertoJimenez", "00:30", { day: "2026-11-20" }), [osaTour]), ["too_tight"]);
   eq("Smart En-Route tour ends somewhere we don't know", d.busySpan({ ...tour, sightseeing_stops: [{ id: "en_route_upgrade" }] }, CAT).to, null);
   eq("unknown tour: a full day, estimated", [d.busySpan({ ...tour, catalog_item_id: "x" }, CAT).minutes, d.busySpan({ ...tour, catalog_item_id: "x" }, CAT).estimated], [480, true]);
 }
@@ -116,7 +121,7 @@ eq("the next booking is too close after this one", kinds(A, [ride("Tamarindo", "
 {
   const typedPickup = { ...ride(null, "SJO", "13:00"), origin: "Villa Privada, Nuevo Arenal", origin_coords: { lat: 10.5, lng: -84.9 } };
   eq("unknown pickup place after a drop-off: check the travel time", kinds(typedPickup, [A]), ["check_travel"]);
-  eq("…but not with more free time than the longest drive + buffer", kinds({ ...typedPickup, scheduled_at: at("22:00") }, [A]), []);
+  eq("…but not with more free time than the longest drive + buffer", kinds({ ...typedPickup, scheduled_at: at("23:30") }, [A]), []);
   eq("…in Spanish", d.clashText(d.findClashes(typedPickup, [A], CAT)[0], "es").startsWith("Revise el tiempo de traslado desde"), true);
 }
 eq("cancelled booking ignored", kinds(ride("Arenal", "Monteverde", "10:00"), [{ ...A, status: "cancelled" }]), []);
@@ -150,8 +155,26 @@ eq("English text", d.candidateWarnings({ ...base, driverBookings: [], blockedDay
 // --- Short place names --------------------------------------------------------------------------
 eq("town short name", d.shortPlace("La Fortuna / Arenal", null), "La Fortuna");
 eq("typed place mapped to a town", d.shortPlace("Hotel Tabacón, La Fortuna", { town: "Arenal" }), "La Fortuna");
+eq("Puerto Jiménez short name", [d.shortPlace("Puerto Jiménez (Osa)", null), d.shortPlace("Lapa Ríos, Matapalo", { town: "PuertoJimenez" }, "en")], ["Puerto Jiménez", "Puerto Jiménez"]);
 eq("typed place outside our towns: its first part", d.shortPlace("Casa Azul, Playa Hermosa", { lat: 1 }), "Casa Azul");
 eq("long names are cut", d.shortPlace("A very long hotel name that goes on, Town", null).length, 22);
+
+// --- Puerto Jiménez (2026-11-12): a town like the others for matching and typed places ---------
+{
+  const m = await import("../src/lib/matching.ts");
+  const pl = await import("../src/lib/places.ts");
+  const job = { origin_town: "PuertoJimenez", destination_town: "SJO", scheduled_at: at("13:00") };
+  eq("a driver based in Puerto Jiménez: \"Starts in your area\"", [m.nearHome("PuertoJimenez", job), m.nearHome("Sierpe", job)], [true, false]);
+  const inbound = { ...ride("SJO", "PuertoJimenez", "06:00"), status: "confirmed" }; // 6 h → free at 12:00 in Puerto Jiménez
+  const r = m.returnMatch(job, [inbound]);
+  eq("return trip: a drop-off in Puerto Jiménez matches a pickup there", [r?.kind, r?.gapMinutes], ["after", 60]);
+  eq("trip length from the town table", m.tripDurationMinutes(inbound), 360);
+  eq("town of a typed place saved with its town", m.townOf("Lapa Ríos, Matapalo", { town: "PuertoJimenez" }), "PuertoJimenez");
+  eq("typed places: Matapalo and Golfito belong to Puerto Jiménez; Drake Bay lodges stay Drake Bay; Uvita stays Sierpe",
+    [pl.nearestHub({ lat: 8.4, lng: -83.29 }), pl.nearestHub({ lat: 8.64, lng: -83.18 }), pl.nearestHub({ lat: 8.7, lng: -83.65 }), pl.nearestHub({ lat: 9.16, lng: -83.74 })],
+    ["PuertoJimenez", "PuertoJimenez", "DrakeBay", "Sierpe"]);
+  eq("Puerto Jiménez is a hub place with its own map point", [pl.hubOfPlaceId("hub:PuertoJimenez"), pl.hubPlace("PuertoJimenez").label], ["PuertoJimenez", "Puerto Jiménez (Osa)"]);
+}
 
 // --- The page assigns through the booking page's own actions -----------------------------------
 const page = readFileSync(new URL("../src/app/admin/dispatch/page.tsx", import.meta.url), "utf8");

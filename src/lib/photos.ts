@@ -274,6 +274,8 @@ export const HUB_PHOTO: Partial<Record<HubId, PhotoId>> = {
   PuertoViejo: "sloth-resting",
   Sierpe: "drake-bay",
   DrakeBay: "drake-bay",
+  // No photo of Puerto Jiménez yet: the Corcovado rainforest drawing (it is the gateway to the park).
+  PuertoJimenez: "corcovado",
 };
 
 /** Hero picture of a route page: where the ride ends (or starts, for rides back to an airport). */

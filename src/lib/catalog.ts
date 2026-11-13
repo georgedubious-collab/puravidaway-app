@@ -20,6 +20,7 @@ export const HUB_IDS = [
   "DrakeBay",
   "PuertoViejo",
   "Tamarindo",
+  "PuertoJimenez",
 ] as const;
 
 export type HubId = (typeof HUB_IDS)[number];
@@ -39,10 +40,11 @@ export const HUBS: Hub[] = [
   { id: "DrakeBay", name: "Drake Bay (via Sierpe boat)" },
   { id: "PuertoViejo", name: "Puerto Viejo (Caribbean)" },
   { id: "Tamarindo", name: "Tamarindo / Guanacaste" },
+  { id: "PuertoJimenez", name: "Puerto Jiménez (Osa)" },
 ];
 
 /**
- * Door-to-door times in minutes between every pair of hubs (all 36 pairs), for
+ * Door-to-door times in minutes between every pair of hubs (all 45 pairs), for
  * real Costa Rican roads: mountain stretches, single-lane bridges, trucks on
  * Route 32 and the slow last climb into Monteverde. Never straight-line.
  *
@@ -56,16 +58,23 @@ export const HUBS: Hub[] = [
  * 32, 2, 4 and the Lake Arenal road via Tilarán).
  * Drake Bay = road to the Sierpe dock + the boat (~60–75 min), so
  * Drake Bay ↔ X = Sierpe ↔ X + 75.
+ * Puerto Jiménez (added 2026-11-12, for Jorge to review): Route 245 round the Golfo Dulce from
+ * the Interamericana at Chacarita. From the north it is the Sierpe road as far as Palmar Norte,
+ * then ~1 h 45 more (Palmar Norte → Chacarita → Puerto Jiménez, ~122 km), so roughly
+ * X ↔ Puerto Jiménez = X ↔ Sierpe + 105 min. SJO 6 h (Daytrip says 5 h 35), Manuel Antonio
+ * ~4 h, Sierpe 2 h. Drake Bay ↔ Puerto Jiménez = drive to the Sierpe dock + the boat, like every
+ * other town (there is no road we sell into Drake Bay).
  *
- *                 LIR  Arenal  ManuelAnt  Monteverde  Sierpe  DrakeBay  PuertoViejo  Tamarindo
- *   SJO           240   165       175        180        255     330         240         290
- *   LIR                 160       270        180        395     470         420          90
- *   Arenal                        290        210        415     490         330         240
- *   ManuelAntonio                            220        140     215         390         300
- *   Monteverde                                          345     420         420         210
- *   Sierpe                                                       75         480         425
- *   DrakeBay                                                                555         500
- *   PuertoViejo                                                                         510
+ *                 LIR  Arenal  ManuelAnt  Monteverde  Sierpe  DrakeBay  PuertoViejo  Tamarindo  PuertoJiménez
+ *   SJO           240   165       175        180        255     330         240         290         360
+ *   LIR                 160       270        180        395     470         420          90         500
+ *   Arenal                        290        210        415     490         330         240         520
+ *   ManuelAntonio                            220        140     215         390         300         245
+ *   Monteverde                                          345     420         420         210         450
+ *   Sierpe                                                       75         480         425         120
+ *   DrakeBay                                                                555         500         195
+ *   PuertoViejo                                                                         510         585
+ *   Tamarindo                                                                                       530
  *
  * The type makes every pair required: adding a hub to HUB_IDS without its
  * times fails `npx tsc --noEmit`.
@@ -88,6 +97,7 @@ const ROUTE_MINUTES: PairsAfter<typeof HUB_IDS> = {
     DrakeBay: 330,
     PuertoViejo: 240,
     Tamarindo: 290,
+    PuertoJimenez: 360,
   },
   LIR: {
     Arenal: 160,
@@ -97,6 +107,7 @@ const ROUTE_MINUTES: PairsAfter<typeof HUB_IDS> = {
     DrakeBay: 470,
     PuertoViejo: 420,
     Tamarindo: 90,
+    PuertoJimenez: 500,
   },
   Arenal: {
     ManuelAntonio: 290,
@@ -105,13 +116,15 @@ const ROUTE_MINUTES: PairsAfter<typeof HUB_IDS> = {
     DrakeBay: 490,
     PuertoViejo: 330,
     Tamarindo: 240,
+    PuertoJimenez: 520,
   },
-  ManuelAntonio: { Monteverde: 220, Sierpe: 140, DrakeBay: 215, PuertoViejo: 390, Tamarindo: 300 },
-  Monteverde: { Sierpe: 345, DrakeBay: 420, PuertoViejo: 420, Tamarindo: 210 },
-  Sierpe: { DrakeBay: 75, PuertoViejo: 480, Tamarindo: 425 },
-  DrakeBay: { PuertoViejo: 555, Tamarindo: 500 },
-  PuertoViejo: { Tamarindo: 510 },
-  Tamarindo: {},
+  ManuelAntonio: { Monteverde: 220, Sierpe: 140, DrakeBay: 215, PuertoViejo: 390, Tamarindo: 300, PuertoJimenez: 245 },
+  Monteverde: { Sierpe: 345, DrakeBay: 420, PuertoViejo: 420, Tamarindo: 210, PuertoJimenez: 450 },
+  Sierpe: { DrakeBay: 75, PuertoViejo: 480, Tamarindo: 425, PuertoJimenez: 120 },
+  DrakeBay: { PuertoViejo: 555, Tamarindo: 500, PuertoJimenez: 195 },
+  PuertoViejo: { Tamarindo: 510, PuertoJimenez: 585 },
+  Tamarindo: { PuertoJimenez: 530 },
+  PuertoJimenez: {},
 };
 
 /** Safety net only (e.g. an unknown id in old data); every real pair is in the table. */
@@ -136,15 +149,16 @@ export function routeMinutes(from: HubId, to: HubId): number {
  * TODO(Jorge): sanity-check the estimates.
  */
 const ROUTE_KM: PairsAfter<typeof HUB_IDS> = {
-  SJO: { LIR: 220, Arenal: 116, ManuelAntonio: 159, Monteverde: 132, Sierpe: 265, DrakeBay: 265, PuertoViejo: 232, Tamarindo: 273 },
-  LIR: { Arenal: 144, ManuelAntonio: 255, Monteverde: 150, Sierpe: 370, DrakeBay: 370, PuertoViejo: 450, Tamarindo: 69 },
-  Arenal: { ManuelAntonio: 235, Monteverde: 111, Sierpe: 350, DrakeBay: 350, PuertoViejo: 300, Tamarindo: 215 },
-  ManuelAntonio: { Monteverde: 193, Sierpe: 113, DrakeBay: 113, PuertoViejo: 390, Tamarindo: 250 },
-  Monteverde: { Sierpe: 306, DrakeBay: 306, PuertoViejo: 364, Tamarindo: 190 },
-  Sierpe: { DrakeBay: 0, PuertoViejo: 440, Tamarindo: 363 },
-  DrakeBay: { PuertoViejo: 440, Tamarindo: 363 },
-  PuertoViejo: { Tamarindo: 500 },
-  Tamarindo: {},
+  SJO: { LIR: 220, Arenal: 116, ManuelAntonio: 159, Monteverde: 132, Sierpe: 265, DrakeBay: 265, PuertoViejo: 232, Tamarindo: 273, PuertoJimenez: 370 },
+  LIR: { Arenal: 144, ManuelAntonio: 255, Monteverde: 150, Sierpe: 370, DrakeBay: 370, PuertoViejo: 450, Tamarindo: 69, PuertoJimenez: 475 },
+  Arenal: { ManuelAntonio: 235, Monteverde: 111, Sierpe: 350, DrakeBay: 350, PuertoViejo: 300, Tamarindo: 215, PuertoJimenez: 455 },
+  ManuelAntonio: { Monteverde: 193, Sierpe: 113, DrakeBay: 113, PuertoViejo: 390, Tamarindo: 250, PuertoJimenez: 220 },
+  Monteverde: { Sierpe: 306, DrakeBay: 306, PuertoViejo: 364, Tamarindo: 190, PuertoJimenez: 410 },
+  Sierpe: { DrakeBay: 0, PuertoViejo: 440, Tamarindo: 363, PuertoJimenez: 135 },
+  DrakeBay: { PuertoViejo: 440, Tamarindo: 363, PuertoJimenez: 135 },
+  PuertoViejo: { Tamarindo: 500, PuertoJimenez: 545 },
+  Tamarindo: { PuertoJimenez: 470 },
+  PuertoJimenez: {},
 };
 
 /** Sierpe → Drake Bay river boat, included in ROUTE_MINUTES for Drake Bay pairs. */
@@ -441,12 +455,13 @@ export const HUB_REGION: Partial<Record<HubId, Region>> = {
   Monteverde: "Monteverde",
   Sierpe: "Osa",
   DrakeBay: "Osa",
+  PuertoJimenez: "Osa",
 };
 
 export const REGION_NAMES: Record<Region, string> = {
   Arenal: "La Fortuna / Arenal",
   ManuelAntonio: "Manuel Antonio / Central Pacific",
-  Osa: "Osa Peninsula / Sierpe / Drake Bay",
+  Osa: "Osa Peninsula / Sierpe / Drake Bay / Puerto Jiménez",
   Monteverde: "Monteverde & Río Celeste",
 };
 
@@ -674,6 +689,7 @@ export const AREA_FACTOR_BPS_DEFAULT: Record<AreaId, number> = {
   DrakeBay: 11500,
   PuertoViejo: 10000,
   Tamarindo: 11000,
+  PuertoJimenez: 11500,
   SouthNicoya: 13500,
 };
 

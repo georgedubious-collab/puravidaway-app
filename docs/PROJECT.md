@@ -121,9 +121,9 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
 - Env: `GOOGLE_MAPS_API_KEY` (server-only, Places API (New) + Routes API; without it only our
   towns are offered). `NEXT_PUBLIC_WHATSAPP_NUMBER` (see `.env.example`) **must be set in Vercel before
   launch**; until then WhatsApp buttons open a placeholder number and the build logs a warning.
-- Route landing pages (`/transfers/[slug]`, Spanish `/es/traslados/[slug]`, same slug; **40 pages
-  since 2026-11-11**, 20 pairs of towns in both directions): SJO ↔ Manuel Antonio, La Fortuna,
-  Monteverde, Tamarindo, Puerto Viejo, Sierpe and Drake Bay; LIR ↔ Tamarindo, La Fortuna,
+- Route landing pages (`/transfers/[slug]`, Spanish `/es/traslados/[slug]`, same slug; **42 pages
+  since 2026-11-12**, 21 pairs of towns in both directions): SJO ↔ Manuel Antonio, La Fortuna,
+  Monteverde, Tamarindo, Puerto Viejo, Sierpe, Drake Bay and Puerto Jiménez (added 2026-11-12); LIR ↔ Tamarindo, La Fortuna,
   Monteverde and Manuel Antonio; La Fortuna ↔ Monteverde, Manuel Antonio, Tamarindo and Puerto
   Viejo; Monteverde ↔ Manuel Antonio and Tamarindo; Manuel Antonio ↔ Sierpe, Drake Bay and
   Tamarindo. The nine slugs that existed before keep working. Index of all routes, grouped by
@@ -519,14 +519,15 @@ and error states, `AdminActionForm`).
     else the saved road route; else 4 h, shown with "≈") + each stop's time and detour (the same sum
     the driver app shows as "Llegada aprox."); day tours = the catalog length (8 h if unknown),
     starting and ending in their region's town; the Osa tour (Sierpe mangroves & Caño Island)
-    starts and ends in **Puerto Jiménez** (Jorge, 2026-11-12), which is not one of our towns, so
-    travel to or from it shows "Revisar traslado" naming Puerto Jiménez.
+    starts and ends in **Puerto Jiménez** (Jorge, 2026-11-12), one of our towns since the same day
+    (migration 0055), so travel to or from it is timed from the town table like any other town
+    (it used to show "Revisar traslado").
   - **Clash** (red): two of a driver's bookings (not cancelled) overlap, or the free time between the
     end of one and the next pickup is shorter than the drive between them (catalog `ROUTE_MINUTES`,
     both ends in our towns) + `CLASH_BUFFER_MINUTES` = **120 (2 hours, Jorge 2026-11-12: in case
     the earlier trip runs late)**. When a place can't be mapped to one of our towns, "Revisar
     traslado" (yellow) instead of a guess, only when the free time is under the longest drive in
-    the country (555 min) + 2 h.
+    the country (585 min, Puerto Viejo ↔ Puerto Jiménez) + 2 h.
   - Clicking a booking without a driver opens a side panel: every approved driver + approved vehicle
     with warnings (clash, blocked day, category can't serve, seats, documents expired on the trip
     day, review hold, the traveller's requests). Order: no warnings first, then drivers who offered,
@@ -773,7 +774,41 @@ All base prices are in **USD**. CRC is a display conversion only.
 ### 5.1 Transfer hubs
 SJO Airport / San José · Liberia Airport (LIR) · La Fortuna / Arenal · Manuel Antonio ·
 Monteverde Cloud Forest · Sierpe Boat Dock (Osa) · Drake Bay (via Sierpe boat) ·
-Puerto Viejo (Caribbean) · Tamarindo / Guanacaste
+Puerto Viejo (Caribbean) · Tamarindo / Guanacaste · **Puerto Jiménez (Osa)** (id `PuertoJimenez`,
+Spanish "Puerto Jiménez (Osa)", region Osa / South Pacific; added 2026-11-12, migration 0055)
+
+**Puerto Jiménez** (Jorge, 2026-11-12): the town on the road side of Corcovado, with the small
+PJM airstrip. Priced and timed like every other town: road km and door-to-door minutes per town
+pair in `src/lib/catalog.ts`, Osa area factor 1.15 (`hub_pricing`, same as Sierpe and Drake Bay),
+season multipliers from the database. Drive times = the Sierpe road to Palmar Norte, then the
+Inter-American Highway to Chacarita and Route 245 round the Golfo Dulce (about X ↔ Sierpe +
+105 min). Drake Bay ↔ Puerto Jiménez is the drive to the Sierpe dock + the boat, like every
+other town (no road into Drake Bay is sold). Drivers can choose it as their home base. Typed
+places nearest to it (Matapalo, Carate road, Golfito) take its area factor and the Osa
+suggestions. The Osa day tour starts and ends there. One route page pair: SJO ↔ Puerto Jiménez.
+Numbers below are **for Jorge to review** (Standard class, green season, one way; Economy ×0.90,
+Minivan ×1.20, 4x4 ×1.30, Van ×1.35; the pickup town's area factor applies, so leaving Puerto
+Jiménez costs 15% more than arriving):
+
+| Pair | Road km | Door to door | To Puerto Jiménez | From Puerto Jiménez |
+| :--- | ---: | ---: | ---: | ---: |
+| SJO | 370 | 6 h 00 | $423 | $486 |
+| LIR | 475 | 8 h 20 | $595 | $622 |
+| La Fortuna | 455 | 8 h 40 | $526 | $605 |
+| Manuel Antonio | 220 | 4 h 05 | $269 | $309 |
+| Monteverde | 410 | 7 h 30 | $474 | $545 |
+| Sierpe dock | 135 | 2 h 00 | $197 | $197 |
+| Drake Bay (road to Sierpe + 75 min boat) | 135 | 3 h 15 | $197 (+ boat with the 4x4 + boat option) | $197 |
+| Puerto Viejo | 545 | 9 h 45 | $618 | $711 |
+| Tamarindo | 470 | 8 h 50 | $595 | $623 |
+
+Daytrip (COMPETITORS §2b, 2026-10-14): SJO → Puerto Jiménez Sedan $530, Sedan Lite $518, MPV
+$582, Van $639, 5 h 35. Our formula gives $423 / Economy $381 / Minivan $508 / Van $571, i.e.
+about 20% under Daytrip's Sedan: Daytrip charges Osa a scarcity premium on top of distance. To be
+on par, Jorge can raise the Puerto Jiménez area factor (only affects rides starting there) or pin
+a zone price for SJO ↔ Puerto Jiménez (`docs/PRICING.md` §4.5, not built). Not added: Puerto
+Jiménez to the Tárcoles / Carara stop lists (the flat list would also offer them on Sierpe ↔
+Puerto Jiménez and Manuel Antonio ↔ Puerto Jiménez); Jorge can add it at `/admin/pricing`.
 
 ### 5.2 Sightseeing stops
 Since 2026-11-09 (pricing build step 5, migration 0021) a stop's price is **computed**, not typed.
@@ -969,7 +1004,7 @@ Area factor = the pickup town's, or an extra area's when the pickup OR drop-off 
 the route takes the ferry (Southern Nicoya), whichever is higher. Ferry fares (Gulf of Nicoya, per crossing on Google's
 route) are added after the season multiplier and never season-adjusted.
 Numbers (Jorge, 2026-11-09, on par with Daytrip's lowest prices): base $30, $0.90/km, $10/hour,
-minimum $120; area factors Guanacaste (LIR, Tamarindo) 1.10, Osa (Sierpe, Drake Bay) 1.15,
+minimum $120; area factors Guanacaste (LIR, Tamarindo) 1.10, Osa (Sierpe, Drake Bay, Puerto Jiménez) 1.15,
 Southern Nicoya 1.35, elsewhere 1.00; ferry ₡15,000 car + driver and ₡1,500 per passenger per
 crossing, converted at `crc_per_usd` (₡452; checked weekly). All edited at `/admin/pricing`. Road km and drive times per town pair are in `src/lib/catalog.ts`
 (`ROUTE_KM`, `ROUTE_MINUTES`); the Drake Bay boat (75 min) is excluded from driving hours.
@@ -1059,7 +1094,7 @@ Decided by Jorge 2026-11-08 (replaces the 100% / 20% deposit rule):
 ### 6.5 Driving-time realism
 Durations must reflect real Costa Rican conditions (mountain roads, single-lane highways,
 rainy-season delays). Route durations are stored per corridor, not computed as straight-line
-distance: `ROUTE_MINUTES` in `src/lib/catalog.ts` has door-to-door times for all 36 hub pairs
+distance: `ROUTE_MINUTES` in `src/lib/catalog.ts` has door-to-door times for all 45 hub pairs
 (a type check fails the build if one is missing; Drake Bay = road to Sierpe + 75 min boat).
 Pending Jorge's confirmation.
 **Driver's arrival estimate (2026-11-10, migration 0035):** each ride stores the drive time it was
@@ -1342,7 +1377,7 @@ and `season_for_date(date)` returns the season for a travel date.
      at about 7 AM when that falls at night. Each booking is marked before anything is sent and only the call
      that marked it sends, so calling the job more often can never send twice. Rules and their checks:
      `src/lib/reviewReminder.ts`, `npm run test:reviews`.
-- `hub_pricing` — hub_id (one of the 9 hubs, or an extra pricing area: `SouthNicoya`), area_factor
+- `hub_pricing` — hub_id (one of the 10 hubs, or an extra pricing area: `SouthNicoya`; `PuertoJimenez` since migration 0055), area_factor
   (0.50–2.00), updated_at. Public read, admin write. Loaded as `areaFactorBps`.
 - `payments` — id, booking_id, provider (`greenpay`), provider_ref, amount, type (`deposit` | `balance` | `full`), status, raw_payload jsonb, created_at
 
@@ -1572,8 +1607,9 @@ multi-day trips were retired (§1, §5.5) and are not on the roadmap.
 20. **Dispatch calendar (decided, Jorge, 2026-11-12, §4.2).** (a) Margin between two jobs: 2 hours
     (`CLASH_BUFFER_MINUTES = 120`). (b) A manual assignment tells the traveller and the driver, with
     the same messages as an accepted offer, once per assignment. (c) The Osa tour starts and ends in
-    Puerto Jiménez (travel to/from it: "Revisar traslado"); Smart En-Route tours still end in a town
-    the calendar doesn't know. (d) Times in a. m. / p. m.
+    Puerto Jiménez. **Resolved 2026-11-12:** Puerto Jiménez is now one of our towns (§5.1,
+    migration 0055), so the calendar times travel to and from it like any other town instead of
+    "Revisar traslado". Smart En-Route tours still end in a town the calendar doesn't know. (d) Times in a. m. / p. m.
 21. **Cancellations and drop-outs (decided, Jorge, 2026-11-12, §4.2 CRM part 3).** (a) When the team
     cancels, the traveller and the assigned driver are told **by email** (checkbox ticked by
     default). (b) Weather, road or park closures default to a **full refund**; the team can lower it

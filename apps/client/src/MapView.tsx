@@ -77,6 +77,7 @@ const ROADS: [string, string][] = [
   ["Arenal", "LIR"],
   ["LIR", "Tamarindo"],
   ["ManuelAntonio", "Sierpe"],
+  ["Sierpe", "PuertoJimenez"],
 ];
 
 interface XY {

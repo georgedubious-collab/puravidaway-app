@@ -92,6 +92,7 @@ const GRID_NAMES: Record<HubId, [string, string]> = {
   DrakeBay: ["Drake Bay", "Bahía Drake"],
   PuertoViejo: ["Puerto Viejo", "Puerto Viejo"],
   Tamarindo: ["Tamarindo", "Tamarindo"],
+  PuertoJimenez: ["Puerto Jiménez", "Puerto Jiménez"],
 };
 function gridName(id: HubId, lang: PublicLang): string {
   const [en, es] = GRID_NAMES[id];

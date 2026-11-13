@@ -92,7 +92,8 @@ pages `/es/traslados/<slug>` and their index `/es/traslados`, destination guides
    there" (bus, shared shuttle, private, flight, car), 5–8 FAQs, breadcrumbs, Product/Offer +
    FAQ schema, a dated direct answer in the first lines; Spanish versions; the booking
    storefront in Spanish.
-   **Built 2026-11-11:** 40 route pages (20 pairs, both directions) at `/transfers/<slug>` and
+   **Built 2026-11-11:** 40 route pages (20 pairs, both directions; 42 / 21 since SJO ↔ Puerto
+   Jiménez was added on 2026-11-12) at `/transfers/<slug>` and
    `/es/traslados/<slug>`, plus the index `/transfers` · `/es/traslados`. Chosen by demand:
    airport ↔ destination first (SJO ↔ Manuel Antonio, La Fortuna, Monteverde, Tamarindo, Puerto
    Viejo, Sierpe, Drake Bay; LIR ↔ Tamarindo, La Fortuna, Monteverde, Manuel Antonio), then the
