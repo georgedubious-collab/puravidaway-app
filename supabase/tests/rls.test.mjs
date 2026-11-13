@@ -1350,13 +1350,16 @@ await expectOk("server removes the test booking", "server", "delete from public.
   await expectBlocked("pickup place over 120 characters refused", "server", `update public.bookings set pickup_place = '${"a".repeat(121)}' where id = '${T}'`);
   await expectOk("pickup place of exactly 120 characters is fine", "server", `update public.bookings set pickup_place = '${"a".repeat(120)}' where id = '${T}'`);
   await expectBlocked("pickup place with leading spaces refused", "server", `update public.bookings set pickup_place = ' Hotel' where id = '${T}'`);
-  // The change history (migration 0044) logs only its listed columns: the message stamps and the
-  // pickup place never add history rows.
-  await expectRows("message stamps and pickup place never add history rows", "admin",
-    `select count(*) as n from public.booking_events where booking_id in ('${B}', '${T}') and (before::text || after::text) ~ '(reminder_|followup_|confirmed_at|pickup_place|team_alerted)'`, 0);
+  // The change history (migration 0044) logs only its listed columns: the message stamps never add
+  // history rows. Since migration 0056 a changed pickup place is logged ('places', the team's edit).
+  await expectRows("message stamps never add history rows", "admin",
+    `select count(*) as n from public.booking_events where booking_id in ('${B}', '${T}') and (before::text || after::text) ~ '(reminder_|followup_|confirmed_at|team_alerted)'`, 0);
+  await expectRows("…a changed pickup place is logged as 'places' (migration 0056)", "admin",
+    `select count(*) as n from public.booking_events where booking_id = '${T}' and action = 'places' and after ? 'pickup_place'`, 1);
+  const tourEvents = Number((await as("admin", `select count(*) as n from public.booking_events where booking_id = '${T}'`)).rows[0].n);
   await expectOk("server stamps the tour's reminders", "server",
     `update public.bookings set reminder_traveller_at = now(), reminder_driver_at = now(), followup_sent_at = now() where id = '${T}'`);
-  await expectRows("…and the history stays empty for the tour", "admin", `select count(*) as n from public.booking_events where booking_id = '${T}'`, 0);
+  await expectRows("…and the stamps add nothing to the tour's history", "admin", `select count(*) as n from public.booking_events where booking_id = '${T}'`, tourEvents);
   await expectOk("server cleans up the tour", "server", `delete from public.bookings where id = '${T}'`);
 
   await expectOk("server cleans up the list", "server", "delete from public.email_optouts");
@@ -1969,6 +1972,72 @@ await expectOk("server removes the test booking", "server", "delete from public.
   await expectRows("auto repost happens once per booking", "server", "select * from public.auto_repost_jobs()", 0);
   await expectRows("…one auto_reposted event", "admin",
     `select 1 from public.booking_events where booking_id = ${PW(2)} and action = 'auto_reposted'`, 1);
+}
+
+
+// --- Migration 0056: the team edits pickup / drop-off / time; every change in the history ------
+{
+  const PE = "56000000-0000-0000-0000-000000000001";
+  const PT = "56000000-0000-0000-0000-000000000002";
+  const ev = (where) => `select count(*) as n from public.booking_events where booking_id = '${PE}' and ${where}`;
+  await expectOk("server saves a confirmed ride SJO → hotel", "server", `
+    insert into public.bookings (id, client_id, service_type, vehicle_class, total_price, driver_payout, platform_fee, status, assigned_driver_id, assigned_vehicle_id, passenger_count, scheduled_at,
+      origin, destination, origin_coords, destination_coords, drive_minutes, flight_or_hotel_notes)
+    values ('${PE}', '${U.client}', 'transfer', 'sedan', 200, 160, 40, 'confirmed', '${U.driver}', ${V1}, 2, now() + interval '5 days',
+      'Juan Santamaría Airport (SJO)', 'Hotel A, Calle 1, Quepos',
+      '{"lat":9.9939,"lng":-84.2088,"place_id":"hub:SJO","town":"SJO","route":{"km":160,"drivingMinutes":190,"totalMinutes":190,"ferries":0}}',
+      '{"lat":9.43,"lng":-84.16,"place_id":"ChIJhotelAAAAAAAA","town":"ManuelAntonio"}', 190, 'AA 100')`);
+  await expectRows("new kind 'places' is allowed and the older kinds are kept", "admin",
+    "select 1 from pg_constraint where conname = 'booking_events_action_check' and pg_get_constraintdef(oid) ~ 'places' and pg_get_constraintdef(oid) ~ 'auto_reposted' and pg_get_constraintdef(oid) ~ 'trip_link_emailed'", 1);
+  await expectBlocked("unknown kinds are still refused", "server",
+    `insert into public.booking_events (booking_id, action) values ('${PE}', 'pickup_moved')`);
+
+  // The admin changes the drop-off (the edit form's update, through the admin's own session).
+  await expectOk("admin changes the drop-off, drive time and flight notes", "admin", `
+    update public.bookings set destination = 'Hotel B, Manuel Antonio road', destination_coords = '{"lat":9.39,"lng":-84.14,"place_id":"ChIJhotelBBBBBBBB","town":"ManuelAntonio"}',
+      origin_coords = jsonb_set(origin_coords, '{route}', '{"km":171,"drivingMinutes":205,"totalMinutes":205,"ferries":0}'), drive_minutes = 205,
+      flight_or_hotel_notes = 'AA 100 · lobby' where id = '${PE}'`);
+  await expectRows("…one 'places' entry by the admin", "admin", ev(`action = 'places' and actor_id = '${U.admin}'`), 1);
+  await expectRows("…with the old and new drop-off and place id", "admin",
+    ev(`action = 'places' and before->>'destination' = 'Hotel A, Calle 1, Quepos' and after->>'destination' = 'Hotel B, Manuel Antonio road' and before->>'destination_place_id' = 'ChIJhotelAAAAAAAA' and after->>'destination_place_id' = 'ChIJhotelBBBBBBBB'`), 1);
+  await expectRows("…and the notes and drive time, old → new", "admin",
+    ev(`action = 'places' and before->>'flight_or_hotel_notes' = 'AA 100' and after->>'flight_or_hotel_notes' = 'AA 100 · lobby' and (before->>'drive_minutes')::int = 190 and (after->>'drive_minutes')::int = 205`), 1);
+  await expectRows("…only the fields that changed (the pickup didn't)", "admin", ev(`action = 'places' and (after ? 'origin' or before ? 'origin' or after ? 'pickup_place')`), 0);
+  await expectRows("…no price or payout entry: the price was kept", "admin", ev(`action in ('price', 'payout')`), 0);
+
+  // "Use the new price": the 0044 trigger logs price and payout with the admin's name.
+  await expectOk("admin moves the time and uses the new price", "admin",
+    `update public.bookings set scheduled_at = scheduled_at + interval '2 hours', total_price = 215, driver_payout = 172, platform_fee = 43 where id = '${PE}'`);
+  await expectRows("…time, price and payout each logged by the admin", "admin",
+    ev(`actor_id = '${U.admin}' and action in ('schedule', 'price', 'payout')`), 3);
+  await expectRows("…and no extra 'places' entry (no place changed)", "admin", ev(`action = 'places'`), 1);
+  await expectOk("saving the same values again", "admin",
+    `update public.bookings set destination = destination, flight_or_hotel_notes = flight_or_hotel_notes where id = '${PE}'`);
+  await expectRows("…adds nothing to the history", "admin", ev(`action = 'places'`), 1);
+
+  // Who can change it and who can read it.
+  for (const who of ["driver", "client", "anon"]) {
+    await expectBlocked(`${who} cannot change the pickup`, who,
+      `update public.bookings set origin = 'Somewhere else' where id = '${PE}'`, { affected: 0 });
+  }
+  await expectRows("…the pickup is unchanged", "admin", `select 1 from public.bookings where id = '${PE}' and origin = 'Juan Santamaría Airport (SJO)'`, 1);
+  for (const who of ["driver", "client"]) {
+    await expectRows(`${who} cannot read the 'places' history`, who, `select * from public.booking_events where action = 'places'`, 0);
+  }
+  await expectRows("the assigned driver sees the new drop-off in my_trips()", "driver",
+    `select 1 from public.my_trips() where id = '${PE}' and destination = 'Hotel B, Manuel Antonio road'`, 1);
+  await expectRows("the traveller's own booking shows it", "client",
+    `select 1 from public.bookings where id = '${PE}' and destination = 'Hotel B, Manuel Antonio road'`, 1);
+
+  // Day tour: the pickup place.
+  await expectOk("server saves a day tour", "server", `
+    insert into public.bookings (id, client_id, service_type, catalog_item_id, total_price, status, scheduled_at, pickup_place)
+    values ('${PT}', '${U.client}', 'day_tour', 'dt1', 300, 'pending_payment', now() + interval '6 days', 'Hotel Uno')`);
+  await expectOk("admin changes the tour's pickup place", "admin", `update public.bookings set pickup_place = 'Hotel Dos, La Fortuna' where id = '${PT}'`);
+  await expectRows("…logged with who, old → new", "admin",
+    `select 1 from public.booking_events where booking_id = '${PT}' and action = 'places' and actor_id = '${U.admin}' and before->>'pickup_place' = 'Hotel Uno' and after->>'pickup_place' = 'Hotel Dos, La Fortuna'`, 1);
+  await expectBlocked("…still no contact details in it", "admin", `update public.bookings set pickup_place = 'Room 4, call +506 8888 7777' where id = '${PT}'`);
+  await expectOk("server cleans up", "server", `delete from public.bookings where id in ('${PE}', '${PT}')`);
 }
 
 // --- Report -----------------------------------------------------------------------------------

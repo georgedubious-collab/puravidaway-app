@@ -8,7 +8,10 @@
  *     the driver's email never holds the traveller's details or any price;
  *   - the driver scorecard maths (src/lib/scorecard.ts);
  *   - customers (src/lib/customers.ts): the grouping key, tags, search text;
- *   - the manual booking form with a typed hotel reaches the same price as the website.
+ *   - the manual booking form with a typed hotel reaches the same price as the website;
+ *   - the team's trip edit (src/lib/bookingEdit.ts, 2026-11-12): refused on cancelled / completed
+ *     bookings, admin-only actions, no price change unless chosen, an accepted offer kept, promo
+ *     50/50, night premium, the messages (once each; the driver's without traveller details or price).
  *
  *   npm run test:crm        (Node 22.15+; Node runs the TypeScript directly)
  */
@@ -32,6 +35,8 @@ const places = await import("../src/lib/places.ts");
 const trip = await import("../src/lib/tripRequest.ts");
 const { quoteTransfer } = await import("../src/lib/pricing.ts");
 const { BUILT_IN_CATALOG, seasonForYmd } = await import("../src/lib/catalogModel.ts");
+const be = await import("../src/lib/bookingEdit.ts");
+const { splitPayout } = await import("../src/lib/payout.ts");
 console.warn = warn;
 
 let passed = 0;
@@ -245,6 +250,140 @@ try {
   threw = true;
 }
 ok("typed place without a route is refused (never priced as a guess)", threw);
+
+// --- The team's trip edit (src/lib/bookingEdit.ts, 2026-11-12) ---------------------------------
+{
+  const { readFileSync } = await import("node:fs");
+  const TODAY = "2099-06-01";
+  for (const st of ["pending_payment", "pending_bids", "confirmed", "in_progress"]) ok(`edit allowed when ${st}`, be.canEditPlaces(st));
+  for (const st of ["cancelled", "completed"]) ok(`edit refused when ${st}`, !be.canEditPlaces(st));
+
+  const hotelA = { id: "ChIJhotelAAAAAAAA", label: "Hotel A" };
+  const hotelB = { id: "ChIJhotelBBBBBBBB", label: "Hotel B" };
+  const base = { date: "2099-06-15", time: "09:00", origin: { id: "hub:SJO", label: "SJO" }, destination: hotelA, notes: "AA 100", driverNotes: "" };
+  ok("a ride edit is accepted", be.parseEditInput(base, "transfer", TODAY).ok);
+  ok("past date refused", !be.parseEditInput({ ...base, date: "2099-05-31" }, "transfer", TODAY).ok);
+  ok("same pickup and drop-off refused", !be.parseEditInput({ ...base, destination: base.origin }, "transfer", TODAY).ok);
+  ok("made-up place id refused", !be.parseEditInput({ ...base, destination: { id: "x", label: "y" } }, "transfer", TODAY).ok);
+  ok("phone number in the notes refused (the driver sees them)", !be.parseEditInput({ ...base, notes: "call +506 8888 7777" }, "transfer", TODAY).ok);
+  ok("email in the driver message refused", !be.parseEditInput({ ...base, driverNotes: "ana@example.com" }, "transfer", TODAY).ok);
+  ok("tour pickup place with a link refused", !be.parseEditInput({ date: "2099-06-15", time: "07:00", pickupPlace: "www.hotel.com" }, "day_tour", TODAY).ok);
+  ok("tour pickup place over 120 characters refused", !be.parseEditInput({ date: "2099-06-15", time: "07:00", pickupPlace: "a".repeat(121) }, "day_tour", TODAY).ok);
+
+  const booking = {
+    id: "b1", booking_ref: "CRPT-1", status: "confirmed", service_type: "transfer", catalog_item_id: null,
+    origin: "Juan Santamaría Airport (SJO)", destination: "Hotel A, Quepos",
+    origin_coords: { lat: 9.9939, lng: -84.2088, place_id: "hub:SJO", town: "SJO", route: { km: 160, drivingMinutes: 190, totalMinutes: 190, ferries: 0 } },
+    destination_coords: { lat: 9.43, lng: -84.16, place_id: hotelA.id, town: "ManuelAntonio" },
+    sightseeing_stops: [], vehicle_class: "sedan", scheduled_at: "2099-06-15T09:00:00-06:00", passenger_count: 2,
+    flight_or_hotel_notes: "AA 100", driver_notes: null, pickup_place: null, preferences: {}, sign_text: null, sign_hide_name: false,
+    drive_minutes: 190, total_price: 200, night_premium: 0, driver_payout: 160, platform_fee: 40, company_costs: 0, pass_through: 0,
+    cash_fee: 0, payment_mode: "full_100", promo_code: null, promo_discount: 0, claimed_at: null, assigned_driver_id: "d1", amount_paid: 0,
+  };
+  const same = be.parseEditInput(base, "transfer", TODAY).input;
+  eq("nothing changed: no ends changed", be.changedEnds(booking, same), { origin: false, destination: false });
+  eq("nothing changed: no changes", be.listChanges(booking, same, { origin: null, destination: null }), []);
+  const moved = be.parseEditInput({ ...base, destination: hotelB, time: "23:00", notes: "AA 100 · lobby" }, "transfer", TODAY).input;
+  eq("new drop-off detected by place id", be.changedEnds(booking, moved), { origin: false, destination: true });
+  const changes = be.listChanges(booking, moved, { origin: null, destination: { text: "Hotel B, Manuel Antonio" } });
+  eq("changes listed old → new", changes.map((c) => c.field), ["destination", "scheduled_at", "flight_or_hotel_notes"]);
+  ok("a place / time change can move the price", be.affectsPrice(changes));
+  ok("a notes-only change can't", !be.affectsPrice(changes.filter((c) => c.field === "flight_or_hotel_notes")));
+
+  // New price, made exactly like a new booking: priceItem → promo → payout split.
+  const sjo = places.hubPlace("SJO");
+  const b2 = { id: hotelB.id, label: "Hotel B", hub: "ManuelAntonio", lat: 9.39, lng: -84.14 };
+  const route = { km: 171, drivingMinutes: 205, totalMinutes: 205, ferries: 0 };
+  const spec = be.specForBooking(booking, moved, sjo, b2);
+  ok("the booking becomes a website ride spec (typed drop-off, same vehicle)", spec.kind === "transfer" && spec.destinationPlace?.id === hotelB.id && spec.vehicleId === "sedan" && !spec.originPlace);
+  const priced = trip.priceItem(spec, "2099-06-15", catalog, route);
+  const website = quoteTransfer({ origin: "SJO", destination: "ManuelAntonio", vehicleId: "sedan", stopIds: [], season: seasonForYmd("2099-06-15", catalog), catalog, route, pax: 2, pickupTime: "23:00" });
+  eq("new price = the website's price for that ride and time", priced.totalCents, website.totalCents);
+  ok("a 23:00 pickup carries the night premium", priced.nightCents > 0);
+  const noPromo = be.editPromoLine(booking, { kind: "transfer", totalCents: priced.totalCents, passThroughCents: 0, companyCostCents: 0 }, null, catalog);
+  eq("no promo code: no discount", noPromo.discountCents, 0);
+  const m = be.newMoney(booking, priced, noPromo, catalog, false);
+  const split = splitPayout(priced.totalCents, priced.passThroughCents, catalog, priced.companyCostCents);
+  eq("payout from the usual split (20% commission)", Math.round(m.driver_payout * 100), split.payoutCents);
+  eq("payout + our share = price", Math.round((m.driver_payout + m.platform_fee) * 100), Math.round(m.total_price * 100));
+  eq("night premium recorded", m.night_premium, priced.nightCents / 100);
+  eq("keep the price: nothing in the money update", be.moneyPatch(be.currentMoney(booking), be.currentMoney(booking)), {});
+  const mp = be.moneyPatch(be.currentMoney(booking), m);
+  ok("use the new price: total and payout in the update", "total_price" in mp && "driver_payout" in mp);
+
+  // Accepted offer: the amount stays unless the team updates it.
+  const offered = { ...booking, claimed_at: "2099-06-01T10:00:00Z", driver_payout: 150, platform_fee: 50 };
+  ok("accepted offer detected", be.hasAcceptedOffer(offered) && !be.hasAcceptedOffer(booking));
+  const kept = be.newMoney(offered, priced, noPromo, catalog, true);
+  eq("accepted offer kept as the payout", kept.driver_payout, 150);
+  eq("…our share takes the difference", Math.round(kept.platform_fee * 100), Math.round(kept.total_price * 100) - 15000);
+  eq("…or updated from the usual split when asked", Math.round(be.newMoney(offered, priced, noPromo, catalog, false).driver_payout * 100), split.payoutCents);
+
+  // Promo code: same rule as a new booking, split 50/50.
+  const promoBooking = { ...booking, promo_code: "SUMMER10", promo_discount: 18 };
+  const item = { kind: "transfer", totalCents: priced.totalCents, passThroughCents: 0, companyCostCents: 0, boatCents: priced.boatCents };
+  const line = be.editPromoLine(promoBooking, item, { discount_type: "percent", value: 10, applies_to: "both" }, catalog);
+  eq("percent code applies to the new price", line.discountCents, Math.round(priced.totalCents * 0.1));
+  eq("discount split 50/50 (driver's half rounded down)", [line.driverCents, line.platformCents], [Math.floor(line.discountCents / 2), line.discountCents - Math.floor(line.discountCents / 2)]);
+  const pm = be.newMoney(promoBooking, priced, line, catalog, false);
+  eq("promo: traveller pays price − discount", Math.round(pm.total_price * 100), priced.totalCents - line.discountCents);
+  eq("promo: driver gives up half", Math.round(pm.driver_payout * 100), split.payoutCents - line.driverCents);
+  eq("deleted code: the old discount is kept", be.editPromoLine(promoBooking, item, null, catalog).discountCents, 1800);
+  ok("cash booking: the cash fee follows the new price", be.newMoney({ ...booking, payment_mode: "cash_driver" }, priced, noPromo, catalog, false).cash_fee > 0);
+
+  // Day tour: the pickup place is free text; only the date / time can move the price.
+  const tour = { ...booking, service_type: "day_tour", catalog_item_id: catalog.dayTours[0].id, vehicle_class: null, origin: null, destination: null, origin_coords: null, destination_coords: null, pickup_place: "Hotel Uno" };
+  const tin = be.parseEditInput({ date: "2099-06-15", time: "09:00", pickupPlace: "Hotel Dos" }, "day_tour", TODAY).input;
+  eq("tour: pickup place change listed", be.listChanges(tour, tin, { origin: null, destination: null }).map((c) => c.field), ["pickup_place"]);
+  ok("tour spec for re-pricing", be.specForBooking(tour, tin, null, null)?.kind === "day_tour");
+
+  // Reminders go out again only when the new pickup is more than 28 h away.
+  const NOW = Date.parse("2099-06-10T12:00:00Z");
+  eq("moved far ahead: reminders reset", be.scheduleResets(changes, "2099-06-15T23:00:00-06:00", NOW), { late_alert_at: null, reminder_traveller_at: null, reminder_driver_at: null });
+  eq("moved to within 28 h: reminders not sent twice", be.scheduleResets(changes, "2099-06-11T08:00:00-06:00", NOW), { late_alert_at: null });
+  eq("time unchanged: nothing reset", be.scheduleResets(changes.filter((c) => c.field !== "scheduled_at"), "2099-06-15T23:00:00-06:00", NOW), {});
+
+  // Messages: once each; the driver's never hold the traveller's contact or price.
+  const ctx = {
+    bookingId: "b1", ref: "CRPT-1", serviceType: "transfer", tourName: null,
+    origin: booking.origin, destination: "Hotel B, Manuel Antonio", scheduledAt: "2099-06-15T23:00:00-06:00", changes,
+    price: { before: 200, after: 230 }, payout: { before: 160, after: 184 },
+    driver: { id: "d1", fullName: "Carlos Mora", email: "carlos@example.com", appLang: null },
+    guest: { name: "Ana Smith", email: "ana@example.com", accessToken: "tok", language: "en" },
+    siteUrl: "https://example.com",
+  };
+  const msgs = be.bookingEditMessages(ctx);
+  eq("one traveller email, one driver push, one driver email", msgs.map((x) => x.kind), ["traveller_email", "driver_push", "driver_email"]);
+  eq("nothing when nothing changed", be.bookingEditMessages({ ...ctx, changes: [] }).length, 0);
+  eq("no driver assigned: only the traveller", be.bookingEditMessages({ ...ctx, driver: null }).map((x) => x.kind), ["traveller_email"]);
+  const tr = msgs[0].email;
+  ok("traveller email in English with the new price and trip link", tr.lang === "en" && tr.lines.some((l) => l.includes("$230.00")) && tr.button?.url.endsWith("/trip/tok"));
+  ok("traveller email never names the driver's payout", !JSON.stringify(tr).includes("184"));
+  const trEs = be.bookingEditMessages({ ...ctx, guest: { ...ctx.guest, language: "es" } })[0].email;
+  ok("traveller email in Spanish (usted) when they booked in Spanish", trEs.lang === "es" && trEs.subject.startsWith("Actualizamos su reserva") && trEs.lines.some((l) => l.startsWith("Destino")));
+  const driverText = JSON.stringify(msgs.slice(1));
+  ok("driver messages in Spanish by default", msgs[2].email.lang === "es" && msgs[1].message.title.startsWith("Cambio en el viaje"));
+  ok("driver messages never hold the traveller's name, email or price", !/Ana|ana@example\.com|\$230|\$200\b/.test(driverText));
+  ok("driver email shows their new payout", msgs[2].email.lines.some((l) => l.includes("$184.00")));
+  ok("driver in English when their app is in English", be.bookingEditMessages({ ...ctx, driver: { ...ctx.driver, appLang: "en" } })[2].email.subject.startsWith("Ride CRPT-1 changed"));
+  ok("no message names the owner or the other brands", !/Travel Planner|Familia M[aá]gica|Jorge/i.test(JSON.stringify(msgs)));
+
+  // The server actions: admin-only, refused on cancelled / completed, sent once, price only when chosen.
+  const src = readFileSync(new URL("../src/app/admin/bookings/editActions.ts", import.meta.url), "utf8");
+  const fnBody = (name) => {
+    const start = src.indexOf(`export async function ${name}`);
+    return src.slice(start, src.indexOf("\n}\n", start));
+  };
+  for (const fn of ["previewBookingEdit", "saveBookingEdit"]) {
+    const body = fnBody(fn);
+    const role = body.indexOf('await requireRole("admin"');
+    ok(`${fn} checks the admin role before anything else`, role > 0 && role < body.indexOf("load(") && role < body.indexOf("getTeamLang"));
+  }
+  ok("save refuses cancelled / completed in the update itself", src.includes('.not("status", "in", "(completed,cancelled)")'));
+  ok("save touches money only when the team chose the new price", src.includes("...(money ? moneyPatch(before, money) : {})") && src.includes('opts?.priceChoice === "new"'));
+  eq("save sends the notices once (one after())", (fnBody("saveBookingEdit").match(/after\(/g) ?? []).length, 1);
+  ok("the edit card is shown only when the booking can be edited", readFileSync(new URL("../src/app/admin/bookings/[id]/page.tsx", import.meta.url), "utf8").includes("canEditPlaces(b.status) && (b.service_type"));
+}
 
 console.log(`${passed} checks passed, ${failures.length} failed`);
 for (const f of failures) console.log("  ✗ " + f);

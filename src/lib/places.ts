@@ -123,6 +123,34 @@ export function placeSpecFields(origin: RidePlace, destination: RidePlace) {
   };
 }
 
+/** Booking text for one end: "Arenas Del Mar Resort, Rd to Arenas Del Mar, Manuel Antonio…" or our town's name. */
+export function bookingPlaceText(p: RidePlace): string {
+  return p.address && p.address !== p.label ? `${p.label}, ${p.address}` : p.label;
+}
+
+/** bookings.origin_coords / destination_coords for one end (origin_coords also gets `route`). */
+export function bookingPlaceCoords(p: RidePlace): { lat: number; lng: number; place_id: string; town: HubId } {
+  return { lat: p.lat, lng: p.lng, place_id: p.id, town: p.hub };
+}
+
+/**
+ * One end of a saved ride as a ride place (the team's edit form, src/lib/bookingEdit.ts): our town
+ * from "hub:X", else the stored Google point with the booking's text as its name. Null when the
+ * booking has no map point (rides saved before 2026-11-09).
+ */
+export function storedRidePlace(text: string | null | undefined, coords: Record<string, unknown> | null | undefined): RidePlace | null {
+  if (!coords) return null;
+  const id = typeof coords.place_id === "string" ? coords.place_id : "";
+  const hub = hubOfPlaceId(id);
+  if (hub) return hubPlace(hub);
+  const town = typeof coords.town === "string" && (HUB_IDS as readonly string[]).includes(coords.town) ? (coords.town as HubId) : null;
+  const lat = Number(coords.lat);
+  const lng = Number(coords.lng);
+  if (!isGooglePlaceId(id) || !town || !Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  const area = areaOf({ lat, lng });
+  return { id, label: cleanPlaceLabel(text) || id, lat, lng, hub: town, ...(area ? { area } : {}) };
+}
+
 /** Google place ids are long URL-safe strings. */
 export function isGooglePlaceId(v: unknown): v is string {
   return typeof v === "string" && /^[A-Za-z0-9_-]{10,300}$/.test(v);

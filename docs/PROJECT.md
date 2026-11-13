@@ -455,6 +455,36 @@ and error states, `AdminActionForm`).
   `placeSpecFields()` in `src/lib/places.ts`, same server lookup and route, same price;
   `npm run test:crm` checks the price matches).
 - **Booking page**: change history ("Historial de cambios", §7.3 `booking_events`) as a timeline.
+- **Change pickup, drop-off and time** (Jorge, 2026-11-12, migration 0056, `src/lib/bookingEdit.ts`,
+  card "Cambiar recogida, destino y hora" / "Cambiar lugar y hora de recogida" on the booking page;
+  not on cancelled or completed bookings). Rides: pickup and drop-off with the website's own place
+  search (towns as quick picks, hotels / addresses from Google), the pickup date and time, "Vuelo,
+  hotel o detalles de la recogida" (`flight_or_hotel_notes`: flight, lobby, gate, room) and the
+  message for the driver (`driver_notes`); no phone numbers, emails or links in either. Day tours:
+  the pickup place (`pickup_place`, free text as on the booking form) and the date and time.
+  "Revisar cambios y precio" shows what changes (old → new), the new drive time and the price with
+  the new route, made exactly like the website's (`priceItem`: season, vehicle, stops, night premium,
+  ferries; one Google place lookup per changed end and one Routes call, both cached 30 days, so the
+  save costs no more calls); then promo code (same code rule, split 50/50), payout (commission after
+  pass-throughs and company costs) and cash fee. **The price never changes by itself**: "Mantener el
+  precio" is the default; "Usar el precio nuevo" updates price, payout, our share, night premium,
+  ferries, promo discount (and its `promo_redemptions` row) and cash fee. An accepted offer's amount
+  stays the driver's payout unless "Actualizar también el pago al conductor" is ticked. When the
+  price can't be worked out (e.g. a stop doesn't fit the new route) the page says so and the price is
+  kept. The new place updates `origin` / `destination` (name + address), `origin_coords` /
+  `destination_coords` (map point, town and the new route), `drive_minutes`, so the dispatch
+  calendar's clash check, the driver's trip and navigation, the late-driver check, both day-before
+  reminders and the traveller's trip page / app all use it (they read the booking when they run).
+  A new time more than 28 h away lets the day-before reminders go out again for it; a late-driver
+  alert is cleared. "Avisar del cambio" (ticked by default): one email to the traveller (their
+  booking language: what changed, old → new, the new price if it changed, trip link) and, when a
+  driver is assigned, one push + one email to the driver (Spanish unless their app is in English:
+  what changed, their new payout if it changed; never the traveller's name, contact or price);
+  logged as `notified` (kind `booking_edit`). Warnings on the page: money already received, a
+  posting with offers made for the old trip, the driver already on the way, check the calendar.
+  Every change is in the history with who did it (`places`, `schedule`, `price`, `payout`).
+  Admins only (server actions `src/app/admin/bookings/editActions.ts`); RLS unchanged. Assumptions:
+  §9 #24. Tests: `npm run test:crm`, `npm run test:db`.
 - **Confirmations in the page** (never a browser pop-up), saying what will happen: cancel a booking,
   change the amount received, accept a driver's offer (sets the payout), mark trips settled,
   reject/suspend a driver or vehicle, change a vehicle's category, change prices / fees / season
@@ -715,11 +745,11 @@ are 9 PM–7 AM Costa Rica time, as for the rating reminder. Each is marked in t
   that don't send it still book. Shown on the traveller's trip page and app trip screen, in the
   assigned driver's trip (`my_trips().pickup_place`, last column; driver portal "Recogida", driver
   app route "Recogida"), in both day-before reminders, and on the admin booking page. The job board
-  never shows it. Rides keep using `origin`. Changing it is not logged in the booking history and
-  the team can't edit it yet (see below).
+  never shows it. Rides keep using `origin`. Since 2026-11-12 the team can change it on the booking
+  page and every change is logged (`places`, migration 0056; §4.2).
 - **Admin booking page** (read-only): "Lugar de recogida" on tours and "Mensajes automáticos" (when
-  each reminder and the return suggestion went out or was checked). **Still to build:** editing the
-  pickup place (then add it to `log_booking_changes()`), "Team alerted" on a review
+  each reminder and the return suggestion went out or was checked). The pickup place is editable
+  since 2026-11-12 (§4.2, migration 0056). **Still to build:** "Team alerted" on a review
   (`team_alerted_at`), "Confirmed at" (`confirmed_at`), and a list of unsubscribed addresses
   (`email_optouts`, admins can read it) with a way to add or remove one by hand.
 - The new `bookings` columns (`confirmed_at`, `reminder_*_at`, `followup_sent_at`, `pickup_place`)
@@ -1296,7 +1326,10 @@ promotional emails (§4.7). **`driver_reviews.team_alerted_at`**: low-rating ema
 `settled` | `sign` | `notes` | `created_by_team` | `trip_link_emailed`; since migration 0049 also
 `cancellation` | `refund` | `refund_paid` (trigger on `booking_refunds`) and `driver_removed` |
 `whatsapp_opened` | `notified` (written by the server); since migration 0054 `reposted` (the team's
-"Volver a publicar") | `auto_reposted` (the automatic repost 48 h before pickup)) · `before` / `after` jsonb
+"Volver a publicar") | `auto_reposted` (the automatic repost 48 h before pickup); since migration 0056
+`places` (pickup / drop-off name and Google place id, a day tour's pickup place, flight / hotel notes,
+message for the driver, drive time; its own trigger `log_booking_place_changes()`), and `notified`
+with `kind: booking_edit` for the team's "trip changed" messages) · `before` / `after` jsonb
 (only the changed fields). Written by triggers on `bookings` and `booking_admin_notes` (so every path
 is covered: admin pages, accepting an offer, the driver app, the traveller's sign) and by the server
 for bookings entered by the team. Never card data, never chat messages.
@@ -1638,6 +1671,22 @@ multi-day trips were retired (§1, §5.5) and are not on the roadmap.
     "waiting for payment"), and is skipped when the team (re)posted it less than 48 hours before
     pickup; (g) "Volver a publicar" is offered only once the hour is over (not to extend an open one);
     (h) postings already open when the change goes live get one more hour from then.
+24. **Team edits pickup / drop-off / time: assumptions to confirm (open, built 2026-11-12, §4.2,
+    migration 0056).** Decided by Jorge: the price never changes silently (keep or use the new price),
+    every change in the history with who did it, the traveller and driver notified (box ticked by
+    default), never on cancelled / completed bookings. Assumed until Jorge says otherwise: (a) the
+    traveller gets an email only (no app push); the driver gets push + email; (b) changing only the
+    date or time also offers the new price (season or night premium can change); a notes-only change
+    never touches the price; (c) "Usar el precio nuevo" with money already received does not charge or
+    refund anything by itself: the page warns and the team settles the difference by hand; (d) with a
+    promo code, the code's own rule is applied to the new price (a deleted code keeps the old
+    discount, capped); (e) an accepted offer stays the payout even when the new route is longer,
+    unless the team ticks "update the payout"; if the price would fall below the kept payout, saving
+    is refused; (f) a booking posted to the job board stays posted; offers made for the old trip stay
+    (the page suggests reposting); (g) a new pickup more than 28 h away re-arms the day-before
+    reminders; closer than that, nothing is re-sent; (h) a ride's stored `route` follows the new
+    places even when the price is kept (it is the route the driver will drive); (i) the flight / hotel
+    notes field is also where the team writes "lobby / gate / room" details (no new column).
 
 ---
 

@@ -33,6 +33,11 @@ import { SIGN_MAX, shortName } from "@/lib/sign";
 import { WA_KINDS, vehicleText, waButtonLabel, waLink, waMessage, waUnavailable } from "@/lib/whatsappMessages";
 import { markRefundPaid, setSignByTeam } from "../crmActions";
 import { CancelBookingForm, WhatsAppButtons } from "./CrmCards";
+// Team edits pickup / drop-off / time (2026-11-12, src/lib/bookingEdit.ts).
+import { HUBS } from "@/lib/catalog";
+import { canEditPlaces } from "@/lib/bookingEdit";
+import { storedRidePlace } from "@/lib/places";
+import { EditTripCard } from "./EditTripCard";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 type DriverRow = DriverRecord & { profiles: { full_name: string | null } | null; driver_vehicles: VehicleRecord[] };
@@ -333,6 +338,11 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
             >
               {t("Ver en el calendario", "See on the calendar")}
             </Link>
+            {canEditPlaces(b.status) && (b.service_type === "transfer" || b.service_type === "day_tour") && (
+              <a href="#edit-trip" className={btn.secondary}>
+                {t("Cambiar recogida u hora", "Change pickup or time")}
+              </a>
+            )}
             <a href="#dispatch" className={btn.primary}>
               {t("Asignar y cambiar estado", "Dispatch & status")}
             </a>
@@ -470,6 +480,34 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
           </DetailList>
         </Card>
       </div>
+
+      {/* Team edits where and when the trip starts (2026-11-12). Not on cancelled / completed bookings. */}
+      {canEditPlaces(b.status) && (b.service_type === "transfer" || b.service_type === "day_tour") && (
+        <div id="edit-trip" className="scroll-mt-20">
+          <Card title={b.service_type === "transfer" ? t("Cambiar recogida, destino y hora", "Change pickup, drop-off and time") : t("Cambiar lugar y hora de recogida", "Change pickup place and time")}>
+            <p className="mb-4 text-sm text-[#5F6F67]">
+              {t(
+                "Primero revise: verá qué cambia y el precio con la ruta nueva. El precio solo cambia si elige «Usar el precio nuevo». Todo queda en el historial con su nombre.",
+                "Review first: you'll see what changes and the price with the new route. The price only changes if you pick \"Use the new price\". Everything is recorded in the history with your name.",
+              )}
+            </p>
+            <EditTripCard
+              bookingId={b.id}
+              kind={b.service_type}
+              lang={lang}
+              today={today}
+              hubs={HUBS.map((h) => ({ id: h.id, name: placeNameFor(h.name, lang) }))}
+              origin={storedRidePlace(b.origin, b.origin_coords)}
+              destination={storedRidePlace(b.destination, b.destination_coords)}
+              date={scheduledParts(b.scheduled_at)?.ymd ?? today}
+              time={scheduledParts(b.scheduled_at)?.time ?? "09:00"}
+              notes={b.flight_or_hotel_notes ?? ""}
+              driverNotes={b.driver_notes ?? ""}
+              pickupPlace={b.pickup_place ?? ""}
+            />
+          </Card>
+        </div>
+      )}
 
       {posting && (
         <Card title={t("Publicación en la bolsa de trabajos", "Job board posting")}>
@@ -920,8 +958,8 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
               />
               <p className="mt-4 text-xs text-[#5F6F67]">
                 {t(
-                  "Se guarda solo: estado, conductor y vehículo, montos, forma de pago, hora, liquidación, rótulo y notas internas. Nunca datos de tarjeta ni mensajes del chat.",
-                  "Recorded automatically: status, driver and vehicle, amounts, payment mode, time, settlement, name sign and internal notes. Never card data or chat messages.",
+                  "Se guarda solo: estado, conductor y vehículo, montos, forma de pago, hora, recogida y destino, notas del viaje, liquidación, rótulo y notas internas. Nunca datos de tarjeta ni mensajes del chat.",
+                  "Recorded automatically: status, driver and vehicle, amounts, payment mode, time, pickup and drop-off, trip notes, settlement, name sign and internal notes. Never card data or chat messages.",
                 )}
               </p>
             </>
