@@ -644,6 +644,73 @@ export const AIRPORT_CORRIDORS: Corridor[] = [
     },
   },
 
+  // ───────── SJO ↔ Puerto Jiménez (Osa, road side of Corcovado) ─────────
+  {
+    a: "SJO",
+    b: "PuertoJimenez",
+    updated: "2026-11-12",
+    hook: l("door to door to the road side of Corcovado", "puerta a puerta hasta el lado de Corcovado al que se llega por carretera"),
+    road: l(
+      "Between San José and Puerto Jiménez the ride follows Route 27 to the Pacific and the Costanera Sur down the coast past Jacó, Quepos, Dominical and Uvita to Palmar Norte, then the Inter-American Highway south to Chacarita and Route 245 around the Golfo Dulce to Puerto Jiménez. It is a long day on the road, with the last stretch through the forests and farmland of the Osa Peninsula.",
+      "Entre San José y Puerto Jiménez el traslado sigue la Ruta 27 hasta el Pacífico y la Costanera Sur a lo largo de la costa, pasando por Jacó, Quepos, Dominical y Uvita, hasta Palmar Norte; luego la carretera Interamericana hacia el sur hasta Chacarita y la Ruta 245 alrededor del Golfo Dulce hasta Puerto Jiménez. Es un día largo de carretera, con el último tramo entre los bosques y las fincas de la península de Osa.",
+    ),
+    ways: [
+      way(
+        "bus",
+        "Long-distance public buses run between San José and Puerto Jiménez. It is the cheapest way and takes most of the day.",
+        "Hay buses públicos de larga distancia entre San José y Puerto Jiménez. Es la forma más barata y toma casi todo el día.",
+      ),
+      way(
+        "flight",
+        "Small planes fly between San José and the Puerto Jiménez airstrip, the fastest way in. Luggage limits are strict.",
+        "Hay avionetas entre San José y el aeródromo de Puerto Jiménez, la forma más rápida de llegar. Los límites de equipaje son estrictos.",
+      ),
+      way(
+        "car",
+        "You can drive to Puerto Jiménez on paved roads. Some lodges beyond the town are on gravel roads with river crossings, so ask yours whether you need a 4x4.",
+        "Se puede manejar hasta Puerto Jiménez por carreteras pavimentadas. Algunos lodges más allá del pueblo están sobre caminos de lastre con cruces de ríos, así que pregunte en el suyo si necesita un 4x4.",
+      ),
+    ],
+    faqs: [
+      q(
+        "Do we need permits for Corcovado?",
+        "¿Se necesitan permisos para Corcovado?",
+        "Yes. Corcovado National Park requires SINAC permits and a certified guide, booked in advance, and overnight spaces at Sirena Station are limited. Book them before your trip; the guide and the permit are booked separately from your ride.",
+        "Sí. El Parque Nacional Corcovado exige permisos del SINAC y un guía certificado, reservados con anticipación, y los espacios para pasar la noche en la Estación Sirena son limitados. Resérvelos antes de su viaje; el guía y el permiso se reservan aparte de su traslado.",
+      ),
+      q(
+        "Can you take us to a lodge outside town?",
+        "¿Pueden llevarnos a un lodge fuera del pueblo?",
+        "Yes. Type your lodge's name in the trip builder and the price and drive time follow the road to its door. If your lodge says its road needs a 4x4, choose the 4x4.",
+        "Sí. Escriba el nombre de su lodge en el planificador de viajes y el precio y el tiempo de viaje siguen la carretera hasta su puerta. Si su lodge le dice que el camino requiere 4x4, elija el 4x4.",
+      ),
+    ],
+    ab: {
+      lead: l(
+        "Your driver takes you from the airport or your San José hotel down the Pacific coast and around the Golfo Dulce to Puerto Jiménez, the town on the road side of Corcovado.",
+        "Su conductor lo lleva desde el aeropuerto o su hotel en San José, bajando por la costa del Pacífico y alrededor del Golfo Dulce, hasta Puerto Jiménez, el pueblo del lado de Corcovado al que se llega por carretera.",
+      ),
+      faq: q(
+        "We arrive on an international flight. Can we reach Puerto Jiménez the same day?",
+        "Llegamos en un vuelo internacional. ¿Podemos llegar a Puerto Jiménez el mismo día?",
+        "Only with a morning landing: the ride takes about {time:SJO>PuertoJimenez}. After a later flight, most travellers sleep near the airport or on the coast and continue the next morning.",
+        "Solo si aterriza en la mañana: el traslado toma aproximadamente {time:SJO>PuertoJimenez}. Después de un vuelo más tarde, la mayoría de los viajeros duerme cerca del aeropuerto o en la costa y sigue a la mañana siguiente.",
+      ),
+    },
+    ba: {
+      lead: l(
+        "Your driver picks you up at your hotel or lodge in Puerto Jiménez and takes you up the coast to the airport or your San José hotel.",
+        "Su conductor lo recoge en su hotel o lodge en Puerto Jiménez y lo lleva por la costa hasta el aeropuerto o su hotel en San José.",
+      ),
+      faq: q(
+        "Can we ride to San José on the day of our flight home?",
+        "¿Podemos hacer el traslado a San José el día de nuestro vuelo de regreso?",
+        "Only for a late evening flight and with a very early start: the ride takes about {time:PuertoJimenez>SJO}. A night near the airport before an international flight is the safe choice.",
+        "Solo para un vuelo de la noche y saliendo muy temprano: el traslado toma aproximadamente {time:PuertoJimenez>SJO}. Lo seguro es pasar una noche cerca del aeropuerto antes de un vuelo internacional.",
+      ),
+    },
+  },
+
   // ───────── LIR ↔ La Fortuna / Arenal ─────────
   {
     a: "LIR",

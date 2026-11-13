@@ -11,6 +11,7 @@ export const TOWNS: Record<string, string> = {
   DrakeBay: "Drake Bay",
   PuertoViejo: "Puerto Viejo",
   Tamarindo: "Tamarindo",
+  PuertoJimenez: "Puerto Jiménez",
   SouthNicoya: "Southern Nicoya",
 };
 /** The same towns in Spanish; ids missing here fall back to the English name. */

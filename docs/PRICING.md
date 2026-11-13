@@ -58,7 +58,7 @@ price was made.
 
 ### 3.1 How it's built (step 3) and the Google setup
 
-- The pickup / drop-off boxes list our 9 towns at once; typing 3+ letters adds Google
+- The pickup / drop-off boxes list our 10 towns at once (Puerto Jiménez added 2026-11-12); typing 3+ letters adds Google
   suggestions in Costa Rica. Our server calls Google (`/api/places/suggest`, `/lookup`, `/route`);
   the key never reaches the browser.
 - A typed place is linked to its **nearest town** (straight line) for the area factor, stops and
@@ -127,6 +127,13 @@ minimum $120** (migration 0016). SJO → La Fortuna $162 (Daytrip $161), Manuel 
 ($205), Tamarindo $324 ($338), LIR → Tamarindo $132 ($136), SJO → Santa Teresa $346 with the
 ferry for 2 ($356). Daytrip's seasonal swing (e.g. La Fortuna $161 → $185) is matched by our
 season multipliers (high season +15%, peak +25%).
+
+**Puerto Jiménez (added 2026-11-12, for Jorge to review):** same formula, no special case. SJO →
+Puerto Jiménez 370 km / 6 h → Standard **$423** (Daytrip Sedan $530, Lite $518), back $486 with
+the Osa area factor; Manuel Antonio → $269; Sierpe ↔ $197. That is about 20% under Daytrip,
+because Daytrip adds a scarcity premium in Osa. To be on par, raise the Puerto Jiménez area
+factor at `/admin/pricing` (rides starting there) or pin a zone price (§4.5). Every pair:
+`docs/PROJECT.md` §5.1.
 
 ### 4.3 Vehicle classes
 
@@ -255,7 +262,7 @@ it moves to the driver side.
 **Starting defaults, not yet confirmed (editable in the admin, change any time):**
 5. Park entrance fees are shown as "paid at the gate, ~$X" unless a stop is marked as included
    or free (no ticket, e.g. Tárcoles; migration 0014).
-6. Area factors: Southern Pacific / Osa 1.15, Liberia 1.10, Southern Nicoya 1.35 (applies at
+6. Area factors: Southern Pacific / Osa 1.15 (Sierpe, Drake Bay and, since 2026-11-12, Puerto Jiménez), Liberia 1.10, Southern Nicoya 1.35 (applies at
    either end, but only when the route takes the Puntarenas ferry; it pays for the queue and
    the driver's crossing back, so rides around the gulf by road from Liberia don't get it),
    everywhere else 1.00.

@@ -13,7 +13,8 @@
  *     with the booking; otherwise UNKNOWN_DRIVE_MINUTES, marked "estimated". This is the same
  *     sum the driver app shows as "Arrives approx." (public.my_trips(), migration 0035).
  *   - Day tour: the tour's length in the catalog (durationHours), DEFAULT_TOUR_MINUTES if unknown.
- *     It starts and ends in its region's town; the Osa tour in Puerto Jiménez (not one of our towns).
+ *     It starts and ends in its region's town; the Osa tour in Puerto Jiménez (Jorge, 2026-11-12;
+ *     one of our towns since the same day, so travel to and from it is timed like any other town).
  *
  * CLASH between two bookings of one driver (warnings only; the team decides):
  *   - "overlap": the busy spans overlap.
@@ -55,14 +56,22 @@ export const LONGEST_ROUTE_MINUTES = Math.max(...HUB_IDS.flatMap((a) => HUB_IDS.
  */
 export const CHECK_TRAVEL_WINDOW_MINUTES = LONGEST_ROUTE_MINUTES + CLASH_BUFFER_MINUTES;
 
-/** Day tours start and end in their region's town (hotel pickup there). */
-const TOUR_REGION_HUB: Record<string, HubId> = { Arenal: "Arenal", ManuelAntonio: "ManuelAntonio", Monteverde: "Monteverde" };
 /**
- * Day tours that start and end in a place that isn't one of our towns (Jorge, 2026-11-12: the Osa
- * tour, Sierpe mangroves & Caño Island, starts and ends in Puerto Jiménez). The drive to or from it
- * can't come from the town table, so the calendar says "check the travel time" and names the place.
+ * Day tours start and end in their region's town (hotel pickup there). The Osa tour (Sierpe
+ * mangroves & Caño Island) starts and ends in Puerto Jiménez (Jorge, 2026-11-12), one of our towns.
  */
-const TOUR_REGION_PLACE: Record<string, string> = { Osa: "Puerto Jiménez" };
+const TOUR_REGION_HUB: Record<string, HubId> = {
+  Arenal: "Arenal",
+  ManuelAntonio: "ManuelAntonio",
+  Monteverde: "Monteverde",
+  Osa: "PuertoJimenez",
+};
+/**
+ * Day tours that start and end in a place that isn't one of our towns: the drive to or from it
+ * can't come from the town table, so the calendar says "check the travel time" and names the
+ * place. None today (Puerto Jiménez became one of our towns on 2026-11-12).
+ */
+const TOUR_REGION_PLACE: Record<string, string> = {};
 
 /** The parts of a booking the calendar needs. */
 export interface SpanBooking {
@@ -335,6 +344,7 @@ const SHORT: Record<string, [string, string]> = {
   DrakeBay: ["Bahía Drake", "Drake Bay"],
   PuertoViejo: ["Puerto Viejo", "Puerto Viejo"],
   Tamarindo: ["Tamarindo", "Tamarindo"],
+  PuertoJimenez: ["Puerto Jiménez", "Puerto Jiménez"],
   SouthNicoya: ["Sur de Nicoya", "Southern Nicoya"],
 };
 

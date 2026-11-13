@@ -14,7 +14,7 @@ export const crDatePlus = (n: number) => new Date(Date.now() - 6 * 3600000 + n *
 export const validDate = (d: string) => /^\d{4}-\d{2}-\d{2}$/.test(d) && !Number.isNaN(new Date(d + "T00:00:00Z").getTime());
 
 /** Our towns and airports, offered before anyone types. */
-export const HUBS: Place[] = ["SJO", "LIR", "Arenal", "ManuelAntonio", "Monteverde", "Sierpe", "DrakeBay", "PuertoViejo", "Tamarindo"].map((id) => ({
+export const HUBS: Place[] = ["SJO", "LIR", "Arenal", "ManuelAntonio", "Monteverde", "Sierpe", "DrakeBay", "PuertoViejo", "Tamarindo", "PuertoJimenez"].map((id) => ({
   id: "hub:" + id,
   label: TOWNS[id],
 }));

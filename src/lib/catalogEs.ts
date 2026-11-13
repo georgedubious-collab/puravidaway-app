@@ -43,12 +43,13 @@ export const HUB_NAMES_ES: Record<HubId, string> = {
   DrakeBay: "Bahía Drake (en lancha desde Sierpe)",
   PuertoViejo: "Puerto Viejo (Caribe)",
   Tamarindo: "Tamarindo / Guanacaste",
+  PuertoJimenez: "Puerto Jiménez (Osa)",
 };
 
 export const REGION_NAMES_ES: Record<Region, string> = {
   Arenal: "La Fortuna / Arenal",
   ManuelAntonio: "Manuel Antonio / Pacífico Central",
-  Osa: "Península de Osa / Sierpe / Bahía Drake",
+  Osa: "Península de Osa / Sierpe / Bahía Drake / Puerto Jiménez",
   Monteverde: "Monteverde y Río Celeste",
 };
 

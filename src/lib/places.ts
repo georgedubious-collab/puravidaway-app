@@ -1,7 +1,7 @@
 /**
  * Places for the ride builder (docs/PRICING.md §2–3, build step 3).
  *
- * A ride's pickup and drop-off are either one of our 9 towns ("hubs", free to
+ * A ride's pickup and drop-off are either one of our 10 towns ("hubs", free to
  * price from the tables in catalog.ts) or any place the traveller typed (a
  * hotel, dock, restaurant or address found with Google Places). A typed place is
  * also linked to its nearest hub, which keeps the area factor, the stops on the
@@ -62,6 +62,7 @@ export const HUB_POINTS: Record<HubId, LatLng> = {
   DrakeBay: { lat: 8.6948, lng: -83.6683 }, // Agujitas beach
   PuertoViejo: { lat: 9.6559, lng: -82.7544 }, // Puerto Viejo de Talamanca
   Tamarindo: { lat: 10.2993, lng: -85.8371 },
+  PuertoJimenez: { lat: 8.5336, lng: -83.3058 }, // Puerto Jiménez town centre (the PJM airstrip is at its edge)
 };
 
 /** Places this close to Drake Bay are reached by boat from Sierpe (there is no sensible road for our cars). */
