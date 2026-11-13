@@ -10,7 +10,7 @@ import { bagsForTeam } from "@/lib/bags";
 import { BOOKING_STATUSES, bookingDue, bookingStatusLabel, serviceLabel, usd, type BookingRow, type OfferRow, type TripContact } from "@/lib/bookings";
 import { RETIRED_LODGING_TIERS, bookedItemName } from "@/lib/catalog";
 import { getCatalog } from "@/lib/catalogSource";
-import { formatScheduledAt, scheduledParts, todayInCostaRica } from "@/lib/dates";
+import { formatScheduledAt, nowMs, scheduledParts, todayInCostaRica } from "@/lib/dates";
 import { canTakeTrips, type DriverRecord, type VehicleRecord } from "@/lib/driverKyc";
 import { prefMismatches, prefsSummary } from "@/lib/preferences";
 import { signShown } from "@/lib/sign";
@@ -20,7 +20,8 @@ import { LiveRefresh } from "@/components/LiveRefresh";
 import { compareRanks, nearHome, offerRank, ratingBand, returnMatch, townName, townOf, type ReturnMatch, type TripLike } from "@/lib/matching";
 import { makeT } from "@/lib/teamLang";
 import { getTeamLang } from "@/lib/teamLangServer";
-import { acceptOffer, updateBooking } from "../actions";
+import { acceptOffer, repostJob, updateBooking } from "../actions";
+import { AUTO_REPOST_HOURS, POSTING_WINDOW_MINUTES, canRepost, postingLabel, postingMinutesLeft, postingState } from "@/lib/postingWindow";
 // CRM part 3 (2026-11-12): customer link, WhatsApp card, cancel + refund, team name sign.
 import { customerHref, customerKey } from "@/lib/customers";
 import { localizeCatalog, placeNameFor } from "@/lib/catalogEs";
@@ -299,9 +300,14 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
   const custKey = b.trips ? customerKey(guest.guest_email, guest.guest_phone, b.trip_id) : null;
   // ---- end CRM part 3 ----
 
+  // Job board posting window (migration 0054): open for 1 hour, then "Publicación cerrada".
+  const now = nowMs();
+  const posting = postingState(b, now);
+  const openOffers = (offers ?? []).filter((o) => o.status === "submitted").length;
+
   return (
     <div className="space-y-5">
-      {b.status === "pending_bids" && <LiveRefresh seconds={10} />}
+      {posting === "open" && <LiveRefresh seconds={10} />}
       <PageHeader
         back={{ href: "/admin/bookings", label: t("Todas las reservas", "All bookings") }}
         eyebrow={b.booking_ref}
@@ -315,7 +321,7 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
             <span>
               {formatScheduledAt(b.scheduled_at, lang)} · {t("enviada", "sent")} {b.created_at.slice(0, 10)}
             </span>
-            <StatusChip status={b.status} lang={lang} />
+            <StatusChip status={b.status} lang={lang} posting={posting} />
             <PaymentChip booking={b} lang={lang} test={testPaid} />
           </span>
         }
@@ -464,6 +470,58 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
           </DetailList>
         </Card>
       </div>
+
+      {posting && (
+        <Card title={t("Publicación en la bolsa de trabajos", "Job board posting")}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0 space-y-1 text-sm">
+              <p className="font-extrabold text-[#14231C]">{postingLabel(posting, openOffers, postingMinutesLeft(b, now), lang)}</p>
+              <p className="text-[#5F6F67]">
+                {posting === "open"
+                  ? t(
+                      `Los conductores la ven y pueden ofertar hasta ${formatScheduledAt(b.posting_closes_at ?? null, lang)}. Cada publicación dura ${POSTING_WINDOW_MINUTES} minutos.`,
+                      `Drivers see it and can offer until ${formatScheduledAt(b.posting_closes_at ?? null, lang)}. Each posting lasts ${POSTING_WINDOW_MINUTES} minutes.`,
+                    )
+                  : t(
+                      "Ya no está en la bolsa de trabajos y los conductores no pueden ofertar. Todavía necesita conductor: acepte una de las ofertas recibidas, asígnelo a mano o vuelva a publicarla por otra hora (se avisa de nuevo a los conductores).",
+                      "It's off the job board and drivers can't offer. It still needs a driver: accept one of the offers received, assign one by hand, or post it again for another hour (drivers are alerted again).",
+                    )}
+              </p>
+              <p className="text-xs text-[#5F6F67]">
+                {b.auto_reposted_at
+                  ? t(
+                      `Se volvió a publicar sola ${AUTO_REPOST_HOURS} h antes de la recogida (${formatScheduledAt(b.auto_reposted_at, lang)}).`,
+                      `Posted again automatically ${AUTO_REPOST_HOURS} h before pickup (${formatScheduledAt(b.auto_reposted_at, lang)}).`,
+                    )
+                  : t(
+                      `Si sigue sin conductor ${AUTO_REPOST_HOURS} h antes de la recogida, se vuelve a publicar sola una vez (no de 9 p. m. a 7 a. m.).`,
+                      `If it still has no driver ${AUTO_REPOST_HOURS} h before pickup, it is posted again automatically once (not 9 PM–7 AM).`,
+                    )}
+              </p>
+            </div>
+            {canRepost(b, now) && (
+              <AdminActionForm
+                action={repostJob}
+                lang={lang}
+                submitLabel={t("Volver a publicar", "Repost")}
+                savedLabel={t("Publicada", "Posted")}
+                confirm={[
+                  {
+                    kind: "always",
+                    message: t(
+                      `La reserva vuelve a la bolsa de trabajos por ${POSTING_WINDOW_MINUTES} minutos y se avisa otra vez a los conductores que pueden tomarla. Las ofertas recibidas se mantienen.`,
+                      `The booking goes back on the job board for ${POSTING_WINDOW_MINUTES} minutes and the drivers who can take it are alerted again. Offers already received stay.`,
+                    ),
+                  },
+                ]}
+                confirmLabel={t("Sí, volver a publicar", "Yes, repost")}
+              >
+                <input type="hidden" name="booking_id" value={b.id} />
+              </AdminActionForm>
+            )}
+          </div>
+        </Card>
+      )}
 
       {(offers ?? []).length > 0 && (
         <Card title={t("Ofertas de los conductores", "Drivers' offers")}>

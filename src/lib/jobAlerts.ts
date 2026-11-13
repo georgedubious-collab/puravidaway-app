@@ -64,12 +64,12 @@ export async function notifyDriversOfJobs(bookingIds: string[]): Promise<void> {
       const data = { screen: "job", id: j.id };
       await sendPush(
         inSpanish,
-        { title: `Nuevo viaje: ${whatEs}`, body: `${formatScheduledAtFor(j.scheduled_at, "es")} · ${pax} ${pax > 1 ? "pasajeros" : "pasajero"} · pago sugerido ${payout}`, data },
+        { title: `Nuevo viaje: ${whatEs}`, body: `${formatScheduledAtFor(j.scheduled_at, "es")} · ${pax} ${pax > 1 ? "pasajeros" : "pasajero"} · pago sugerido ${payout} · ofertas abiertas 1 hora`, data },
         "driver",
       );
       await sendPush(
         inEnglish,
-        { title: `New job: ${what}`, body: `${when} · ${pax} traveller${pax > 1 ? "s" : ""} · suggested payout ${payout}`, data },
+        { title: `New job: ${what}`, body: `${when} · ${pax} traveller${pax > 1 ? "s" : ""} · suggested payout ${payout} · offers open for 1 hour`, data },
         "driver",
       );
       const sorted = [...available].sort((a, b) => Number(b.home_hub === from) - Number(a.home_hub === from)).slice(0, MAX_RECIPIENTS);
@@ -81,7 +81,7 @@ export async function notifyDriversOfJobs(bookingIds: string[]): Promise<void> {
             `Hi ${(d.profiles!.full_name ?? "").split(" ")[0] || "there"},`,
             `A new job is open: ${what}, pickup ${when} (Costa Rica time), ${j.passenger_count ?? 1} traveller${(j.passenger_count ?? 1) > 1 ? "s" : ""}. Suggested payout: ${payout}.`,
             d.home_hub && d.home_hub === from ? "It starts in your area, so your offer gets priority." : "",
-            "Send your offer on the job board. Our team picks a driver and emails you if it's yours.",
+            "Send your offer on the job board within the next hour: each posting is open for offers for 1 hour. Our team picks a driver and emails you if it's yours.",
           ].filter(Boolean),
           button: { label: "See the job and send an offer", url: `${SITE_URL}/driver/jobs` },
         });

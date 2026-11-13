@@ -82,6 +82,10 @@ export interface BookingRow {
   company_costs?: number | string | null;
   /** Set when the team accepted a driver's offer from the job board. */
   claimed_at?: string | null;
+  /** Job board posting window (src/lib/postingWindow.ts, migration 0054): last posted, when its hour ends, automatic repost 48 h before. */
+  posted_at?: string | null;
+  posting_closes_at?: string | null;
+  auto_reposted_at?: string | null;
   /** Large suitcases (0–20), optional; migration 0035. Carry-ons are separate since 0037. */
   luggage_count?: number | null;
   /** Carry-on bags (0–20); null on bookings without it (older ones, older app builds). Migration 0037. */

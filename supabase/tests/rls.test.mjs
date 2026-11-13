@@ -1841,6 +1841,95 @@ await expectOk("server removes the test booking", "server", "delete from public.
   else failures.push("the block lifts after an hour");
 }
 
+// --- Migration 0054: 1-hour posting window, "Volver a publicar", automatic repost 48 h before ----
+{
+  const PW = (n) => `'54000000-0000-0000-0000-00000000000${n}'`;
+  await db.exec(`update public.driver_vehicles set passenger_capacity = 6, vehicle_class = null where id = ${V1}`);
+  await db.exec(`delete from public.driver_unavailable where driver_id = '${U.driver}'`);
+  await expectOk("server posts a ride to the board", "server", `
+    insert into public.bookings (id, client_id, service_type, total_price, driver_payout, platform_fee, status, passenger_count, scheduled_at)
+    values (${PW(1)}, '${U.client}', 'transfer', 200, 160, 40, 'pending_bids', 2, now() + interval '5 days')`);
+  await expectRows("posting a job opens a 1-hour window", "admin",
+    `select 1 from public.bookings where id = ${PW(1)} and posted_at > now() - interval '1 minute' and posting_closes_at - posted_at = interval '1 hour'`, 1);
+  await expectRows("open posting is on the job board", "driver", `select 1 from public.driver_jobs() where id = ${PW(1)}`, 1);
+  await expectRows("driver offers during the hour", "driver", `select public.offer_job(${PW(1)}, ${V1}, 150) as ref`, 1);
+  // An hour later.
+  await db.exec(`update public.bookings set posting_closes_at = now() - interval '1 minute', posted_at = now() - interval '61 minutes' where id = ${PW(1)}`);
+  await expectRows("after 1 hour the job leaves the board", "driver", `select 1 from public.driver_jobs() where id = ${PW(1)}`, 0);
+  try {
+    await as("driver", `select public.offer_job(${PW(1)}, ${V1}, 155)`);
+    failures.push("offer after the window closed: was allowed");
+  } catch (e) {
+    if (/This job is no longer open\./.test(e.message)) passed++;
+    else failures.push(`offer after the window: unexpected message ${e.message}`);
+  }
+  await expectRows("…the offer from the hour is kept, unchanged", "admin",
+    `select 1 from public.bids where booking_id = ${PW(1)} and bid_amount = 150 and status = 'submitted'`, 1);
+  await expectRows("…and the booking still needs a driver (status unchanged)", "admin",
+    `select 1 from public.bookings where id = ${PW(1)} and status = 'pending_bids' and assigned_driver_id is null`, 1);
+
+  // "Volver a publicar".
+  for (const who of ["driver", "client", "anon"]) {
+    await expectBlocked(`${who} cannot repost a job`, who, `select public.repost_job(${PW(1)})`);
+  }
+  await expectRows("admin reposts: a new 1-hour window", "admin", `select public.repost_job(${PW(1)}) = now() + interval '1 hour' as ok`, 1);
+  await expectRows("…the job is back on the board with the driver's offer", "driver",
+    `select 1 from public.driver_jobs() where id = ${PW(1)} and my_offer = 150`, 1);
+  await expectRows("…logged in the history by the admin", "admin",
+    `select 1 from public.booking_events where booking_id = ${PW(1)} and action = 'reposted' and actor_id = '${U.admin}' and (after->>'offers')::int = 1`, 1);
+  await expectBlocked("cannot repost while the window is still open", "admin", `select public.repost_job(${PW(1)})`);
+  await expectRows("driver can offer again", "driver", `select public.offer_job(${PW(1)}, ${V1}, 152) as ref`, 1);
+
+  // Accepting after the window closed still works.
+  await db.exec(`update public.bookings set posting_closes_at = now() - interval '5 minutes' where id = ${PW(1)}`);
+  await expectRows("admin accepts an offer after the window closed", "admin",
+    `select public.accept_offer((select id from public.bids where booking_id = ${PW(1)})) as ref`, 1);
+  await expectRows("…assigned and confirmed", "admin",
+    `select 1 from public.bookings where id = ${PW(1)} and status = 'confirmed' and assigned_driver_id = '${U.driver}' and driver_payout = 152`, 1);
+  await expectBlocked("a booking with a driver cannot be reposted", "admin", `select public.repost_job(${PW(1)})`);
+  // Driver removed → back to "Open for drivers" with a fresh window (the trigger).
+  await db.exec(`update public.bookings set posting_closes_at = now() - interval '2 days' where id = ${PW(1)}`);
+  await expectOk("team removes the driver: back on the board", "admin",
+    `update public.bookings set status = 'pending_bids', assigned_driver_id = null, assigned_vehicle_id = null where id = ${PW(1)}`);
+  await expectRows("…with a new 1-hour window", "admin",
+    `select 1 from public.bookings where id = ${PW(1)} and posted_at > now() - interval '1 minute' and posting_closes_at - posted_at = interval '1 hour'`, 1);
+
+  // Automatic repost 48 hours before pickup, once per booking.
+  await db.exec(`
+    insert into public.bookings (id, client_id, service_type, total_price, driver_payout, platform_fee, status, passenger_count, scheduled_at, created_at) values
+      (${PW(2)}, '${U.client}', 'transfer', 200, 160, 40, 'pending_bids', 2, now() + interval '47 hours', now() - interval '5 days'),
+      (${PW(3)}, '${U.client}', 'transfer', 200, 160, 40, 'pending_bids', 2, now() + interval '40 hours', now() - interval '1 hour'),
+      (${PW(4)}, '${U.client}', 'day_tour', 300, 200, 100, 'pending_bids', 2, now() + interval '30 hours', now() - interval '6 days'),
+      (${PW(5)}, '${U.client}', 'transfer', 200, 160, 40, 'pending_bids', 2, now() + interval '3 days', now() - interval '6 days'),
+      (${PW(6)}, '${U.client}', 'transfer', 200, 160, 40, 'pending_payment', 2, now() + interval '20 hours', now() - interval '6 days');
+    update public.bookings set posted_at = created_at, posting_closes_at = created_at + interval '1 hour'
+     where id in (${PW(2)}, ${PW(3)}, ${PW(4)}, ${PW(5)});
+    update public.bookings set posted_at = now() - interval '10 hours', posting_closes_at = now() - interval '9 hours' where id = ${PW(4)};`);
+  await expectBlocked("an admin cannot run the automatic repost", "admin", "select * from public.auto_repost_jobs()");
+  await expectBlocked("a driver cannot run the automatic repost", "driver", "select * from public.auto_repost_jobs()");
+  const reposted = (await as("server", "select * from public.auto_repost_jobs() as id")).rows.map((r) => r.id);
+  if (JSON.stringify(reposted) === JSON.stringify(["54000000-0000-0000-0000-000000000002"])) passed++;
+  else failures.push(`auto repost: only the booking posted > 48 h before pickup, pickup now within 48 h: got ${JSON.stringify(reposted)}`);
+  await expectRows("…opened a new window and marked it", "admin",
+    `select 1 from public.bookings where id = ${PW(2)} and auto_reposted_at > now() - interval '1 minute' and posted_at = auto_reposted_at and posting_closes_at - posted_at = interval '1 hour'`, 1);
+  await expectRows("…back on the job board", "driver", `select 1 from public.driver_jobs() where id = ${PW(2)}`, 1);
+  await expectRows("…logged as a system event", "admin",
+    `select 1 from public.booking_events where booking_id = ${PW(2)} and action = 'auto_reposted' and actor_id is null`, 1);
+  await expectRows("late booking (created < 48 h before pickup) is skipped", "admin",
+    `select 1 from public.bookings where id = ${PW(3)} and auto_reposted_at is null`, 1);
+  await expectRows("posting made < 48 h before pickup is skipped", "admin",
+    `select 1 from public.bookings where id = ${PW(4)} and auto_reposted_at is null`, 1);
+  await expectRows("pickup more than 48 h away: not yet", "admin",
+    `select 1 from public.bookings where id = ${PW(5)} and auto_reposted_at is null`, 1);
+  await expectRows("unpaid request never posted: not posted automatically", "admin",
+    `select 1 from public.bookings where id = ${PW(6)} and auto_reposted_at is null and status = 'pending_payment'`, 1);
+  // Once only: even after this window closes too.
+  await db.exec(`update public.bookings set posting_closes_at = now() - interval '1 minute' where id = ${PW(2)}`);
+  await expectRows("auto repost happens once per booking", "server", "select * from public.auto_repost_jobs()", 0);
+  await expectRows("…one auto_reposted event", "admin",
+    `select 1 from public.booking_events where booking_id = ${PW(2)} and action = 'auto_reposted'`, 1);
+}
+
 // --- Report -----------------------------------------------------------------------------------
 console.log(`${passed} checks passed, ${failures.length} failed`);
 for (const f of failures) console.log("  ✗ " + f);
