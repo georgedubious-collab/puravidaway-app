@@ -13,7 +13,7 @@ import { adminBookingPath, sendTeamAlert } from "@/lib/teamAlerts";
 import { alertText, isTonight } from "@/lib/teamAlertRules";
 import { routeMinutes, stopTotalCents } from "@/lib/catalog";
 import { resolveTransfer } from "@/lib/googleMaps";
-import type { RidePlace, RideRoute } from "@/lib/places";
+import { bookingPlaceCoords, bookingPlaceText, type RidePlace, type RideRoute } from "@/lib/places";
 import { hasDriverPayout, splitPayout } from "@/lib/payout";
 import { cashFeeCents, formatBpsPercent } from "@/lib/pricing";
 import { PROMO_CHANGED_ERROR, discountedMoney, type PromoItemInput, type PromoLine } from "@/lib/promo";
@@ -569,14 +569,8 @@ async function clientIp(): Promise<string> {
   return (h.get("x-forwarded-for") ?? "").split(",")[0].trim() || h.get("x-real-ip") || "unknown";
 }
 
-/** Booking text for one end: "Arenas Del Mar Resort, Rd to Arenas Del Mar, Manuel Antonio…" or our town's name. */
-function placeText(p: RidePlace): string {
-  return p.address && p.address !== p.label ? `${p.label}, ${p.address}` : p.label;
-}
-
-function placeCoords(p: RidePlace) {
-  return { lat: p.lat, lng: p.lng, place_id: p.id, town: p.hub };
-}
+const placeText = bookingPlaceText;
+const placeCoords = bookingPlaceCoords;
 
 /**
  * Door-to-door minutes for the driver's arrival estimate (bookings.drive_minutes): the Google

@@ -88,10 +88,37 @@ export function describeEvent(e: BookingEvent, lang: TeamLang, who: { driver: Lo
     case "whatsapp_opened":
       return { title: `${t("WhatsApp abierto", "WhatsApp opened")}: ${waButtonLabel(String(a.kind) as WaKind, lang)}` };
     case "notified":
+      if (a.kind === "booking_edit")
+        return {
+          title: t("Aviso del cambio de viaje enviado", "Trip change notice sent"),
+          detail:
+            [
+              a.traveller ? t("viajero (correo)", "traveller (email)") : "",
+              a.driver ? t("conductor (correo)", "driver (email)") : "",
+              a.driver_push ? t("conductor (app)", "driver (app)") : "",
+            ]
+              .filter(Boolean)
+              .join(" · ") || t("no se pudo enviar a nadie", "nobody could be reached"),
+        };
       return {
         title: t("Avisos de cancelación enviados", "Cancellation notices sent"),
         detail: [a.traveller ? t("viajero (correo)", "traveller (email)") : "", a.driver ? t("conductor (correo)", "driver (email)") : ""].filter(Boolean).join(" · ") || t("nadie", "nobody"),
       };
+    // The team edited where / when the trip starts (migration 0056).
+    case "places": {
+      const parts: string[] = [];
+      const val = (v: unknown) => (v === null || v === undefined || v === "" ? t("(nada)", "(none)") : String(v));
+      const pair = (label: string, k: string) => {
+        if (k in a || k in b) parts.push(`${label}: ${val(b[k])} → ${val(a[k])}`);
+      };
+      pair(t("Recogida", "Pickup"), "origin");
+      pair(t("Destino", "Drop-off"), "destination");
+      pair(t("Lugar de recogida", "Pickup place"), "pickup_place");
+      pair(t("Vuelo, hotel o detalles", "Flight, hotel or details"), "flight_or_hotel_notes");
+      pair(t("Mensaje para el conductor", "Message for the driver"), "driver_notes");
+      if ("drive_minutes" in a) parts.push(`${t("Tiempo de manejo", "Drive time")}: ${val(b.drive_minutes)} → ${val(a.drive_minutes)} min`);
+      return { title: t("Recogida, destino o detalles del viaje cambiados", "Pickup, drop-off or trip details changed"), detail: parts.join(" · ") || undefined };
+    }
     // Job board posting window (migration 0054).
     case "reposted":
       return {
