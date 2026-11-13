@@ -25,6 +25,7 @@ import {
 } from "./catalog";
 import { NIGHT_PREMIUM_DEFAULT, type NightPremium } from "./nightPremium";
 import { DRIVER_COMMISSION_BPS_DEFAULT } from "./payout";
+import { PINNED_PRICES_DEFAULT, type PinnedPrice } from "./pinnedPrices";
 import { easterSunday } from "./pricing";
 
 export interface SeasonRange {
@@ -57,6 +58,8 @@ export interface CatalogData {
   waitPerHourCents: number;
   /** Night-pickup premium and its hours (pricing_settings, migration 0041). */
   nightPremium: NightPremium;
+  /** Fixed ride prices per town pair and vehicle class that replace the formula (pinned_route_prices, migration 0058). */
+  pinnedPrices: PinnedPrice[];
 }
 
 /** Season for a travel date: highest-priority range that contains it, else the default season. */
@@ -106,4 +109,5 @@ export const BUILT_IN_CATALOG: CatalogData = {
   driverCommissionBps: DRIVER_COMMISSION_BPS_DEFAULT,
   waitPerHourCents: WAIT_PER_HOUR_CENTS_DEFAULT,
   nightPremium: NIGHT_PREMIUM_DEFAULT,
+  pinnedPrices: PINNED_PRICES_DEFAULT,
 };

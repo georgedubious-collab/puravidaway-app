@@ -18,6 +18,7 @@ import {
   type RidePlace,
   type RideRoute,
 } from "./places";
+import { inPinZones } from "./pinnedPrices";
 
 /**
  * Google Maps Platform, server side only (docs/PRICING.md §3). The key lives in
@@ -217,7 +218,12 @@ export async function rideRoute(origin: RidePlace, destination: RidePlace): Prom
   // Southern Nicoya's factor is for the ferry queue and the crossing back (Jorge, 2026-11-09):
   // when Google drives around the gulf instead (e.g. from Liberia), no ferry, no factor.
   const area = road.ferries > 0 ? (origin.area ?? destination.area) : undefined;
-  return { ...road, totalMinutes: road.drivingMinutes + boatMinutes(origin, destination), ...(area ? { area } : {}) };
+  return {
+    ...road,
+    totalMinutes: road.drivingMinutes + boatMinutes(origin, destination),
+    ...(area ? { area } : {}),
+    ...(inPinZones(origin, destination) ? { zones: true } : {}),
+  };
 }
 
 /**

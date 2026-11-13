@@ -45,6 +45,8 @@ export interface RideRoute {
   ferries: number;
   /** Extra pricing area at either end, only when the route takes a ferry (set by the server). */
   area?: ExtraAreaId;
+  /** Both ends are inside their town's zone, so a pinned price for the two towns applies (set by the server; ./pinnedPrices). */
+  zones?: boolean;
 }
 
 /**

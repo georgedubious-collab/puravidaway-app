@@ -818,11 +818,13 @@ places nearest to it (Matapalo, Carate road, Golfito) take its area factor and t
 suggestions. The Osa day tour starts and ends there. One route page pair: SJO ↔ Puerto Jiménez.
 Numbers below are **for Jorge to review** (Standard class, green season, one way; Economy ×0.90,
 Minivan ×1.20, 4x4 ×1.30, Van ×1.35; the pickup town's area factor applies, so leaving Puerto
-Jiménez costs 15% more than arriving):
+Jiménez costs 15% more than arriving). **SJO ↔ Puerto Jiménez is the exception: since 2026-11-12
+it has a pinned price** (§6.1 "Pinned route prices", migration 0058), the same in both
+directions, shown in the SJO row and in the table under this one:
 
 | Pair | Road km | Door to door | To Puerto Jiménez | From Puerto Jiménez |
 | :--- | ---: | ---: | ---: | ---: |
-| SJO | 370 | 6 h 00 | $423 | $486 |
+| SJO | 370 | 6 h 00 | **$499 pinned** (formula $423) | **$499 pinned** (formula $486) |
 | LIR | 475 | 8 h 20 | $595 | $622 |
 | La Fortuna | 455 | 8 h 40 | $526 | $605 |
 | Manuel Antonio | 220 | 4 h 05 | $269 | $309 |
@@ -834,9 +836,25 @@ Jiménez costs 15% more than arriving):
 
 Daytrip (COMPETITORS §2b, 2026-10-14): SJO → Puerto Jiménez Sedan $530, Sedan Lite $518, MPV
 $582, Van $639, 5 h 35. Our formula gives $423 / Economy $381 / Minivan $508 / Van $571, i.e.
-about 20% under Daytrip's Sedan: Daytrip charges Osa a scarcity premium on top of distance. To be
-on par, Jorge can raise the Puerto Jiménez area factor (only affects rides starting there) or pin
-a zone price for SJO ↔ Puerto Jiménez (`docs/PRICING.md` §4.5, not built). Not added: Puerto
+about 20% under Daytrip's Sedan: Daytrip charges Osa a scarcity premium on top of distance.
+**Jorge, 2026-11-12: "a little under Daytrip".** So SJO ↔ Puerto Jiménez is pinned about 5% under
+Daytrip's matching class, the same in both directions (green-season base; the season
+multipliers, night premium and everything else apply on top as on any ride; edited at
+`/admin/pricing` → "Precios fijos por ruta"):
+
+| Our class | Daytrip's class | Daytrip | **Pinned (both ways)** | vs Daytrip | Formula SJO → PJ | Formula PJ → SJO |
+| :--- | :--- | ---: | ---: | ---: | ---: | ---: |
+| Economy | Sedan Lite | $518 | **$489** | −5.6% | $381 | $438 |
+| Standard | Sedan | $530 | **$499** | −5.8% | $423 | $486 |
+| Minivan (MPV) | Compact MPV | $582 | **$549** | −5.7% | $508 | $584 |
+| 4x4 | none (their SUV seats 1–2: $530) | — | **$585** | — | $550 | $632 |
+| Van | Van | $639 | **$605** | −5.3% | $571 | $657 |
+
+The 4x4 sits two thirds of the way from the Minivan to the Van, as its factor does (1.20 / 1.30 /
+1.35). Note that for the three bigger classes the pinned price is **lower** than the formula was
+for rides leaving Puerto Jiménez (the formula added the Osa area factor there and came out above
+Daytrip's van); for Economy and Standard it is higher in both directions. The other Puerto
+Jiménez pairs in the table above still use the formula. Not added: Puerto
 Jiménez to the Tárcoles / Carara stop lists (the flat list would also offer them on Sierpe ↔
 Puerto Jiménez and Manuel Antonio ↔ Puerto Jiménez); Jorge can add it at `/admin/pricing`.
 
@@ -1040,6 +1058,44 @@ crossing, converted at `crc_per_usd` (₡452; checked weekly). All edited at `/a
 (`ROUTE_KM`, `ROUTE_MINUTES`); the Drake Bay boat (75 min) is excluded from driving hours.
 `rideCents()` in `src/lib/pricing.ts` is the one implementation used by the ride builder,
 route pages, the app's quotes and the server re-check.
+
+**Pinned route prices (Jorge, 2026-11-12, migration 0058, `docs/PRICING.md` §4.5).** For a pair
+of our towns Jorge can set the price of each vehicle class himself. A pinned price **replaces**
+`round_to_dollar(standard × vehicle factor × area factor)` in the formulas above for that town
+pair and class, and nothing else: the vehicle's extra fee, stops, the season multiplier (from the
+database), the night premium, ferries, the cash fee, promo codes, the commission and the driver's
+payout are worked out from it exactly as from a formula price.
+- Table `pinned_route_prices` (§7.6): one row per town pair and class; `both_ways` (default yes)
+  makes it count in both directions, otherwise only origin → destination. A row written in the
+  ride's own direction wins over a both-ways row written the other way. A class without a row
+  keeps the formula. The "4x4 + Sierpe boat" class always uses the 4x4's row plus its boat fee.
+- One place applies it: `rideDriveCents()` in `src/lib/pricing.ts` (rule in
+  `src/lib/pinnedPrices.ts`), so the website's ride builder, route pages and "Popular routes"
+  ("from $X"), the guides, the app's quote API, the server re-check when a request is sent, the
+  team's manual booking and "change pickup / drop-off" all show it without their own code.
+- **Typed hotels and addresses.** A typed place counts as the town when it is inside the town's
+  **zone**: within 12 km in a straight line of the town's map point (20 km for "SJO Airport / San
+  José", which covers Alajuela, Heredia, Escazú and San José city; 15 km for Drake Bay, its boat
+  area). With both ends inside their zones the ride costs exactly the pinned price, as Daytrip
+  charges Arenas del Mar the same as Manuel Antonio town (the server marks such a route
+  `zones`). A place linked to the town but outside its zone is priced by the formula with
+  Google's road km, as before, with one guard: when that ride is at least as long as the
+  town-to-town road, it never costs less than the pinned price (a lodge at Matapalo or Carate is
+  never cheaper than Puerto Jiménez town). A shorter ride (Golfito, Cartago) is the plain formula.
+- **Admin:** `/admin/pricing` → "Precios fijos por ruta": the list of pinned routes with a price
+  box per vehicle and today's formula price under each box (and the way-back formula when it
+  differs), "Mismo precio en los dos sentidos", "Quitar precio fijo" (back to the formula, with
+  confirmation) and "Agregar una ruta con precio fijo". Saving refreshes the cached price list at
+  once, like every other save there. Pricing edits are not logged anywhere today (no change
+  history for `/admin/pricing`), so these aren't either; each row keeps `updated_at`.
+- **Seeded:** SJO ↔ Puerto Jiménez (§5.1): Economy $489, Standard $499, Minivan $549, 4x4 $585,
+  Van $605. The same numbers are the built-in fallback when the database can't be read.
+- A pinned route no longer follows the formula or the area factors: when those change, Jorge
+  changes the pinned prices by hand (the formula's price stays visible next to each box).
+- Tests: `npm run test:pinned` (replaces the base, season / night / stops / ferry / boat on top,
+  payout, promo cap, direction, typed places and zones, other routes unchanged, removing a pin)
+  and `npm run test:db` (who can read and write, the seed, prices with the pins read from the
+  database, removing a pin returns to the formula, the migration is harmless if run twice).
 
 ### 6.2 Season multipliers
 | Season | Multiplier |
@@ -1412,6 +1468,11 @@ and `season_for_date(date)` returns the season for a travel date.
      `src/lib/reviewReminder.ts`, `npm run test:reviews`.
 - `hub_pricing` — hub_id (one of the 10 hubs, or an extra pricing area: `SouthNicoya`; `PuertoJimenez` since migration 0055), area_factor
   (0.50–2.00), updated_at. Public read, admin write. Loaded as `areaFactorBps`.
+- `pinned_route_prices` (migration 0058, §6.1) — id, origin_hub, destination_hub (two different
+  hubs), vehicle_class_id (→ `vehicle_classes`, deleted with it), price (USD, 1–5000, green-season
+  base for the whole vehicle), both_ways (default true), updated_at; one row per pair and class.
+  Public read, admin write. Loaded by `getCatalog()` as `pinnedPrices`. A new town must be added to
+  its two town checks, as for `hub_pricing`.
 - `payments` — id, booking_id, provider (`greenpay`), provider_ref, amount, type (`deposit` | `balance` | `full`), status, raw_payload jsonb, created_at
 
 ### 7.7 Row Level Security
@@ -1460,7 +1521,7 @@ and `season_for_date(date)` returns the season for a travel date.
 - **bids:** drivers create and manage their own; the amount can change only while the request is
   open and the driver is still approved (withdrawing is always allowed); the booking's client
   reads bids on their booking; admins see all.
-- **catalog tables:** public read for active items; admin write. **pricing_settings** (cash fee, ride formula) and **hub_pricing** (area factors): public read, admin write.
+- **catalog tables:** public read for active items; admin write. **pricing_settings** (cash fee, ride formula), **hub_pricing** (area factors) and **pinned_route_prices** (fixed price per route and class, migration 0058): public read, admin write.
 - **payments:** written only by the server (service role); clients read their own; admins read all.
 - **auth_code_requests** (sign-in code rate limits, migration 0050): RLS on with **no policies**;
   browsers and apps can't read or write it. Only the server (service role) uses it, through
@@ -1687,6 +1748,18 @@ multi-day trips were retired (§1, §5.5) and are not on the roadmap.
     reminders; closer than that, nothing is re-sent; (h) a ride's stored `route` follows the new
     places even when the price is kept (it is the route the driver will drive); (i) the flight / hotel
     notes field is also where the team writes "lobby / gate / room" details (no new column).
+26. **Pinned route prices: assumptions to confirm (open, built 2026-11-12, §6.1, migration 0058).**
+    Decided by Jorge: SJO ↔ Puerto Jiménez "a little under Daytrip", the same both ways. Assumed
+    until Jorge says otherwise: (a) the numbers: Economy $489, Standard $499, Minivan $549, Van
+    $605 as proposed, and **4x4 $585** (no Daytrip equivalent; placed between Minivan and Van);
+    (b) "the same both ways" makes Minivan, 4x4 and Van **cheaper** than before for rides leaving
+    Puerto Jiménez ($584 / $632 / $657 → $549 / $585 / $605); (c) the town zones for typed places:
+    12 km, SJO 20 km, Drake Bay 15 km (set in `src/lib/pinnedPrices.ts`, not editable in the
+    admin); (d) a typed place beyond the zone on a ride at least as long as the town-to-town road
+    never costs less than the pinned price; (e) the other Puerto Jiménez pairs (Manuel Antonio,
+    Sierpe…) stay on the formula, about 20% under Daytrip where Daytrip sells them; (f) Daytrip's
+    prices are from 2026-10-14 and for SJO → Puerto Jiménez only; re-check before relying on
+    "under Daytrip", and nothing customer-facing names Daytrip.
 
 ---
 

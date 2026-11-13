@@ -3,6 +3,7 @@ import { unstable_cache } from "next/cache";
 import {
   AREA_FACTOR_BPS_DEFAULT,
   AREA_IDS,
+  HUB_IDS,
   CRC_PER_USD_DEFAULT,
   DAY_TOURS,
   FERRY_FARES_DEFAULT,
@@ -22,6 +23,7 @@ import {
 import { BUILT_IN_CATALOG, type CatalogData } from "./catalogModel";
 import { NIGHT_PREMIUM_DEFAULT, type NightPremium } from "./nightPremium";
 import { DRIVER_COMMISSION_BPS_DEFAULT } from "./payout";
+import { PINNED_PRICES_DEFAULT, readPinnedPrices } from "./pinnedPrices";
 import { createSupabasePublicClient } from "./supabase/server";
 
 export const CATALOG_TAG = "catalog";
@@ -49,7 +51,7 @@ export async function getCatalog(): Promise<CatalogData> {
 }
 
 /** Only successful database reads are cached (a thrown error is never stored). */
-const cachedDatabaseCatalog = unstable_cache(loadDatabaseCatalog, ["catalog-v9"], {
+const cachedDatabaseCatalog = unstable_cache(loadDatabaseCatalog, ["catalog-v10"], {
   tags: [CATALOG_TAG],
   revalidate: 3600,
 });
@@ -57,7 +59,7 @@ const cachedDatabaseCatalog = unstable_cache(loadDatabaseCatalog, ["catalog-v9"]
 async function loadDatabaseCatalog(): Promise<CatalogData> {
   const db = createSupabasePublicClient()!;
   {
-    const [vehicles, stops, tours, seasons, ranges, settings, hubPricing] = await Promise.all([
+    const [vehicles, stops, tours, seasons, ranges, settings, hubPricing, pinned] = await Promise.all([
       db.from("vehicle_classes").select("*").eq("active", true).order("sort_order"),
       db.from("sightseeing_stops").select("*").eq("active", true).order("sort_order"),
       db.from("day_tours").select("*").eq("active", true).order("sort_order"),
@@ -66,6 +68,7 @@ async function loadDatabaseCatalog(): Promise<CatalogData> {
       db.from("season_ranges").select("*"),
       db.from("pricing_settings").select("*").maybeSingle(),
       db.from("hub_pricing").select("hub_id, area_factor"),
+      db.from("pinned_route_prices").select("origin_hub, destination_hub, vehicle_class_id, price, both_ways"),
     ]);
     const failed = [vehicles, stops, tours, seasons, ranges].find((r) => r.error);
     if (failed?.error) throw failed.error;
@@ -76,6 +79,10 @@ async function loadDatabaseCatalog(): Promise<CatalogData> {
     // Formula columns and hub_pricing arrive with migration 0013; until it is run, use the
     // built-in formula and factors so prices stay sensible (never the retired flat rate).
     if (hubPricing.error) console.warn("[PuraVidaWay] hub_pricing unavailable, using built-in area factors:", hubPricing.error.message);
+    // pinned_route_prices arrives with migration 0058; until it has run, use the built-in pins
+    // (the same ones the migration seeds). An empty table means "no pinned routes".
+    if (pinned.error) console.warn("[PuraVidaWay] pinned_route_prices unavailable, using the built-in pinned prices:", pinned.error.message);
+    const pinnedPrices = pinned.error ? PINNED_PRICES_DEFAULT : readPinnedPrices(pinned.data ?? [], HUB_IDS);
     const rideFormula = readRideFormula(settings.data);
     const waitRaw = settings.data?.wait_per_hour;
     const waitPerHourCents = waitRaw == null ? WAIT_PER_HOUR_CENTS_DEFAULT : Math.max(0, cents(waitRaw as number | string)) || WAIT_PER_HOUR_CENTS_DEFAULT;
@@ -165,6 +172,7 @@ async function loadDatabaseCatalog(): Promise<CatalogData> {
       crcPerUsd: readRate(settings.data),
       waitPerHourCents,
       nightPremium: readNightPremium(settings.data),
+      pinnedPrices,
       driverCommissionBps: bpsOrNull(settings.data?.driver_commission_bps == null ? null : Number(settings.data.driver_commission_bps) / 10000, 0, 5000) ?? DRIVER_COMMISSION_BPS_DEFAULT,
     };
   }

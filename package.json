@@ -26,6 +26,7 @@
     "test:crm": "node --no-warnings scripts/test-crm.mjs",
     "test:alerts": "node --no-warnings scripts/test-team-alerts.mjs",
     "test:money": "node --no-warnings scripts/test-money-report.mjs",
+    "test:pinned": "node --no-warnings scripts/test-pinned-prices.mjs",
     "db:seed": "node scripts/generate-catalog-seed.mjs"
   },
   "dependencies": {

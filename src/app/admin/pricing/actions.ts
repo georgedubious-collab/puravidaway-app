@@ -1,7 +1,8 @@
 "use server";
 
 import { revalidatePath, revalidateTag } from "next/cache";
-import { EXTRA_AREAS, HUBS, isStopEntrance } from "@/lib/catalog";
+import { EXTRA_AREAS, HUBS, isStopEntrance, type HubId } from "@/lib/catalog";
+import { PIN_CLASS_ALIAS } from "@/lib/pinnedPrices";
 import { CATALOG_TAG } from "@/lib/catalogSource";
 import { requireRole } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -65,7 +66,8 @@ const FIELD_ES: Record<string, string> = {
   ferry_passenger_fare_crc: "Por pasajero (ferry)",
   crc_per_usd: "Colones por dólar",
 };
-const fieldEs = (key: string) => FIELD_ES[key] ?? (key.startsWith("area_") ? `Factor de zona ${key.slice(5)}` : key);
+const fieldEs = (key: string) =>
+  FIELD_ES[key] ?? (key.startsWith("area_") ? `Factor de zona ${key.slice(5)}` : key.startsWith("price_") ? `Precio fijo (${key.slice(6)})` : key);
 const fieldEn = (key: string) => key.replace(/_/g, " ");
 const NOTHING_SAVED = new InputError(
   "No se guardó nada. Recargue la página e intente de nuevo.",
@@ -412,6 +414,112 @@ async function saveFerryFaresImpl(fd: FormData) {
   if (error) throw new Error(error.message);
   if (!data?.length) throw NOTHING_SAVED;
   done();
+}
+
+/* ---------- Pinned (fixed) prices for a route: pinned_route_prices, migration 0058 ---------- */
+
+function hubField(fd: FormData, key: "origin_hub" | "destination_hub"): HubId {
+  const v = String(fd.get(key) ?? "");
+  const hub = HUBS.find((h) => h.id === v);
+  if (!hub) throw new InputError("Elija el pueblo de salida y el de llegada", "Choose the pickup town and the drop-off town");
+  return hub.id;
+}
+
+/**
+ * One pinned route = one town pair with a price per vehicle class. A class left empty keeps
+ * the formula on that route (its row is removed). `isNew` refuses a pair that already has
+ * pinned prices, so "Add" can never silently overwrite a route in the list.
+ */
+async function savePinnedRouteImpl(fd: FormData, isNew: boolean) {
+  await requireRole("admin", "/admin/pricing");
+  const origin = hubField(fd, "origin_hub");
+  const destination = hubField(fd, "destination_hub");
+  if (origin === destination) throw new InputError("La salida y la llegada deben ser pueblos distintos", "Pickup and drop-off must be different towns");
+  const bothWays = checked(fd, "both_ways");
+  const supabase = (await createSupabaseServerClient())!;
+
+  const classes = await supabase.from("vehicle_classes").select("id");
+  if (classes.error) throw new Error(classes.error.message);
+  const rows: { origin_hub: string; destination_hub: string; vehicle_class_id: string; price: number; both_ways: boolean }[] = [];
+  const cleared: string[] = [];
+  for (const c of classes.data ?? []) {
+    if (PIN_CLASS_ALIAS[c.id]) continue; // follows another class's pinned price
+    const key = `price_${c.id}`;
+    if (!String(fd.get(key) ?? "").trim()) {
+      cleared.push(c.id);
+      continue;
+    }
+    const price = money(fd, key);
+    if (price < 1 || price > 5000) throw new InputError(`${fieldEs(key)}: debe estar entre 1 y 5000`, `${fieldEn(key)} must be 1–5000`);
+    rows.push({ origin_hub: origin, destination_hub: destination, vehicle_class_id: c.id, price, both_ways: bothWays });
+  }
+  if (!rows.length)
+    throw new InputError(
+      "Escriba al menos un precio. Para volver a la fórmula en toda la ruta, use «Quitar precio fijo».",
+      "Enter at least one price. To go back to the formula for the whole route, use \"Remove pinned price\".",
+    );
+
+  // The same pair may also be pinned the other way round only when both are one-way.
+  const existing = await supabase
+    .from("pinned_route_prices")
+    .select("origin_hub, destination_hub, both_ways")
+    .in("origin_hub", [origin, destination])
+    .in("destination_hub", [origin, destination]);
+  if (existing.error) throw new Error(existing.error.message);
+  const same = (existing.data ?? []).filter((r) => r.origin_hub === origin && r.destination_hub === destination);
+  const reverse = (existing.data ?? []).filter((r) => r.origin_hub === destination && r.destination_hub === origin);
+  if (isNew && same.length)
+    throw new InputError("Esa ruta ya tiene precio fijo. Cámbielo en la lista de arriba.", "That route already has a pinned price. Change it in the list above.");
+  if (reverse.length && (bothWays || reverse.some((r) => r.both_ways)))
+    throw new InputError(
+      "Ya hay un precio fijo para esta ruta en el otro sentido. Para cobrar distinto en cada sentido, desmarque «Mismo precio en los dos sentidos» en las dos.",
+      "This route already has a pinned price in the other direction. To charge differently each way, untick \"Same price both ways\" on both.",
+    );
+
+  const saved = await supabase
+    .from("pinned_route_prices")
+    .upsert(rows, { onConflict: "origin_hub,destination_hub,vehicle_class_id" })
+    .select("id");
+  if (saved.error) throw new Error(saved.error.message);
+  // RLS hides rows it won't let you change, so fewer rows back means nothing was saved.
+  if ((saved.data?.length ?? 0) !== rows.length) throw NOTHING_SAVED;
+  if (cleared.length) {
+    const gone = await supabase
+      .from("pinned_route_prices")
+      .delete()
+      .eq("origin_hub", origin)
+      .eq("destination_hub", destination)
+      .in("vehicle_class_id", cleared);
+    if (gone.error) throw new Error(gone.error.message);
+  }
+  done();
+}
+
+/** Remove every pinned price of one route: it goes back to the formula. */
+async function removePinnedRouteImpl(fd: FormData) {
+  await requireRole("admin", "/admin/pricing");
+  const origin = hubField(fd, "origin_hub");
+  const destination = hubField(fd, "destination_hub");
+  const supabase = (await createSupabaseServerClient())!;
+  const { data, error } = await supabase
+    .from("pinned_route_prices")
+    .delete()
+    .eq("origin_hub", origin)
+    .eq("destination_hub", destination)
+    .select("id");
+  if (error) throw new Error(error.message);
+  if (!data?.length) throw NOTHING_SAVED;
+  done();
+}
+
+export async function savePinnedRoute(_prev: FormState, fd: FormData): Promise<FormState> {
+  return run(() => savePinnedRouteImpl(fd, false));
+}
+export async function addPinnedRoute(_prev: FormState, fd: FormData): Promise<FormState> {
+  return run(() => savePinnedRouteImpl(fd, true));
+}
+export async function removePinnedRoute(_prev: FormState, fd: FormData): Promise<FormState> {
+  return run(() => removePinnedRouteImpl(fd));
 }
 
 export async function saveFerryFares(_prev: FormState, fd: FormData): Promise<FormState> {
