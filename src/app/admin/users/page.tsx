@@ -134,6 +134,9 @@ export default async function UsersPage() {
                       <Chip tone="green">admin · {t("usted", "you")}</Chip>
                     ) : (
                       <AdminActionForm
+                        // A new key when the saved role changes, so the picker shows the saved
+                        // role after "Guardar" instead of the role it was first drawn with.
+                        key={`${u.id}:${u.role}`}
                         action={setUserRole}
                         lang={lang}
                         className="flex flex-wrap items-center gap-2"
