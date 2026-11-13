@@ -292,6 +292,47 @@ eq("updateBooking keeps the internal notes when the calendar doesn't send them",
   eq("the 5-minute check runs the automatic repost", /autoRepostJobs\(\)/.test(cronSrc), true);
 }
 
+// --- Live trips and "Ver en el mapa" (src/lib/liveTrips.ts, 2026-11-13) ---------------------------
+{
+  const lv = await import("../src/lib/liveTrips.ts");
+  const NOW = Date.parse("2026-11-13T10:00:00-06:00");
+  const iso = (ms) => new Date(ms).toISOString();
+  const trip = (min, extra = {}) => ({ status: "confirmed", assigned_driver_id: "d1", scheduled_at: iso(NOW + min * 60000), en_route_at: null, ...extra });
+  eq("on the road: live", lv.isLiveTrip(trip(-300, { status: "in_progress" }), NOW), true);
+  eq("pickup in 2 h: live", lv.isLiveTrip(trip(120), NOW), true);
+  eq("pickup in exactly 3 h: live", lv.isLiveTrip(trip(180), NOW), true);
+  eq("pickup in 4 h: not yet", lv.isLiveTrip(trip(240), NOW), false);
+  eq("…unless the driver is already on the way", lv.isLiveTrip(trip(240, { en_route_at: iso(NOW) }), NOW), true);
+  eq("pickup 13 h ago: gone", lv.isLiveTrip(trip(-13 * 60), NOW), false);
+  eq("no driver: never on the map", lv.isLiveTrip(trip(60, { assigned_driver_id: null }), NOW), false);
+  eq("not confirmed / on the road: never", ["pending_payment", "pending_bids", "completed", "cancelled"].map((s) => lv.isLiveTrip(trip(60, { status: s }), NOW)), [false, false, false, false]);
+  eq("no pickup time: not live", lv.isLiveTrip({ ...trip(0), scheduled_at: null }, NOW), false);
+
+  const A = "00000000-0000-0000-0000-00000000000a";
+  const B = "00000000-0000-0000-0000-00000000000b";
+  eq("map link focuses the booking", lv.liveMapHref(A), `/admin/live?booking=${A}`);
+  eq("focus: the asked trip when it is live", lv.liveFocusId(B, [A, B]), B);
+  eq("focus: upper-case id works", lv.liveFocusId(B.toUpperCase(), [A, B]), B);
+  eq("focus: a trip no longer live → the first one", lv.liveFocusId("00000000-0000-0000-0000-00000000000c", [A, B]), A);
+  eq("focus: garbage ignored", lv.liveFocusId("<script>", [A, B]), A);
+  eq("focus: nothing live → none", lv.liveFocusId(A, []), null);
+  eq("focus: repeated param, first wins", lv.liveFocusId([B, A], [A, B]), B);
+  eq("stale after 10 min", [lv.isStaleLocation(iso(NOW - 9 * 60000), NOW), lv.isStaleLocation(iso(NOW - 11 * 60000), NOW)], [false, true]);
+  eq("'hace 2 min'", [lv.agoText(iso(NOW - 2 * 60000), NOW, "es"), lv.agoText(iso(NOW - 75 * 60000), NOW, "en")], ["hace 2 min", "1 h 15 min ago"]);
+  eq("driver WhatsApp: digits only", lv.driverWhatsAppHref("+506 8888-0000"), "https://wa.me/50688880000");
+  eq("driver WhatsApp: none without a number", [lv.driverWhatsAppHref(null), lv.driverWhatsAppHref("12")], [null, null]);
+
+  const livePage = readFileSync(new URL("../src/app/admin/live/page.tsx", import.meta.url), "utf8");
+  eq("live page lists exactly isLiveTrip's trips", livePage.includes("(rows ?? []).filter((b) => isLiveTrip(b, now))"), true);
+  eq("live page reads ?booking= through liveFocusId", livePage.includes("liveFocusId(sp.booking"), true);
+  eq("live page never reads the traveller's contact", /guest_(phone|email)|trips\(/.test(livePage), false);
+  const panel = readFileSync(new URL("../src/app/admin/page.tsx", import.meta.url), "utf8");
+  eq("Inicio's map link only on live trips", /\{live && \(\s*<Link\s+href=\{liveMapHref\(b\.id\)\}/.test(panel), true);
+  const crmPhone = readFileSync(new URL("../src/lib/adminPhone.ts", import.meta.url), "utf8");
+  eq("booking bar's map button uses the same rule", crmPhone.includes('if (isLiveTrip(b, ctx.now)) out.push("map")'), true);
+  eq("phone day view keeps the calendar's clash rules (findClashes, no copy)", page.includes("ClashLine") && !/CLASH_BUFFER_MINUTES\s*\*/.test(page), true);
+}
+
 if (failures.length) {
   console.error(`Dispatch: ${failures.length} failed, ${passed} passed`);
   for (const f of failures) console.error(`  ✗ ${f}`);

@@ -1,12 +1,14 @@
 import "server-only";
 import {
   LIST_STATUSES,
+  TO_ACT_STATUSES,
   dateWindow,
   pageRange,
   searchOrFilter,
   windowBounds,
   type BookingFilters,
   type ListStatus,
+  type StatusFilter,
 } from "./adminBookings";
 import type { createSupabaseServerClient } from "./supabase/server";
 
@@ -16,6 +18,7 @@ type Db = NonNullable<Awaited<ReturnType<typeof createSupabaseServerClient>>>;
 interface Filterable<Q> {
   or(filters: string): Q;
   eq(column: string, value: string): Q;
+  in(column: string, values: string[]): Q;
   is(column: string, value: null): Q;
   gte(column: string, value: string): Q;
   lt(column: string, value: string): Q;
@@ -47,11 +50,12 @@ export function applyFilters<Q extends Filterable<Q>>(
   f: BookingFilters,
   today: string,
   ids: SearchIds,
-  status: ListStatus | "all" = f.status,
+  status: StatusFilter = f.status,
 ): Q {
   let out = q;
   if (f.q) out = out.or(searchOrFilter(f.q, ids.tripIds, ids.driverIds));
-  if (status !== "all") out = out.eq("status", status);
+  if (status === "to_act") out = out.in("status", [...TO_ACT_STATUSES]);
+  else if (status !== "all") out = out.eq("status", status);
   if (f.type !== "all") out = out.eq("service_type", f.type);
   if (f.driver === "none") out = out.is("assigned_driver_id", null);
   else if (f.driver !== "all") out = out.eq("assigned_driver_id", f.driver);

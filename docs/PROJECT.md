@@ -432,8 +432,9 @@ Legal pages (`/terms`, `/privacy`, `/cancellation`) are linked from every footer
 shares one look (`src/components/admin/*`: page header, cards, status / payment chips, tables, empty
 and error states, `AdminActionForm`).
 - **Side menu**: dark green, with live counters (bookings not yet confirmed, live trips, drivers to
-  review, flagged messages), language switch, signed-in email, sign out. On phones it hides behind
-  ☰ (focus stays inside, Escape closes). `src/app/admin/error.tsx` / `loading.tsx` show a clear
+  review, flagged messages), language switch, signed-in email, sign out. Below large screens a
+  **bottom tab bar** (Inicio / Reservas / Despacho / En vivo / Más) replaces it; "Más" opens the
+  whole menu as a panel (focus stays inside, Escape closes). See "The admin on a phone" below. `src/app/admin/error.tsx` / `loading.tsx` show a clear
   Spanish/English message with "Try again"; actions return readable errors instead of a blank page.
 - **Panel** (`/admin`): greeting with the Costa Rica date; search (goes to Bookings); "Nueva reserva";
   KPIs: pickups today (and how many lack a driver), new requests waiting for payment, **revenue this
@@ -540,7 +541,8 @@ and error states, `AdminActionForm`).
   vehicles, or sets a vehicle's category for the first time — once per decision, only about their own
   account (`src/lib/driverReviewNotices.ts`).
 - **Despacho / Dispatch calendar** (`/admin/dispatch`, 2026-11-12): one week, Monday–Sunday in Costa
-  Rica time (previous / next week, "Hoy"); phones see one day with ← / → buttons. A row per approved
+  Rica time (previous / next week, "Hoy"); below large screens one day with ‹ › (see "The admin on
+  a phone"). A row per approved
   driver (name, home base, vehicle categories) plus a top row "Sin conductor" for bookings that still
   need one (waiting for payment, open for offers). Each booking shows pickup → estimated end in
   a. m. / p. m. ("8:00–10:45 a. m.", like the rest of the admin), code,
@@ -577,6 +579,51 @@ and error states, `AdminActionForm`).
     booking again with the same driver sends nothing. Texts and the rule in
     `src/lib/assignmentMessages.ts` (also used by "Aceptar oferta"), sending in
     `src/lib/assignmentNotices.ts`.
+- **The admin on a phone** (Jorge approved the mockup 2026-11-13; no migration). Large screens
+  (`lg`, 1024 px and up) are unchanged; below that, for the installed "CRPT Admin" app:
+  - **Bottom tab bar** (`AdminNav`): Inicio / Reservas / Despacho / En vivo / Más, fixed at the
+    bottom with the phone's safe area, counters as in the side menu; "Más" opens the side menu (every
+    other page). The top is a slim brand bar; pages leave room for the tab bar.
+  - **Inicio**: "Necesita atención" first: a card per booking without a driver in the next 48 h with
+    its next step (`nextStep()` in `src/lib/adminPhone.ts`: "Publicar para conductores", "Elegir una
+    oferta", "Volver a publicar", "Esperando ofertas", "Asignar conductor"; "Publicación cerrada · N
+    ofertas" chip), then the other alerts (drivers, flagged messages, unpaid requests); then "Hoy":
+    today's trips (time, route, driver + live state: on the way / arrives h:mm / N min late / no
+    location; green or amber dot) with a map button on live trips; then two tiles (new requests,
+    money received this month) and the weekly chart.
+  - **Reservas**: cards (code, status chip, route or tour, day · time · vehicle or people, price),
+    search on top, quick filters **Por atender** (`status=to_act`: new requests + open for drivers,
+    every date, soonest first; the same count as the side menu's badge) / **Hoy** / **Próximas** /
+    **Todas** (`phoneFilterHref()` in `src/lib/adminBookings.ts`); the full filters, status tabs and
+    CSV under "Más filtros, estado y CSV". Pagination unchanged.
+  - **One booking**: trip summary (date and time, ~length from `busySpan()`, route with catalog stops
+    and the traveller's own stops with their time, chips: vehicle, people, bags, name sign), traveller
+    (name, language, WhatsApp → the team's message buttons), money (price, driver payout, our share,
+    received), then every existing card below. A **sticky action bar** above the tab bar
+    (`primaryAction()` / `secondaryActions()` in `src/lib/adminPhone.ts`): offers waiting → "Ver
+    ofertas"; closed posting → "Volver a publicar" (`repostJob`); no driver, not on the board, payout
+    set, pickup ahead → **"Publicar para conductores"** = the booking page's own `updateBooking` with
+    status `pending_bids` and nobody assigned (driver alerts via `notifyDriversOfJobs`, 1-hour window
+    from the migration 0054 trigger), after an in-page confirmation; otherwise "Asignar conductor";
+    with a driver, "Mensajes de WhatsApp". Smaller buttons: "Asignar / Cambiar conductor" (scrolls to
+    the assignment card), "Cambiar recogida u hora" (the edit card), "Ver en el mapa" on live trips.
+  - **Despacho**: one day with ‹ ›: "Sin conductor" first, then each driver's trips in order with
+    the calendar's own clash warnings (`findClashes`, 2-hour buffer) between them, then "Libres este
+    día" (no trips, day not blocked) and who is unavailable.
+  - **En vivo** (`/admin/live`): the map of one trip on top, the live trips under it; picking one
+    shows the driver, ETA / minutes late, the pickup or drop-off, the last position ("hace 2 min") and
+    a **WhatsApp button to the driver** (team only; the driver's phone the page already showed;
+    travellers' contact is never on this page). `?booking=<id>` focuses a trip ("Ver en el mapa";
+    `liveFocusId()`); which trips are live is one rule, `isLiveTrip()` in `src/lib/liveTrips.ts`
+    (on the road, or confirmed with pickup in the next 3 h or the driver on the way, pickup ≤ 12 h
+    ago). The map is the OpenStreetMap embed the page already used (there is no Leaflet map in the
+    code yet; item 5 above is still the plan).
+  - **"Solicitud nueva · pagada"** (green) replaces "Esperando pago" on a new request whose amount
+    received covers the price + cash fee (`statusView()` / `isPaidRequest()`, test checkouts count),
+    on every admin chip (list, booking, Inicio, Despacho, customers) and the CSV. Travellers' texts
+    unchanged.
+  - Tests: `npm run test:admin` (label, quick filters), `npm run test:crm` (action bar, publish path),
+    `npm run test:dispatch` (live trips, map focus).
 - **CRM part 5 (2026-11-12, migration 0052, `npm run test:money`):**
   - **Informes / Reports** (`/admin/reports`, side menu): the money report for a month (default the
     current Costa Rica month, ← / → months) or any range of pickup days (≤ 366), compared with the

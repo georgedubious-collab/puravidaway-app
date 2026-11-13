@@ -145,6 +145,38 @@ eq("greeting morning", a.greeting(7, "es"), "Buenos días");
 eq("greeting afternoon", a.greeting(15, "es"), "Buenas tardes");
 eq("greeting night", a.greeting(22, "en"), "Good evening");
 
+// --- The admin on a phone (2026-11-13): paid new requests, quick filters -------------------------
+{
+  const unpaid = { total_price: 407, cash_fee: 0, amount_paid: 0, payment_mode: "online_full" };
+  const paid = { ...unpaid, amount_paid: 407 };
+  eq("paid new request: label + green", a.statusView("pending_payment", "es", paid), { label: "Solicitud nueva · pagada", tone: "green" });
+  eq("…in English", a.statusView("pending_payment", "en", paid).label, "New request · paid");
+  eq("unpaid new request stays 'Esperando pago'", a.statusView("pending_payment", "es", unpaid), { label: "Esperando pago", tone: "orange" });
+  eq("part paid is not 'pagada'", a.isPaidRequest("pending_payment", { ...unpaid, amount_paid: 81.4 }), false);
+  eq("cash fee counts in what is owed", a.isPaidRequest("pending_payment", { total_price: 100, cash_fee: 5, amount_paid: 100, payment_mode: "cash_driver" }), false);
+  eq("…all of it: paid", a.isPaidRequest("pending_payment", { total_price: 100, cash_fee: 5, amount_paid: 105, payment_mode: "cash_driver" }), true);
+  eq("string amounts from the database", a.isPaidRequest("pending_payment", { total_price: "407.00", cash_fee: null, amount_paid: "407.00" }), true);
+  eq("other statuses unchanged even when paid", a.statusView("confirmed", "es", paid), { label: "Confirmada", tone: "green" });
+  eq("no money fields: old label", a.statusView("pending_payment", "es").label, "Esperando pago");
+
+  eq("'to_act' is a status filter", f({ status: "to_act" }).status, "to_act");
+  eq("Por atender link", a.phoneFilterHref("to_act"), "/admin/bookings?status=to_act&range=all&sort=asc");
+  eq("Hoy link", a.phoneFilterHref("today"), "/admin/bookings?range=today");
+  eq("Próximas link (the default list)", a.phoneFilterHref("upcoming"), "/admin/bookings");
+  eq("Todas link", a.phoneFilterHref("all"), "/admin/bookings?range=all");
+  for (const id of a.PHONE_FILTERS) {
+    const href = a.phoneFilterHref(id);
+    const params = Object.fromEntries(new URL(href, "https://x").searchParams);
+    eq(`${id}: the link reads back as the same quick filter`, a.activePhoneFilter(f(params)), id);
+  }
+  eq("a search is not a quick filter", a.activePhoneFilter(f({ q: "Li" })), null);
+  eq("a driver filter is not a quick filter", a.activePhoneFilter(f({ driver: "none" })), null);
+  eq("a status tab is not a quick filter", a.activePhoneFilter(f({ status: "confirmed" })), null);
+  eq("custom dates are not a quick filter", a.activePhoneFilter(f({ from: "2026-12-01" })), null);
+  eq("to_act keeps working with the other filters' links", a.bookingsHref(f({ status: "to_act", range: "all" }), { page: 2 }), "/admin/bookings?status=to_act&range=all&page=2");
+  eq("to_act = the side menu badge's statuses", [...a.TO_ACT_STATUSES], ["pending_payment", "pending_bids"]);
+}
+
 // --- Notices to drivers about the team's decisions (src/lib/driverReviewNotices.ts) -------------
 {
   const n = await import("../src/lib/driverReviewNotices.ts");

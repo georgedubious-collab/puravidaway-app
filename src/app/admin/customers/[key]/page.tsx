@@ -145,7 +145,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ key: 
                       <PaymentChip booking={b} lang={lang} test={(tests ?? []).some((x) => x.booking_id === b.id)} />
                     </Td>
                     <Td>
-                      <StatusChip status={b.status} lang={lang} />
+                      <StatusChip status={b.status} lang={lang} booking={b} />
                     </Td>
                     <Td className="whitespace-nowrap">{r ? `${"★".repeat(r.stars)}${r.comment ? " 💬" : ""}` : "—"}</Td>
                   </tr>

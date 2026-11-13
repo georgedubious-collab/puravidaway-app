@@ -96,6 +96,34 @@ export function Card({
   );
 }
 
+/* ---------- Phone screens (below lg, 2026-11-13) ---------- */
+
+/**
+ * The dark-green band at the top of a phone screen (Inicio, Reservas, one booking, Despacho), right
+ * under the slim brand bar, edge to edge. Hidden from large screens up.
+ */
+export function PhoneHeader({ children }: { children: React.ReactNode }) {
+  return <div className="-mx-4 -mt-5 bg-[#0B2E22] px-4 pb-4 pt-3 text-white sm:-mx-6 sm:px-6 lg:hidden">{children}</div>;
+}
+
+/** Small upper-case section title on phone screens ("NECESITA ATENCIÓN · 2"). */
+export function PhoneSectionTitle({ children, tone = "muted", id }: { children: React.ReactNode; tone?: "muted" | "warn"; id?: string }) {
+  return (
+    <h2 id={id} className={`text-[13px] font-extrabold uppercase tracking-[0.06em] ${tone === "warn" ? "text-[#9A3412]" : "text-[#3F4F48]"}`}>
+      {children}
+    </h2>
+  );
+}
+
+/** A small grey chip on the phone's trip summary ("Sedán", "2 personas"). */
+export function SoftChip({ children, tone = "grey" }: { children: React.ReactNode; tone?: "grey" | "amber" }) {
+  return (
+    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold ${tone === "amber" ? "bg-[#FEF3C7] text-[#78350F]" : "bg-[#EEF2EF] text-[#14231C]"}`}>
+      {children}
+    </span>
+  );
+}
+
 /** A small heading + muted note above a group of cards (pricing page). */
 export function SectionHeading({ title, note }: { title: string; note?: string }) {
   return (
@@ -218,7 +246,8 @@ export function Notice({ tone = "amber", children, role }: { tone?: "amber" | "r
 
 export type IconName =
   | "dashboard" | "bookings" | "live" | "drivers" | "flag" | "payouts" | "pricing" | "users"
-  | "customers" | "search" | "plus" | "download" | "menu" | "close" | "inbox" | "chevron" | "alert" | "clock" | "chart";
+  | "customers" | "search" | "plus" | "download" | "menu" | "close" | "inbox" | "chevron" | "alert" | "clock" | "chart"
+  | "home" | "list" | "map" | "message" | "back";
 
 const PATHS: Record<IconName, React.ReactNode> = {
   dashboard: <><rect x="3" y="3" width="7" height="9" rx="1.5" /><rect x="14" y="3" width="7" height="5" rx="1.5" /><rect x="14" y="12" width="7" height="9" rx="1.5" /><rect x="3" y="16" width="7" height="5" rx="1.5" /></>,
@@ -240,6 +269,11 @@ const PATHS: Record<IconName, React.ReactNode> = {
   alert: <><path d="M12 3 2 20h20L12 3Z" /><path d="M12 10v4.5M12 17.5v.01" /></>,
   clock: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>,
   chart: <path d="M4 20V10M10 20V4M16 20v-7M21 20H3" />,
+  home: <path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" />,
+  list: <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />,
+  map: <><path d="M9 4 3 6.5v13.5l6-2.5 6 2.5 6-2.5V4l-6 2.5L9 4Z" /><path d="M9 4v13.5M15 6.5V20" /></>,
+  message: <path d="M21 12a8.5 8.5 0 0 1-12.4 7.6L3 21l1.5-5.2A8.5 8.5 0 1 1 21 12Z" />,
+  back: <path d="m15 18-6-6 6-6" />,
 };
 
 export function Icon({ name, className = "h-[18px] w-[18px]" }: { name: IconName; className?: string }) {

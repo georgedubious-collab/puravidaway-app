@@ -1,14 +1,15 @@
 import Link from "next/link";
 import { StatusChip } from "@/components/admin/chips";
-import { Card, Chip, Notice, PageHeader, btn, link } from "@/components/admin/ui";
+import { Card, Chip, Icon, Notice, PageHeader, PhoneHeader, PhoneSectionTitle, btn, link } from "@/components/admin/ui";
 import { requireRole } from "@/lib/auth";
-import { statusShort, weekStart } from "@/lib/adminBookings";
+import { statusShort, statusView, weekStart } from "@/lib/adminBookings";
 import type { BookingStatus } from "@/lib/bookings";
 import { getCatalog } from "@/lib/catalogSource";
-import { addDays, costaRicaTimestamp, isValidYmd, nowMs, scheduledParts, todayInCostaRica } from "@/lib/dates";
+import { addDays, costaRicaTimestamp, formatTime12h, isValidYmd, nowMs, scheduledParts, todayInCostaRica } from "@/lib/dates";
 import { vehicleRoadLegal, type DriverRecord, type VehicleRecord } from "@/lib/driverKyc";
 import {
   CLASH_BUFFER_MINUTES,
+  clashText,
   durationText,
   busySpan,
   candidateWarnings,
@@ -47,6 +48,11 @@ type Row = SpanBooking & {
   /** End of the job board posting's hour (migration 0054). */
   posting_closes_at: string | null;
   preferences: Partial<RidePrefs> | null;
+  /** Money fields, only to tell a paid new request ("Solicitud nueva · pagada") from one waiting for payment. */
+  total_price: number | string | null;
+  cash_fee: number | string | null;
+  amount_paid: number | string | null;
+  payment_mode: string | null;
   /** The traveller's name only: no email or phone on the calendar. */
   trips: { guest_name: string | null } | null;
   bids: Offer[] | null;
@@ -98,7 +104,7 @@ export default async function DispatchPage({ searchParams }: { searchParams: Pro
     supabase
       .from("bookings")
       .select(
-        "id, booking_ref, status, service_type, catalog_item_id, scheduled_at, origin, destination, origin_coords, destination_coords, sightseeing_stops, drive_minutes, vehicle_class, passenger_count, assigned_driver_id, assigned_vehicle_id, driver_payout, posting_closes_at, preferences, trips(guest_name), bids(id, driver_id, vehicle_id, bid_amount, status)",
+        "id, booking_ref, status, service_type, catalog_item_id, scheduled_at, origin, destination, origin_coords, destination_coords, sightseeing_stops, drive_minutes, vehicle_class, passenger_count, assigned_driver_id, assigned_vehicle_id, driver_payout, posting_closes_at, preferences, total_price, cash_fee, amount_paid, payment_mode, trips(guest_name), bids(id, driver_id, vehicle_id, bid_amount, status)",
       )
       .neq("status", "cancelled")
       .gte("scheduled_at", costaRicaTimestamp(fromDay, "00:00"))
@@ -155,6 +161,12 @@ export default async function DispatchPage({ searchParams }: { searchParams: Pro
   );
 
   const weekTitle = `${dayName(days[0], lang, "long")} – ${dayName(days[6], lang, "long")}`;
+  // The phone's day view: the same rows, spans and clashes as the week, for one day.
+  const dayUnassigned = unassigned.filter((b) => dayOf(b) === day);
+  const dayTrips = rows.filter((b) => dayOf(b) === day);
+  const busyIds = new Set(rows.filter((b) => dayOf(b) === day && b.assigned_driver_id).map((b) => b.assigned_driver_id as string));
+  const freeDrivers = drivers.filter((d) => !busyIds.has(d.id) && !blocked.get(d.id)?.has(day));
+  const offDrivers = drivers.filter((d) => !busyIds.has(d.id) && blocked.get(d.id)?.has(day));
   const panelBooking = assignId ? rows.find((b) => b.id === assignId) : undefined;
 
   const driverMeta = (d: DriverRow) => {
@@ -170,6 +182,7 @@ export default async function DispatchPage({ searchParams }: { searchParams: Pro
 
   return (
     <div className="space-y-5">
+      <div className="hidden lg:block">
       <PageHeader
         title={t("Despacho", "Dispatch")}
         subtitle={t(
@@ -182,9 +195,10 @@ export default async function DispatchPage({ searchParams }: { searchParams: Pro
           </Link>
         }
       />
+      </div>
 
-      {/* ---------- Week view (tablets and computers) ---------- */}
-      <div className="hidden md:block">
+      {/* ---------- Week view (large screens) ---------- */}
+      <div className="hidden lg:block">
         <Card
           padded={false}
           title={weekTitle}
@@ -288,57 +302,112 @@ export default async function DispatchPage({ searchParams }: { searchParams: Pro
         </Card>
       </div>
 
-      {/* ---------- Day view (phones) ---------- */}
-      <div className="space-y-3 md:hidden">
+      {/* ---------- Day view (phones and tablets, 2026-11-13): one day, ‹ › ---------- */}
+      <PhoneHeader>
         <nav aria-label={t("Días", "Days")} className="flex items-center justify-between gap-2">
-          <Link href={href(addDays(day, -1))} className={btn.secondary} aria-label={t("Día anterior", "Previous day")}>
-            ←
+          <Link
+            href={href(addDays(day, -1))}
+            aria-label={t("Día anterior", "Previous day")}
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#14432F] text-white focus-visible:outline-2 focus-visible:outline-[#F5B301]"
+          >
+            <Icon name="back" className="h-5 w-5" />
           </Link>
           <div className="min-w-0 text-center">
-            <p className="font-extrabold text-[#14231C]">{dayName(day, lang, "long")}</p>
+            <h1 className="text-lg font-extrabold">{dayName(day, lang, "long")}</h1>
+            <p className="text-xs text-[#A7D7C2]">
+              {t(`${dayTrips.length} ${dayTrips.length === 1 ? "viaje" : "viajes"}`, `${dayTrips.length} trip${dayTrips.length === 1 ? "" : "s"}`)}
+              {dayUnassigned.length ? ` · ${t(`${dayUnassigned.length} sin conductor`, `${dayUnassigned.length} without a driver`)}` : ""}
+              {day === today ? ` · ${t("hoy", "today")}` : ""}
+            </p>
             {day !== today && (
-              <Link href="/admin/dispatch" className={`text-sm ${link}`}>
+              <Link href="/admin/dispatch" className="inline-flex min-h-8 items-center text-xs font-bold text-[#F5B301] underline-offset-2 hover:underline">
                 {t("Ir a hoy", "Go to today")}
               </Link>
             )}
-            {day === today && <p className="text-sm font-bold text-[#047857]">{t("Hoy", "Today")}</p>}
           </div>
-          <Link href={href(addDays(day, 1))} className={btn.secondary} aria-label={t("Día siguiente", "Next day")}>
-            →
+          <Link
+            href={href(addDays(day, 1))}
+            aria-label={t("Día siguiente", "Next day")}
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#14432F] text-white focus-visible:outline-2 focus-visible:outline-[#F5B301]"
+          >
+            <Icon name="chevron" className="h-5 w-5" />
           </Link>
         </nav>
-        <Card title={t("Sin conductor", "No driver yet")}>
-          {unassigned.filter((b) => dayOf(b) === day).length ? (
-            <div className="space-y-2">{unassigned.filter((b) => dayOf(b) === day).map(blockFor)}</div>
+      </PhoneHeader>
+
+      <div className="space-y-4 lg:hidden">
+        <section aria-labelledby="ph-nodriver" className="space-y-2">
+          <PhoneSectionTitle id="ph-nodriver" tone={dayUnassigned.length ? "warn" : "muted"}>
+            {t("Sin conductor", "No driver yet")}
+          </PhoneSectionTitle>
+          {dayUnassigned.length ? (
+            dayUnassigned.map((b) => <PhoneTrip key={b.id} b={b} span={spans.get(b.id) ?? null} lang={lang} catalog={catalog} href={href(day, `&assign=${b.id}`)} unassigned />)
           ) : (
             <p className="text-sm text-[#5F6F67]">{t("Nada pendiente este día.", "Nothing waiting this day.")}</p>
           )}
-        </Card>
-        <Card title={t("Conductores", "Drivers")} padded={false}>
-          <ul className="divide-y divide-[#EDF1EE]">
-            {drivers.map((dr) => {
-              const mine = (byDriver.get(dr.id) ?? []).filter((b) => dayOf(b) === day);
-              const off = blocked.get(dr.id)?.has(day);
-              return (
-                <li key={dr.id} className={`space-y-2 px-4 py-3 ${off ? "bg-[repeating-linear-gradient(135deg,#F1F4F2_0_6px,#E6EBE8_6px_12px)]" : ""}`}>
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">{driverMeta(dr)}</div>
-                    {off ? <Chip tone="grey">{t("No disponible", "Unavailable")}</Chip> : !mine.length && <Chip tone="green">{t("Libre", "Free")}</Chip>}
+        </section>
+
+        {drivers.map((dr) => {
+          const mine = (byDriver.get(dr.id) ?? []).filter((b) => dayOf(b) === day);
+          if (!mine.length) return null;
+          const ids = new Set(mine.map((b) => b.id));
+          const last = mine[mine.length - 1];
+          const cats = [...new Set(dr.driver_vehicles.filter((v) => v.status === "approved").map((v) => (isVehicleCategory(v.vehicle_class) ? categoryLabel(v.vehicle_class, lang) : null)).filter(Boolean))];
+          return (
+            <section key={dr.id} aria-label={dr.profiles?.full_name ?? t("Conductor", "Driver")} className="space-y-2">
+              <div className="flex items-baseline justify-between gap-2">
+                <h2 className="min-w-0 truncate text-[15px] font-extrabold">
+                  {dr.profiles?.full_name ?? t("Conductor", "Driver")}
+                  {dr.home_hub ? ` · ${townName(dr.home_hub, lang)}` : ""}
+                </h2>
+                <span className="shrink-0 text-xs text-[#5B6B64]">{cats.join(" · ")}</span>
+              </div>
+              <div className={`space-y-1.5 border-l-[3px] pl-3 ${blocked.get(dr.id)?.has(day) ? "border-[#94A3B8]" : "border-[#10B981]"}`}>
+                {blocked.get(dr.id)?.has(day) && <Chip tone="grey">{t("Marcó el día como no disponible", "Blocked the day as unavailable")}</Chip>}
+                {mine.map((b) => (
+                  <div key={b.id} className="space-y-1.5">
+                    {(clashes.get(b.id) ?? [])
+                      .filter((c) => c.side === "before")
+                      .map((c) => (
+                        <ClashLine key={`${c.other.id}-${c.kind}`} c={c} lang={lang} />
+                      ))}
+                    <PhoneTrip b={b} span={spans.get(b.id) ?? null} lang={lang} catalog={catalog} href={`/admin/bookings/${b.id}`} />
                   </div>
-                  {mine.map(blockFor)}
-                </li>
-              );
-            })}
+                ))}
+                {(clashes.get(last.id) ?? [])
+                  .filter((c) => c.side === "after" && !ids.has(c.other.id))
+                  .map((c) => (
+                    <ClashLine key={`${c.other.id}-${c.kind}-after`} c={c} lang={lang} />
+                  ))}
+              </div>
+            </section>
+          );
+        })}
+
+        {otherAssigned.some((b) => dayOf(b) === day) && (
+          <section aria-labelledby="ph-other" className="space-y-2">
+            <PhoneSectionTitle id="ph-other">{t("Conductor ya no aprobado", "Driver no longer approved")}</PhoneSectionTitle>
             {otherAssigned
               .filter((b) => dayOf(b) === day)
               .map((b) => (
-                <li key={b.id} className="px-4 py-3">
-                  <p className="mb-2 text-xs font-bold text-[#5F6F67]">{t("Conductor ya no aprobado", "Driver no longer approved")}</p>
-                  {blockFor(b)}
-                </li>
+                <PhoneTrip key={b.id} b={b} span={spans.get(b.id) ?? null} lang={lang} catalog={catalog} href={`/admin/bookings/${b.id}`} />
               ))}
-          </ul>
-        </Card>
+          </section>
+        )}
+
+        <section aria-labelledby="ph-free" className="space-y-1.5">
+          <PhoneSectionTitle id="ph-free">{t("Libres este día", "Free this day")}</PhoneSectionTitle>
+          <p className="text-sm text-[#3F4F48]">
+            {freeDrivers.length
+              ? freeDrivers.map((d) => `${d.profiles?.full_name ?? t("Conductor", "Driver")}${d.home_hub ? ` (${townName(d.home_hub, lang)})` : ""}`).join(" · ")
+              : t("Nadie libre.", "Nobody free.")}
+          </p>
+          {offDrivers.length > 0 && (
+            <p className="text-xs text-[#5F6F67]">
+              {t("No disponibles:", "Unavailable:")} {offDrivers.map((d) => d.profiles?.full_name ?? t("Conductor", "Driver")).join(" · ")}
+            </p>
+          )}
+        </section>
       </div>
 
       <Legend lang={lang} />
@@ -435,7 +504,7 @@ function BookingBlock({
         <span className="mt-1 flex flex-wrap gap-1">
           {unassigned && (
             <span className="rounded-full bg-[#FEF3C7] px-1.5 py-px text-[10px] font-extrabold text-[#92400E]">
-              {b.status === "pending_payment" ? t("Esperando pago", "Awaiting payment") : t("Asignar", "Assign")}
+              {b.status === "pending_payment" ? statusView(b.status, lang, b).label : t("Asignar", "Assign")}
               {(b.bids ?? []).filter((o) => o.status === "submitted").length > 0 &&
                 ` · ${(b.bids ?? []).filter((o) => o.status === "submitted").length} ${t("ofertas", "offers")}`}
             </span>
@@ -449,6 +518,68 @@ function BookingBlock({
       )}
       {clashes.length > 0 && <span className="sr-only">{clashes.map((c) => c.other.booking_ref).join(", ")}</span>}
     </Link>
+  );
+}
+
+/* ---------- Phone day view: one trip, and a clash between two ---------- */
+
+function PhoneTrip({
+  b,
+  span,
+  lang,
+  catalog,
+  href,
+  unassigned = false,
+}: {
+  b: Row;
+  span: BusySpan | null;
+  lang: TeamLang;
+  catalog: Awaited<ReturnType<typeof getCatalog>>;
+  href: string;
+  unassigned?: boolean;
+}) {
+  const t = makeT(lang);
+  const route =
+    b.service_type === "transfer"
+      ? `${shortPlace(b.origin, b.origin_coords, lang)} → ${shortPlace(b.destination, b.destination_coords, lang)}`
+      : `${span?.fromPlace ? `${span.fromPlace} · ` : ""}${catalog.dayTours.find((x) => x.id === b.catalog_item_id)?.name ?? t("Tour", "Tour")}`;
+  const start = scheduledParts(b.scheduled_at)?.time;
+  const end = span ? scheduledParts(new Date(span.end).toISOString())?.time : null;
+  const stops = (b.sightseeing_stops ?? []).length;
+  const offers = (b.bids ?? []).filter((o) => o.status === "submitted").length;
+  const detail = [
+    b.vehicle_class ? jobClassLabel(b.vehicle_class, lang) : b.passenger_count ? t(`${b.passenger_count} pers.`, `${b.passenger_count} pax`) : null,
+    end ? `${t("hasta", "until")} ${span?.estimated ? "≈" : "~"}${formatTime12h(end, lang)}` : null,
+    stops ? t(`${stops} ${stops === 1 ? "parada" : "paradas"}`, `${stops} stop${stops === 1 ? "" : "s"}`) : null,
+    unassigned ? (b.status === "pending_payment" ? statusView(b.status, lang, b).label : offers ? t(`${offers} ofertas`, `${offers} offers`) : null) : null,
+  ].filter(Boolean);
+  return (
+    <Link
+      href={href}
+      scroll={!unassigned}
+      className={`flex gap-3 rounded-xl border px-3 py-2.5 text-[#14231C] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#047857] ${
+        unassigned ? "border-[#FDBA74] bg-[#FFF7ED]" : "border-[#E3E8E5] bg-white"
+      }`}
+    >
+      <span className="w-[4.25rem] shrink-0 text-sm font-extrabold tabular-nums">{start ? formatTime12h(start, lang) : t("Sin hora", "No time")}</span>
+      <span className="flex min-w-0 grow flex-col gap-0.5">
+        <span className="text-sm font-bold">{route}</span>
+        <span className="text-xs text-[#5B6B64]">
+          <span className="font-mono">{b.booking_ref}</span>
+          {detail.length ? ` · ${detail.join(" · ")}` : ""}
+        </span>
+      </span>
+    </Link>
+  );
+}
+
+function ClashLine({ c, lang }: { c: Clash; lang: TeamLang }) {
+  const hard = c.kind !== "check_travel";
+  return (
+    <p role="note" className={`flex items-start gap-2 rounded-xl px-3 py-2 text-xs font-semibold ${hard ? "bg-[#FEE2E2] text-[#991B1B]" : "bg-[#FEF3C7] text-[#78350F]"}`}>
+      <Icon name="alert" className="mt-px h-4 w-4 shrink-0" />
+      <span>{clashText(c, lang)}</span>
+    </p>
   );
 }
 
@@ -608,7 +739,7 @@ function AssignPanel({
                   .join(" · ")}
               </p>
               <div className="mt-2 flex flex-wrap items-center gap-2">
-                <StatusChip status={b.status} lang={lang} posting={posting} />
+                <StatusChip status={b.status} lang={lang} posting={posting} booking={b} />
                 {span?.estimated && <Chip tone="amber">{t("Duración estimada", "Estimated length")}</Chip>}
                 <Link href={`/admin/bookings/${b.id}`} className={`text-sm ${link}`}>
                   {t("Abrir la reserva", "Open the booking")}
