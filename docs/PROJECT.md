@@ -678,8 +678,7 @@ are 9 PM–7 AM Costa Rica time, as for the rating reminder. Each is marked in t
   "Ruta", "Conductor", "Abrir la reserva"), or in English when the admin whose profile has the
   `ADMIN_NOTIFY_EMAIL` address uses English (`profiles.app_lang = 'en'`; Jorge, 2026-11-12). Once per
   rating (`driver_reviews.team_alerted_at`); the hourly job re-sends any from the last 2 days that
-  didn't go out. Email only: there is no team app yet (`device_tokens.app` is `driver` or `client`).
-  The driver is never told.
+  didn't go out. Since 2026-11-12 also pushed to the team's phones (§4.8). The driver is never told.
 - **3. "Book your return / a day tour"** (`src/lib/tripFollowup.ts`, `/api/cron/trip-followups`):
   ONE email (no push) after a completed **ride**, from **7 AM the next day** (Costa Rica calendar
   day; never the day of the rating request) and at the latest on the second day after; later than
@@ -725,6 +724,45 @@ are 9 PM–7 AM Costa Rica time, as for the rating reminder. Each is marked in t
 - The new `bookings` columns (`confirmed_at`, `reminder_*_at`, `followup_sent_at`, `pickup_place`)
   are not in the change history's list (`log_booking_changes()`, migration 0044), so they never
   add history rows (`npm run test:db`).
+
+### 4.8 Team alerts on the team's phones (CRM part 6, Jorge 2026-11-12, migration 0053)
+Jorge will have a night team; urgent problems must reach their phones, not only email. Every team
+member is a full admin (no limited roles) and admins have no mobile app, so the **admin site is
+installable** ("CRPT Admin": `public/admin-app/manifest.webmanifest`, scope `/admin`, brand icons)
+and receives **Web Push** through a plain service worker (`public/admin-sw.js`: shows the
+notification, a tap opens the admin page it points to). No new dependency: the encryption
+(RFC 8291, aes128gcm) and the VAPID signature (RFC 8292, ES256) use Node's `crypto`
+(`src/lib/webPush.ts`, checked against both RFCs' examples in `npm run test:alerts`).
+- **One sender:** `sendTeamAlert(kind, …)` (`src/lib/teamAlerts.ts`, core in
+  `src/lib/teamAlertCore.ts`, rules and texts in `src/lib/teamAlertRules.ts`): the email to
+  `ADMIN_NOTIFY_EMAIL` as before + a push to every admin phone that wants this kind and isn't in
+  its quiet hours. **Once only:** each alert is claimed first in `team_alerts` (kind + key unique),
+  and the scheduled ones also keep their own mark on the booking/review.
+- **Alerts** (push text in Spanish: ref, route, Costa Rica time, the traveller's initial at most —
+  never their phone, email or full name; the tap opens `/admin/bookings/<id>`):
+  | Kind | When | Once per |
+  |---|---|---|
+  | Conductor atrasado (`late_driver`) | live traffic says 20+ min late (`src/lib/eta.ts`) | booking (`late_alert_at`) |
+  | Sin ubicación del conductor (`no_location`) | pickup within 60 min, no position from the driver | booking (`late_alert_at`) |
+  | Sin conductor (`no_driver`) | pickup within 12 h, no driver, booked 30+ min ago (5-minute run of `/api/cron/eta`) | booking (`no_driver_alert_at`) |
+  | Reserva para hoy (`tonight`) | a website/app request with a pickup within 12 h (instead of the plain new-request push) | request |
+  | Conductor retirado (`driver_removed`) | the team removes or replaces a driver (§4.2); not pushed to the admin who did it | removal |
+  | Calificación baja (`low_rating`) | 1–3 stars (§4.7) | rating (`team_alerted_at`) |
+  | Solicitud nueva (`new_request`) | any other website/app request | request |
+  Requests the team enters by hand send no alert. Without VAPID keys only the email goes.
+- **Per admin** (`/admin/alerts`, link "Alertas en este teléfono" at the bottom of the side menu):
+  switch on / off for this phone, "Enviar una prueba" (only to the phones of the admin who pressed
+  it), which kinds they want and optional quiet hours (Costa Rica time). Default: everything on, no
+  quiet hours. On an iPhone not yet added to the home screen the card shows the "Add to Home Screen"
+  steps (Apple allows web push only from home-screen apps, iOS 16.4+).
+- **Tables** (RLS §7.7): `admin_push_subscriptions` (admin, endpoint, keys, label, created_at,
+  last_success_at, failures; admins add/remove their own via `register_admin_push()` /
+  `unregister_admin_push()`, **nobody reads it through the API**; the server sends with the service
+  role, deletes a phone on 404/410 or after 30 failures in a row, and skips anyone no longer admin),
+  `admin_alert_prefs` (own row only), `team_alerts` (admins read, server writes).
+- **Settings in Vercel:** `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`
+  (`mailto:` the team address); `NEXT_PUBLIC_VAPID_PUBLIC_KEY` is accepted but not needed (the page
+  passes the public key to the browser).
 
 ---
 
@@ -1341,6 +1379,12 @@ and `season_for_date(date)` returns the season for a travel date.
   Travellers, drivers and visitors read none of it. The cancellation email to a driver never holds
   the traveller's name, phone, email, the price or the refund. `npm run test:db` checks this.
   The customers CSV (`/admin/customers/export`) follows the same privacy rule as the bookings export.
+- **Team alerts (migration 0053, §4.8):** `admin_push_subscriptions`: an admin inserts / deletes only
+  their own rows (`register_admin_push()` refuses non-admins and hands a shared phone over;
+  `unregister_admin_push()` deletes only the caller's row); **no select policy, so nobody reads it
+  through the API**, not even admins (`my_admin_push_count()` gives an admin their own count); no
+  updates. `admin_alert_prefs`: own row only, admins only. `team_alerts`: admins read, only the
+  server writes. Travellers, drivers and visitors get nothing. `npm run test:db` checks this.
 - **Promo codes (migration 0052):** `promo_codes` admins only (read and write); `promo_redemptions`
   admins read, only the server writes; `promo_code_checks` and the promo functions server only.
   Visitors, travellers and drivers read none of it; codes are checked on the server. Travellers see

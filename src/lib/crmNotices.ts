@@ -7,6 +7,8 @@ import { formatScheduledAt, formatScheduledAtFor } from "./dates";
 import { ADMIN_EMAIL, SITE_URL, sendEmail } from "./email";
 import { parsePublicLang } from "./publicLang";
 import { createSupabaseAdminClient } from "./supabase/admin";
+import { adminBookingPath, sendTeamAlert } from "./teamAlerts";
+import { alertText } from "./teamAlertRules";
 
 /**
  * Messages that go out from the booking page's CRM actions (CRM part 3, 2026-11-12). Every one is
@@ -96,17 +98,21 @@ export async function sendCancellationNotices(
   }
 }
 
-/** A driver was removed or replaced: email the team (Spanish). The traveller is NOT told here. */
+/**
+ * A driver was removed or replaced: email the team (Spanish) and push the team's phones, except
+ * the admin who made the change (src/lib/teamAlerts.ts). The traveller is NOT told here.
+ */
 export async function alertTeamDriverRemoved(
   bookingId: string,
   removedDriverId: string,
   reason: "driver_dropped" | "team",
   newDriverId: string | null,
   reopened: boolean,
+  actorId: string | null = null,
 ): Promise<boolean> {
   try {
     const db = createSupabaseAdminClient();
-    if (!db || !ADMIN_EMAIL) return false;
+    if (!db) return false;
     const { data: b } = await db.from("bookings").select(BOOKING_COLS).eq("id", bookingId).maybeSingle<Booking>();
     if (!b) return false;
     const ids = [removedDriverId, newDriverId].filter((x): x is string => Boolean(x));
@@ -122,7 +128,23 @@ export async function alertTeamDriverRemoved(
       replacedBy: nameOf(newDriverId),
       bookingUrl: `${SITE_URL}/admin/bookings/${bookingId}`,
     });
-    return await sendEmail({ to: ADMIN_EMAIL, subject: mail.subject, lines: mail.lines, button: mail.button });
+    const { data: trip } = b.trip_id ? await db.from("trips").select("guest_name").eq("id", b.trip_id).maybeSingle() : { data: null };
+    const push = alertText("driver_removed", {
+      ref: b.booking_ref,
+      route: await whatFor(b, "es"),
+      when: formatScheduledAt(b.scheduled_at, "es"),
+      guestName: trip?.guest_name,
+      driver: nameOf(removedDriverId),
+      reason,
+    });
+    const r = await sendTeamAlert("driver_removed", {
+      // One alert per removal; a double-submitted form within 10 minutes sends nothing more.
+      dedupeKey: `${bookingId}:${removedDriverId}:${Math.floor(Date.now() / 600000)}`,
+      push: { ...push, url: adminBookingPath(bookingId) },
+      email: ADMIN_EMAIL ? { to: ADMIN_EMAIL, subject: mail.subject, lines: mail.lines, button: mail.button } : null,
+      exceptAdminId: actorId,
+    });
+    return r.emailed || r.pushed > 0;
   } catch (e) {
     console.error("[crm] team alert", e);
     return false;

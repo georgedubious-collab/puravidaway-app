@@ -7,8 +7,10 @@ import { localizeCatalog, placeNameFor } from "@/lib/catalogEs";
 import { getCatalog } from "@/lib/catalogSource";
 import { requireRole } from "@/lib/auth";
 import { cashAllowed, itemPaymentMode, parsePaymentMode } from "@/lib/cart";
-import { costaRicaTimestamp, todayInCostaRica } from "@/lib/dates";
+import { costaRicaTimestamp, formatScheduledAt, todayInCostaRica } from "@/lib/dates";
 import { ADMIN_EMAIL, SITE_URL, sendEmail } from "@/lib/email";
+import { adminBookingPath, sendTeamAlert } from "@/lib/teamAlerts";
+import { alertText, isTonight } from "@/lib/teamAlertRules";
 import { routeMinutes, stopTotalCents } from "@/lib/catalog";
 import { resolveTransfer } from "@/lib/googleMaps";
 import type { RidePlace, RideRoute } from "@/lib/places";
@@ -391,10 +393,37 @@ async function saveTripRequest(input: TripRequestInput, team: TeamEntry | null):
           hasRide: priced.some((p) => p.spec.kind === "transfer"),
         }),
       });
-      if (ADMIN_EMAIL && !team) {
-        await sendEmail({
+      if (team) return;
+      // The team: the email as before, plus a push to their phones (src/lib/teamAlerts.ts).
+      // A pickup within 12 hours is a "booking for tonight" alert; anything later a plain
+      // "new request". The push holds the traveller's initial only, never their contact.
+      const now = new Date();
+      const byTime = priced
+        .map((p, i) => ({ p, i, at: rows[i].scheduled_at as string }))
+        .sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
+      const soon = byTime.find((x) => isTonight(x.at, now));
+      const first = soon ?? byTime[0];
+      const esNames = localizeCatalog(catalog, "es");
+      const fs = first.p.spec;
+      const route =
+        fs.kind === "transfer"
+          ? `${placeNameFor(first.p.ride?.origin.label ?? fs.origin, "es")} → ${placeNameFor(first.p.ride?.destination.label ?? fs.destination, "es")}`
+          : (esNames.dayTours.find((t) => t.id === fs.tourId)?.name ?? fs.tourId);
+      const kind = soon ? "tonight" : "new_request";
+      const text = alertText(kind, {
+        ref: refs[first.i] ?? refs[0],
+        route,
+        when: formatScheduledAt(first.at, "es"),
+        guestName: name,
+        minutes: Math.round((new Date(first.at).getTime() - now.getTime()) / 60000),
+        count: refs.length,
+      });
+      await sendTeamAlert(kind, {
+        dedupeKey: ids[0] ?? refs[0],
+        push: { ...text, url: ids[first.i] ? adminBookingPath(ids[first.i]) : "/admin/bookings" },
+        email: ADMIN_EMAIL ? {
           to: ADMIN_EMAIL,
-          subject: `New trip request ${refs.join(", ")} · $${total.toFixed(2)}`,
+          subject: `${soon ? "PICKUP WITHIN 12 H · " : ""}New trip request ${refs.join(", ")} · $${total.toFixed(2)}`,
           lines: [
             `${name} (${email}, ${phone}) sent ${refs.length} item${refs.length > 1 ? "s" : ""} worth $${total.toFixed(2)}.`,
             cashCents > 0
@@ -408,8 +437,8 @@ async function saveTripRequest(input: TripRequestInput, team: TeamEntry | null):
             clientLanguageNote(lang),
           ].filter(Boolean),
           button: { label: "Open in Bookings", url: `${SITE_URL}/admin/bookings` },
-        });
-      }
+        } : null,
+      });
     });
     return { ok: true, refs, tripToken, ...(team ? { ids } : {}) };
   } catch (e) {

@@ -1670,6 +1670,83 @@ await expectOk("server removes the test booking", "server", "delete from public.
   await expectRows("drivers cannot read the calendar's bookings", "driver", `select * from public.bookings where id in ('${PAGE}', '${CAL}')`, 0);
 }
 
+// --- Team alerts on the team's phones (migration 0053) --------------------------------------------
+{
+  const A2 = "00000000-0000-0000-0000-0000000000a2";
+  await db.query(`insert into auth.users (id, email) values ($1, 'admin2@example.com')`, [A2]);
+  await db.exec(`reset role; select set_config('request.jwt.claim.sub', '', false); update public.profiles set role = 'admin' where id = '${A2}'`);
+  U.admin2 = A2;
+  const KEY = "B".repeat(87);
+  const AUTH = "a".repeat(22);
+  const reg = (ep) => `select public.register_admin_push('https://push.example/${ep}', '${KEY}', '${AUTH}', 'iPhone · Safari')`;
+  await expectOk("admin switches alerts on for a phone", "admin", reg("one"));
+  await expectOk("admin switches alerts on for a second phone (direct insert)", "admin",
+    `insert into public.admin_push_subscriptions (endpoint, p256dh, auth, label) values ('https://push.example/two', '${KEY}', '${AUTH}', 'Chrome')`);
+  await expectRows("the server sees both phones", "server", `select * from public.admin_push_subscriptions where admin_id = '${U.admin}'`, 2);
+  await expectRows("the admin cannot read subscriptions through the API (not even their own)", "admin", "select * from public.admin_push_subscriptions", 0);
+  await expectRows("another admin cannot read them", "admin2", "select * from public.admin_push_subscriptions", 0);
+  await expectRows("a driver cannot read them", "driver", "select * from public.admin_push_subscriptions", 0);
+  await expectRows("a traveller cannot read them", "client", "select * from public.admin_push_subscriptions", 0);
+  await expectRows("a visitor cannot read them", "anon", "select * from public.admin_push_subscriptions", 0);
+  await expectRows("the admin's own count is 2", "admin", "select public.my_admin_push_count() as n", 2);
+  await expectRows("a driver's count is 0", "driver", "select public.my_admin_push_count() as n", 0);
+  await expectBlocked("a driver cannot register for team alerts", "driver", reg("driver"));
+  await expectBlocked("a traveller cannot register for team alerts", "client", reg("client"));
+  await expectBlocked("a visitor cannot register for team alerts", "anon", reg("anon"));
+  await expectBlocked("a driver cannot insert a subscription directly", "driver",
+    `insert into public.admin_push_subscriptions (endpoint, p256dh, auth) values ('https://push.example/d', '${KEY}', '${AUTH}')`);
+  await expectBlocked("an admin cannot insert a subscription for another admin", "admin",
+    `insert into public.admin_push_subscriptions (admin_id, endpoint, p256dh, auth) values ('${A2}', 'https://push.example/x', '${KEY}', '${AUTH}')`);
+  await expectBlocked("a non-https endpoint is refused", "admin", `select public.register_admin_push('http://push.example/y', '${KEY}', '${AUTH}', '')`);
+  await expectBlocked("an admin cannot change a subscription (no update)", "admin",
+    `update public.admin_push_subscriptions set admin_id = '${A2}' where endpoint = 'https://push.example/one'`, { affected: 0 });
+  await expectOk("another admin's unregister of someone else's phone does nothing", "admin2", "select public.unregister_admin_push('https://push.example/one')");
+  await expectBlocked("another admin's direct delete of someone else's phone does nothing", "admin2",
+    "delete from public.admin_push_subscriptions where endpoint = 'https://push.example/one'", { affected: 0 });
+  await expectRows("…both phones still there", "server", `select * from public.admin_push_subscriptions where admin_id = '${U.admin}'`, 2);
+  await expectOk("the same phone signed in as another admin is handed over", "admin2", reg("one"));
+  await expectRows("…now it belongs to admin 2", "server", `select * from public.admin_push_subscriptions where endpoint = 'https://push.example/one' and admin_id = '${A2}'`, 1);
+  await expectOk("admin switches a phone off", "admin", "select public.unregister_admin_push('https://push.example/two')");
+  await expectRows("…it's gone", "server", "select * from public.admin_push_subscriptions where endpoint = 'https://push.example/two'", 0);
+  await expectOk("the server removes a phone the push service says is gone (410)", "server",
+    "delete from public.admin_push_subscriptions where endpoint = 'https://push.example/one'");
+  await expectRows("…none left", "server", "select * from public.admin_push_subscriptions", 0);
+
+  // Per-admin settings.
+  await expectOk("admin saves their alert settings", "admin",
+    `insert into public.admin_alert_prefs (muted_kinds, quiet_start, quiet_end) values (array['new_request'], 22, 6)`);
+  await expectRows("…and reads them back", "admin", "select * from public.admin_alert_prefs where quiet_start = 22", 1);
+  await expectRows("another admin cannot read them", "admin2", "select * from public.admin_alert_prefs", 0);
+  await expectRows("a driver cannot read them", "driver", "select * from public.admin_alert_prefs", 0);
+  await expectBlocked("another admin cannot change them", "admin2", "update public.admin_alert_prefs set muted_kinds = '{}'", { affected: 0 });
+  await expectBlocked("a driver cannot create alert settings", "driver", "insert into public.admin_alert_prefs (muted_kinds) values ('{}')");
+  await expectBlocked("an unknown alert kind is refused", "admin", "update public.admin_alert_prefs set muted_kinds = array['nope']");
+  await expectBlocked("half a quiet-hours range is refused", "admin", "update public.admin_alert_prefs set quiet_end = null");
+  await expectBlocked("hour 24 is refused", "admin", "update public.admin_alert_prefs set quiet_start = 24");
+
+  // Once only.
+  await expectOk("the server claims an alert", "server", "insert into public.team_alerts (kind, dedupe_key) values ('low_rating', 'r1')");
+  await expectRows("claiming it again claims nothing", "server",
+    "insert into public.team_alerts (kind, dedupe_key) values ('low_rating', 'r1') on conflict (kind, dedupe_key) do nothing returning id", 0);
+  await expectRows("the same key under another kind is its own alert", "server",
+    "insert into public.team_alerts (kind, dedupe_key) values ('tonight', 'r1') on conflict (kind, dedupe_key) do nothing returning id", 1);
+  await expectRows("admins can read the alerts sent", "admin2", "select * from public.team_alerts", 2);
+  await expectRows("drivers cannot", "driver", "select * from public.team_alerts", 0);
+  await expectBlocked("admins cannot write alerts", "admin", "insert into public.team_alerts (kind, dedupe_key) values ('tonight', 'fake')");
+
+  // "Trip without a driver": the column is claimed once.
+  const NB = "10000000-0000-0000-0000-0000000000b9";
+  await expectOk("server saves an unassigned booking", "server", `
+    insert into public.bookings (id, trip_id, service_type, total_price, status, amount_paid, scheduled_at)
+    values ('${NB}', '40000000-0000-0000-0000-000000000001', 'transfer', 150, 'pending_bids', 0, now() + interval '5 hours')`);
+  await expectRows("first claim of the no-driver alert wins", "server",
+    `update public.bookings set no_driver_alert_at = now() where id = '${NB}' and no_driver_alert_at is null returning id`, 1);
+  await expectRows("second claim gets nothing (never repeats)", "server",
+    `update public.bookings set no_driver_alert_at = now() where id = '${NB}' and no_driver_alert_at is null returning id`, 0);
+  await expectRows("claiming leaves no entry in the booking history", "admin",
+    `select count(*) as n from public.booking_events where booking_id = '${NB}'`, 0);
+}
+
 // --- Promo codes and the money report (migration 0052) ------------------------------------------
 {
   const T1 = "40000000-0000-0000-0000-0000000005a1";

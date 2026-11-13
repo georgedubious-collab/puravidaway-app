@@ -24,6 +24,7 @@
     "test:photos": "node --no-warnings scripts/test-vehicle-photos.mjs",
     "test:dispatch": "node --no-warnings scripts/test-dispatch.mjs",
     "test:crm": "node --no-warnings scripts/test-crm.mjs",
+    "test:alerts": "node --no-warnings scripts/test-team-alerts.mjs",
     "test:money": "node --no-warnings scripts/test-money-report.mjs",
     "db:seed": "node scripts/generate-catalog-seed.mjs"
   },
