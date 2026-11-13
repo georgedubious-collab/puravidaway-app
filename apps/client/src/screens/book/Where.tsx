@@ -46,23 +46,23 @@ const ABOUT: Record<Lang, Record<string, string>> = {
 export function BookWhere() {
   const { lang, t } = useT();
   const nav = useNav();
-  const { state, set, quote, stopsOn } = useBooking();
+  const { state, set, quote, stopsOn, ownStopsOn, ownStops } = useBooking();
   const { prices } = usePopular();
   const [hint, setHint] = useState("");
   const { from, to } = state;
   const fromHub = from?.id.startsWith("hub:") ? from.id.slice(4) : "";
-  const stops = quote && stopsOn ? state.stopIds.filter((id) => quote.stops.some((s) => s.id === id)).length : 0;
+  const stops = (quote && stopsOn ? state.stopIds.filter((id) => quote.stops.some((s) => s.id === id)).length : 0) + ownStops.length;
 
   function addStop() {
     if (!from || !to) return setHint(t("Choose your pickup and drop-off first, then you'll see the stops on the way.", "Primero elija su recogida y su destino; luego verá las paradas en el camino."));
     if (!quote) return setHint(t("One moment, we're checking this route.", "Un momento, estamos revisando esta ruta."));
-    if (quote.stops.length === 0) return setHint(t("There are no stops to add on this route yet.", "Aún no hay paradas para agregar en esta ruta."));
+    if (quote.stops.length === 0 && !ownStopsOn) return setHint(t("There are no stops to add on this route yet.", "Aún no hay paradas para agregar en esta ruta."));
     setHint("");
     nav.navigate("BookStops");
   }
   function choose(place: Place) {
     tap();
-    set({ to: place, stopIds: [] });
+    set({ to: place, stopIds: [], customStops: [] });
     nav.navigate("BookRide");
   }
 

@@ -29,6 +29,11 @@ export interface AppBooking {
   sign?: { text: string | null; hideName: boolean; shown: string; editable: boolean } | null;
   /** Day tours: the hotel or address where we pick them up. Older servers don't send it. */
   pickupPlace?: string | null;
+  /**
+   * Stops on a ride, in order: the catalog's (minutes null) and the traveller's own (`own`, with
+   * the minutes there). Older servers don't send it.
+   */
+  stops?: { name: string; minutes: number | null; own: boolean }[];
 }
 
 export interface AppTrip {
@@ -120,6 +125,27 @@ export interface RideQuote {
     perPersonShare?: number;
   }[];
   stops: { id: string; name: string; description: string; durationMin: number; cents: number; tourPerPersonCents?: number; entrance: string }[];
+  /**
+   * "Add your own stop": the traveller's own stops as the server priced them (`cents` is already
+   * inside every vehicle total), or why they can't be priced online (`error`; then `stops` is
+   * empty and the ride can't be sent until they change). Older servers don't send it: the app
+   * then doesn't offer own stops.
+   */
+  custom?: {
+    stops: { id: string; label: string; minutes: number; cents: number; detourKm: number; detourMin: number }[];
+    detourMinutes: number;
+    error: string | null;
+    askUs: boolean;
+    minuteChoices: number[];
+    limits: { maxStops: number; maxWaitMinutes: number; maxDetourMinutes: number };
+  };
+}
+
+/** One stop of the traveller's own: a place from the place search and the minutes there. */
+export interface OwnStop {
+  id: string;
+  label: string;
+  minutes: number;
 }
 export interface Tour {
   id: string;

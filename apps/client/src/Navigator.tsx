@@ -135,7 +135,7 @@ export function RootNavigator() {
       <Root.Screen name="TourDetail" component={TourDetail} options={BARE} />
       <Root.Screen name="Sent" component={Checkout} options={{ ...BARE, gestureEnabled: false }} />
       <Root.Screen name="Chat" component={Chat} options={{ title: "Chat" }} />
-      <Root.Screen name="PlaceSearch" component={PlaceSearch} options={({ route }) => ({ ...PANEL, title: route.params.field === "from" ? t("Pickup", "Recogida") : t("Drop-off", "Destino") })} />
+      <Root.Screen name="PlaceSearch" component={PlaceSearch} options={({ route }) => ({ ...PANEL, title: route.params.field === "from" ? t("Pickup", "Recogida") : route.params.field === "stop" ? t("Add your own stop", "Agregue su propia parada") : t("Drop-off", "Destino") })} />
       <Root.Screen name="Menu" component={Menu} options={{ ...PANEL, title: "" }} />
       <Root.Screen name="BookWhen" component={BookWhen} options={{ ...PANEL, title: t("Date, time and travellers", "Fecha, hora y viajeros") }} />
       <Root.Screen name="BookStops" component={BookStops} options={{ ...PANEL, title: t("Stops along the way", "Paradas en el camino") }} />

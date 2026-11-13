@@ -39,7 +39,8 @@ export type RootParams = {
   Sent: Sent;
   Chat: { id: string };
   Menu: undefined;
-  PlaceSearch: { field: "from" | "to" };
+  /** "stop": search a place to add as the traveller's own stop. */
+  PlaceSearch: { field: "from" | "to" | "stop" };
   TimePicker: undefined;
   TourWhen: undefined;
   Code: undefined;

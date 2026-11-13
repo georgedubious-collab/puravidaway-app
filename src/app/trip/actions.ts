@@ -12,7 +12,8 @@ import { ADMIN_EMAIL, SITE_URL, sendEmail } from "@/lib/email";
 import { adminBookingPath, sendTeamAlert } from "@/lib/teamAlerts";
 import { alertText, isTonight } from "@/lib/teamAlertRules";
 import { routeMinutes, stopTotalCents } from "@/lib/catalog";
-import { resolveTransfer } from "@/lib/googleMaps";
+import { customDetourMinutes, stopTimeText, storedCustomStops, type PricedCustomStop } from "@/lib/customStops";
+import { resolveCustomStops, resolveTransfer } from "@/lib/googleMaps";
 import { bookingPlaceCoords, bookingPlaceText, type RidePlace, type RideRoute } from "@/lib/places";
 import { hasDriverPayout, splitPayout } from "@/lib/payout";
 import { cashFeeCents, formatBpsPercent } from "@/lib/pricing";
@@ -204,7 +205,7 @@ async function saveTripRequest(input: TripRequestInput, team: TeamEntry | null):
       const payout = hasDriverPayout(p.spec.kind) ? splitPayout(p.totalCents, p.passThroughCents, catalog, p.companyCostCents) : null;
       return discountedMoney(p.totalCents, payout, lineFor(i));
     };
-    const rows = priced.map(({ spec, date, totalCents: listCents, passThroughCents, companyCostCents, nightCents, ride }, i) => {
+    const rows = priced.map(({ spec, date, totalCents: listCents, passThroughCents, companyCostCents, nightCents, ride, customStops }, i) => {
       const m = moneyFor(i);
       const totalCents = m.totalCents;
       return {
@@ -218,10 +219,15 @@ async function saveTripRequest(input: TripRequestInput, team: TeamEntry | null):
       destination_coords: ride ? placeCoords(ride.destination) : null,
       sightseeing_stops:
         spec.kind === "transfer"
-          ? spec.stopIds.map((id) => {
-              const s = catalog.stops.find((x) => x.id === id);
-              return { id, price: s ? stopTotalCents(s, spec.pax) / 100 : 0 };
-            })
+          ? [
+              ...spec.stopIds.map((id) => {
+                const s = catalog.stops.find((x) => x.id === id);
+                return { id, price: s ? stopTotalCents(s, spec.pax) / 100 : 0 };
+              }),
+              // The traveller's own stops, in their order: name, place, minutes there, the detour
+              // the server worked out and the price before the season (src/lib/customStops.ts).
+              ...storedCustomStops(customStops ?? [], catalog),
+            ]
           : spec.kind === "day_tour" && spec.upgrade
             ? [{ id: "en_route_upgrade" }]
             : [],
@@ -245,7 +251,8 @@ async function saveTripRequest(input: TripRequestInput, team: TeamEntry | null):
       pickup_place: spec.kind === "day_tour" ? (spec.pickupPlace ?? null) : null,
       // Door-to-door drive time for the driver's arrival estimate: Google's road route for typed
       // places, else our per-corridor table between two towns. Never a straight-line guess.
-      drive_minutes: spec.kind === "transfer" ? driveMinutes(ride?.route ?? null, spec) : null,
+      // The extra driving to the traveller's own stops is part of it; the time at stops is not.
+      drive_minutes: spec.kind === "transfer" ? driveMinutes(ride?.route ?? null, spec, customDetourMinutes(customStops)) : null,
       // Always the fixed price. "bid" stays in the schema only for rides booked as a traveller's
       // offer before 2026-11-11 (still shown as such in admin).
       pricing_mode: "fixed",
@@ -364,7 +371,7 @@ async function saveTripRequest(input: TripRequestInput, team: TeamEntry | null):
     // The traveller's copy is in their language; the team's copy stays English.
     const itemLinesIn = (l: PublicLang) => {
       const names = localizeCatalog(catalog, l);
-      return priced.map(({ spec, date, ride }, i) =>
+      return priced.map(({ spec, date, ride, customStops }, i) =>
         requestItemLine(l, {
           ref: refs[i],
           date,
@@ -372,7 +379,11 @@ async function saveTripRequest(input: TripRequestInput, team: TeamEntry | null):
           kind: spec.kind,
           what:
             spec.kind === "transfer"
-              ? `${placeNameFor(ride?.origin.label ?? spec.origin, l)} → ${placeNameFor(ride?.destination.label ?? spec.destination, l)}`
+              ? `${placeNameFor(ride?.origin.label ?? spec.origin, l)} → ${placeNameFor(ride?.destination.label ?? spec.destination, l)}` +
+                stopsNote(l, [
+                  ...spec.stopIds.map((id) => names.stops.find((x) => x.id === id)?.name ?? id),
+                  ...(customStops ?? []).map((c) => `${c.label} (${stopTimeText(c.minutes)})`),
+                ])
               : (names.dayTours.find((t) => t.id === spec.tourId)?.name ?? spec.tourId) +
                 (spec.pickupPlace ? (l === "es" ? ` (recogida: ${spec.pickupPlace})` : ` (pickup: ${spec.pickupPlace})`) : ""),
         }),
@@ -515,6 +526,8 @@ interface PricedTripItem {
   boatCents: number;
   /** Rides: both ends as priced (typed places looked up again on the server) and the road route. */
   ride?: { origin: RidePlace; destination: RidePlace; route: RideRoute | null };
+  /** Rides: the traveller's own stops as looked up on the server (place, detour), in their order. */
+  customStops?: PricedCustomStop[];
 }
 
 /**
@@ -536,18 +549,24 @@ async function priceTripItems(
     }
     let p;
     let ride: PricedTripItem["ride"];
+    let customStops: PricedCustomStop[] | undefined;
     try {
       if (spec.kind === "transfer") {
         const r = await resolveTransfer(spec);
         spec = r.spec;
         ride = { origin: r.origin, destination: r.destination, route: r.route };
+        // Own stops: places and detours come from the server's own lookups, never from the request.
+        if (spec.customStops?.length) {
+          customStops = await resolveCustomStops(r.origin, r.destination, spec.customStops, catalog.customStopLimits);
+          spec = { ...spec, customStops: customStops.map(({ id, label, minutes }) => ({ id, label, minutes })) };
+        }
       }
-      p = priceItem(spec, item.date, catalog, ride?.route);
+      p = priceItem(spec, item.date, catalog, ride?.route, customStops);
     } catch (e) {
       return { ok: false, error: (e as Error).message };
     }
     if (p.totalCents !== item.totalCents) repriced[item.id] = p.totalCents;
-    priced.push({ spec, date: item.date, ...p, ride });
+    priced.push({ spec, date: item.date, ...p, ride, customStops });
   }
   return { ok: true, priced, repriced };
 }
@@ -577,8 +596,13 @@ const placeCoords = bookingPlaceCoords;
  * route the ride was priced with (incl. the Drake Bay boat), or ROUTE_MINUTES between two of our
  * towns. Null when neither applies, so the driver sees no estimate rather than a guess.
  */
-function driveMinutes(route: RideRoute | null, spec: Extract<ItemSpec, { kind: "transfer" }>): number | null {
+function driveMinutes(route: RideRoute | null, spec: Extract<ItemSpec, { kind: "transfer" }>, detourMinutes = 0): number | null {
   const typed = Boolean(spec.originPlace || spec.destinationPlace);
   const min = typed ? (route?.totalMinutes ?? 0) : spec.origin === spec.destination ? 0 : routeMinutes(spec.origin, spec.destination);
-  return min > 0 ? Math.min(1440, Math.round(min)) : null;
+  return min > 0 ? Math.min(1440, Math.round(min + detourMinutes)) : null;
+}
+
+/** " · stops: Tárcoles, La Fortuna Waterfall (1 h 30 min)" for the request emails; "" without stops. */
+function stopsNote(lang: PublicLang, names: string[]): string {
+  return names.length ? ` · ${lang === "es" ? "paradas" : "stops"}: ${names.join(", ")}` : "";
 }

@@ -3,12 +3,23 @@ import { perPersonTierCents, stopFitsRoute } from "./catalog";
 import { seasonForYmd } from "./catalogModel";
 import { hubName, localizeCatalog, regionName } from "./catalogEs";
 import { getCatalog } from "./catalogSource";
+import {
+  CUSTOM_STOP_MINUTES,
+  customDetourMinutes,
+  customStopCents,
+  customStopsProblem,
+  isAskUsError,
+  parseCustomStops,
+  type CustomStopLimits,
+  type PricedCustomStop,
+} from "./customStops";
 import { isValidPickupTime, isValidYmd, todayInCostaRica } from "./dates";
 import { isNightPickup, nightPremiumOn } from "./nightPremium";
-import { MapsError, resolvePlace, rideRoute } from "./googleMaps";
+import { MapsError, resolveCustomStops, resolvePlace, rideRoute } from "./googleMaps";
 import { isAirportPickup, isHubPlace } from "./places";
 import { applyMultiplier, perPersonCents, perPersonShare, quoteDayTour, quoteTransfer } from "./pricing";
 import type { PublicLang } from "./publicLang";
+import { localizeServerMessage } from "./serverMessagesEs";
 import { LEGACY_MIN_OFFER_USD } from "./tripRequest";
 
 /**
@@ -66,6 +77,24 @@ export interface RideQuote {
   }[];
   /** `cents` is the whole stop for this group; `tourPerPersonCents` > 0 when it includes a guided visit per person. */
   stops: { id: string; name: string; description: string; durationMin: number; cents: number; tourPerPersonCents: number; entrance: string }[];
+  /**
+   * "Add your own stop" (src/lib/customStops.ts). App builds from before 2026-11-12 don't read it.
+   * `stops`: the traveller's own stops as priced, in their order (`cents` is each stop's price
+   * for this date, already inside every totalCents of a vehicle that takes stops; `detourMin`
+   * is the extra driving it adds). `error`: why they can't be priced online (too many, too long,
+   * too far); then `stops` is empty, the totals don't include them and the ride can't be sent
+   * until the traveller changes them. `minuteChoices` and `limits` are what the app offers.
+   */
+  custom: {
+    stops: { id: string; label: string; minutes: number; cents: number; detourKm: number; detourMin: number }[];
+    /** Extra driving all own stops add, minutes (on top of `minutes` above). */
+    detourMinutes: number;
+    error: string | null;
+    /** The refusal ends with "message us and we'll quote it": the app shows the contact button. */
+    askUs: boolean;
+    minuteChoices: number[];
+    limits: CustomStopLimits;
+  };
 }
 
 export class QuoteError extends Error {}
@@ -79,6 +108,8 @@ export async function rideQuote(input: {
   time?: string | null;
   pax: number;
   stopIds: string[];
+  /** The traveller's own stops: [{ id: Google place id, label, minutes }]. Anything malformed is an error. */
+  customStops?: unknown;
   lang?: PublicLang;
 }): Promise<RideQuote> {
   const lang: PublicLang = input.lang === "es" ? "es" : "en";
@@ -100,6 +131,23 @@ export async function rideQuote(input: {
   const season = seasonForYmd(input.date, catalog);
   const fits = catalog.stops.filter((s) => stopFitsRoute(s, origin.hub, destination.hub));
   const stopIds = input.stopIds.filter((id) => fits.some((s) => s.id === id));
+  // The traveller's own stops: looked up and measured here; a refusal (too many, too long, too
+  // far) comes back inside the quote so the app can still show the ride's prices.
+  const wanted = parseCustomStops(input.customStops);
+  if (wanted === null) throw new QuoteError("One of your stops isn't valid. Please add it again.");
+  let custom: PricedCustomStop[] = [];
+  let customError: string | null = null;
+  if (wanted.length) {
+    try {
+      custom = await resolveCustomStops(origin, destination, wanted, catalog.customStopLimits);
+      const catalogMinutes = stopIds.reduce((n, id) => n + (fits.find((s) => s.id === id)?.durationMin ?? 0), 0);
+      customError = customStopsProblem(custom, catalogMinutes, catalog.customStopLimits);
+    } catch (e) {
+      if (!(e instanceof MapsError)) throw e;
+      customError = e.message;
+    }
+    if (customError) custom = [];
+  }
   const vehicles = catalog.vehicles.filter(
     (v) => v.maxPax >= input.pax && (!v.onlyForHubs || v.onlyForHubs.includes(origin.hub) || v.onlyForHubs.includes(destination.hub)),
   );
@@ -113,6 +161,7 @@ export async function rideQuote(input: {
       destination: destination.hub,
       vehicleId: v.id,
       stopIds: v.allowsStops ? stopIds : [],
+      customStops: v.allowsStops ? custom : [],
       season,
       catalog,
       route,
@@ -131,7 +180,8 @@ export async function rideQuote(input: {
     originLabel: label(origin),
     destinationLabel: label(destination),
     airportPickup: isAirportPickup(origin),
-    minutes: first?.driveMinutes ?? 0,
+    // The direct drive; the extra driving to own stops is custom.detourMinutes.
+    minutes: (first?.driveMinutes ?? 0) - (quotes[0]?.v.allowsStops ? customDetourMinutes(custom) : 0),
     km: route ? Math.round(route.km) : null,
     ferries: route?.ferries ?? 0,
     season: { name: season.name, percent: Math.round((season.multiplierBps - 10000) / 100) },
@@ -166,6 +216,21 @@ export async function rideQuote(input: {
       tourPerPersonCents: applyMultiplier(s.tourPerPersonCents, season.multiplierBps),
       entrance: s.entrance,
     })),
+    custom: {
+      stops: custom.map((c) => ({
+        id: c.id,
+        label: c.label,
+        minutes: c.minutes,
+        cents: applyMultiplier(customStopCents(c, catalog), season.multiplierBps),
+        detourKm: c.detourKm,
+        detourMin: c.detourMin,
+      })),
+      detourMinutes: customDetourMinutes(custom),
+      error: customError ? localizeServerMessage(customError, lang) : null,
+      askUs: isAskUsError(customError),
+      minuteChoices: [...CUSTOM_STOP_MINUTES],
+      limits: catalog.customStopLimits,
+    },
   };
 }
 

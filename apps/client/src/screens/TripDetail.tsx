@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useHeaderHeight } from "@react-navigation/elements";
 import * as Linking from "expo-linking";
+import { driveTime as stopTime } from "../prices";
 import { useRoute, type RouteProp } from "@react-navigation/native";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Image, KeyboardAvoidingView, Modal, Platform, Pressable, RefreshControl, ScrollView, TextInput, View, useWindowDimensions, type ScrollViewInstance } from "react-native";
@@ -315,6 +316,17 @@ export function TripDetail() {
             />
             {b.passengers ? <IconLine small icon="people-outline" text={plural(b.passengers, "traveller", lang)} /> : null}
             {b.kind !== "transfer" && b.pickupPlace ? <IconLine small icon="location-outline" text={t("Pickup: ", "Recogida: ") + b.pickupPlace} /> : null}
+            {b.stops && b.stops.length ? (
+              <IconLine
+                small
+                icon="flag-outline"
+                text={
+                  t("Stops: ", "Paradas: ") +
+                  b.stops.map((s) => s.name + (s.minutes ? " (" + stopTime(s.minutes) + ")" : "")).join(" · ") +
+                  (b.stops.some((s) => s.own) ? t(". Entrance tickets at your own stops are not included; paid at the place.", ". Las entradas de sus paradas propias no están incluidas; se pagan en el lugar.") : "")
+                }
+              />
+            ) : null}
           </Card>
 
           {b.status !== "cancelled" ? <Timeline booking={b} /> : null}

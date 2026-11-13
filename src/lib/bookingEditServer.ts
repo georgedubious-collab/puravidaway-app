@@ -20,9 +20,10 @@ import { localizeCatalog } from "./catalogEs";
 import { getCatalog } from "./catalogSource";
 import type { CatalogData } from "./catalogModel";
 import { logBookingEvent } from "./crmNotices";
+import { customDetourMinutes, customStopsOf, isStoredCustomStop, pricedFromStored, storedCustomStops, type PricedCustomStop } from "./customStops";
 import { costaRicaTimestamp } from "./dates";
 import { SITE_URL, sendEmail } from "./email";
-import { MapsError, resolvePlace, rideRoute } from "./googleMaps";
+import { MapsError, resolveCustomStops, resolvePlace, rideRoute } from "./googleMaps";
 import { bookingPlaceCoords, bookingPlaceText, needsRoute, storedRidePlace, type RidePlace, type RideRoute } from "./places";
 import type { PromoCodeRow, PromoLine } from "./promo";
 import { sendPush } from "./push";
@@ -73,6 +74,9 @@ export async function planBookingEdit(
   let newOrigin: { text: string } | null = null;
   let newDestination: { text: string } | null = null;
   let driveAfter = b.drive_minutes ?? null;
+  // The traveller's own stops as saved (with the detours of the route they were priced on).
+  let ownStops: PricedCustomStop[] = b.service_type === "transfer" ? customStopsOf(b.sightseeing_stops).map(pricedFromStored) : [];
+  let ownStopsError: string | null = null;
 
   if (b.service_type === "transfer") {
     const ends = changedEnds(b, input);
@@ -107,6 +111,18 @@ export async function planBookingEdit(
         patch.destination_coords = bookingPlaceCoords(destination!);
       }
       driveAfter = needsRoute(origin!, destination!) ? editDriveMinutes(route, null) : routeMinutes(origin!.hub, destination!.hub) || null;
+      // Own stops on the new route: measure their detours again (one cached route request per
+      // stop). When they can't be priced there, they stay as saved and the price is kept.
+      if (ownStops.length) {
+        try {
+          ownStops = await resolveCustomStops(origin!, destination!, ownStops.map(({ id, label, minutes }) => ({ id, label, minutes })), catalog.customStopLimits);
+          patch.sightseeing_stops = [...(b.sightseeing_stops ?? []).filter((s) => !isStoredCustomStop(s)), ...storedCustomStops(ownStops, catalog)];
+        } catch (e) {
+          if (!(e instanceof MapsError)) throw e;
+          ownStopsError = e.message;
+        }
+        if (driveAfter != null) driveAfter = Math.min(1440, driveAfter + customDetourMinutes(ownStops));
+      }
       if (driveAfter !== (b.drive_minutes ?? null)) patch.drive_minutes = driveAfter;
     }
   }
@@ -124,7 +140,8 @@ export async function planBookingEdit(
     try {
       const spec = specForBooking(b, input, origin, destination);
       if (!spec) throw new Error("This booking can't be priced automatically.");
-      const priced = priceItem(spec, input.date, catalog, route);
+      if (ownStopsError) throw new Error(ownStopsError);
+      const priced = priceItem(spec, input.date, catalog, route, ownStops);
       const line = editPromoLine(
         b,
         { kind: spec.kind, totalCents: priced.totalCents, passThroughCents: priced.passThroughCents, companyCostCents: priced.companyCostCents, boatCents: priced.boatCents },

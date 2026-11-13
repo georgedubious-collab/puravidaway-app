@@ -27,7 +27,7 @@ export function BookConfirm() {
   const { lang, t } = useT();
   const nav = useNav();
   const { email } = useSession();
-  const { state, set, chosen, quote, quoteBusy, vehicle, stopsOn, effectivePrefs, itemCents: listCents, notesBlocked, signBlocked, promo } = useBooking();
+  const { state, set, chosen, quote, quoteBusy, vehicle, stopsOn, ownStopsOn, ownStops, ownStopsError, effectivePrefs, itemCents: listCents, notesBlocked, signBlocked, promo } = useBooking();
   // What the traveller pays for the ride: the fixed price minus an accepted promo code.
   const discountCents = promo?.discountCents ?? 0;
   const itemCents = Math.max(0, listCents - discountCents);
@@ -62,6 +62,10 @@ export function BookConfirm() {
   }
 
   const pickedStops = quote && stopsOn ? quote.stops.filter((s) => state.stopIds.includes(s.id)) : [];
+  // The traveller's own stops: their names, the extra driving and the time there.
+  const stopNames = [...pickedStops.map((s) => s.name), ...ownStops.map((s) => s.label)];
+  const ownDrive = ownStops.reduce((n, s) => n + s.detourMin, 0);
+  const ownWait = ownStops.reduce((n, s) => n + s.minutes, 0);
   const p = effectivePrefs;
   const { prefs } = state;
   const extras: string[] = [p.language === "spanish_ok" ? t("Spanish or basic English is fine", "Español o inglés básico está bien") : t("English-speaking driver", "Conductor que habla inglés")];
@@ -100,7 +104,12 @@ export function BookConfirm() {
             </Pressable>
             <View style={{ gap: 2 }}>
               <Text style={{ fontSize: 16, lineHeight: 22, fontWeight: "700", color: C.text }}>{state.to?.label}</Text>
-              {quote ? <Text style={T.caption}>{t("About " + driveTime(quote.minutes) + " drive", "Aprox. " + driveTime(quote.minutes) + " de viaje")}</Text> : null}
+              {quote ? (
+                <Text style={T.caption}>
+                  {t("About " + driveTime(quote.minutes + ownDrive) + " drive", "Aprox. " + driveTime(quote.minutes + ownDrive) + " de viaje")}
+                  {ownStops.length ? t(" + " + driveTime(ownWait) + " at your stops", " + " + driveTime(ownWait) + " en sus paradas") : ""}
+                </Text>
+              ) : null}
             </View>
           </View>
         </View>
@@ -135,6 +144,11 @@ export function BookConfirm() {
       </View>
 
       <QuoteProblem />
+      {ownStopsError && stopsOn ? (
+        <Text accessibilityRole="alert" style={S.error}>
+          {ownStopsError}
+        </Text>
+      ) : null}
       {notesBlocked ? (
         <Text accessibilityRole="alert" style={S.error}>
           {t("Your message for the driver has a phone number, email or link. Please take it out under Driver's language and message.", "Su mensaje para el conductor tiene un teléfono, correo o enlace. Quítelo en Idioma del conductor y mensaje.")}
@@ -180,17 +194,21 @@ export function BookConfirm() {
             <Input accessibilityLabel={t("Flight number or hotel", "Número de vuelo u hotel")} value={state.notes} onChangeText={(notes) => set({ notes })} maxLength={200} placeholder={t("e.g. AA 1234", "p. ej. AA 1234")} autoCapitalize="characters" autoCorrect={false} />
           </View>
         ) : null}
-        {quote && quote.stops.length > 0 ? (
+        {quote && (quote.stops.length > 0 || ownStopsOn) ? (
           <ActionRow
             title={t("Stops along the way", "Paradas en el camino")}
             detail={
               !stopsOn
                 ? t("This vehicle is a direct ride", "Este vehículo es un traslado directo")
-                : pickedStops.length
-                  ? pickedStops.map((s) => s.name).join(" · ")
-                  : t("Your driver waits while you visit", "Su conductor espera mientras usted visita")
+                : ownStopsError
+                  ? t("Your own stops need a change", "Sus paradas propias necesitan un cambio")
+                  : stopNames.length
+                    ? stopNames.join(" · ")
+                    : ownStopsOn
+                      ? t("Add the catalog's stops or any place of your own", "Agregue paradas de la lista o cualquier lugar suyo")
+                      : t("Your driver waits while you visit", "Su conductor espera mientras usted visita")
             }
-            action={pickedStops.length ? t("Change", "Cambiar") : stopsOn ? t("Add", "Agregar") : t("See", "Ver")}
+            action={stopNames.length || ownStopsError ? t("Change", "Cambiar") : stopsOn ? t("Add", "Agregar") : t("See", "Ver")}
             onPress={() => nav.navigate("BookStops")}
           />
         ) : null}

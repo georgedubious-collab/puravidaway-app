@@ -1,10 +1,11 @@
 "use client";
 
-import { ArrowDown, Camera, Car, Check, ChevronDown, ExternalLink, Languages, Link2, MapPin, MessageCircle, PlusCircle, Ticket, Users } from "lucide-react";
+import { ArrowDown, Camera, Car, Check, ChevronDown, ExternalLink, Languages, Link2, MapPin, MessageCircle, PlusCircle, Ticket, Trash2, Users } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { orSimilar, stopFitsRoute, stopTotalCents } from "@/lib/catalog";
 import { entranceLabel, hubName } from "@/lib/catalogEs";
 import { seasonForYmd } from "@/lib/catalogModel";
+import { CUSTOM_STOP_ENTRANCE, CUSTOM_STOP_MINUTES, customStopCents, customStopsProblem, isAskUsError, stopTimeText } from "@/lib/customStops";
 import { useCatalog } from "./CatalogContext";
 import { BuilderHero, HERO_BUTTON, HERO_CONTROL, HeroField, StepTitle, type BuilderTabs } from "./BuilderHero";
 import { PlaceInput } from "./PlaceInput";
@@ -64,6 +65,8 @@ export function TransfersView({
   const [pax, setPax] = useState(initial.pax ?? 2);
   const [vehicleId, setVehicleId] = useState(initial.vehicleId ?? "sedan");
   const [stopIds, setStopIds] = useState<string[]>(initial.stopIds ?? []);
+  // "Add your own stop": any place from the place search + how long to stay, in the traveller's order.
+  const [ownStops, setOwnStops] = useState<{ place: RidePlace; minutes: number }[]>([]);
   const [copied, setCopied] = useState(false);
   const [showAllStops, setShowAllStops] = useState(false);
   const [notes, setNotes] = useState("");
@@ -157,6 +160,51 @@ export function TransfersView({
   const bagWords = [bagsSummary(largeBags, carryOns, lang)];
   const stopsKey = effectiveStopIds.join(",");
 
+  // The traveller's own stops. What each adds to the drive comes from our server (Google's road
+  // route through the stops minus the direct route); the server works it out again when the trip is sent.
+  const ownLimits = catalog.customStopLimits;
+  const effectiveOwn = useMemo(() => (stopsAllowed && !samePlace ? ownStops : []), [stopsAllowed, samePlace, ownStops]);
+  const ownIds = effectiveOwn.map((s) => s.place.id).join(",");
+  const ownKey = ownIds ? `${originPlace.id}>${destPlace.id}|${ownIds}` : "";
+  const [ownState, setOwnState] = useState<{ key: string; detours?: { id: string; detourKm: number; detourMin: number }[]; error?: string }>({ key: "" });
+  useEffect(() => {
+    if (!ownKey) return;
+    const ctrl = new AbortController();
+    // A short pause, so adding or removing several stops in a row asks once.
+    const timer = window.setTimeout(() => {
+      const q = new URLSearchParams({ from: originPlace.id, to: destPlace.id, stops: ownIds });
+      fetch(`/api/places/stops?${q}`, { signal: ctrl.signal })
+        .then((res) => res.json() as Promise<{ stops?: { id: string; detourKm: number; detourMin: number }[]; error?: string }>)
+        .then((d) => setOwnState(d.stops ? { key: ownKey, detours: d.stops } : { key: ownKey, error: d.error || "We couldn't check the road distance for your stops. Please try again." }))
+        .catch(() => {
+          if (!ctrl.signal.aborted) setOwnState({ key: ownKey, error: "We couldn't check the road distance for your stops. Please try again." });
+        });
+    }, 400);
+    return () => {
+      ctrl.abort();
+      window.clearTimeout(timer);
+    };
+  }, [ownKey, ownIds, originPlace.id, destPlace.id]);
+  const ownDetours = ownKey && ownState.key === ownKey ? ownState.detours : undefined;
+  const ownLoading = Boolean(ownKey) && ownState.key !== ownKey;
+  // Each own stop with its detour, once the server has answered.
+  const ownPriced = useMemo(
+    () =>
+      ownDetours && ownDetours.length === effectiveOwn.length
+        ? effectiveOwn.map((s, i) => ({ id: s.place.id, label: s.place.label, minutes: s.minutes, detourKm: ownDetours[i].detourKm, detourMin: ownDetours[i].detourMin }))
+        : null,
+    [ownDetours, effectiveOwn],
+  );
+  const catalogStopMinutes = catalog.stops.filter((s) => effectiveStopIds.includes(s.id)).reduce((n, s) => n + s.durationMin, 0);
+  // Why the own stops can't be booked online (server's answer first, then the limits), in English.
+  const ownProblem =
+    effectiveOwn.length === 0
+      ? null
+      : ((ownKey && ownState.key === ownKey ? ownState.error : undefined) ?? customStopsProblem(ownPriced ?? effectiveOwn, catalogStopMinutes, ownLimits));
+  // Own stops that are part of the price right now.
+  const ownInPrice = useMemo(() => (ownPriced && !ownProblem ? ownPriced : []), [ownPriced, ownProblem]);
+  const ownBlocked = effectiveOwn.length > 0 && (ownLoading || !ownPriced || Boolean(ownProblem));
+
   // Shareable link: mirror the ride choices in the address bar (debounced), never personal details.
   const skipFirstSync = useRef(true);
   useEffect(() => {
@@ -197,13 +245,14 @@ export function TransfersView({
         destination,
         vehicleId: effectiveVehicleId,
         stopIds: effectiveStopIds,
+        customStops: ownInPrice,
         season,
         catalog,
         route,
         pax,
         pickupTime,
       }),
-    [origin, destination, effectiveVehicleId, effectiveStopIds, season, catalog, route, pax, pickupTime],
+    [origin, destination, effectiveVehicleId, effectiveStopIds, ownInPrice, season, catalog, route, pax, pickupTime],
   );
 
   // SJO / LIR pickups, picked from the list or typed: flight tracking and free waiting apply.
@@ -216,7 +265,9 @@ export function TransfersView({
   const duration = (min: number) => formatDuration(min, lang);
   const vehicle = catalog.vehicles.find((v) => v.id === effectiveVehicleId)!;
   const selectedStops = catalog.stops.filter((s) => effectiveStopIds.includes(s.id));
-  const cantAdd = !priceReady || noVehicleFits || driverNotesBlocked || Boolean(signProblem);
+  const cantAdd = !priceReady || noVehicleFits || driverNotesBlocked || Boolean(signProblem) || ownBlocked;
+  // Every stop's name for the trip summary and messages: the catalog's, then the traveller's own.
+  const stopNames = [...selectedStops.map((s) => s.name), ...effectiveOwn.map((s) => `${s.place.label} (${stopTimeText(s.minutes)})`)];
   const price = (cents: number) => (priceReady ? formatUSD(cents) : "…");
   // Car price on a vehicle card: the ride for the date + ferries for this group.
   const ferry = ferryCents(route, pax, catalog);
@@ -244,11 +295,11 @@ export function TransfersView({
 
   function addToCart() {
     if (cantAdd) return;
-    const names = selectedStops.map((s) => s.name).join(", ");
-    const stopsText = selectedStops.length
+    const names = stopNames.join(", ");
+    const stopsText = stopNames.length
       ? t(
-          ` + ${selectedStops.length} stop${selectedStops.length > 1 ? "s" : ""} (${names})`,
-          ` + ${selectedStops.length} parada${selectedStops.length > 1 ? "s" : ""} (${names})`,
+          ` + ${stopNames.length} stop${stopNames.length > 1 ? "s" : ""} (${names})`,
+          ` + ${stopNames.length} parada${stopNames.length > 1 ? "s" : ""} (${names})`,
         )
       : "";
     const paxText = t(`${pax} pax`, paxWord(pax));
@@ -265,6 +316,7 @@ export function TransfersView({
         ...placeSpecFields(originPlace, destPlace),
         vehicleId: effectiveVehicleId,
         stopIds: effectiveStopIds,
+        ...(ownInPrice.length ? { customStops: ownInPrice.map(({ id, label, minutes }) => ({ id, label, minutes })) } : {}),
         pax,
         pickupTime,
         notes: notes.trim() || undefined,
@@ -280,11 +332,11 @@ export function TransfersView({
   const routeWhatsApp = whatsAppLink(
     t(
       `Hi! I'm looking at a private transfer ${originName} → ${destName} on ${date} at ${formatTime12h(pickupTime)} (Costa Rica time) for ${pax} passengers${
-        selectedStops.length ? ` with stops at ${selectedStops.map((s) => s.name).join(", ")}` : ""
-      }. ${priceReady ? `Quoted ${formatUSD(quote.totalCents)}.` : ""} Can you confirm availability?`,
+        stopNames.length ? ` with stops at ${stopNames.join(", ")}` : ""
+      }. ${priceReady && !ownBlocked ? `Quoted ${formatUSD(quote.totalCents)}.` : ""} Can you confirm availability?`,
       `¡Hola! Estoy viendo un traslado privado ${originName} → ${destName} el ${date} a las ${formatTime12h(pickupTime, "es")} (hora de Costa Rica) para ${paxWord(pax)}${
-        selectedStops.length ? ` con paradas en ${selectedStops.map((s) => s.name).join(", ")}` : ""
-      }. ${priceReady ? `Precio cotizado: ${formatUSD(quote.totalCents)}.` : ""} ¿Me pueden confirmar la disponibilidad?`,
+        stopNames.length ? ` con paradas en ${stopNames.join(", ")}` : ""
+      }. ${priceReady && !ownBlocked ? `Precio cotizado: ${formatUSD(quote.totalCents)}.` : ""} ¿Me pueden confirmar la disponibilidad?`,
     ),
   );
 
@@ -484,7 +536,7 @@ export function TransfersView({
                 {t("Make it a sightseeing ride", "Conviértalo en un traslado con paradas")}
               </StepTitle>
               <span className="text-xs font-bold bg-emerald-100 text-emerald-900 px-2.5 py-1 rounded-full whitespace-nowrap">
-                {effectiveStopIds.length} {t("added", effectiveStopIds.length === 1 ? "agregada" : "agregadas")}
+                {effectiveStopIds.length + effectiveOwn.length} {t("added", effectiveStopIds.length + effectiveOwn.length === 1 ? "agregada" : "agregadas")}
               </span>
             </div>
             <p className="mt-1 mb-3 text-sm text-slate-600">
@@ -502,10 +554,12 @@ export function TransfersView({
               </p>
             ) : availableStops.length === 0 ? (
               <p className="text-sm text-slate-600">
-                {t(
-                  "No stops on this route yet. Ask us on WhatsApp if you have one in mind.",
-                  "Aún no hay paradas en esta ruta. Escríbanos por WhatsApp si tiene alguna en mente.",
-                )}
+                {ownLimits.maxStops > 0
+                  ? t("No ready-made stops on this route yet. Add your own below.", "Aún no hay paradas listas en esta ruta. Agregue la suya abajo.")
+                  : t(
+                      "No stops on this route yet. Ask us on WhatsApp if you have one in mind.",
+                      "Aún no hay paradas en esta ruta. Escríbanos por WhatsApp si tiene alguna en mente.",
+                    )}
               </p>
             ) : (
               <>
@@ -571,6 +625,118 @@ export function TransfersView({
                   </button>
                 )}
               </>
+            )}
+
+            {/* Add your own stop: any place from the place search, priced by waiting time + extra driving. */}
+            {stopsAllowed && !samePlace && ownLimits.maxStops > 0 && (
+              <div className="mt-4 border-t border-slate-100 pt-4">
+                <h3 className="text-[15px] font-extrabold text-slate-900">{t("Add your own stop", "Agregue su propia parada")}</h3>
+                <p className="mt-1 text-sm text-slate-600">
+                  {t(
+                    `A waterfall, a garden, a restaurant: search any place and choose how long you stay. Up to ${ownLimits.maxStops} stops, in the order you add them. The price is the waiting time plus the extra driving.`,
+                    `Una catarata, un jardín, un restaurante: busque cualquier lugar y elija cuánto tiempo se queda. Hasta ${ownLimits.maxStops} paradas, en el orden en que las agrega. El precio es el tiempo de espera más el recorrido adicional.`,
+                  )}
+                </p>
+                {effectiveOwn.length > 0 && (
+                  <ol className="mt-3 space-y-2">
+                    {effectiveOwn.map((s, i) => {
+                      const priced = ownPriced?.[i];
+                      return (
+                        <li key={s.place.id} className="rounded-xl border-2 border-emerald-700 bg-emerald-50 p-3.5">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="min-w-0 text-[15px] font-extrabold leading-snug text-slate-900">
+                              {i + 1}. {s.place.label}
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => setOwnStops((prev) => prev.filter((x) => x.place.id !== s.place.id))}
+                              aria-label={t(`Remove ${s.place.label}`, `Quitar ${s.place.label}`)}
+                              className="-mr-1.5 -mt-1.5 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-slate-600 hover:bg-white hover:text-red-700"
+                            >
+                              <Trash2 className="h-4 w-4" aria-hidden />
+                            </button>
+                          </div>
+                          <label className="mt-1 flex items-center gap-2 text-sm font-semibold text-slate-700">
+                            {t("Time there", "Tiempo en el lugar")}
+                            <select
+                              value={s.minutes}
+                              onChange={(e) =>
+                                setOwnStops((prev) => prev.map((x) => (x.place.id === s.place.id ? { ...x, minutes: Number(e.target.value) } : x)))
+                              }
+                              className="min-h-11 rounded-lg border border-slate-300 bg-white px-2 text-base font-bold"
+                            >
+                              {CUSTOM_STOP_MINUTES.filter((m) => m <= ownLimits.maxWaitMinutes).map((m) => (
+                                <option key={m} value={m}>
+                                  {stopTimeText(m)}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <p className="mt-1 text-sm font-extrabold text-emerald-700" aria-live="polite">
+                            {priced && !ownProblem
+                              ? `+${formatUSD(seasonal(customStopCents(priced, catalog)))}`
+                              : ownLoading || (!ownPriced && !ownProblem)
+                                ? t("Working out the price…", "Calculando el precio…")
+                                : ""}
+                            {priced && !ownProblem && (
+                              <span className="font-semibold text-slate-600">
+                                {" · "}
+                                {priced.detourMin > 0 || priced.detourKm > 0
+                                  ? t(
+                                      `adds ${Math.round(priced.detourKm)} km / ${duration(priced.detourMin)} of driving`,
+                                      `agrega ${Math.round(priced.detourKm)} km / ${duration(priced.detourMin)} de recorrido`,
+                                    )
+                                  : t("on your way", "queda de camino")}
+                              </span>
+                            )}
+                          </p>
+                          <p className="mt-1 flex items-center gap-1 text-xs font-semibold text-slate-600">
+                            <Ticket className="w-3.5 h-3.5 shrink-0" aria-hidden />
+                            {CUSTOM_STOP_ENTRANCE[lang]}
+                          </p>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                )}
+                {ownProblem && (
+                  <p role="alert" className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm font-semibold text-amber-900">
+                    {localizeServerMessage(ownProblem, lang)}{" "}
+                    {isAskUsError(ownProblem) && (
+                      <a href={routeWhatsApp} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center font-extrabold text-emerald-800 underline">
+                        {t("Message us on WhatsApp", "Escríbanos por WhatsApp")}
+                      </a>
+                    )}
+                  </p>
+                )}
+                {effectiveOwn.length < ownLimits.maxStops ? (
+                  <div className="mt-3">
+                    <PlaceInput
+                      label={effectiveOwn.length ? t("Add another stop", "Agregar otra parada") : t("Search a place to stop at", "Busque un lugar donde parar")}
+                      value={null}
+                      towns={false}
+                      placeholder={t("e.g. La Fortuna Waterfall", "p. ej. Catarata La Fortuna")}
+                      onChange={(place) =>
+                        setOwnStops((prev) =>
+                          prev.some((x) => x.place.id === place.id) || place.id === originPlace.id || place.id === destPlace.id
+                            ? prev
+                            : [...prev, { place, minutes: 60 }],
+                        )
+                      }
+                    />
+                  </div>
+                ) : (
+                  <p className="mt-3 text-sm text-slate-600">
+                    {t(
+                      `That's the most stops of your own on one ride (${ownLimits.maxStops}). For a longer route, message us and we'll quote it.`,
+                      `Ese es el máximo de paradas propias en un traslado (${ownLimits.maxStops}). Para un recorrido más largo, escríbanos y le cotizamos.`,
+                    )}{" "}
+                    <a href={routeWhatsApp} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center font-extrabold text-emerald-800 underline">
+                      {t("Message us on WhatsApp", "Escríbanos por WhatsApp")}
+                    </a>
+                  </p>
+                )}
+              </div>
             )}
           </Card>
 
@@ -729,6 +895,9 @@ export function TransfersView({
               {selectedStops.map((s) => (
                 <TimelineRow key={s.id} label={duration(s.durationMin)} text={s.name} accent />
               ))}
+              {effectiveOwn.map((s) => (
+                <TimelineRow key={s.place.id} label={duration(s.minutes)} text={s.place.label} accent />
+              ))}
               <TimelineRow label={t("Drop-off", "Destino")} text={destName} />
             </ol>
             <p className="text-xs text-slate-600 -mt-2 mb-3">
@@ -745,9 +914,9 @@ export function TransfersView({
                 )
               )}
             </p>
-            {route && (
+            {(route || effectiveOwn.length > 0) && !samePlace && (
               <a
-                href={mapsDirectionsUrl(originPlace, destPlace)}
+                href={mapsDirectionsUrl(originPlace, destPlace, effectiveOwn.map((s) => s.place))}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="-mt-1 mb-3 inline-flex min-h-11 items-center gap-1 text-sm font-bold text-emerald-700 underline"
@@ -858,6 +1027,11 @@ export function TransfersView({
                   `No vehicle for ${pax} passengers on this route online. Ask us on WhatsApp and we'll arrange it.`,
                   `No hay un vehículo en línea para ${paxWord(pax)} en esta ruta. Escríbanos por WhatsApp y lo organizamos.`,
                 )}
+              </p>
+            )}
+            {ownBlocked && ownProblem && (
+              <p role="alert" className="mt-3 text-sm font-semibold text-amber-800">
+                {t("Change or remove your own stops above to add this ride.", "Cambie o quite sus propias paradas arriba para agregar este traslado.")}
               </p>
             )}
             <button

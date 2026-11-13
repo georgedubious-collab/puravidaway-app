@@ -27,6 +27,7 @@ import {
   dayTourCents,
 } from "./catalog";
 import type { CatalogData } from "./catalogModel";
+import { customStopCents, type CustomStopInputs } from "./customStops";
 import { NIGHT_PREMIUM_DEFAULT, nightBpsFor, type NightPremium } from "./nightPremium";
 import type { RideRoute } from "./places";
 
@@ -144,6 +145,11 @@ export interface TransferQuoteInput {
   destination: HubId;
   vehicleId: string;
   stopIds: string[];
+  /**
+   * The traveller's own stops with the detours the server worked out (src/lib/customStops.ts).
+   * Priced like a catalog stop's driver part; their extra driving is part of the drive time.
+   */
+  customStops?: readonly CustomStopInputs[] | null;
   season: Season;
   /** Google road route when an end is a typed place (see rideCents). */
   route?: RideRoute | null;
@@ -161,7 +167,10 @@ export interface TransferQuoteInput {
 
 export interface TransferQuote {
   baseCents: number;
+  /** Every stop (catalog + the traveller's own), before the season multiplier. */
   stopsCents: number;
+  /** The traveller's own stops inside stopsCents. */
+  customStopsCents: number;
   /** Ride + stops, before the season multiplier and ferries. */
   subtotalCents: number;
   /** Car ferry fares, added after the season multiplier. */
@@ -195,18 +204,24 @@ export function quoteTransfer(input: TransferQuoteInput): TransferQuote {
     night,
   );
   // Each stop: the driver's part (wait + detour) + its tour part per traveller.
-  const stopsCents = stops.reduce((sum, s) => sum + stopTotalCents(s, input.pax ?? 1), 0);
+  // Own stops: the same sum as a catalog stop's driver part (wait + detour), no tour part.
+  const custom = input.customStops ?? [];
+  const customStopsCents = custom.reduce((sum, s) => sum + customStopCents(s, input.catalog), 0);
+  const stopsCents = stops.reduce((sum, s) => sum + stopTotalCents(s, input.pax ?? 1), 0) + customStopsCents;
   const subtotalCents = baseCents + stopsCents;
   const ferry = ferryCents(input.route, input.pax ?? 1, input.catalog);
   // Order: base → vehicle (and area) → season → night premium → pass-through costs (ferries).
   const totalCents = applyMultiplier(subtotalCents, input.season.multiplierBps) + nightCents + ferry;
 
-  const driveMinutes = input.route ? input.route.totalMinutes : routeMinutes(input.origin, input.destination);
-  const stopsMinutes = stops.reduce((sum, s) => sum + s.durationMin, 0);
+  // The extra driving to reach the traveller's own stops is drive time; the time there is stop time.
+  const driveMinutes =
+    (input.route ? input.route.totalMinutes : routeMinutes(input.origin, input.destination)) + custom.reduce((sum, s) => sum + s.detourMin, 0);
+  const stopsMinutes = stops.reduce((sum, s) => sum + s.durationMin, 0) + custom.reduce((sum, s) => sum + s.minutes, 0);
 
   return {
     baseCents,
     stopsCents,
+    customStopsCents,
     subtotalCents,
     ferryCents: ferry,
     nightCents,

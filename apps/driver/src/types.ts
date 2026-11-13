@@ -1,3 +1,27 @@
+/**
+ * One stop on a ride as the database sends it to drivers (never with a price). A catalog stop is
+ * just its id; a traveller's own stop ("custom", since 2026-11-12) carries its name, the minutes
+ * the travellers stay there and its map point.
+ */
+export interface StopEntry {
+  id: string;
+  custom?: boolean;
+  name?: string;
+  address?: string;
+  minutes?: number;
+  lat?: number;
+  lng?: number;
+}
+
+/** "1 h 30 min", "45 min". */
+export const stopDuration = (min: number) => (min >= 60 ? Math.floor(min / 60) + " h" + (min % 60 ? " " + (min % 60) + " min" : "") : min + " min");
+
+/** A stop's name for lists: the traveller's own stop with its time, a catalog stop by its catalog name. */
+export function stopName(s: StopEntry, catalogNames: Record<string, string>): string {
+  if (s.custom && s.name) return s.name + (s.minutes ? " (" + stopDuration(s.minutes) + ")" : "");
+  return catalogNames[s.id] ?? s.id;
+}
+
 /** Rows returned by the database functions the app calls (see supabase/migrations 0017–0025). */
 export interface Job {
   id: string;
@@ -6,7 +30,7 @@ export interface Job {
   catalog_item_id: string | null;
   origin_town: string | null;
   destination_town: string | null;
-  sightseeing_stops: { id: string }[] | null;
+  sightseeing_stops: StopEntry[] | null;
   vehicle_class: string | null;
   scheduled_at: string;
   passenger_count: number | null;
@@ -34,7 +58,7 @@ export interface Trip {
   destination: string | null;
   origin_coords: Coords | null;
   destination_coords: Coords | null;
-  sightseeing_stops: { id: string }[] | null;
+  sightseeing_stops: StopEntry[] | null;
   vehicle_class: string | null;
   scheduled_at: string | null;
   passenger_count: number | null;

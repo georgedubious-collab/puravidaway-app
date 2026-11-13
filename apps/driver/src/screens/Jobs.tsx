@@ -5,7 +5,7 @@ import { crDateTime, plural, townName, usd } from "../format";
 import { useT } from "../i18n";
 import { supabase } from "../supabase";
 import { C, S } from "../theme";
-import type { DriverInfo, Job, Names, Trip, Vehicle } from "../types";
+import { stopName, type DriverInfo, type Job, type Names, type Trip, type Vehicle } from "../types";
 import { seatsFit, vehicleCanServe } from "../vehicleCategory";
 import { Badge, Btn, Card, Chip, Empty, IconLine, LinkBtn, RouteLine } from "../ui";
 
@@ -173,7 +173,7 @@ function JobCard({
 
   const pax = job.passenger_count ?? 1;
   const ride = job.service_type === "transfer";
-  const stops = (job.sightseeing_stops ?? []).map((s) => names.stops[s.id] ?? s.id);
+  const stops = (job.sightseeing_stops ?? []).map((s) => stopName(s, names.stops));
 
   // A same-day trip of theirs that ends where this job starts.
   const day = crDay(job.scheduled_at);

@@ -7,6 +7,7 @@ import { serviceLabel, usd, type DriverJob, type DriverTrip } from "@/lib/bookin
 import { nearHome, returnMatch, townName as areaName } from "@/lib/matching";
 import { HUBS } from "@/lib/catalog";
 import { getCatalog } from "@/lib/catalogSource";
+import { savedStopLabel } from "@/lib/customStops";
 import { formatScheduledAt, todayInCostaRica } from "@/lib/dates";
 import { HOLD_MESSAGE, HOLD_MESSAGE_ES, canTakeTrips, vehicleRoadLegal, type DriverRecord, type VehicleRecord } from "@/lib/driverKyc";
 import { prefsSummary } from "@/lib/preferences";
@@ -122,7 +123,7 @@ async function Jobs() {
                 ? `${townName(j.origin_town)} → ${townName(j.destination_town)}`
                 : (catalog.dayTours.find((t) => t.id === j.catalog_item_id)?.name ?? serviceLabel("day_tour", lang));
             const stops = (j.sightseeing_stops ?? [])
-              .map((s) => (s.id === "en_route_upgrade" ? "Smart En-Route Transfer" : (catalog.stops.find((x) => x.id === s.id)?.name ?? s.id)))
+              .map((s) => savedStopLabel(s, catalog.stops))
               .join(", ");
             const asked = prefsSummary(j.preferences, lang);
             const pax = j.passenger_count ?? 1;
