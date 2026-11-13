@@ -93,6 +93,15 @@ export function requestPaymentLine(
   );
 }
 
+/** "Promo SUMMER10 −$20.00 (already taken off the amounts below)." for the request email. */
+export function requestPromoLine(lang: PublicLang, code: string, discountCents: number): string {
+  return t(
+    lang,
+    `Promo ${code} −${money(discountCents)} (already taken off the amount below).`,
+    `Promoción ${code} −${money(discountCents)} (ya descontada del monto de abajo).`,
+  );
+}
+
 export function tripRequestEmail(
   lang: PublicLang,
   a: {
@@ -100,6 +109,8 @@ export function tripRequestEmail(
     refs: string[];
     itemLines: string[];
     paymentLine: string;
+    /** requestPromoLine() when a promo code was used. */
+    promoLine?: string;
     tripUrl: string;
     /** The request includes a ride (transfer): adds the line about the driver's name sign. */
     hasRide?: boolean;
@@ -122,6 +133,7 @@ export function tripRequestEmail(
         `${a.refs.length > 1 ? "Sus códigos de reserva" : "Su código de reserva"}: ${refs}.`,
       ),
       ...a.itemLines,
+      a.promoLine ?? "",
       a.paymentLine,
       t(
         lang,

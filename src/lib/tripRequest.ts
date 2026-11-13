@@ -8,7 +8,7 @@ import { seasonForYmd, type CatalogData } from "./catalogModel";
 import { DEFAULT_PICKUP_TIME, DEFAULT_TOUR_TIME, isValidPickupTime, isValidYmd } from "./dates";
 import { cleanPlaceLabel, isGooglePlaceId, type RideRoute } from "./places";
 import { hasContactDetails, parsePrefs, type RidePrefs } from "./preferences";
-import { quoteDayTour, quoteTransfer } from "./pricing";
+import { applyMultiplier, quoteDayTour, quoteTransfer } from "./pricing";
 import { cleanSignText, signTextProblem } from "./sign";
 
 /**
@@ -244,6 +244,11 @@ export interface PricedItem {
   companyCostCents: number;
   /** Night-pickup premium inside totalCents (0 by day and on tours). */
   nightCents: number;
+  /**
+   * The vehicle's boat fee inside totalCents (the Sierpe → Drake Bay boat, after the season), 0
+   * otherwise. Part of the driver's share as before; only promo codes leave it out (src/lib/promo.ts).
+   */
+  boatCents: number;
 }
 
 /**
@@ -292,7 +297,13 @@ export function priceItem(spec: ItemSpec, date: string, catalog: CatalogData, ro
       (n, id) => n + (catalog.stops.find((s) => s.id === id)?.tourPerPersonCents ?? 0) * spec.pax,
       0,
     );
-    return { totalCents: quote.totalCents, passThroughCents: quote.ferryCents, companyCostCents: stopTourCosts, nightCents: quote.nightCents };
+    return {
+      totalCents: quote.totalCents,
+      passThroughCents: quote.ferryCents,
+      companyCostCents: stopTourCosts,
+      nightCents: quote.nightCents,
+      boatCents: Math.min(applyMultiplier(vehicle.extraFeeCents, season.multiplierBps), quote.totalCents),
+    };
   }
 
   if (!catalog.dayTours.some((t) => t.id === spec.tourId)) throw new Error("That tour is no longer offered.");
@@ -300,5 +311,5 @@ export function priceItem(spec: ItemSpec, date: string, catalog: CatalogData, ro
   if (pickupProblem) throw new Error(pickupProblem);
   const total = quoteDayTour(spec.tourId, spec.upgrade, spec.pax, season, catalog);
   const tour = catalog.dayTours.find((t) => t.id === spec.tourId)!;
-  return { totalCents: total, passThroughCents: 0, companyCostCents: tour.costPerPersonCents * spec.pax, nightCents: 0 };
+  return { totalCents: total, passThroughCents: 0, companyCostCents: tour.costPerPersonCents * spec.pax, nightCents: 0, boatCents: 0 };
 }

@@ -307,6 +307,14 @@ export default async function TripPage({ params, searchParams }: Props) {
                       )}
                     </p>
                   )}
+                  {b.promo_code && Number(b.promo_discount ?? 0) > 0 && (
+                    <p className="text-xs font-semibold text-emerald-800">
+                      {t(
+                        `Promo ${b.promo_code} −${usd(b.promo_discount ?? 0)} applied`,
+                        `Promoción ${b.promo_code} −${usd(b.promo_discount ?? 0)} aplicada`,
+                      )}
+                    </p>
+                  )}
                   <p className={`text-xs font-bold ${b.status === "confirmed" ? "text-emerald-700" : "text-slate-500"}`}>
                     {(lang === "es" ? TRAVELLER_STATUS_ES : TRAVELLER_STATUS)[b.status]}
                   </p>

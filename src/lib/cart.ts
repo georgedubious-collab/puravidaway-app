@@ -54,7 +54,9 @@ export interface CartTotals {
   /** Sum of item prices, before any cash fee. */
   itemsCents: number;
   cashFeeCents: number;
-  /** itemsCents + cashFeeCents */
+  /** Promo discount off the items (0 without a code). */
+  discountCents: number;
+  /** itemsCents − discountCents + cashFeeCents */
   totalCents: number;
   /** Paid online (payment link after confirmation). */
   onlineCents: number;
@@ -62,18 +64,27 @@ export interface CartTotals {
   cashCents: number;
 }
 
-export function cartTotals(items: CartItem[], mode: PaymentMode, feeBps: number): CartTotals {
+/**
+ * The trip's money as the traveller sees it. `discounts` (item id → cents) is the promo code's
+ * discount per item from the server (checkTripPromo); the cash booking fee is charged on what
+ * is left after it, exactly like the server saves it (src/app/trip/actions.ts).
+ */
+export function cartTotals(items: CartItem[], mode: PaymentMode, feeBps: number, discounts?: Record<string, number>): CartTotals {
   let onlineCents = 0;
   let cashCents = 0;
   let fee = 0;
+  let discountCents = 0;
   for (const i of items) {
-    const f = itemCashFeeCents(i, mode, feeBps);
+    const d = Math.min(Math.max(0, discounts?.[i.id] ?? 0), i.totalCents);
+    discountCents += d;
+    const pay = i.totalCents - d;
+    const f = itemCashFeeCents({ kind: i.kind, totalCents: pay }, mode, feeBps);
     fee += f;
-    if (itemPaymentMode(i.kind, mode) === "cash_driver") cashCents += i.totalCents + f;
-    else onlineCents += i.totalCents;
+    if (itemPaymentMode(i.kind, mode) === "cash_driver") cashCents += pay + f;
+    else onlineCents += pay;
   }
   const itemsCents = cartTotalCents(items);
-  return { itemsCents, cashFeeCents: fee, totalCents: itemsCents + fee, onlineCents, cashCents };
+  return { itemsCents, cashFeeCents: fee, discountCents, totalCents: itemsCents - discountCents + fee, onlineCents, cashCents };
 }
 
 // Multi-day trips ("expedition") were retired on 2026-11-11: one left in a browser's saved

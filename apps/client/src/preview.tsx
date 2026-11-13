@@ -158,6 +158,8 @@ interface Setup {
   quoteBusy?: boolean;
   tours?: Tour[] | null;
   demo?: Demo;
+  /** An accepted promo code (sample). */
+  promo?: { code: string; discountCents: number; key: string };
 }
 
 const SCREENS: Record<string, Setup> = {
@@ -198,6 +200,8 @@ const SCREENS: Record<string, Setup> = {
   extras: { routes: [...steps("BookWhere", "BookRide", "BookConfirm"), { name: "BookExtras" }], email: null, state: { ...ride, stopIds: ["sloth"], prefs: { language: "english", wifi: true, stroller: false, childSeats: 1, pets: false } } },
   "extras-empty": { routes: [...steps("BookWhere", "BookRide", "BookConfirm"), { name: "BookExtras" }], email: null, state: { ...ride, vehicleId: "economy" } },
   confirm: { routes: steps("BookWhere", "BookRide", "BookConfirm"), state: { ...ride, name: "Sarah Miller", phone: "+1 555 123 4567" } },
+  /** A promo code accepted on "Your ride" (sample discount). */
+  "confirm-promo": { routes: steps("BookWhere", "BookRide", "BookConfirm"), state: { ...ride, name: "Sarah Miller", phone: "+1 555 123 4567" }, promo: { code: "SUMMER10", discountCents: 1940, key: "" } },
   review: { routes: steps("BookWhere", "BookRide", "BookConfirm"), state: rideFull },
   guest: { routes: steps("BookWhere", "BookRide", "BookConfirm"), email: null, state: { ...rideFull, guestEmail: sarah, payMode: "cash_driver" } },
   code: { routes: [...steps("BookWhere", "BookRide", "BookConfirm"), { name: "Code" }], email: null, state: { ...rideFull, guestEmail: sarah }, demo: { codeSentTo: sarah } },
@@ -212,6 +216,13 @@ const SCREENS: Record<string, Setup> = {
     routes: [tabs("Explore"), { name: "TourDetail", params: { id: "dt1" } }, { name: "BookReview" }],
     state: { ...tourPick, tourPickup: "Hotel Lomas del Volcán, La Fortuna", noSuggestions: true },
     demo: toursTab,
+  },
+  /** A promo code accepted on the tour review (sample discount). */
+  "tour-review-promo": {
+    routes: [tabs("Explore"), { name: "TourDetail", params: { id: "dt1" } }, { name: "BookReview" }],
+    state: { ...tourPick, tourPickup: "Hotel Lomas del Volcán, La Fortuna" },
+    demo: toursTab,
+    promo: { code: "SUMMER10", discountCents: 4200, key: "" },
   },
   // After sending
   sent: { routes: [tabs("Explore"), { name: "Sent", params: { tripToken: "demo", payOnline: true, totalCents: 27900, testCheckout: true } }] },
@@ -258,7 +269,7 @@ export function Preview() {
       <SafeAreaProvider>
         <DemoContext.Provider value={demo}>
           <SessionProvider session={null} demo={{ email, trips: email ? (setup.trips ?? trips) : [], whatsapp: "50665000000", loading: setup.tripsLoading }}>
-            <BookingProvider demo={{ state: setup.state, quote: setup.quote === undefined ? quote : setup.quote, quoteBusy: setup.quoteBusy, tours: setup.tours === undefined ? tours : setup.tours }}>
+            <BookingProvider demo={{ state: setup.state, quote: setup.quote === undefined ? quote : setup.quote, quoteBusy: setup.quoteBusy, tours: setup.tours === undefined ? tours : setup.tours, promo: setup.promo ?? null }}>
               <NavigationContainer theme={navTheme} initialState={initialState} documentTitle={{ enabled: false }}>
                 <RootNavigator />
               </NavigationContainer>

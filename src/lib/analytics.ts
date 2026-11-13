@@ -540,12 +540,14 @@ export function trackBeginCheckout(items: CartItem[], totalCents: number, mode: 
 }
 
 /** generate_lead: the trip request was saved. Nothing is charged at this point, so it is a lead, not a purchase. */
-export function trackLead(items: CartItem[], totalCents: number, mode: PaymentMode): void {
+export function trackLead(items: CartItem[], totalCents: number, mode: PaymentMode, promoCode?: string): void {
   state.checkoutSent = false;
   send("generate_lead", {
     currency: "USD",
     value: usd(totalCents),
     payment_mode: mode,
+    // The promo code itself (GA4's "coupon"), never anything about the traveller.
+    ...(promoCode ? { coupon: promoCode } : {}),
     item_count: items.length,
     items: items.map(gaItem),
   });

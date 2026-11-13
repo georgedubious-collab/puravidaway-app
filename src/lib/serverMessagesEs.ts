@@ -19,6 +19,13 @@ const EXACT: Record<string, string> = {
     "Por favor, escriba un número de celular con código de país, p. ej. +1 555 123 4567.",
   "Pick how you'd like to pay.": "Elija cómo desea pagar.",
   "Your trip is empty.": "Su viaje está vacío.",
+  // Promo codes (src/lib/promo.ts, src/app/trip/actions.ts)
+  "This code isn't valid.": "Este código no es válido.",
+  "Too many codes tried. Please wait an hour and try again.":
+    "Se probaron demasiados códigos. Por favor, espere una hora e inténtelo de nuevo.",
+  "Your promo discount has changed. Please check the new total and send again.":
+    "Su descuento promocional cambió. Por favor, revise el nuevo total y envíe de nuevo.",
+  "We couldn't check that code. Please try again.": "No pudimos verificar ese código. Por favor, inténtelo de nuevo.",
   "Online requests aren't switched on yet. Please send your trip on WhatsApp.":
     "Las solicitudes en línea aún no están activas. Por favor, envíenos su viaje por WhatsApp.",
   "One item was added on an older version of the site. Please remove it and add it again.":

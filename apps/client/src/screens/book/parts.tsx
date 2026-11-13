@@ -1,12 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Pressable, View } from "react-native";
 import { bagsFor, cents, luggageCapacity, useBooking } from "../../booking";
 import { useT } from "../../i18n";
 import { useNav } from "../../nav";
 import { driveTime, nightLabel } from "../../prices";
 import { C, R, S, T } from "../../theme";
-import { Badge, BottomBar, Btn, Choice, Skeleton, Text, type IconName } from "../../ui";
+import { Badge, BottomBar, Btn, Choice, Input, Skeleton, Text, type IconName } from "../../ui";
 
 /**
  * "Don't send me suggestions after my trip" (unticked by default): sent as noSuggestions, and the
@@ -23,6 +23,58 @@ export function NoSuggestions() {
       on={state.noSuggestions}
       onPress={() => set({ noSuggestions: !state.noSuggestions })}
     />
+  );
+}
+
+/**
+ * "Promo code (optional)" with Apply; once the server accepts it, the code and its discount with
+ * Remove. The server decides (POST /api/v1/client/promo); a refused code shows one neutral line.
+ * `ready` is false while the trip can't be priced yet (Apply waits).
+ */
+export function PromoField({ ready }: { ready: boolean }) {
+  const { t } = useT();
+  const { promo, promoBusy, promoError, applyPromo, removePromo } = useBooking();
+  const [code, setCode] = useState("");
+  if (promo) {
+    return (
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: C.emeraldTint, borderRadius: R.card, padding: 12 }}>
+        <Ionicons name="pricetag-outline" size={20} color={C.emerald} />
+        <View style={{ flex: 1 }}>
+          <Text style={T.caption}>{t("Promo code applied", "Código promocional aplicado")}</Text>
+          <Text style={T.bodyStrong}>
+            {promo.code} −{cents(promo.discountCents)}
+          </Text>
+        </View>
+        <Pressable accessibilityRole="button" accessibilityLabel={t("Remove promo code", "Quitar el código promocional")} onPress={removePromo} hitSlop={8} style={{ minHeight: 44, justifyContent: "center" }}>
+          <Text style={{ color: C.emerald, fontWeight: "700", fontSize: 15 }}>{t("Remove", "Quitar")}</Text>
+        </Pressable>
+      </View>
+    );
+  }
+  return (
+    <View style={{ gap: 8 }}>
+      <Text style={T.smallStrong}>{t("Promo code (optional)", "Código promocional (opcional)")}</Text>
+      <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
+        <View style={{ flex: 1 }}>
+          <Input
+            accessibilityLabel={t("Promo code", "Código promocional")}
+            value={code}
+            onChangeText={(v) => setCode(v.toUpperCase())}
+            autoCapitalize="characters"
+            autoCorrect={false}
+            maxLength={30}
+            returnKeyType="done"
+            onSubmitEditing={() => (code.trim() && ready ? void applyPromo(code.trim()) : undefined)}
+          />
+        </View>
+        <Btn label={t("Apply", "Aplicar")} alt onPress={() => void applyPromo(code.trim())} busy={promoBusy} disabled={!code.trim() || !ready} />
+      </View>
+      {promoError ? (
+        <Text accessibilityRole="alert" style={S.error}>
+          {promoError}
+        </Text>
+      ) : null}
+    </View>
   );
 }
 

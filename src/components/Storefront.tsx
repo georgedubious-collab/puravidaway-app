@@ -26,7 +26,9 @@ import { DayToursView } from "./DayToursView";
 import { SiteHeader } from "./site/SiteHeader";
 import { Toast, useToast } from "./Toast";
 import { TransfersView } from "./TransfersView";
-import { TripSummary, type TripContact, type TripState } from "./TripSummary";
+import { checkTripPromo } from "@/app/trip/actions";
+import { localizeServerMessage } from "@/lib/serverMessagesEs";
+import { TripSummary, promoItemsKey, requestItems, type AppliedPromo, type TripContact, type TripState } from "./TripSummary";
 import { TrustPanel } from "./trust/TrustPanel";
 import { UpsellSuggestion, type Suggestion } from "./UpsellSuggestion";
 
@@ -149,7 +151,47 @@ export function Storefront({
     setUpsell(null);
   }
   const removeItem = (id: string) => setItems((prev) => prev.filter((i) => i.id !== id));
-  const total = cartTotals(items, mode, catalog.cashFeeBps).totalCents;
+
+  // Promo code (src/lib/promo.ts): checked on the server for the exact items in the trip. When
+  // the trip changes (an item added, removed or re-priced) the code is checked again; if it no
+  // longer applies it comes off with the neutral message.
+  const [promo, setPromo] = useState<AppliedPromo | null>(null);
+  const [promoError, setPromoError] = useState<string | null>(null);
+  const itemsKey = promoItemsKey(items);
+  async function checkPromo(code: string): Promise<void> {
+    const key = itemsKey;
+    const res = await checkTripPromo({ code, items: requestItems(items), email: contact.email || null });
+    if (res.ok) {
+      setPromo({ code: res.code, discountCents: res.discountCents, perItem: res.perItem, key });
+      setPromoError(null);
+    } else {
+      setPromo(null);
+      setPromoError(localizeServerMessage(res.error, lang));
+    }
+  }
+  const promoCode = promo?.code ?? null;
+  const promoKey = promo?.key ?? null;
+  useEffect(() => {
+    if (!promoCode || promoKey === itemsKey) return;
+    let live = true;
+    void (items.length
+      ? checkTripPromo({ code: promoCode, items: requestItems(items), email: contact.email || null })
+      : Promise.resolve(null)
+    ).then((res) => {
+      if (!live) return;
+      if (res?.ok) setPromo({ code: res.code, discountCents: res.discountCents, perItem: res.perItem, key: itemsKey });
+      else {
+        setPromo(null);
+        if (res) setPromoError(localizeServerMessage(res.error, lang));
+      }
+    });
+    return () => {
+      live = false;
+    };
+    // Only a change of the trip triggers a new check (items is read through itemsKey).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itemsKey, promoCode, promoKey]);
+  const total = cartTotals(items, mode, catalog.cashFeeBps, promo?.key === itemsKey ? promo.perItem : undefined).totalCents;
   const tabs: BuilderTabs = { current: builder, onChange: setBuilder };
   // Phones and tablets: opening the trip is the step where the traveller reviews it and adds their details.
   function openCart() {
@@ -176,8 +218,25 @@ export function Storefront({
       setSentRefs(refs);
       setSentTripToken(tripToken);
       setItems([]);
+      setPromo(null);
     },
     onNewTrip: () => setSentRefs(null),
+    promo,
+    promoError,
+    onApplyPromo: checkPromo,
+    onRemovePromo: () => {
+      setPromo(null);
+      setPromoError(null);
+    },
+    onPromoRejected: (invalid, message) => {
+      if (invalid) {
+        setPromo(null);
+        setPromoError(message);
+      } else if (promo) {
+        // A different discount: check again for the current trip (the new amount shows).
+        void checkPromo(promo.code);
+      }
+    },
   };
 
   return (
