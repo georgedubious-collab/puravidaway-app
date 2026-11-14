@@ -4,6 +4,8 @@ export interface FormState {
   error?: string;
   /** Changes on every successful save so the form can show "Saved". */
   savedAt?: number;
+  /** Shown instead of "Saved" when the action has something to say ("Invitation sent"). */
+  message?: string;
 }
 
 /** A user-facing validation problem (its message is shown as-is). */
@@ -19,10 +21,10 @@ function isRedirect(e: unknown): boolean {
 }
 
 /** Run an action body, turning errors into a FormState instead of a crash page. */
-export async function runAction(fn: () => Promise<void>, fallback: string): Promise<FormState> {
+export async function runAction(fn: () => Promise<void | string>, fallback: string): Promise<FormState> {
   try {
-    await fn();
-    return { ok: true, savedAt: Date.now() };
+    const message = await fn();
+    return { ok: true, savedAt: Date.now(), ...(message ? { message } : {}) };
   } catch (e) {
     if (isRedirect(e)) throw e;
     if (e instanceof InputError) return { error: e.message };
