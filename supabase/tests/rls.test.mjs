@@ -2179,6 +2179,21 @@ await expectOk("server removes the test booking", "server", "delete from public.
   await expectOk("server cleans up", "server", `delete from public.bookings where id = '${CS}'`);
 }
 
+// --- Adding a team member (/admin/users invite, 2026-11-13; no migration) ----------------------
+{
+  const NEW = "00000000-0000-0000-0000-0000000001a1";
+  // The admin API creates the account with the name in user_metadata; the trigger makes the profile.
+  await db.query(`insert into auth.users (id, email, raw_user_meta_data) values ($1, 'staff@example.com', '{"full_name":"Ana Staff"}')`, [NEW]);
+  await expectRows("invite: new account gets a client profile with the name", "admin",
+    `select 1 from public.profiles where id = '${NEW}' and role = 'client' and full_name = 'Ana Staff' and email = 'staff@example.com'`, 1);
+  await expectOk("invite: the server (service role) makes it admin", "server", `update public.profiles set role = 'admin' where id = '${NEW}'`);
+  await expectRows("invite: …and it is admin", "admin", `select 1 from public.profiles where id = '${NEW}' and role = 'admin'`, 1);
+  await expectBlocked("invite: a client can't make anyone admin", "client", `update public.profiles set role = 'admin' where id = '${U.client2}'`, { affected: 0 });
+  await expectOk("role list: an admin removes admin from another admin", "admin", `update public.profiles set role = 'client' where id = '${NEW}'`);
+  await expectRows("role list: …now a client", "admin", `select 1 from public.profiles where id = '${NEW}' and role = 'client'`, 1);
+  await db.exec(`reset role; delete from public.profiles where id = '${NEW}'; delete from auth.users where id = '${NEW}'`);
+}
+
 // --- Report -----------------------------------------------------------------------------------
 console.log(`${passed} checks passed, ${failures.length} failed`);
 for (const f of failures) console.log("  ✗ " + f);

@@ -198,6 +198,104 @@ eq("greeting night", a.greeting(22, "en"), "Good evening");
   eq("no other people in a notice", JSON.stringify(n.driverNoticeText({ kind: "driver_approved" }, "es")).includes("@"), false);
 }
 
+// --- Adding a team member from /admin/users (src/lib/teamInvite.ts) ----------------------------
+{
+  const ti = await import("../src/lib/teamInvite.ts");
+  /** A fake account store; `log` records what the flow did. */
+  const world = (users = {}, { createOk = true, mailOk = true } = {}) => {
+    const log = [];
+    const deps = {
+      findUser: async (email) => (users[email] ? { ...users[email] } : null),
+      createUser: async (email, name) => {
+        log.push(["create", email, name]);
+        if (!createOk) return null;
+        users[email] = { userId: `u-${email}`, role: "client", fullName: name };
+        return `u-${email}`;
+      },
+      makeAdmin: async (userId, name) => {
+        log.push(["admin", userId, name]);
+        const u = Object.values(users).find((x) => x.userId === userId);
+        if (!u) return false;
+        u.role = "admin";
+        if (name) u.fullName = name;
+        return true;
+      },
+      sendInvite: async (email, name) => {
+        log.push(["mail", email, name]);
+        return mailOk;
+      },
+    };
+    return { users, log, deps };
+  };
+
+  {
+    const w = world();
+    const r = await ti.inviteTeamMember({ email: "  Nueva@Example.com ", name: " Ana  María ", actorRole: "admin" }, w.deps);
+    eq("invite: new email creates the account", [r.ok, r.outcome, r.emailed], [true, "created", true]);
+    eq("invite: new account is admin with the name", w.users["nueva@example.com"], { userId: "u-nueva@example.com", role: "admin", fullName: "Ana María" });
+    eq("invite: created, made admin, emailed (lower-cased email)", w.log.map((x) => x[0]), ["create", "admin", "mail"]);
+  }
+  {
+    const w = world({ "luis@example.com": { userId: "u1", role: "client", fullName: "Luis" } });
+    const r = await ti.inviteTeamMember({ email: "luis@example.com", name: "Otro Nombre", actorRole: "admin" }, w.deps);
+    eq("invite: existing user promoted, no new account", [r.outcome, w.log.some((x) => x[0] === "create")], ["promoted", false]);
+    eq("invite: existing user is now admin and keeps their name", [w.users["luis@example.com"].role, w.users["luis@example.com"].fullName], ["admin", "Luis"]);
+  }
+  {
+    const w = world({ "d@example.com": { userId: "u2", role: "driver", fullName: null } });
+    const r = await ti.inviteTeamMember({ email: "d@example.com", name: "Dana", actorRole: "admin" }, w.deps);
+    eq("invite: a driver can be made admin; empty name filled", [r.outcome, w.users["d@example.com"].fullName], ["promoted", "Dana"]);
+  }
+  {
+    const w = world({ "jefe@example.com": { userId: "u3", role: "admin", fullName: "J" } });
+    const r = await ti.inviteTeamMember({ email: "jefe@example.com", name: "", actorRole: "admin" }, w.deps);
+    eq("invite: already admin → says so, changes and sends nothing", [r.ok, r.outcome, r.emailed, w.log.length], [true, "already_admin", false, 0]);
+  }
+  {
+    const w = world();
+    eq("invite: non-admin refused", (await ti.inviteTeamMember({ email: "x@example.com", name: "", actorRole: "client" }, w.deps)).reason, "not_admin");
+    eq("invite: driver refused", (await ti.inviteTeamMember({ email: "x@example.com", name: "", actorRole: "driver" }, w.deps)).reason, "not_admin");
+    eq("invite: signed out refused", (await ti.inviteTeamMember({ email: "x@example.com", name: "", actorRole: null }, w.deps)).reason, "not_admin");
+    eq("invite: refused before touching anything", w.log.length, 0);
+    for (const bad of ["", "nope", "a@b", "a b@example.com", "<a@example.com>", "a@example.com, b@example.com", "x".repeat(250) + "@e.co", 42, null]) {
+      eq(`invite: invalid email refused (${String(bad).slice(0, 20)})`, (await ti.inviteTeamMember({ email: bad, name: "", actorRole: "admin" }, w.deps)).reason, "invalid_email");
+    }
+    eq("invite: invalid email touches nothing", w.log.length, 0);
+  }
+  {
+    const w = world({}, { createOk: false });
+    const r = await ti.inviteTeamMember({ email: "f@example.com", name: "", actorRole: "admin" }, w.deps);
+    eq("invite: account creation failed → failed, no email", [r.ok, r.reason, w.log.some((x) => x[0] === "mail")], [false, "failed", false]);
+  }
+  {
+    const w = world({}, { mailOk: false });
+    const r = await ti.inviteTeamMember({ email: "m@example.com", name: "", actorRole: "admin" }, w.deps);
+    eq("invite: email not sent is reported, the account is still admin", [r.ok, r.emailed, w.users["m@example.com"].role], [true, false, "admin"]);
+  }
+  eq("invite: a long name is cut to 80", ti.cleanInviteName("a".repeat(100))?.length, 80);
+  eq("invite: blank name → null", ti.cleanInviteName("   "), null);
+
+  // Role changes in the list (setUserRole uses the same rule).
+  eq("role change: self-demotion refused", ti.roleChangeProblem("me", "me", "client"), "self_demote");
+  eq("role change: self → driver refused too", ti.roleChangeProblem("me", "me", "driver"), "self_demote");
+  eq("role change: self stays admin is fine", ti.roleChangeProblem("me", "me", "admin"), null);
+  eq("role change: another admin → client allowed", ti.roleChangeProblem("me", "other", "client"), null);
+  eq("role change: unknown role refused", ti.roleChangeProblem("me", "other", "owner"), "pick_role");
+  eq("role change: no user refused", ti.roleChangeProblem("me", "", "admin"), "pick_role");
+
+  // The invitation email.
+  const m = ti.inviteEmail("https://www.costaricaprivatetransfers.com/", "ana@example.com", "Ana María");
+  const all = JSON.stringify(m);
+  eq("invite email: Spanish greeting by first name (usted)", m.lines[0], "Hola Ana:");
+  eq("invite email: Spanish first, English below", [m.lang, m.lines.indexOf("— English —") > 3], ["es", true]);
+  eq("invite email: sign in at /login with the code", /costaricaprivatetransfers\.com\/login con este correo \(ana@example\.com\)/.test(all) && /6-digit code/.test(all), true);
+  eq("invite email: home-screen and alerts tip", /CRPT Admin/.test(all) && /\/admin\/alerts/.test(all), true);
+  eq("invite email: button goes to the normal login page", m.button.url, "https://www.costaricaprivatetransfers.com/login?next=%2Fadmin");
+  eq("invite email: no brand-separation names", /travel planner|familia m[aá]gica|jorge/i.test(all), false);
+  eq("invite email: no secret or sign-in link", /token|password=|otp|access_token|verify\?|#/i.test(all), false);
+  eq("invite email: no name → plain greeting", ti.inviteEmail("https://x.test", "a@x.test", null).lines[0], "Hola:");
+}
+
 console.log(`${passed} checks passed, ${failures.length} failed`);
 for (const x of failures) console.log("  ✗ " + x);
 process.exit(failures.length ? 1 : 0);

@@ -160,7 +160,7 @@ export function AdminActionForm({
               {state.error}
             </span>
           ) : state.ok && !pending ? (
-            <span className="font-semibold text-[#047857]">{savedLabel ?? (en ? "Saved" : "Guardado")}</span>
+            <span className="font-semibold text-[#047857]">{state.message ?? savedLabel ?? (en ? "Saved" : "Guardado")}</span>
           ) : null}
         </span>
       </div>
