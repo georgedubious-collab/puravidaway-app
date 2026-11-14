@@ -2179,6 +2179,71 @@ await expectOk("server removes the test booking", "server", "delete from public.
   await expectOk("server cleans up", "server", `delete from public.bookings where id = '${CS}'`);
 }
 
+// --- Real town names for typed places (migration 0059, CRPT-10002) -----------------------------
+{
+  const PUNTARENAS = "X5C9+HMQ, P.º de los Turistas, Provincia de Puntarenas, Puntarenas, Costa Rica";
+  const SANTA_ELENA =
+    "350 mts noreste del Banco de Costa Rica de Santa Elena Puntarenas Monteverde, Provincia de Puntarenas, Monteverde, 60109, 350 mts noreste del Banco de Costa Rica de Santa Elena Puntarenas Monteverde, Provincia de Puntarenas, Monteverde, 60109, Costa Rica";
+  const q = (s) => `'${s.replace(/'/g, "''")}'`;
+  const check = (name, got, want) => (JSON.stringify(got) === JSON.stringify(want) ? passed++ : failures.push(`${name}: expected ${JSON.stringify(want)}, got ${JSON.stringify(got)}`));
+  const loc = async (s) => (await as("server", `select public.address_locality(${s === null ? "null" : q(s)}) as l`)).rows[0].l;
+  check("address_locality: Puntarenas' address", await loc(PUNTARENAS), "Puntarenas");
+  check("address_locality: the Santa Elena hotel's address", await loc(SANTA_ELENA), "Monteverde");
+  check("address_locality: same answers as src/lib/placeLabel.ts", [
+    await loc("La Fortuna, C. 470 Centro, Provincia de Alajuela, Arenal, 21007, Costa Rica"),
+    await loc("MASS surf school frente a pájaro azul, Provincia de Puntarenas, Manuel Antonio, El Cerro, 60601, Costa Rica"),
+    await loc("Hotel Si Como No, Quepos, Puntarenas Province, Costa Rica"),
+    await loc("Hotel Tabacón, La Fortuna"),
+    await loc("Hotel Tabacón"),
+    await loc("Somewhere, Provincia de Guanacaste, Costa Rica"),
+    await loc("Hotel X, Calle 5"),
+    await loc(null),
+  ], ["Arenal", "Manuel Antonio", "Quepos", "La Fortuna", null, null, null, null]);
+
+  const PL = (n) => `'59000000-0000-0000-0000-00000000000${n}'`;
+  const OC = `{"lat":9.9714664,"lng":-84.8307656,"town":"Monteverde","place_id":"ChIJG7vkppQuoI8R62H4HTbOc84","route":{"km":120}}`;
+  const DC = `{"lat":10.3190289,"lng":-84.8168196,"town":"Monteverde","place_id":"ChIJJ8G2xtQboI8RR4dXY8FFgrU"}`;
+  await expectOk("server saves a ride like CRPT-10002 (before 0059: no locality) and a hub-to-hub ride", "server", `
+    insert into public.bookings (id, client_id, service_type, total_price, driver_payout, platform_fee, status, scheduled_at, origin, destination, origin_coords, destination_coords)
+    values (${PL(1)}, '${U.client}', 'transfer', 180, 140, 40, 'pending_bids', now() + interval '11 days', ${q(PUNTARENAS)}, ${q(SANTA_ELENA)}, '${OC}', '${DC}'),
+           (${PL(2)}, '${U.client}', 'transfer', 200, 150, 50, 'pending_bids', now() + interval '11 days', 'SJO Airport / San José', 'La Fortuna / Arenal',
+            '{"lat":9.99,"lng":-84.2,"place_id":"hub:SJO","town":"SJO"}', '{"lat":10.47,"lng":-84.64,"place_id":"hub:Arenal","town":"Arenal"}'),
+           (${PL(3)}, '${U.client}', 'transfer', 200, 150, 50, 'pending_bids', now() + interval '11 days', 'Hotel Tabacón', 'Manuel Antonio', '{"lat":10.49,"lng":-84.72,"place_id":"ChIJtabaconAAAAAAAA","town":"Arenal"}', null)`);
+  const jobs = async () => (await as("driver", `select id::text, origin_town, destination_town, origin_locality, destination_locality from public.driver_jobs() where id in (${PL(1)}, ${PL(2)}, ${PL(3)}) order by id`)).rows
+    .map((r) => [r.origin_town, r.destination_town, r.origin_locality, r.destination_locality]);
+  check("job board before the backfill: the real towns read from the address; hubs keep their town only", await jobs(), [
+    ["Monteverde", "Monteverde", "Puntarenas", "Monteverde"],
+    ["SJO", "Arenal", null, null],
+    ["Arenal", "Manuel Antonio", null, null],
+  ]);
+  // Run the migration's own backfill again on these rows (it already ran on an empty table).
+  const mig = readFileSync(join(root, "supabase/migrations/20261114000059_place_locality.sql"), "utf8");
+  const backfill = mig.slice(mig.indexOf("-- backfill:start"), mig.indexOf("-- backfill:end"));
+  check("migration has a backfill block", backfill.includes("update public.bookings"), true);
+  await db.exec(backfill);
+  const saved = (await as("admin", `select id::text, origin_coords, destination_coords from public.bookings where id in (${PL(1)}, ${PL(2)}, ${PL(3)}) order by id`)).rows;
+  check("backfill: CRPT-10002's ends get their real towns, the nearest town (pricing) is kept", [
+    saved[0].origin_coords.locality, saved[0].destination_coords.locality, saved[0].origin_coords.town, saved[0].destination_coords.town, saved[0].origin_coords.route?.km,
+  ], ["Puntarenas", "Monteverde", "Monteverde", "Monteverde", 120]);
+  check("backfill: hub ends untouched; a bare hotel name gets no town; no map point stays null", [
+    "locality" in saved[1].origin_coords, "locality" in saved[1].destination_coords, "locality" in saved[2].origin_coords, saved[2].destination_coords,
+  ], [false, false, false, null]);
+  await expectRows("the backfill writes no change-history entry", "admin", `select 1 from public.booking_events where booking_id in (${PL(1)}, ${PL(2)}, ${PL(3)}) and action = 'places'`, 0);
+  await expectOk("a saved locality wins over the address", "server", `update public.bookings set origin_coords = origin_coords || '{"locality":"El Roble"}' where id = ${PL(1)}`);
+  check("job board after: Puntarenas-side label from the saved town; hub-to-hub unchanged", await jobs(), [
+    ["Monteverde", "Monteverde", "El Roble", "Monteverde"],
+    ["SJO", "Arenal", null, null],
+    ["Arenal", "Manuel Antonio", null, null],
+  ]);
+  const row = (await as("driver", `select to_jsonb(j)::text as r from public.driver_jobs() j where id = ${PL(1)}`)).rows[0]?.r ?? "";
+  check("job board shows the town, never the address, the client's price or the place id", [/P\.º de los Turistas|X5C9|350 mts|ChIJ|\b180\b/.test(row), row.length > 0], [false, true]);
+  await expectRows("driver_jobs(): the two new columns last, still no price or contact columns", "admin",
+    "select 1 from pg_proc where proname = 'driver_jobs' and pg_get_function_result(oid) ~ 'my_offer_id uuid, origin_locality text, destination_locality text\\)$' and pg_get_function_result(oid) !~ '(total_price|platform_fee|amount_paid|guest|client_id|client_notes|phone|email|_coords|pickup_place)'", 1);
+  await expectRows("a visitor still gets no jobs", "anon", `select 1 from public.driver_jobs() where id = ${PL(1)}`, 0);
+  await expectRows("…nor a pending driver", "pending", `select 1 from public.driver_jobs() where id = ${PL(1)}`, 0);
+  await expectOk("server cleans up", "server", `delete from public.bookings where id in (${PL(1)}, ${PL(2)}, ${PL(3)})`);
+}
+
 // --- Report -----------------------------------------------------------------------------------
 console.log(`${passed} checks passed, ${failures.length} failed`);
 for (const f of failures) console.log("  ✗ " + f);

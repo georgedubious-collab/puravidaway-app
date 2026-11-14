@@ -4,6 +4,7 @@ import { HUBS, bookedItemName } from "./catalog";
 import { getCatalog } from "./catalogSource";
 import { costaRicaTimestamp } from "./dates";
 import type { ReportBooking, ReportRedemption, ReportRefund } from "./moneyReport";
+import { placeLocality } from "./placeLabel";
 
 /**
  * Reads what the money report adds up (rules: src/lib/moneyReport.ts) with the admin's own
@@ -25,8 +26,8 @@ const COLUMNS =
 type Raw = Omit<ReportBooking, "route" | "is_test"> & {
   origin: string | null;
   destination: string | null;
-  origin_coords: { town?: string } | null;
-  destination_coords: { town?: string } | null;
+  origin_coords: { town?: string; place_id?: string; locality?: string } | null;
+  destination_coords: { town?: string; place_id?: string; locality?: string } | null;
   catalog_item_id: string | null;
 };
 
@@ -81,7 +82,7 @@ export async function loadPeriod(db: SupabaseClient, from: string, to: string): 
   const bookings: ReportBooking[] = raw.map((b) => {
     const route =
       b.service_type === "transfer"
-        ? `${hubName(b.origin_coords?.town) ?? b.origin ?? "?"} → ${hubName(b.destination_coords?.town) ?? b.destination ?? "?"}`
+        ? `${placeLocality(b.origin, b.origin_coords) ?? hubName(b.origin_coords?.town) ?? b.origin ?? "?"} → ${placeLocality(b.destination, b.destination_coords) ?? hubName(b.destination_coords?.town) ?? b.destination ?? "?"}`
         : (bookedItemName(catalog.dayTours, b.catalog_item_id) ?? b.catalog_item_id ?? b.service_type);
     return {
       id: b.id,

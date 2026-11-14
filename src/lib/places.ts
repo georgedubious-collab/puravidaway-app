@@ -12,6 +12,7 @@
  * (src/lib/googleMaps.ts) before pricing a trip.
  */
 import { DRAKE_BOAT_MINUTES, HUB_IDS, HUBS, type ExtraAreaId, type HubId } from "./catalog";
+import { addressLocality, placeLocality } from "./placeLabel";
 
 export interface LatLng {
   lat: number;
@@ -27,6 +28,8 @@ export interface RidePlace extends LatLng {
   address?: string;
   /** Nearest of our towns: area factor, stops, suggestions. */
   hub: HubId;
+  /** The place's own town or city ("Puntarenas"), for labels; typed places only (./placeLabel). */
+  locality?: string;
   /** Extra pricing area the place is in, e.g. "SouthNicoya" (its factor applies at either end, on ferry routes). */
   area?: ExtraAreaId;
   /** A typed place that is the SJO or LIR airport itself (Google's place type), not a hotel nearby. */
@@ -130,9 +133,14 @@ export function bookingPlaceText(p: RidePlace): string {
   return p.address && p.address !== p.label ? `${p.label}, ${p.address}` : p.label;
 }
 
-/** bookings.origin_coords / destination_coords for one end (origin_coords also gets `route`). */
-export function bookingPlaceCoords(p: RidePlace): { lat: number; lng: number; place_id: string; town: HubId } {
-  return { lat: p.lat, lng: p.lng, place_id: p.id, town: p.hub };
+/**
+ * bookings.origin_coords / destination_coords for one end (origin_coords also gets `route`).
+ * `town` is the nearest hub (pricing, matching); `locality` the typed place's real town, for
+ * labels (drivers' job board, alerts, dispatch; src/lib/placeLabel.ts).
+ */
+export function bookingPlaceCoords(p: RidePlace): { lat: number; lng: number; place_id: string; town: HubId; locality?: string } {
+  const locality = isHubPlace(p) ? undefined : (p.locality ?? addressLocality(p.address ?? p.label) ?? undefined);
+  return { lat: p.lat, lng: p.lng, place_id: p.id, town: p.hub, ...(locality ? { locality } : {}) };
 }
 
 /**
@@ -150,7 +158,8 @@ export function storedRidePlace(text: string | null | undefined, coords: Record<
   const lng = Number(coords.lng);
   if (!isGooglePlaceId(id) || !town || !Number.isFinite(lat) || !Number.isFinite(lng)) return null;
   const area = areaOf({ lat, lng });
-  return { id, label: cleanPlaceLabel(text) || id, lat, lng, hub: town, ...(area ? { area } : {}) };
+  const locality = placeLocality(text, coords);
+  return { id, label: cleanPlaceLabel(text) || id, lat, lng, hub: town, ...(area ? { area } : {}), ...(locality ? { locality } : {}) };
 }
 
 /** Google place ids are long URL-safe strings. */

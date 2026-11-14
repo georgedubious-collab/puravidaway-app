@@ -35,6 +35,7 @@ import { HUB_IDS, routeMinutes, type AreaId, type HubId } from "./catalog";
 import { isStoredCustomStop } from "./customStops";
 import { formatTime12h, scheduledParts } from "./dates";
 import { townOf } from "./matching";
+import { placeLocality } from "./placeLabel";
 
 /**
  * Extra minutes a driver needs between two jobs on top of the drive between them, in case the
@@ -354,8 +355,10 @@ const SHORT: Record<string, [string, string]> = {
   SouthNicoya: ["Sur de Nicoya", "Southern Nicoya"],
 };
 
-/** "La Fortuna", or the first part of a typed place ("Hotel Tabacón"). */
+/** "La Fortuna"; a typed place's real town ("Puntarenas", src/lib/placeLabel.ts); else the first part of the text ("Hotel Tabacón"). */
 export function shortPlace(text: string | null | undefined, coords: Record<string, unknown> | null | undefined, lang: "es" | "en" = "es"): string {
+  const locality = placeLocality(text, coords);
+  if (locality) return locality.length > 22 ? `${locality.slice(0, 21)}…` : locality;
   const town = townOf(text, coords);
   if (town && SHORT[town]) return SHORT[town][lang === "es" ? 0 : 1];
   const first = (text ?? "").split(",")[0].trim();

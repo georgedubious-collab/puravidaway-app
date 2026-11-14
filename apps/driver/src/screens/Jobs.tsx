@@ -219,7 +219,7 @@ function JobCard({
       </View>
 
       {ride ? (
-        <RouteLine from={townName(job.origin_town, lang)} to={townName(job.destination_town, lang)} />
+        <RouteLine from={job.origin_locality || townName(job.origin_town, lang)} to={job.destination_locality || townName(job.destination_town, lang)} />
       ) : (
         <Text style={S.h2}>{names.tours[job.catalog_item_id ?? ""] ?? t("Tour de un día", "Day tour")}</Text>
       )}

@@ -30,6 +30,9 @@ export interface Job {
   catalog_item_id: string | null;
   origin_town: string | null;
   destination_town: string | null;
+  /** A typed place's real town ("Puntarenas"), shown instead of the nearest town; null for our towns (migration 0059). */
+  origin_locality?: string | null;
+  destination_locality?: string | null;
   sightseeing_stops: StopEntry[] | null;
   vehicle_class: string | null;
   scheduled_at: string;

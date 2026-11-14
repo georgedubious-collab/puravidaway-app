@@ -120,7 +120,7 @@ async function Jobs() {
           {(jobs.data ?? []).map((j) => {
             const title =
               j.service_type === "transfer"
-                ? `${townName(j.origin_town)} → ${townName(j.destination_town)}`
+                ? `${j.origin_locality ?? townName(j.origin_town)} → ${j.destination_locality ?? townName(j.destination_town)}`
                 : (catalog.dayTours.find((t) => t.id === j.catalog_item_id)?.name ?? serviceLabel("day_tour", lang));
             const stops = (j.sightseeing_stops ?? [])
               .map((s) => savedStopLabel(s, catalog.stops))

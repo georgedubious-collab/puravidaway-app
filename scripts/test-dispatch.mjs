@@ -168,6 +168,64 @@ eq("Puerto Jiménez short name", [d.shortPlace("Puerto Jiménez (Osa)", null), d
 eq("typed place outside our towns: its first part", d.shortPlace("Casa Azul, Playa Hermosa", { lat: 1 }), "Casa Azul");
 eq("long names are cut", d.shortPlace("A very long hotel name that goes on, Town", null).length, 22);
 
+// --- Real town of a typed place (2026-11-14, CRPT-10002 showed "Monteverde → Monteverde") ---------
+{
+  const L = await import("../src/lib/placeLabel.ts");
+  const pl = await import("../src/lib/places.ts");
+  const md = await import("../src/lib/matching.ts");
+  const PUNTARENAS = "X5C9+HMQ, P.º de los Turistas, Provincia de Puntarenas, Puntarenas, Costa Rica";
+  const SANTA_ELENA =
+    "350 mts noreste del Banco de Costa Rica de Santa Elena Puntarenas Monteverde, Provincia de Puntarenas, Monteverde, 60109, 350 mts noreste del Banco de Costa Rica de Santa Elena Puntarenas Monteverde, Provincia de Puntarenas, Monteverde, 60109, Costa Rica";
+  const oc = { lat: 9.9714664, lng: -84.8307656, town: "Monteverde", place_id: "ChIJG7vkppQuoI8R62H4HTbOc84" };
+  const dc = { lat: 10.3190289, lng: -84.8168196, town: "Monteverde", place_id: "ChIJJ8G2xtQboI8RR4dXY8FFgrU" };
+  eq("town read from Puntarenas' address (plus code and country skipped)", L.addressLocality(PUNTARENAS), "Puntarenas");
+  eq("town read from the Santa Elena hotel's address (postal code skipped)", L.addressLocality(SANTA_ELENA), "Monteverde");
+  eq("CRPT-10001's ends", [
+    L.addressLocality("La Fortuna, C. 470 Centro, Provincia de Alajuela, Arenal, 21007, Costa Rica"),
+    L.addressLocality("MASS surf school frente a pájaro azul, Provincia de Puntarenas, Manuel Antonio, El Cerro, 60601, Costa Rica"),
+  ], ["Arenal", "Manuel Antonio"]);
+  eq("English addresses: the town before \"X Province\"", L.addressLocality("Hotel Si Como No, Quepos, Puntarenas Province, Costa Rica"), "Quepos");
+  eq("no town when it can't be told (a bare name, province last, a street with a number)", [
+    L.addressLocality("Hotel Tabacón"), L.addressLocality("Somewhere, Provincia de Guanacaste, Costa Rica"), L.addressLocality("Hotel X, Calle 5"), L.addressLocality(null),
+  ], [null, null, null, null]);
+  eq("job board label before the fix was the nearest town at both ends", [md.townName(md.townOf(PUNTARENAS, oc)), md.townName(md.townOf(SANTA_ELENA, dc))], ["Monteverde Cloud Forest", "Monteverde Cloud Forest"]);
+  eq("CRPT-10002 now reads Puntarenas → Monteverde (saved before 2026-11-14, read from the address)",
+    `${L.placeShortName(PUNTARENAS, oc)} → ${L.placeShortName(SANTA_ELENA, dc)}`, "Puntarenas → Monteverde");
+  eq("the saved locality wins over the address", L.placeLocality(PUNTARENAS, { ...oc, locality: "Puntarenas Centro" }), "Puntarenas Centro");
+  eq("hub to hub: our towns' own names, no locality", [
+    L.placeLocality("SJO Airport / San José", { place_id: "hub:SJO", town: "SJO", locality: "Alajuela" }),
+    L.placeShortName("SJO Airport / San José", { place_id: "hub:SJO", town: "SJO" }),
+    L.placeShortName("La Fortuna / Arenal", { place_id: "hub:Arenal", town: "Arenal" }, (id) => md.townName(id, "es")),
+  ], [null, "SJO Airport / San José", "La Fortuna / Arenal"]);
+  eq("rides saved without a map point keep their text", [L.placeLocality("Monteverde Cloud Forest", null), L.placeShortName("Monteverde Cloud Forest", null)], [null, "Monteverde Cloud Forest"]);
+  eq("Google's address components: locality first, never the province", [
+    L.localityFromComponents([{ longText: "Puntarenas", types: ["administrative_area_level_1", "political"] }, { longText: "Santa Elena", types: ["locality", "political"] }]),
+    L.localityFromComponents([{ longText: "Puntarenas", types: ["administrative_area_level_1"] }]),
+    L.localityFromComponents([{ longText: "Monteverde", types: ["administrative_area_level_2"] }]),
+    L.localityFromComponents(undefined),
+  ], ["Santa Elena", null, "Monteverde", null]);
+  // Saved with the booking: a typed place gets its locality, one of our towns doesn't.
+  const typed = { id: "ChIJG7vkppQuoI8R62H4HTbOc84", label: PUNTARENAS, address: PUNTARENAS, lat: oc.lat, lng: oc.lng, hub: "Monteverde" };
+  eq("booking coords keep the nearest town for pricing and add the real town", pl.bookingPlaceCoords(typed),
+    { lat: oc.lat, lng: oc.lng, place_id: oc.place_id, town: "Monteverde", locality: "Puntarenas" });
+  eq("…Google's locality when the lookup had one", pl.bookingPlaceCoords({ ...typed, locality: "Puntarenas" }).locality, "Puntarenas");
+  eq("…none for one of our towns", "locality" in pl.bookingPlaceCoords(pl.hubPlace("Monteverde")), false);
+  eq("an edited ride keeps the real town of the end that didn't change", pl.storedRidePlace(PUNTARENAS, oc)?.locality, "Puntarenas");
+  eq("dispatch and team cards: the real town", [d.shortPlace(PUNTARENAS, oc), d.shortPlace(SANTA_ELENA, dc), d.shortPlace("La Fortuna / Arenal", { place_id: "hub:Arenal", town: "Arenal" })], ["Puntarenas", "Monteverde", "La Fortuna"]);
+  const ad = await import("../src/lib/adminDisplay.ts");
+  eq("team list skips a plus code as the place's first part", [ad.shortPlace(PUNTARENAS), ad.shortPlace("Arenas Del Mar Resort, Rd to Arenas")], ["P.º de los Turistas", "Arenas Del Mar Resort"]);
+  // Every driver-facing route label uses the real town.
+  const src = (p) => readFileSync(new URL(p, import.meta.url), "utf8");
+  eq("job board page, driver app, job alerts and the money report use the real town", [
+    /j\.origin_locality \?\? townName\(j\.origin_town\)/.test(src("../src/app/driver/jobs/page.tsx")),
+    /job\.origin_locality \|\| townName\(job\.origin_town, lang\)/.test(src("../apps/driver/src/screens/Jobs.tsx")),
+    /placeLocality\(j\.origin, j\.origin_coords\)/.test(src("../src/lib/jobAlerts.ts")),
+    /placeLocality\(b\.origin, b\.origin_coords\)/.test(src("../src/lib/moneyReportServer.ts")),
+    /addressComponents/.test(src("../src/lib/googleMaps.ts")),
+  ], [true, true, true, true, true]);
+  // The database's copy of the parser (migration 0059) gives the same answers: npm run test:db.
+}
+
 // --- Puerto Jiménez (2026-11-12): a town like the others for matching and typed places ---------
 {
   const m = await import("../src/lib/matching.ts");
