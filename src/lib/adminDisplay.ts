@@ -19,9 +19,14 @@ export function pickupDay(iso: string | null | undefined, today: string, lang: T
   return { day, time: formatTime12h(p.time, lang), ymd: p.ymd };
 }
 
-/** First part of a place ("Arenas Del Mar Resort" of "Arenas Del Mar Resort, Rd to …"). */
+/**
+ * First part of a place ("Arenas Del Mar Resort" of "Arenas Del Mar Resort, Rd to …"), skipping a
+ * Google plus code ("X5C9+HMQ, P.º de los Turistas, …" → "P.º de los Turistas").
+ */
 export function shortPlace(s: string | null | undefined): string {
-  return (s ?? "").split(",")[0].trim() || "—";
+  const parts = (s ?? "").split(",").map((p) => p.trim()).filter(Boolean);
+  const first = parts.find((p) => !/^[23456789CFGHJMPQRVWX]{2,8}\+[23456789CFGHJMPQRVWX]{0,3}$/i.test(p));
+  return first ?? parts[0] ?? "—";
 }
 
 /** "SJO Airport → La Fortuna" for rides, the tour's name for tours. */

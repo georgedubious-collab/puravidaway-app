@@ -4,6 +4,7 @@ import { getCatalog } from "./catalogSource";
 import { formatScheduledAt, formatScheduledAtFor, scheduledParts } from "./dates";
 import { SITE_URL, sendEmail } from "./email";
 import { townName, townOf } from "./matching";
+import { placeLocality } from "./placeLabel";
 import { sendPush } from "./push";
 import { createSupabaseAdminClient } from "./supabase/admin";
 import { driverCanServe } from "./vehicleEligibility";
@@ -14,7 +15,7 @@ const MAX_RECIPIENTS = 60;
 /**
  * Email approved drivers that a job is open on the board (a booking moved to
  * "Open for drivers"). The email has what the job board shows: town-to-town
- * route, pickup time, travellers and the suggested payout. Never the client's
+ * route (a typed place's real town, src/lib/placeLabel.ts), pickup time, travellers and the suggested payout. Never the client's
  * price, name or exact address. Drivers based in the pickup town are emailed
  * first and told it starts in their area. Only drivers with an approved vehicle of the
  * right category AND with enough seats are told (same rule as the job board, so nobody
@@ -51,7 +52,7 @@ export async function notifyDriversOfJobs(bookingIds: string[]): Promise<void> {
       const to = townOf(j.destination, j.destination_coords);
       const what =
         j.service_type === "transfer"
-          ? `${townName(from ?? j.origin)} → ${townName(to ?? j.destination)}`
+          ? `${placeLocality(j.origin, j.origin_coords) ?? townName(from ?? j.origin)} → ${placeLocality(j.destination, j.destination_coords) ?? townName(to ?? j.destination)}`
           : (catalog.dayTours.find((t) => t.id === j.catalog_item_id)?.name ?? "Day tour");
       const when = formatScheduledAt(j.scheduled_at);
       const payout = usd(Math.round(Number(j.driver_payout)));

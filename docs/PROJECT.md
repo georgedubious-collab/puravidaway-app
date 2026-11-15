@@ -118,6 +118,14 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
   their nearest town for the area factor, stops and suggestions (`src/lib/places.ts`). Rides
   between two of our towns still use the built-in tables at no cost. Drake Bay places (within
   15 km) are reached by road to the Sierpe dock + the boat.
+  The nearest town (`*_coords.town`) is only for pricing and matching, never a label: a typed
+  place is also saved with its real town (`*_coords.locality`, from Google's address components
+  in the same Essentials lookup, else read from the address; `src/lib/placeLabel.ts`). The
+  drivers' job board (website and app, `driver_jobs().origin_locality / destination_locality`),
+  the new-job push and email, the dispatch calendar and the money report show that town, so a
+  Puntarenas → Santa Elena ride reads "Puntarenas → Monteverde", not "Monteverde → Monteverde"
+  (2026-11-14, migration 0059, which also filled it in for older bookings). Only the town is
+  shown before a driver is assigned, never the address.
 - Env: `GOOGLE_MAPS_API_KEY` (server-only, Places API (New) + Routes API; without it only our
   towns are offered). `NEXT_PUBLIC_WHATSAPP_NUMBER` (see `.env.example`) **must be set in Vercel before
   launch**; until then WhatsApp buttons open a placeholder number and the build logs a warning.
@@ -1622,7 +1630,7 @@ and `season_for_date(date)` returns the season for a travel date.
 - **bookings:** clients see their own; admins see all. **Drivers never read booking rows**
   (since migration 0017, restated in 0036): the row holds the client's price (`total_price`,
   `platform_fee`, `amount_paid`, `company_costs`) and, on rides booked as a traveller's offer
-  before 2026-11-11, `client_notes` with the fixed price. Drivers read only through `driver_jobs()` (open jobs, town to town) and `my_trips()`
+  before 2026-11-11, `client_notes` with the fixed price. Drivers read only through `driver_jobs()` (open jobs, town to town; a typed place's real town since 0059, never its address) and `my_trips()`
   (their own trips), which return their payout and never the client's price (`driver_jobs()` lists
   only rides one of the driver's approved vehicles can serve by category, §5.3); stop snapshots come
   without their price (`stops_for_driver()`, 0036); the name sign comes as one computed text

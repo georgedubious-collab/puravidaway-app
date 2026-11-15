@@ -121,8 +121,12 @@ export interface DriverJob {
   booking_ref: string;
   service_type: string;
   catalog_item_id: string | null;
+  /** Nearest of our towns (pricing, matching); for one of our towns, also its label. */
   origin_town: string | null;
   destination_town: string | null;
+  /** A typed place's real town ("Puntarenas"), shown instead of origin_town; null for our towns (migration 0059). */
+  origin_locality?: string | null;
+  destination_locality?: string | null;
   sightseeing_stops: { id: string }[];
   vehicle_class: string | null;
   scheduled_at: string;

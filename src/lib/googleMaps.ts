@@ -27,6 +27,7 @@ import {
   type RideRoute,
 } from "./places";
 import { inPinZones } from "./pinnedPrices";
+import { addressLocality, localityFromComponents } from "./placeLabel";
 
 /**
  * Google Maps Platform, server side only (docs/PRICING.md §3). The key lives in
@@ -109,23 +110,28 @@ interface GooglePlace extends LatLng {
   address: string;
   /** Google lists the place itself as an airport (not a hotel or car rental next to one). */
   airport: boolean;
+  /** The place's town from its address components (missing on places cached before 2026-11-14). */
+  locality?: string;
 }
 
 async function fetchPlace(id: string, sessionToken?: string): Promise<GooglePlace> {
   const q = sessionToken ? `?sessionToken=${encodeURIComponent(sessionToken)}` : "";
   const data = await google(`https://places.googleapis.com/v1/places/${encodeURIComponent(id)}${q}`, {
-    fieldMask: "id,formattedAddress,location,types",
+    // addressComponents is in the same Place Details Essentials SKU as the other fields (no extra cost).
+    fieldMask: "id,formattedAddress,addressComponents,location,types",
   });
   const loc = data.location as { latitude?: number; longitude?: number } | undefined;
   if (typeof loc?.latitude !== "number" || typeof loc?.longitude !== "number") {
     throw new MapsError("We couldn't find that place on the map. Please pick another.");
   }
   const types = Array.isArray(data.types) ? (data.types as unknown[]) : [];
+  const locality = localityFromComponents(data.addressComponents) ?? addressLocality(String(data.formattedAddress ?? ""));
   return {
     lat: loc.latitude,
     lng: loc.longitude,
     address: String(data.formattedAddress ?? ""),
     airport: types.includes("airport") || types.includes("international_airport"),
+    ...(locality ? { locality } : {}),
   };
 }
 
@@ -146,6 +152,7 @@ export async function resolvePlace(id: string, label?: string, sessionToken?: st
   const g = await lookupPlace(id, sessionToken);
   if (!inCostaRica(g)) throw new MapsError("We only drive within Costa Rica. Please pick a place in Costa Rica.");
   const area = areaOf(g);
+  const locality = g.locality ?? addressLocality(g.address);
   return {
     id,
     label: cleanPlaceLabel(label) || g.address || "Selected place",
@@ -153,6 +160,8 @@ export async function resolvePlace(id: string, label?: string, sessionToken?: st
     lat: g.lat,
     lng: g.lng,
     hub: nearestHub(g),
+    // The real town, for labels (src/lib/placeLabel.ts); read from the address on older cached lookups.
+    ...(locality ? { locality } : {}),
     ...(area ? { area } : {}),
     // Only SJO and LIR get the airport promises (flight tracking, free waiting).
     ...(g.airport && isNearMainAirport(g) ? { airport: true } : {}),
