@@ -1,0 +1,29 @@
+# Settings for the THROWAWAY local database the browser tests run against (`npm run e2e:full`,
+# e2e/full/). It has nothing to do with the live project: the live database is configured in the
+# Supabase dashboard and receives migrations through .github/workflows/db-migrations.yml.
+#
+# `supabase start` builds an empty database from supabase/migrations, with sign-in emails caught
+# by a local test inbox (nothing is sent to anyone). Everything not listed here uses the
+# Supabase CLI's defaults.
+project_id = "puravidaway-app"
+
+[db]
+major_version = 17
+
+[auth]
+site_url = "http://localhost:3210"
+additional_redirect_urls = ["http://localhost:3210/auth/callback"]
+# Like the live project: accounts are created by the server (src/lib/authCodeServer.ts).
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+enable_confirmations = false
+max_frequency = "1s"
+otp_length = 6
+otp_expiry = 3600
+
+# The sign-in email, reduced to the two things the tests read: the 6-digit code and the link.
+[auth.email.template.magic_link]
+subject = "Your sign-in code"
+content_path = "./supabase/templates/sign-in-code.html"

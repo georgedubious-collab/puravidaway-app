@@ -41,6 +41,18 @@ first time on a new computer: `npx playwright install chromium`). They run with 
 keys, so they cannot touch real bookings. A change to the booking flow gets a browser test in
 the same pull request.
 
+If the change touches sign-in, the trip page, the team's booking page, the job board, offers,
+trip status, ratings or payouts, also run the full-trip tests (needs Docker running):
+
+```
+npm run e2e:full
+```
+
+They start a throwaway local database from `supabase/migrations`, then walk one trip through
+real browsers: traveller books, team posts the job, driver offers, team accepts, driver drives,
+traveller rates (`e2e/full/trip.spec.ts`). They also check what each person must not see. On a
+computer without Docker, push the branch and read the `e2e-full` result on the pull request.
+
 ## 2. Run the change itself
 
 Tests cover rules; they do not show that the screen works.

@@ -15,6 +15,8 @@ const CI = Boolean(process.env.CI);
 
 export default defineConfig({
   testDir: "e2e",
+  // e2e/full needs a database and has its own command (npm run e2e:full).
+  testIgnore: "full/**",
   timeout: 60_000,
   expect: { timeout: 10_000 },
   fullyParallel: true,
