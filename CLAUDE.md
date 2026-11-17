@@ -16,6 +16,10 @@ plainly, avoid jargon, and never assume a dev-team workflow (no "ask your backen
 - **Never commit or push directly to `main`.** `main` auto-deploys to production on Vercel.
   Branch → pull request → Vercel preview → Gemini Code Assist review → Jorge merges.
 - Keep PRs small and focused; one concern per PR.
+- **Verify before every commit**: follow `.claude/skills/verify/SKILL.md` (`npm run verify`, run the
+  changed flow, the security checklist) and end the PR description with a "Verified" section.
+  The "Checks" Action runs the same command on every PR; never merge-ready while it is red.
+  Review rules are in `REVIEW.md`. Change the checks themselves only in a PR of their own.
 - If a change affects anything stated in `docs/PROJECT.md`, update that doc in the same PR.
 - Add a changelog note in every PR as its **own new file** `docs/changelog/YYYY-MM-DD-<topic>.md`
   containing `- YYYY-MM-DD — Claude — <what changed>`. Don't edit the top of `docs/CHANGELOG.md`

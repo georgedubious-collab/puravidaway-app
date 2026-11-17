@@ -8,6 +8,7 @@ Read `docs/PROJECT.md` (source of truth), the newest notes in `docs/changelog/` 
 `docs/COMPETITORS.md` (Daytrip / GetTransfer / Welcome Pickups benchmark).
 
 ## What to check in every PR
+Start with `REVIEW.md` (what is blocking here, what must always be checked, what to skip). Then:
 1. **Does it match the spec?** Schema fields, status values, pricing rules and RLS policies must
    match `docs/PROJECT.md` §5–§7. If the PR intentionally changes the spec, the spec file must be
    updated in the same PR.

@@ -1,0 +1,40 @@
+# Runs on every pull request, and again on main after a merge: the code-style check, the type
+# check and every test suite (`npm run verify`, about a minute). A red ✗ on a pull request
+# means something that used to work is broken: don't merge until it is green.
+#
+# It needs no secrets and never touches the live database: the security tests run against a
+# throwaway in-memory database built from supabase/migrations (supabase/tests/rls.test.mjs).
+name: Checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      # `npm install`, not `npm ci`: the lock file is written on a Mac and lacks two Linux-only
+      # optional packages, which makes `npm ci` refuse to run here.
+      - name: Install
+        run: npm install --no-audit --no-fund
+      - name: Code style
+        run: npm run lint
+      - name: Types
+        run: npm run typecheck
+      - name: Tests
+        run: npm test
