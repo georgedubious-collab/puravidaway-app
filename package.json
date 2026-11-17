@@ -10,6 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "node --no-warnings scripts/test-all.mjs",
     "verify": "npm run lint && npm run typecheck && npm test",
+    "e2e": "playwright test",
+    "e2e:full": "node scripts/e2e-full.mjs",
     "test:db": "node supabase/tests/rls.test.mjs",
     "test:filter": "node --no-warnings scripts/test-contact-filter.mjs",
     "test:eligibility": "node --no-warnings scripts/test-vehicle-eligibility.mjs",
@@ -44,6 +46,7 @@
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.3.11",
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/turbopack": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
