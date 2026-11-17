@@ -1,5 +1,6 @@
 # Runs on every pull request, and again on main after a merge: the code-style check, the type
-# check and every test suite (`npm run verify`, about a minute). A red ✗ on a pull request
+# check and every test suite (`npm run verify`, about a minute), plus the browser tests
+# (`npm run e2e`, a few minutes). A red ✗ on a pull request
 # means something that used to work is broken: don't merge until it is green.
 #
 # It needs no secrets and never touches the live database: the security tests run against a
@@ -38,3 +39,30 @@ jobs:
         run: npm run typecheck
       - name: Tests
         run: npm test
+
+  # A real browser (phone-sized) books a ride on a production build of the site, with no
+  # database keys, so it cannot touch real bookings (playwright.config.ts, e2e/).
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install
+        run: npm install --no-audit --no-fund
+      - name: Install the test browser
+        run: npx playwright install --with-deps chromium
+      - name: Browser tests
+        run: npm run e2e
+      # On a failure: screenshots and a step-by-step recording, kept for a week.
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: browser-test-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7

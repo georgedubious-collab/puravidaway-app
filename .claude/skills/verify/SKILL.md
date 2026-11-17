@@ -28,6 +28,19 @@ The same command runs on every pull request (`.github/workflows/checks.yml`).
   loops, no added waits, no loosening an assertion. If a test is wrong, say why in the pull
   request and change it there in plain sight.
 
+If the change touches the public site (anything under `src/components`, the booking flow,
+prices shown to travellers, public pages), also run the browser tests:
+
+```
+npm run e2e
+```
+
+A phone-sized browser picks a ride, checks the price stays the same from the vehicle card to
+the final total, sends the request and opens every main public page (`e2e/`, a minute or two;
+first time on a new computer: `npx playwright install chromium`). They run with no database
+keys, so they cannot touch real bookings. A change to the booking flow gets a browser test in
+the same pull request.
+
 ## 2. Run the change itself
 
 Tests cover rules; they do not show that the screen works.

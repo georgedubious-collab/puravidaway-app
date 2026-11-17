@@ -44,3 +44,7 @@ next-env.d.ts
 # Claude Code local worktrees and settings. Skills are shared (the `verify` skill lives there).
 .claude/*
 !.claude/skills/
+
+# Playwright (end-to-end tests) output
+/test-results/
+/playwright-report/
