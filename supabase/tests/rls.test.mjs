@@ -2259,6 +2259,45 @@ await expectOk("server removes the test booking", "server", "delete from public.
   await db.exec(`reset role; delete from public.profiles where id = '${NEW}'; delete from auth.users where id = '${NEW}'`);
 }
 
+// --- 0060: a driver's rating and seat count are not theirs to set -------------------------------
+{
+  const V1 = "'30000000-0000-0000-0000-000000000001'";
+  const SELF = "'00000000-0000-0000-0000-0000000000c2'"; // client2 applies as a driver
+  await db.exec(`reset role;
+    update public.drivers set kyc_status = 'approved', needs_review = false where id = '${U.driver}';
+    update public.driver_vehicles set status = 'approved', needs_review = false, review_hold = false, passenger_capacity = 4 where id = ${V1};
+    delete from public.driver_reviews where driver_id = '${U.driver}';
+    update public.drivers set rating_avg = null, rating_count = 0 where id = '${U.driver}';`);
+
+  // Rating
+  await expectOk("0060: driver tries to write their own rating", "driver", `update public.drivers set rating_avg = 5.00, rating_count = 250 where id = '${U.driver}'`);
+  await expectRows("0060: a driver cannot write their own rating (update ignored)", "admin", `select 1 from public.drivers where id = '${U.driver}' and rating_avg is null and rating_count = 0`, 1);
+  await db.exec(`reset role; delete from public.drivers where id = ${SELF}`);
+  await expectOk("0060: a new applicant tries to start with a rating", "client2", `insert into public.drivers (id, kyc_status, rating_avg, rating_count) values (${SELF}, 'pending', 5.00, 99)`);
+  await expectRows("0060: a new driver record starts with no rating", "admin", `select 1 from public.drivers where id = ${SELF} and rating_avg is null and rating_count = 0 and kyc_status = 'pending'`, 1);
+  await db.exec(`reset role; delete from public.drivers where id = ${SELF}`);
+  await expectOk("0060: the server saves a traveller's review", "server", `insert into public.driver_reviews (booking_id, driver_id, stars) values ('10000000-0000-0000-0000-000000000009', '${U.driver}', 4)`);
+  await expectRows("0060: a real review still updates the rating", "admin", `select 1 from public.drivers where id = '${U.driver}' and rating_avg = 4.00 and rating_count = 1`, 1);
+  await expectOk("0060: the driver edits their bio afterwards", "driver", `update public.drivers set bio = 'Fifteen years driving in Guanacaste.' where id = '${U.driver}'`);
+  await expectRows("0060: an ordinary edit leaves the rating alone", "admin", `select 1 from public.drivers where id = '${U.driver}' and rating_avg = 4.00 and rating_count = 1`, 1);
+  await expectOk("0060: the team can correct a rating by hand", "admin", `update public.drivers set rating_avg = 4.50, rating_count = 2 where id = '${U.driver}'`);
+  await expectRows("0060: the team's correction is saved", "admin", `select 1 from public.drivers where id = '${U.driver}' and rating_avg = 4.50 and rating_count = 2`, 1);
+  await db.exec(`reset role; delete from public.driver_reviews where driver_id = '${U.driver}'; update public.drivers set rating_avg = null, rating_count = 0, needs_review = false, review_hold = false where id = '${U.driver}'`);
+
+  // Seats
+  await expectOk("0060: driver raises the seats on an approved vehicle", "driver", `update public.driver_vehicles set passenger_capacity = 14 where id = ${V1}`);
+  await expectRows("0060: the seat change pauses that vehicle until the team checks it", "admin", `select 1 from public.driver_vehicles where id = ${V1} and passenger_capacity = 14 and status = 'approved' and review_hold and needs_review`, 1);
+  await expectOk("0060: driver tries to clear the pause", "driver", `update public.driver_vehicles set review_hold = false where id = ${V1}`);
+  await expectRows("0060: a driver cannot clear the pause", "admin", `select 1 from public.driver_vehicles where id = ${V1} and review_hold`, 1);
+  await expectOk("0060: the team checks the vehicle and sets the real seats", "admin", `update public.driver_vehicles set passenger_capacity = 4, needs_review = false where id = ${V1}`);
+  await expectRows("0060: the team's check clears the pause", "admin", `select 1 from public.driver_vehicles where id = ${V1} and passenger_capacity = 4 and not review_hold and status = 'approved'`, 1);
+  await expectOk("0060: driver changes only the colour", "driver", `update public.driver_vehicles set color = 'Blue' where id = ${V1}`);
+  await expectRows("0060: an edit that keeps the seats does not pause the vehicle", "admin", `select 1 from public.driver_vehicles where id = ${V1} and not review_hold`, 1);
+  await expectOk("0060: the server changes the seats", "server", `update public.driver_vehicles set passenger_capacity = 6 where id = ${V1}`);
+  await expectRows("0060: the server's change does not pause the vehicle", "admin", `select 1 from public.driver_vehicles where id = ${V1} and passenger_capacity = 6 and not review_hold`, 1);
+  await db.exec(`reset role; update public.driver_vehicles set passenger_capacity = 4, needs_review = false, review_hold = false where id = ${V1}`);
+}
+
 // --- Report -----------------------------------------------------------------------------------
 console.log(`${passed} checks passed, ${failures.length} failed`);
 for (const f of failures) console.log("  ✗ " + f);
