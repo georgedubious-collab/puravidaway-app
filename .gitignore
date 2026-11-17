@@ -41,5 +41,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# Claude Code local worktrees and settings
-.claude/
+# Claude Code local worktrees and settings. Skills are shared (the `verify` skill lives there).
+.claude/*
+!.claude/skills/
