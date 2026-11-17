@@ -1615,6 +1615,8 @@ and `season_for_date(date)` returns the season for a travel date.
   an approved record sets `needs_review` (they stay approved until the admin acts — flagged as an
   open choice in §9). Document links must point into the driver's own folder. Only approved
   drivers with current documents can be on duty; anyone not approved is forced off duty.
+  A driver's rating (`rating_avg`, `rating_count`) comes only from reviews: a driver's own
+  attempt to write it is ignored, and a new record starts with none (migration 0060).
 - **Document validity (Jorge, 2026-10-14):** an approved driver receives trips only while the
   driver's licence is unexpired (no grace) and at least one **approved vehicle** has INS insurance
   expired ≤ 15 days ago (15-day grace), a Marchamo for the current year (no grace) and an
@@ -1624,7 +1626,9 @@ and `season_for_date(date)` returns the season for a travel date.
 - **driver_vehicles:** the driver and admins only; drivers add, edit and remove their own; new
   vehicles always start `pending`; only admins change `status`, `note`, review fields and the
   category `vehicle_class` and the electric mark `is_electric` (a driver's own attempt is
-  ignored, migrations 0038 and 0042); file
+  ignored, migrations 0038 and 0042); a driver's change to the seats (`passenger_capacity`) of
+  an approved vehicle pauses new offers for that vehicle (`review_hold`) until the team checks
+  it (migration 0060); file
   links must be in the driver's own folder. Clients never see Cédula,
   license or insurance numbers.
 - **bookings:** clients see their own; admins see all. **Drivers never read booking rows**
