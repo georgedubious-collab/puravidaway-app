@@ -162,6 +162,10 @@ eq("assign after an earlier drop-out → the same single 'driver confirmed'", sa
 eq("first manual assignment → the same single sender", save(null, "d2", "confirmed", "").sent, ["traveller_push", "traveller_email", "driver_push", "driver_email"]);
 eq("same driver saved again: nothing sent, nothing removed", [save("d1", "d1", "confirmed", "").sent.length, save("d1", "d1", "confirmed", "").c.removed], [0, null]);
 eq("unassign on a booking still waiting for payment keeps its status", dc({ beforeDriver: "d1", newDriver: null, status: "pending_payment", reason: "team" }).status, "pending_payment");
+eq("assigning a driver to a job open for drivers confirms it", dc({ beforeDriver: null, newDriver: "d1", status: "pending_bids", reason: "" }).status, "confirmed");
+eq("assigning a driver to a new request confirms it", dc({ beforeDriver: null, newDriver: "d1", status: "pending_payment", reason: "" }).status, "confirmed");
+eq("re-saving an assigned booking left open for drivers confirms it", dc({ beforeDriver: "d1", newDriver: "d1", status: "pending_bids", reason: "" }).status, "confirmed");
+eq("an assigned booking on the road keeps its status", dc({ beforeDriver: "d1", newDriver: "d1", status: "in_progress", reason: "" }).status, "in_progress");
 const re = cm.driverReassignedEmail({ lang: "es", driverName: "Carlos Mora", ref: "CRPT-1", route: "Aeropuerto SJO → Manuel Antonio", when: "2026-12-01 · 9:00 a. m.", tripsUrl: "https://x/driver/trips" });
 ok("reassigned email: Spanish, neutral, says they don't need to do it", re.subject.startsWith("Viaje reasignado: CRPT-1") && re.lines[0] === "Hola Carlos:" && re.lines[1].includes("fue reasignado. Ya no tiene que hacerlo") && re.lines[1].includes("hora de Costa Rica"));
 ok("reassigned email: no reason, traveller details or money", !/Emily|Smith|@|\+506|\$|USD|precio|price|motivo|reason|canceló|equipo decidió/i.test(JSON.stringify(re).replace("https://x/driver/trips", "")));

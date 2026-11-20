@@ -5,6 +5,9 @@
  *   - the traveller is NOT told about the removal;
  *   - a confirmed booking left without a driver goes back to "Open for drivers" (pending_bids),
  *     which emails the approved drivers about the job as usual;
+ *   - a new request or a job still open for drivers that gets a driver becomes "Confirmed"
+ *     (Jorge, 2026-11-20: assigning from the admin page left it "open for drivers", so the
+ *     traveller still read "request received" and the job stayed on the board);
  *   - the removed driver gets a short neutral email only when it was a team decision (when the
  *     driver cancelled, they already know);
  *   - when a driver is set (first time, replacement or after a drop-out), the ONE assignment sender
@@ -21,7 +24,10 @@ export interface DriverChange {
   removed: string | null;
   /** Reason is missing although a driver was removed. */
   needsReason: boolean;
-  /** The status to save (confirmed → pending_bids when the driver is removed and nobody replaces them). */
+  /**
+   * The status to save: confirmed → pending_bids when the driver is removed and nobody replaces
+   * them; pending_payment / pending_bids → confirmed when a driver is set.
+   */
   status: string;
   reopened: boolean;
   /** Always false: the traveller is never messaged about a removal. */
@@ -37,7 +43,7 @@ export function driverChange(a: { beforeDriver: string | null; newDriver: string
   return {
     removed,
     needsReason,
-    status: reopened ? "pending_bids" : a.status,
+    status: reopened ? "pending_bids" : a.newDriver && (a.status === "pending_payment" || a.status === "pending_bids") ? "confirmed" : a.status,
     reopened,
     tellTravellerNow: false,
     emailRemovedDriver: Boolean(removed) && !needsReason && a.reason === "team",

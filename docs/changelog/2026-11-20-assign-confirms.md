@@ -1,0 +1,1 @@
+- 2026-11-20 — Claude — Admin: assigning a driver to a new request or a job open for drivers now confirms the booking (it stayed "open for drivers", so the traveller still read "request received").

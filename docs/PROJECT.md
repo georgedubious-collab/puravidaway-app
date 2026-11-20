@@ -526,6 +526,9 @@ and error states, `AdminActionForm`).
     traveller details, no prices). Cancelling is no longer a status in the dispatch list. Card
     refunds are manual until Green Pay: "Mark refund as paid" (amount, date, card / SINPE / transfer
     / cash).
+  - **Driver assigned by the team** (booking page or dispatch): a new request or a job open for
+    drivers becomes **Confirmed** on save (the job leaves the board; the traveller's page says
+    driver confirmed).
   - **Driver removed or replaced** (dispatch form): the team says why (driver cancelled / team
     decision); a confirmed booking left without a driver goes back to "Open for drivers" (drivers are
     emailed the job as usual); the team gets an email (Spanish); the **traveller is not told** about
