@@ -1,0 +1,1 @@
+- 2026-11-20 — Claude — Admin: a paid new request no longer says "esperando el pago": the status picker says "Solicitud nueva", the home page splits new requests into paid and waiting for payment, and the "Pago pendiente" alert skips paid requests.

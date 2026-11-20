@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { StatusChip } from "@/components/admin/chips";
 import { Card, CountBadge, DataTable, EmptyState, Icon, PhoneHeader, PhoneSectionTitle, Td, Th, btn, link } from "@/components/admin/ui";
-import { greeting, monthBounds, pctChange, phoneFilterHref, statusView, weeklyCounts, weekStart } from "@/lib/adminBookings";
+import { greeting, isPaidRequest, monthBounds, pctChange, phoneFilterHref, statusView, weeklyCounts, weekStart } from "@/lib/adminBookings";
 import { bookingTitle, pickupDay, shortPlace, vehicleClassName } from "@/lib/adminDisplay";
 import { nextStep, nextStepText } from "@/lib/adminPhone";
 import { agoText, isLiveTrip, isStaleLocation, liveMapHref } from "@/lib/liveTrips";
@@ -73,7 +73,13 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
       .order("scheduled_at")
       .limit(500)
       .returns<Pickup[]>(),
-    supabase.from("bookings").select("id", { count: "exact", head: true }).eq("status", "pending_payment"),
+    // New requests, paid or not (paid ones say "pagada": a paid request isn't waiting for payment).
+    supabase
+      .from("bookings")
+      .select("id, total_price, cash_fee, amount_paid, payment_mode")
+      .eq("status", "pending_payment")
+      .limit(1000)
+      .returns<{ id: string; total_price: number | string; cash_fee: number | string | null; amount_paid: number | string | null; payment_mode: string | null }[]>(),
     supabase
       .from("bookings")
       .select("id, amount_paid, scheduled_at")
@@ -109,12 +115,12 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
       .returns<NoDriverRow[]>(),
     supabase
       .from("bookings")
-      .select("id, booking_ref, created_at, total_price, cash_fee")
+      .select("id, booking_ref, created_at, total_price, cash_fee, amount_paid, payment_mode")
       .eq("status", "pending_payment")
       .lt("created_at", new Date(now - 24 * HOUR).toISOString())
       .order("created_at")
       .limit(20)
-      .returns<{ id: string; booking_ref: string; created_at: string; total_price: number | string; cash_fee: number | string | null }[]>(),
+      .returns<{ id: string; booking_ref: string; created_at: string; total_price: number | string; cash_fee: number | string | null; amount_paid: number | string | null; payment_mode: string | null }[]>(),
     supabase.from("bookings").select("created_at").gte("created_at", crDay(weeksFrom)).limit(20000).returns<{ created_at: string }[]>(),
     getCatalog(),
   ]);
@@ -214,6 +220,8 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
     });
   }
   for (const b of oldRequests.data ?? []) {
+    // Already paid: nothing pending (it shows as "Solicitud nueva · pagada" instead).
+    if (isPaidRequest("pending_payment", b)) continue;
     const days = Math.floor((now - new Date(b.created_at).getTime()) / (24 * HOUR));
     alerts.push({
       key: `pp-${b.id}`,
@@ -226,6 +234,16 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
       href: `/admin/bookings/${b.id}`,
     });
   }
+  const requestRows = waitingPay.data ?? [];
+  const newRequests = requestRows.length;
+  const paidRequests = requestRows.filter((b) => isPaidRequest("pending_payment", b)).length;
+  const unpaidRequests = newRequests - paidRequests;
+  const requestsSub =
+    newRequests === 0
+      ? t("ninguna", "none")
+      : [paidRequests ? t(`${paidRequests} pagada${paidRequests === 1 ? "" : "s"}`, `${paidRequests} paid`) : "", unpaidRequests ? t(`${unpaidRequests} esperando el pago`, `${unpaidRequests} waiting for payment`) : ""]
+          .filter(Boolean)
+          .join(" · ");
   const order = { red: 0, amber: 1, grey: 2 };
   alerts.sort((a, b) => order[a.level] - order[b.level]);
   const MAX_ALERTS = 12;
@@ -422,7 +440,8 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
       <section aria-label={t("Números", "Numbers")} className="grid grid-cols-2 gap-2.5">
         <Link href={phoneFilterHref("to_act")} className="flex flex-col gap-1 rounded-2xl border border-[#E3E8E5] bg-white px-3.5 py-3">
           <span className="text-xs text-[#5B6B64]">{t("Solicitudes nuevas", "New requests")}</span>
-          <span className="text-[22px] font-extrabold">{waitingPay.count ?? 0}</span>
+          <span className="text-[22px] font-extrabold">{newRequests}</span>
+          <span className="text-[11px] text-[#5F6F67]">{requestsSub}</span>
         </Link>
         <div className="flex flex-col gap-1 rounded-2xl border border-[#E3E8E5] bg-white px-3.5 py-3">
           <span className="text-xs text-[#5B6B64]">{t("Este mes", "This month")}</span>
@@ -497,8 +516,8 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
         />
         <Kpi
           label={t("Solicitudes nuevas", "New requests")}
-          value={String(waitingPay.count ?? 0)}
-          sub={t("esperando el pago", "waiting for payment")}
+          value={String(newRequests)}
+          sub={requestsSub}
           tone="muted"
           href="/admin/bookings?status=pending_payment&range=all"
         />

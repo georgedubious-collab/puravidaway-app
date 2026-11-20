@@ -1,6 +1,6 @@
 /** Booking statuses as stored in the database, with the words the team sees. */
 export const BOOKING_STATUSES = [
-  ["pending_payment", "New request · waiting for payment"],
+  ["pending_payment", "New request"],
   ["pending_bids", "Open for drivers (job board)"],
   ["confirmed", "Confirmed"],
   ["in_progress", "On the road"],
@@ -20,7 +20,7 @@ export const SERVICE_LABEL: Record<string, string> = {
 
 /* Spanish words for the team pages and driver portal (src/lib/teamLang.ts). */
 export const BOOKING_STATUS_LABEL_ES: Record<BookingStatus, string> = {
-  pending_payment: "Solicitud nueva · esperando el pago",
+  pending_payment: "Solicitud nueva",
   pending_bids: "Abierta para conductores (bolsa de trabajos)",
   confirmed: "Confirmado",
   in_progress: "En ruta",

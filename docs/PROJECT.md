@@ -445,7 +445,7 @@ and error states, `AdminActionForm`).
   whole menu as a panel (focus stays inside, Escape closes). See "The admin on a phone" below. `src/app/admin/error.tsx` / `loading.tsx` show a clear
   Spanish/English message with "Try again"; actions return readable errors instead of a blank page.
 - **Panel** (`/admin`): greeting with the Costa Rica date; search (goes to Bookings); "Nueva reserva";
-  KPIs: pickups today (and how many lack a driver), new requests waiting for payment, **revenue this
+  KPIs: pickups today (and how many lack a driver), new requests (split into paid and waiting for payment), **revenue this
   month** (= amount received on bookings whose pickup is in this Costa Rica calendar month, cancelled
   bookings and test payments left out) vs last month, average driver rating; upcoming pickups (Hoy /
   Mañana / 7 días) with "Asignar"; **Necesita atención** (no driver within 48 h, documents expiring
