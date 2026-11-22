@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "179492270256",
+    "project_id": "cr-private-transfers",
+    "storage_bucket": "cr-private-transfers.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:179492270256:android:84aef02ea78cccbb1ecb75",
+        "android_client_info": {
+          "package_name": "com.costaricaprivatetransfers.partner"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCDp3vsYZ0A500r8BfYAQvj88ADZpOlQp8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
