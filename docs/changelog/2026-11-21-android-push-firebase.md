@@ -1,0 +1,1 @@
+- 2026-11-21 — Claude — Android push notifications: both apps now include their Firebase (FCM) config, so Android phones can receive notifications after the next build. The server key lives only in Expo.
