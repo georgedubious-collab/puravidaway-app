@@ -1,0 +1,1 @@
+- 2026-11-21 — Claude — Driver app: real icon (the "CR" logo with a gold PARTNER band, option C) instead of the Expo placeholder, matching Android round/themed icons and a white CR logo for Android notifications. Needs a new app build (not an OTA).

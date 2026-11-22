@@ -17,7 +17,7 @@
     "android": {
       "package": "com.costaricaprivatetransfers.partner",
       "adaptiveIcon": {
-        "backgroundColor": "#022C22",
+        "backgroundColor": "#047857",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -28,8 +28,9 @@
       [
         "expo-notifications",
         {
-          "color": "#059669",
-          "defaultChannel": "jobs"
+          "color": "#047857",
+          "defaultChannel": "jobs",
+          "icon": "./assets/notification-icon.png"
         }
       ],
       [
