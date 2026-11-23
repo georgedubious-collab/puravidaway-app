@@ -134,6 +134,14 @@ export function Jobs({
             // Enough seats, and a category that can take this job (the server checks both again).
             (v) => seatsFit(v.passenger_capacity, item.passenger_count) && vehicleCanServe(v.vehicle_class, item.vehicle_class),
           )}
+          // Cars that would fit but are on hold for a document check: say so instead of "no space".
+          heldFit={vehicles.some(
+            (v) =>
+              v.status === "approved" &&
+              v.review_hold &&
+              seatsFit(v.passenger_capacity, item.passenger_count) &&
+              vehicleCanServe(v.vehicle_class, item.vehicle_class),
+          )}
           canOffer={approved && !onHold}
           homeHub={driver?.home_hub ?? null}
           trips={trips}
@@ -148,6 +156,7 @@ function JobCard({
   job,
   names,
   vehicles,
+  heldFit,
   canOffer,
   homeHub,
   trips,
@@ -156,6 +165,8 @@ function JobCard({
   job: Job;
   names: Names;
   vehicles: Vehicle[];
+  /** A car that fits is on hold until our team checks a changed document. */
+  heldFit?: boolean;
   canOffer: boolean;
   homeHub: string | null;
   trips: Trip[];
@@ -307,7 +318,12 @@ function JobCard({
         )
       ) : canOffer && payout != null ? (
         <Text style={{ color: C.amber, fontWeight: "700" }}>
-          {t("Ninguno de sus vehículos aprobados tiene espacio para " + plural(pax, ["pasajero", "pasajeros"], ["", ""], "es") + ".", "None of your approved vehicles seats " + pax + ".")}
+          {heldFit
+            ? t(
+                "Su vehículo está en revisión porque cambió un documento. Podrá ofertar cuando nuestro equipo lo revise.",
+                "Your vehicle is on hold because a document changed. You can offer once our team has checked it.",
+              )
+            : t("Ninguno de sus vehículos aprobados tiene espacio para " + plural(pax, ["pasajero", "pasajeros"], ["", ""], "es") + ".", "None of your approved vehicles seats " + pax + ".")}
         </Text>
       ) : null}
       {msg ? <Text style={msg.ok ? { color: C.emerald, fontWeight: "700" } : S.error}>{msg.text}</Text> : null}
