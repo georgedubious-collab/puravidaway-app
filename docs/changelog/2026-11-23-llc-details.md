@@ -1,0 +1,1 @@
+- 2026-11-23 — Claude — PROJECT.md §9 #14: the store publisher is Costa Rica Private Transfers LLC (Wyoming, filed 2026-11-20); EIN pending.
