@@ -1807,7 +1807,7 @@ multi-day trips were retired (§1, §5.5) and are not on the roadmap.
     travellers and "Costa Rica Private Transfers Partner" for drivers, built from one codebase (§11.1).
 14. **Store publisher:** plan (Jorge, 2026-10-14): a **new Costa Rican S.A.** for Costa Rica Private Transfers
     (legal name to confirm, ideally "Costa Rica Private Transfers S.A."). The same company should hold the D-U-N-S
-    number, Apple and Google accounts, Stripe account, bank account and domain. **Update (Jorge, 2026-11-19/20):** a **US LLC formed through Doola** instead of the S.A.; legal name and state to confirm. It must
+    number, Apple and Google accounts, Stripe account, bank account and domain. **Update (Jorge, 2026-11-19/20):** a **US LLC formed through Doola** instead of the S.A.: **Costa Rica Private Transfers LLC**, **Wyoming**, filed 2026-11-20 (registered-agent address in Sheridan, WY). EIN pending; it is needed to activate Stripe and open the bank account. D-U-N-S next (name + address only). It must
     not be Jorge personally or Costa Rica Travel Planner, or the store would show that name as the
     seller (brand separation, §10). Check ICT / tax registration needs with the notary.
 15. **Account deletion and data retention.** Both stores require users to be able to delete their
