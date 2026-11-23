@@ -1305,6 +1305,12 @@ Decided by Jorge 2026-11-08 (replaces the 100% / 20% deposit rule):
     hand in Stripe (Stripe keeps its ~2.9% + $0.30 fee, plus ~1.5% on foreign cards).
   - Known limit: cancelling while the card is still held releases the whole held amount, even if
     the cancellation policy would keep some.
+  - **Messages wait for the card** (Jorge, 2026-11-22): the team's "new trip request" email + push
+    and the traveller's "we got your request" email go out once the card is held. Not held within
+    30 minutes: the team gets one "Solicitud sin pagar" alert (follow up on WhatsApp) and the
+    traveller their request email, which points to "Pay" on the trip page. Paying later still
+    sends the team's normal alert. Kept in `trip_request_notices` (server only, migration 0062;
+    `src/lib/requestNotices.ts`); checked every 5 minutes with the card holds.
   - Not finished or closed the page: the trip page (and the app's trip screen) shows "Pay $X by
     card". The admin shows "Solicitud nueva · tarjeta retenida" and the chip "Tarjeta retenida".
   - Code: `src/lib/stripePayments.ts` (Stripe calls), `src/lib/cardHold.ts` (rules, tested by

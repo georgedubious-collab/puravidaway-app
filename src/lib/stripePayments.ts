@@ -1,6 +1,7 @@
 import "server-only";
 import Stripe from "stripe";
 import { decideHold, holdMetadata, onlineDueCents, parseHoldMetadata, type HeldLine } from "./cardHold";
+import { sendHeldNotices } from "./requestNotices";
 import { createSupabaseAdminClient } from "./supabase/admin";
 
 /**
@@ -138,6 +139,8 @@ export async function recordCheckout(sessionId: string, tripId?: string): Promis
     }
     await addToBooking(db, l.bookingId, held ? { held: l.cents } : { paid: l.cents });
   }
+  // The "new trip request" messages that waited for the card (src/lib/requestNotices.ts), once.
+  await sendHeldNotices(forTrip);
   if (held) await settleTripHolds(forTrip);
   return { state: held ? "held" : "paid", tripId: forTrip };
 }

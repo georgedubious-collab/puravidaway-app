@@ -49,6 +49,17 @@ jobs:
         run: |
           if [ -z "$CRON_SECRET" ]; then exit 0; fi
           curl --fail-with-body -sS --max-time 60 -H "Authorization: Bearer $CRON_SECRET" "$SITE_URL/api/cron/chat-unread"
+      # Card holds (Stripe): charge the ones whose rides all have a driver, or that are 6 days old
+      # (a hold lasts 7), and release the ones whose bookings were all cancelled (src/lib/cardHold.ts).
+      # Same call: card requests unpaid after 30 minutes alert the team (src/lib/requestNotices.ts).
+      - name: Charge or release card holds
+        if: always()
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          SITE_URL: ${{ vars.SITE_URL || 'https://www.costaricaprivatetransfers.com' }}
+        run: |
+          if [ -z "$CRON_SECRET" ]; then exit 0; fi
+          curl --fail-with-body -sS --max-time 60 -H "Authorization: Bearer $CRON_SECRET" "$SITE_URL/api/cron/card-holds"
 
   # Once an hour (and when the workflow is started by hand): the one rating reminder, 24 hours
   # after the trip ended, by push and email. The site decides who is due, sends each reminder
@@ -93,13 +104,3 @@ jobs:
         run: |
           if [ -z "$CRON_SECRET" ]; then exit 0; fi
           curl --fail-with-body -sS --max-time 60 -H "Authorization: Bearer $CRON_SECRET" "$SITE_URL/api/cron/trip-followups"
-      # Card holds (Stripe): charge the ones whose rides all have a driver, or that are 6 days old
-      # (a hold lasts 7), and release the ones whose bookings were all cancelled (src/lib/cardHold.ts).
-      - name: Charge or release card holds
-        if: always()
-        env:
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
-          SITE_URL: ${{ vars.SITE_URL || 'https://www.costaricaprivatetransfers.com' }}
-        run: |
-          if [ -z "$CRON_SECRET" ]; then exit 0; fi
-          curl --fail-with-body -sS --max-time 60 -H "Authorization: Bearer $CRON_SECRET" "$SITE_URL/api/cron/card-holds"
