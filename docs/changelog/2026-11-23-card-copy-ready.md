@@ -1,0 +1,1 @@
+- 2026-11-23 — Claude — FAQ "How do I pay?" and the Terms (EN/ES) switch to the card-hold wording by themselves once the live Stripe keys are set (NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY); until then they keep the "secure payment link" wording.
