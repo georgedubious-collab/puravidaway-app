@@ -5,6 +5,9 @@ import { whatsAppLink } from "@/lib/cart";
 import { bilingualAlternates } from "@/lib/publicLang";
 import { CARRIER_NOTE } from "@/lib/trust";
 
+/** Card payments with Stripe are on (src/lib/stripePayments.ts): the hold is described below. */
+const CARD_CHECKOUT = Boolean(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
+
 export const metadata: Metadata = {
   title: "Terms of Service | Costa Rica Private Transfers",
   description:
@@ -79,6 +82,8 @@ export default function TermsPage() {
           <li>
             How and when to pay is shown before you book and in your confirmation. Card payments are
             handled by our payment provider; we never see or store your full card details.
+            {CARD_CHECKOUT &&
+              " When you pay online by card, the amount is first held (authorised) on your card and charged once your driver is confirmed, at the latest 6 days after booking. If the booking is cancelled before the charge, the hold is released."}
           </li>
           <li>
             Extra waiting time, extra stops or route changes you ask for on the day may cost extra; the

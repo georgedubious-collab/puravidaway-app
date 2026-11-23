@@ -8,6 +8,9 @@ import { nightSentence, type NightPremium } from "./nightPremium";
 import { formatBpsPercent } from "./pricing";
 import type { PublicLang } from "./publicLang";
 
+/** Card payments with Stripe are on (same switch as the booking form, src/components/TripSummary.tsx). */
+const CARD_CHECKOUT = Boolean(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
+
 export interface FaqItem {
   id: string;
   q: Record<PublicLang, string>;
@@ -67,8 +70,14 @@ export const FAQ_GROUPS: FaqGroup[] = [
         id: "pay",
         q: { en: "How do I pay?", es: "¿Cómo pago?" },
         a: {
-          en: "Two ways. Pay online in full: once our team confirms your trip, we send you a secure payment link. Or pay your driver in cash on the day for rides and 1-day tours, plus a {cashFee} cash booking fee shown in your trip total.",
-          es: "De dos formas. Pague en línea completo: cuando nuestro equipo confirma su viaje, le enviamos un enlace de pago seguro. O pague al conductor en efectivo el día del viaje en traslados y tours de un día, más un cargo por reserva en efectivo del {cashFee} que aparece en el total.",
+          // Card payments on (Stripe keys set, src/lib/stripePayments.ts): pay by card when booking,
+          // held first. Until then: the secure link after confirmation.
+          en: CARD_CHECKOUT
+            ? "Two ways. Pay online in full by card (Apple Pay and Google Pay too) when you book: the amount is held on your card first and charged once your driver is confirmed, 6 days after booking at the latest. If we can't serve your trip, the hold is released or you get a full refund. Or pay your driver in cash on the day for rides and 1-day tours, plus a {cashFee} cash booking fee shown in your trip total."
+            : "Two ways. Pay online in full: once our team confirms your trip, we send you a secure payment link. Or pay your driver in cash on the day for rides and 1-day tours, plus a {cashFee} cash booking fee shown in your trip total.",
+          es: CARD_CHECKOUT
+            ? "De dos formas. Pague en línea completo con tarjeta (también Apple Pay y Google Pay) al reservar: el monto primero queda retenido en su tarjeta y se cobra cuando su conductor esté confirmado, a más tardar 6 días después de reservar. Si no podemos atender su viaje, la retención se libera o le devolvemos todo. O pague al conductor en efectivo el día del viaje en traslados y tours de un día, más un cargo por reserva en efectivo del {cashFee} que aparece en el total."
+            : "De dos formas. Pague en línea completo: cuando nuestro equipo confirma su viaje, le enviamos un enlace de pago seguro. O pague al conductor en efectivo el día del viaje en traslados y tours de un día, más un cargo por reserva en efectivo del {cashFee} que aparece en el total.",
         },
       },
       {

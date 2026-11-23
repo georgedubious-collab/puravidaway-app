@@ -5,6 +5,9 @@ import { whatsAppLink } from "@/lib/cart";
 import { bilingualAlternates } from "@/lib/publicLang";
 import { CARRIER_NOTE_ES } from "@/lib/trust";
 
+/** Card payments with Stripe are on (src/lib/stripePayments.ts): the hold is described below. */
+const CARD_CHECKOUT = Boolean(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
+
 export const metadata: Metadata = {
   title: "Términos del servicio | Costa Rica Private Transfers",
   description:
@@ -102,6 +105,8 @@ export default function TerminosPage() {
             Cómo y cuándo pagar se muestra antes de reservar y en su confirmación. Los pagos con tarjeta
             los procesa nuestro proveedor de pagos; nosotros nunca vemos ni guardamos los datos completos
             de su tarjeta.
+            {CARD_CHECKOUT &&
+              " Cuando paga en línea con tarjeta, el monto primero queda retenido (autorizado) en su tarjeta y se cobra cuando su conductor esté confirmado, a más tardar 6 días después de reservar. Si la reserva se cancela antes del cobro, la retención se libera."}
           </li>
           <li>
             El tiempo de espera adicional, las paradas adicionales o los cambios de ruta que usted pida
