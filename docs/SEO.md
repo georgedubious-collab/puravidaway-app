@@ -244,7 +244,7 @@ What is recorded in Google Analytics (GA4's standard names, so its built-in repo
 `purchase` is **not sent at all** for now: the website takes no payment (the team sends a
 payment link later), and the test checkout only exists inside the traveller app, on the
 server. Sending test payments as purchases would put fake revenue in the reports. Add it with
-the real Green Pay payment page, when a payment really succeeds in the browser. Until then
+the Stripe payment (built 2026-11-22: held at booking, charged later on the server), sent when a real (live-mode) payment returns to the trip page. Until then
 `generate_lead` is the number to watch; mark it as a "key event" in Google Analytics.
 
 ### 7.2 The ids: what to create and where to paste them

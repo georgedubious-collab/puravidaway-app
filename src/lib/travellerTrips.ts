@@ -2,7 +2,9 @@ import "server-only";
 import { WHATSAPP_NUMBER, bookedItemName } from "./catalog";
 import { getCatalog } from "./catalogSource";
 import { isStoredCustomStop } from "./customStops";
+import { onlineDueCents } from "./cardHold";
 import { signEditable, signShown } from "./sign";
+import { STRIPE_ENABLED } from "./stripePayments";
 import { createSupabaseAdminClient } from "./supabase/admin";
 import { travellerPhotoPaths } from "./vehiclePhotos";
 
@@ -27,6 +29,10 @@ export interface AppBooking {
   passengers: number | null;
   dueUsd: number;
   paymentMode: string | null;
+  /** Held on the card by Stripe, not charged yet (charged once the driver is confirmed). */
+  heldUsd: number;
+  /** Online part not paid or held yet, and card payment is on: offer "Pay by card". */
+  payByCard: boolean;
   cashFeeUsd: number;
   driver: { firstName: string; bio: string | null; english: string | null; ict: boolean; photo: string | null; rating: string | null } | null;
   /** `electric`: our team marked the assigned vehicle as electric (a badge; older apps ignore it). */
@@ -76,11 +82,11 @@ export async function tripsForEmail(email: string): Promise<{ trips: AppTrip[]; 
   if (!trips?.length) return out;
 
   const COLUMNS =
-    "id, trip_id, booking_ref, service_type, catalog_item_id, origin, destination, sightseeing_stops, scheduled_at, status, en_route_at, passenger_count, total_price, cash_fee, amount_paid, payment_mode, assigned_driver_id, assigned_vehicle_id";
+    "id, trip_id, booking_ref, service_type, catalog_item_id, origin, destination, sightseeing_stops, scheduled_at, status, en_route_at, passenger_count, total_price, cash_fee, amount_paid, amount_held, payment_mode, assigned_driver_id, assigned_vehicle_id";
   type Row = {
     id: string; trip_id: string; booking_ref: string; service_type: string; catalog_item_id: string | null;
     origin: string | null; destination: string | null; sightseeing_stops: { id: string }[] | null; scheduled_at: string | null; status: string; en_route_at: string | null;
-    passenger_count: number | null; total_price: number | string; cash_fee: number | string | null; amount_paid: number | string | null;
+    passenger_count: number | null; total_price: number | string; cash_fee: number | string | null; amount_paid: number | string | null; amount_held?: number | string | null;
     payment_mode: string | null; assigned_driver_id: string | null; assigned_vehicle_id: string | null;
     sign_text?: string | null; sign_hide_name?: boolean | null; pickup_place?: string | null;
   };
@@ -178,6 +184,10 @@ export async function tripsForEmail(email: string): Promise<{ trips: AppTrip[]; 
       passengers: b.passenger_count,
       dueUsd: Math.max(0, Math.round((Number(b.total_price) + Number(b.cash_fee ?? 0) - Number(b.amount_paid ?? 0)) * 100) / 100),
       paymentMode: b.payment_mode,
+      // Held on the card by Stripe, charged once the driver is confirmed (still counted in dueUsd,
+      // so older app builds show it as "to pay"). payByCard: the app may offer "Pay by card".
+      heldUsd: Number(b.amount_held ?? 0),
+      payByCard: STRIPE_ENABLED && onlineDueCents(b) > 0,
       cashFeeUsd: Number(b.cash_fee ?? 0),
       driver: d
         ? {

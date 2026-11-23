@@ -21,6 +21,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { makeT } from "@/lib/teamLang";
 import { getTeamLang } from "@/lib/teamLangServer";
 import { WA_KINDS, type WaKind } from "@/lib/whatsappMessages";
+import { settleTripHolds } from "@/lib/stripePayments";
 
 /*
  * Booking page actions added by CRM part 3 (2026-11-12): WhatsApp log, cancel with refund,
@@ -86,6 +87,9 @@ export async function cancelWithRefund(_prev: FormState, fd: FormData): Promise<
       if (/already cancelled/.test(error.message)) throw new InputError(t("Esta reserva ya está cancelada.", "This booking is already cancelled."));
       throw new Error(error.message);
     }
+    // A card still held for this booking: left out of the charge, or released if nothing else is
+    // on it (src/lib/cardHold.ts). Nothing was charged, so there is nothing to refund.
+    after(() => settleTripHolds());
     if (fd.get("notify") === "on") {
       const driverId = (b.assigned_driver_id as string | null) ?? null;
       after(() => sendCancellationNotices(id, driverId, { by, amountReceived: received, refundDue: due ?? 0 }, me.id));

@@ -428,7 +428,7 @@ export function BookingProvider({
     const { chosen: c, state: s, lang: l, promo: pr } = latest.current;
     const tt = tRef.current;
     if (!c) return { ok: false, error: tt("We couldn't send your request.", "No pudimos enviar su solicitud.") };
-    const res = await api<{ tripToken: string | null; testCheckout?: boolean; promoInvalid?: boolean; promoDiscountCents?: number }>("/client/trip-request", {
+    const res = await api<{ tripToken: string | null; testCheckout?: boolean; cardCheckout?: boolean; checkoutUrl?: string; promoInvalid?: boolean; promoDiscountCents?: number }>("/client/trip-request", {
       items: [{ id: "app-" + Date.now(), date: c.date, totalCents: c.totalCents, spec: c.spec }],
       mode: s.payMode,
       cashFeeBps: c.cashFeeBps,
@@ -451,7 +451,17 @@ export function BookingProvider({
       return { ok: false, error: res.error ?? tt("We couldn't send your request.", "No pudimos enviar su solicitud.") };
     }
     const paid = c.totalCents - (pr?.discountCents ?? 0);
-    return { ok: true, sent: { tripToken: res.data.tripToken, payOnline: s.payMode === "full_100", totalCents: paid, testCheckout: Boolean(res.data.testCheckout) } };
+    return {
+      ok: true,
+      sent: {
+        tripToken: res.data.tripToken,
+        payOnline: s.payMode === "full_100",
+        totalCents: paid,
+        testCheckout: Boolean(res.data.testCheckout),
+        cardCheckout: Boolean(res.data.cardCheckout),
+        checkoutUrl: res.data.checkoutUrl ?? null,
+      },
+    };
   }, []);
 
   const value: BookingValue = {

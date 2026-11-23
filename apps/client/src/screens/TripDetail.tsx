@@ -16,6 +16,7 @@ import { photoForTrip } from "../images";
 import { RouteMap } from "../MapView";
 import { useNav, type RootParams, type TripsParams } from "../nav";
 import { Photo } from "../Photo";
+import { payByCard } from "../pay";
 import { markRatePrompted } from "../ratePrompt";
 import { allBookings, useSession } from "../session";
 import { C, R, S, SHADOW, SHADOW_UP, SP, T, fontFor } from "../theme";
@@ -46,6 +47,20 @@ export function TripDetail() {
   const found = useBookingById(id);
   const b = found?.booking;
   const [pulling, setPulling] = useState(false);
+  const [paying, setPaying] = useState(false);
+  const [payError, setPayError] = useState("");
+  // Card held by Stripe: charged once the driver is confirmed (older servers don't send heldUsd).
+  const held = Boolean(b && b.paymentMode !== "cash_driver" && (b.heldUsd ?? 0) > 0);
+
+  /** Stripe's page for what is still to pay on this trip; back in the app, the trips reload. */
+  async function payCard(token: string) {
+    setPaying(true);
+    setPayError("");
+    const err = await payByCard(token);
+    if (err) setPayError(t(err, "No pudimos abrir la página de pago."));
+    else await reload();
+    setPaying(false);
+  }
 
   // While the driver is sharing their position, keep it fresh.
   const live = Boolean(b?.driverLocation) || Boolean(b?.driverOnTheWay);
@@ -300,7 +315,15 @@ export function TripDetail() {
 
           <Card>
             <View style={S.row}>
-              <Text style={[T.bodyStrong, { flex: 1 }]}>{b.paymentMode === "cash_driver" ? t("To pay your driver in cash", "Por pagar al conductor en efectivo") : b.dueUsd > 0 ? t("To pay online", "Por pagar en línea") : t("Paid", "Pagado")}</Text>
+              <Text style={[T.bodyStrong, { flex: 1 }]}>
+                {b.paymentMode === "cash_driver"
+                  ? t("To pay your driver in cash", "Por pagar al conductor en efectivo")
+                  : held
+                    ? t("Card held", "Tarjeta retenida")
+                    : b.dueUsd > 0
+                      ? t("To pay online", "Por pagar en línea")
+                      : t("Paid", "Pagado")}
+              </Text>
               {b.dueUsd > 0 ? <Text style={T.money}>{usd(b.dueUsd)}</Text> : <Ionicons name="checkmark-circle" size={28} color={C.emerald} />}
             </View>
             <IconLine
@@ -309,11 +332,25 @@ export function TripDetail() {
               text={
                 b.paymentMode === "cash_driver"
                   ? t("Includes the " + usd(b.cashFeeUsd) + " cash booking fee.", "Incluye el cargo por reserva en efectivo de " + usd(b.cashFeeUsd) + ".")
-                  : b.dueUsd > 0
-                    ? t("We send you a secure payment link once your trip is confirmed.", "Le enviamos un enlace de pago seguro cuando su viaje esté confirmado.")
+                  : held
+                    ? t("Charged once your driver is confirmed (6 days after booking at the latest).", "Se cobra cuando su conductor esté confirmado (a más tardar 6 días después de reservar).")
+                    : b.payByCard
+                      ? t("Pay by card to secure your trip. The amount is held first and charged once your driver is confirmed.", "Pague con tarjeta para asegurar su viaje. El monto primero queda retenido y se cobra cuando su conductor esté confirmado.")
+                      : b.dueUsd > 0
+                        ? t("We send you a secure payment link once your trip is confirmed.", "Le enviamos un enlace de pago seguro cuando su viaje esté confirmado.")
                     : t("Thank you, this trip is paid.", "Gracias, este viaje está pagado.")
               }
             />
+            {b.payByCard && found?.trip.token ? (
+              <>
+                <Btn label={t("Pay by card", "Pagar con tarjeta")} icon="card-outline" busy={paying} onPress={() => void payCard(found.trip.token)} />
+                {payError ? (
+                  <Text accessibilityRole="alert" style={S.error}>
+                    {payError}
+                  </Text>
+                ) : null}
+              </>
+            ) : null}
             {b.passengers ? <IconLine small icon="people-outline" text={plural(b.passengers, "traveller", lang)} /> : null}
             {b.kind !== "transfer" && b.pickupPlace ? <IconLine small icon="location-outline" text={t("Pickup: ", "Recogida: ") + b.pickupPlace} /> : null}
             {b.stops && b.stops.length ? (

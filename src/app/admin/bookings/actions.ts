@@ -14,6 +14,7 @@ import { makeT } from "@/lib/teamLang";
 import { getTeamLang } from "@/lib/teamLangServer";
 import { alertTeamDriverRemoved, emailRemovedDriver, logBookingEvent } from "@/lib/crmNotices";
 import { driverChange } from "@/lib/driverChange";
+import { settleTripHolds } from "@/lib/stripePayments";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const STATUS_IDS = new Set<string>(BOOKING_STATUSES.map(([s]) => s));
@@ -44,6 +45,8 @@ export async function acceptOffer(_prev: FormState, fd: FormData): Promise<FormS
       const send = await prepareAssignmentNotices({ bookingId, driverId: offer.driver_id, payout: offer.bid_amount, viaOffer: true });
       after(send);
     }
+    // A held card is charged once every ride on that payment has a driver (src/lib/cardHold.ts).
+    after(() => settleTripHolds());
     revalidatePath("/admin/bookings");
     revalidatePath(`/admin/bookings/${bookingId}`);
     revalidatePath("/driver/jobs");
@@ -185,6 +188,10 @@ export async function updateBooking(_prev: FormState, fd: FormData): Promise<For
       const send = await prepareAssignmentNotices({ bookingId: id, driverId, viaOffer: false });
       after(send);
     }
+
+    // A held card is charged once every ride on that payment has a driver (src/lib/cardHold.ts).
+    const tripId = (before?.trip_id as string | null) ?? null;
+    if (tripId && driverId) after(() => settleTripHolds(tripId));
 
     // Just opened for drivers: email approved drivers about the job. The database opens a 1-hour
     // posting window on the way in (migration 0054 trigger), whatever path set the status.

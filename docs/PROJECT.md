@@ -56,7 +56,7 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
 | Styling | Tailwind CSS; lucide-react icons; Plus Jakarta Sans |
 | Hosting / CI | Vercel, deployed from GitHub. Every PR gets a preview URL; merging to `main` deploys production |
 | Database / Auth / Files | Supabase — PostgreSQL, Auth (roles: `client`, `driver`, `admin`), Storage, Realtime |
-| Payments | Green Pay S.A. (Costa Rica), called server-side only |
+| Payments | Stripe (card held at booking, charged once the driver is assigned; Stripe Checkout, server-side only). Replaced Green Pay (Jorge, 2026-11-20) |
 | Maps | Leaflet + OpenStreetMap (admin fleet map). Traveller app: `react-native-maps` (Apple Maps on iPhone; Google Maps on Android once a key is set, else the app's own drawn map) |
 | CRM | HubSpot (lead pipeline sync, Phase 4) |
 | Messaging | WhatsApp deep links now; WhatsApp Business API in Phase 4 |
@@ -108,7 +108,7 @@ and **Welcome Pickups**. Every pricing, product and UX decision is checked again
   bookings), `/driver` portal (KYC vault, vehicles, assigned trips with "Open in Waze" / "Google Maps"
   buttons for the pickup and drop-off, `src/lib/navigation.ts`; Drake Bay ends go to the Sierpe dock), trip requests saved online,
   private trip page `/trip/<code>`, tri-party trip chat with Resend email notifications.
-- Not yet built: online payment (Green Pay, §6.4), GPS fleet map, `/account` for signed-in travellers
+- Not yet built: live card payments (Stripe is built in test mode, §6.4; live needs the LLC), GPS fleet map, `/account` for signed-in travellers
   (travellers use their private trip page instead), an in-page map (the summary links to the
   route on Google Maps instead), automatic airport / dock / 4x4 / ferry handling for typed places
   (pricing build step 4).
@@ -414,7 +414,7 @@ Legal pages (`/terms`, `/privacy`, `/cancellation`) are linked from every footer
    dropped on load. Earlier bookings still show their name (`RETIRED_EXPEDITIONS`,
    `bookedItemName()` in `src/lib/catalog.ts`).
 4. **Trip Cart & checkout** — combines transfers, stops and day tours. Payment choice
-   (decided 2026-11-08, built): **pay online in full** (we send a secure Green Pay link once the
+   (decided 2026-11-08, built): **pay online in full** (by card on Stripe's page right after "Continue to secure payment" once Stripe is set up, §6.4; before that we send a secure link once the
    team confirms the trip; online payment isn't live yet, so the site never says "pay now"), or
    **pay the driver in cash + a 10% cash booking fee** (rides and 1-day tours). The trip summary shows
    "Cash booking fee (10%) +$X" and the cash vs online amounts. The 20% deposit is retired.
@@ -524,7 +524,7 @@ and error states, `AdminActionForm`).
     owed, with a required reason. "Avisar al viajero y al conductor" (ticked by default) emails the
     traveller (their language) and the assigned driver (their language, Spanish by default; no
     traveller details, no prices). Cancelling is no longer a status in the dispatch list. Card
-    refunds are manual until Green Pay: "Mark refund as paid" (amount, date, card / SINPE / transfer
+    refunds are made by hand in Stripe's dashboard, then recorded here: "Mark refund as paid" (amount, date, card / SINPE / transfer
     / cash).
   - **Driver assigned by the team** (booking page or dispatch): a new request or a job open for
     drivers becomes **Confirmed** on save (the job leaves the board; the traveller's page says
@@ -1294,8 +1294,26 @@ show as "client's offer" in admin and like any other booking on the trip page, i
 
 ### 6.4 Payments
 Decided by Jorge 2026-11-08 (replaces the 100% / 20% deposit rule):
-- `full_100` — **pay online in full.** Green Pay isn't live yet: the team confirms the trip,
-  then sends a secure payment link.
+- `full_100` — **pay online in full, by card (Stripe; Jorge, 2026-11-22: "pay at booking", with a hold).**
+  The last step says "Continue to secure payment" and opens Stripe's page (Stripe Checkout, card +
+  Apple Pay / Google Pay). The card is only **held** (authorised), not charged:
+  - charged automatically once **every ride on that payment has a driver** (assigning in the admin
+    or accepting an offer), or **6 days after booking at the latest** even without a driver (Stripe
+    keeps a hold for 7 days); an hourly job (`/api/cron/card-holds`) checks the deadline;
+  - a booking cancelled before the charge is left out of it; all cancelled = the hold is
+    **released**, nothing is charged and Stripe takes no fee. After the charge, a refund is made by
+    hand in Stripe (Stripe keeps its ~2.9% + $0.30 fee, plus ~1.5% on foreign cards).
+  - Known limit: cancelling while the card is still held releases the whole held amount, even if
+    the cancellation policy would keep some.
+  - Not finished or closed the page: the trip page (and the app's trip screen) shows "Pay $X by
+    card". The admin shows "Solicitud nueva · tarjeta retenida" and the chip "Tarjeta retenida".
+  - Code: `src/lib/stripePayments.ts` (Stripe calls), `src/lib/cardHold.ts` (rules, tested by
+    `npm run test:card-holds`), webhook `/api/stripe/webhook`. Env: `STRIPE_SECRET_KEY`,
+    `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET` (live only). Where they aren't
+    set (production until the LLC is ready), the old behaviour stays: the team sends a link, and
+    the app's pre-launch test checkout works.
+  - Stripe **test mode** payments are saved with provider `test` (no real money, "PRUEBA" chip,
+    left out of the money report).
 - `cash_driver` — **pay the driver in cash + a cash booking fee** of 10% of the ride / day-tour
   price (after the season multiplier, rounded to the cent). Rides and 1-day tours.
   The fee is `pricing_settings.cash_fee_bps` (1000 = 10%, allowed 0–50%), edited at
@@ -1305,7 +1323,7 @@ Decided by Jorge 2026-11-08 (replaces the 100% / 20% deposit rule):
   records what was received.
 - `deposit_20` is retired; old bookings keep it, and old carts / open tabs sending it are
   treated as `full_100`.
-- Green Pay calls and webhook verification happen **only on the server** (Next.js route handlers).
+- Stripe calls and webhook verification happen **only on the server** (Next.js route handlers).
   Card data never touches our servers or database.
 
 ### 6.5 Driving-time realism
@@ -1607,7 +1625,7 @@ and `season_for_date(date)` returns the season for a travel date.
   base for the whole vehicle), both_ways (default true), updated_at; one row per pair and class.
   Public read, admin write. Loaded by `getCatalog()` as `pinnedPrices`. A new town must be added to
   its two town checks, as for `hub_pricing`.
-- `payments` — id, booking_id, provider (`greenpay`), provider_ref, amount, type (`deposit` | `balance` | `full`), status, raw_payload jsonb, created_at
+- `payments` — id, booking_id, provider (`stripe` | `test`; `greenpay` never used), provider_ref (Stripe: the PaymentIntent id `pi_…`, one row per booking per payment), amount, type (`deposit` | `balance` | `full`), status (`authorized` = card held · `succeeded` · `released` · `pending` | `failed` | `refunded`), raw_payload jsonb, created_at. `bookings.amount_held` = what is held on the card now (migration 0061)
 
 ### 7.7 Row Level Security
 - **profiles:** users read their own row and update their name and phone (not role or email);
@@ -1706,7 +1724,7 @@ multi-day trips were retired (§1, §5.5) and are not on the roadmap.
 | **2a. Next.js foundation** | Next.js + TS + Tailwind scaffold; rebuild storefront from the prototype design with catalog data from §5; working cart and WhatsApp buttons | **Done (PR #2)** |
 | **2b. Supabase core** | Schema + RLS from §7, Auth with roles, catalog served from DB, `/admin` behind login, inventory & season pricing manager | **Live** (PRs #7–#9; Supabase connected). All migrations through 0016 applied; since 2026-11-09 new ones run automatically after a merge (`.github/workflows/db-migrations.yml`) |
 | **2c. Driver KYC vault** | Driver sign-up, document upload, admin approval, 30-day expiry alerts | **Built (PRs #12–#14): `/driver` portal with several vehicles, `/admin/drivers` vault** |
-| **2d. Checkout** | Part 1: trip requests saved online (server re-prices every item, guest name/email/WhatsApp, booking refs) + `/admin/bookings` dispatch (status, driver + vehicle, amount received, internal notes). Part 2: Green Pay (online in full; cash to the driver + 10% fee is built, 2026-11-08), webhooks, confirmation emails | **Part 1 built (PR #15)**; payment options built; Green Pay needs credentials |
+| **2d. Checkout** | Part 1: trip requests saved online (server re-prices every item, guest name/email/WhatsApp, booking refs) + `/admin/bookings` dispatch (status, driver + vehicle, amount received, internal notes). Part 2: card payment (Stripe, held then charged, 2026-11-22; cash to the driver + 10% fee is built, 2026-11-08), webhooks, confirmation emails | **Part 1 built (PR #15)**; payment options built; Stripe built in test mode, live keys need the LLC |
 | **3. Job board & GPS** | Driver job board with fixed payouts (replaces public bidding); driver on-duty GPS broadcast to admin Leaflet map | **Job board built 2026-11-09** (`/driver/jobs`, migration 0017): the team posts a booking as "Open for drivers", drivers send offers (suggested payout or 70–130% of it), the team accepts one on the booking page, where offers are ranked (same-day return trip first, then the driver's rating — travellers are emailed to rate 1–5 stars from their trip page when a trip is marked completed, a comment counts double, `driver_reviews` + `drivers.rating_avg/rating_count`, migration 0019 — then drivers based near the pickup — `drivers.home_hub`, migration 0018 — then price, then fewer trips; `src/lib/matching.ts`) and refresh live; drivers never see the client's price. Drivers see "Return trip" / "Starts in your area" badges on the job board. Rides sent in "Driver bids" mode with an offer of 70%+ of the fixed price go to the board automatically; approved drivers are emailed each new job (`src/lib/jobAlerts.ts`) and the traveller is emailed when an offer is accepted. Drivers mark their own trips **Start trip** / **Complete trip** on the trip page (`driver_set_trip_status()`, migration 0024; from 3 h before pickup), and completing one asks the traveller for a rating at once (`src/lib/reviewRequest.ts`). Settlements (migration 0025): `/admin/payouts` lists completed, unsettled trips per driver (online: pay the payout; cash: the driver collected price + fee and owes the difference) with "Mark settled" (`bookings.driver_settled_at`); drivers see `/driver/earnings` and, on cash trips, how much to collect (`my_trips().cash_to_collect`, the one case where a driver sees the client's price). Push notifications come with the driver app (Phase 5); email today. GPS planned |
 | **4. Chat & CRM** | Tri-party trip chat (traveller via private trip link, assigned driver, team) with Resend email notifications; HubSpot sync; SMS / WhatsApp Business API | **Chat built (PR #17)**, polling every 8 s; **privacy round 2026-11-10** (§4.5): traveller ↔ driver with the team reading, contact details hidden and flagged, pushes, batched unread email, read-only 48 h after the trip; HubSpot and SMS planned |
 | **5. Mobile apps** | Driver app (GPS, push notifications, camera) first, then Client app, for App Store / Google Play; plan in §11 | **Required before launch (Jorge, 2026-11-09).** Groundwork started: `device_tokens` + Expo push sender (migration 0026, `src/lib/push.ts`), pushes for new jobs and accepted offers. Driver flows already exist as database functions the app can call directly (`driver_jobs`, `my_trips`, `offer_job`, `driver_set_trip_status`, `register_device`). `/api/v1` (2026-11-09) covers what the server must do for the apps: driver offers, withdraw, trip start/complete and trip chat, each calling the same server action as the website; the apps send their Supabase session as a bearer token (`bearerToken()` in `src/lib/supabase/server.ts`). **Driver app first version built 2026-11-09 in `apps/driver/`** (Expo SDK 58, its own project, ignored by Vercel; see its README): email-code sign-in, jobs and offers, trips with start/complete, navigation and chat, earnings, profile, push. **Location sharing built 2026-11-09 (migration 0028):** with the driver's consent in the app (`drivers.location_consent_at`), the phone reports its position from 3 h before a pickup until the trip is completed, in the background too; `report_location()` refuses anything outside that window, only the latest position is kept (`driver_locations`), the team follows trips at `/admin/live`, and the travellers on that booking see it on their trip page and in their app (Jorge, 2026-11-09; the driver's consent text says so). **Driver steps and lateness (migration 0029):** "I'm on my way" (`bookings.en_route_at`, from 6 h before pickup; opens the tracking window and emails the traveller) → "Client picked up" → "Trip ended" (erases the position, closes the window). Before the pickup the app asks `/api/v1/driver/eta` every 5 minutes; the server estimates arrival from its stored position with Google live traffic (`src/lib/eta.ts`, every 5 min in the last hour, 10 before), shows it on `/admin/live`, and emails the team once if the driver would be more than 20 minutes late (`bookings.late_alert_at`). A GitHub Action (`eta-check.yml`, every 5 minutes, `CRON_SECRET`) runs the same check for every upcoming pickup via `/api/cron/eta`, so a driver who is parked, offline or never opened the app is still caught; with no position at all 60 minutes before pickup the team gets a "no driver location" alert. **Documents in the app (2026-11-09):** details, document photos by camera, vehicles, vehicle documents and photos, renewals (`apps/driver/src/screens/Documents.tsx`; routes `/api/v1/driver/details|profile|vehicles|vehicles/save|documents`). A new driver can do everything from the phone: the first sign-in creates the account, `/api/v1/driver/apply` starts the application, and documents can be photos or PDFs. **Calendar and help (migration 0032):** drivers block days in a calendar (`driver_unavailable`, `set_unavailable()`): no jobs shown, no offers, no job alerts that day, and the team sees "unavailable that day" when assigning; a Help screen has driver FAQs and support by WhatsApp and email (`/api/v1/support`). **Driver app layout (2026-11-10, Jorge approved the mockup):** the bottom tabs became a side menu (☰, `apps/driver/src/nav.tsx`, plain React Native Modal + Animated, no navigation library): profile card (name, "Independent driver" or the application status, ★ rating), Upcoming trips (the home screen), Offers (gold count of open jobs), Availability (the calendar), Earnings, Documents, My account, then Help, the language switch and Sign out. Trips are cards with a big date block, vehicle class, small icons (airport, stops, child seat; gold = needs attention: Drake Bay boat, Gulf of Nicoya ferry, cash to collect), the route, a countdown and the driver's payout; Upcoming / Today / Past views. The trip screen shows the route with each stop's time there, the travellers' requests, "You receive", Waze and a WhatsApp button to our team (never to the client), and the next step. First build installed on Jorge's Android phone 2026-11-09 (sign-in screen reached). During development the apps are private test builds under La Familia Mágica's store accounts; they are published publicly only under the new Costa Rica Private Transfers company. **Traveller app first version built 2026-11-09 in `apps/client/`** ("CR Transfers", `com.costaricaprivatetransfers.app`): no account needed (Jorge, 2026-11-09): the app opens on "Plan a trip" with prices for anyone; sending a request asks for name, WhatsApp and email and confirms the email with a 6-digit code (Supabase email OTP, which signs them in), and "Already booked?" in My trips / Account uses the same code to see trips on another phone; trips found by the booking email (`GET /api/v1/client/trips`, `src/lib/travellerTrips.ts`), driver and car, chat and rating with the trip's private code, "Plan a trip" opens the website, pushes for confirmed / on the way / rate (`sendPushToEmail`). Booking in the app (2026-11-09): rides (place search, vehicle, stops) and day tours priced by the server (`src/lib/appQuote.ts`, `/api/v1/client/quote|tours`), sent through `/api/v1/client/trip-request`; the app offers the same ride options as the website (fixed price only since 2026-11-11, driver's language, child seats, Wi-Fi, stroller, pet, message for the driver, "from $X per person", the ride promises, and the tours' region filter and Smart En-Route Transfer), with a **test checkout** (`/api/v1/client/pay-test`, `payments.provider = 'test'`, migration 0030) that switches itself off when the site is made indexable for launch. Travellers see the driver's position and arrival estimate for their own booking while the driver is sharing it (app and trip page). **Traveller app v2 (2026-11-10, Jorge approved an Airbnb-style look and a proper navigation rebuild):** React Navigation native stacks with bottom tabs Explore / My trips / Account (native slide transitions, iPhone swipe-back, slide-up panels for place search, pickup time, tour date, the email code and the rating); a new Explore home ("Where to?", popular rides with "from $X" priced by the same quote API and cached on the phone for 12 h, day tours, the four true promises, "Your next trip"); booking as five steps (Where → When & who → Your ride → Make it yours → Review & send) sharing one booking store so going back keeps every choice and the price is only re-asked when route, date, travellers or stops change; Plus Jakarta Sans throughout; the "CR route" logo and new app icons; an image system (`apps/client/src/images.ts`) with designed placeholders until our own photos are added. Same API calls and payloads as v1. **Rides rebuilt map-first (2026-11-11, Jorge approved the mockup):** the Explore tab has a "Rides \| Day tours" switch (the phone remembers the side); booking a ride is places → vehicle → "Your ride" (travellers and bags, flight number, stops, driver and extras, payment, contact details, "Request ride"), with the date, stops and extras as slide-up panels; a ride can't be sent until the traveller has opened the date panel once. Still book-ahead: our team confirms the driver. **No map while booking (Jorge, 2026-11-11: "it doesn't really provide value to the customer"):** Rides is a scrolling booking start (headline, the "From / To" card with a "Date" button, popular rides as picture cards with drive time and "from" price, the short "Every ride includes" list of the four promises, "Your next trip" when signed in); "Choose your vehicle" opens with a route summary card (pickup → drop-off, the drive time, date/time and travellers) instead of the map; the "Set on map" picker is gone (the place search covers it). The map appears only on the trip page: once a driver is assigned and the ride is close, the trip page leads with the map (driver's position, minutes to arrival, "Message driver", "Call our team"; the driver's phone is never shown), like Uber. One map component (`apps/client/src/MapView.tsx`, used only there): Apple Maps on iPhone, Google Maps on Android **only when the build has a key** (EAS variable `EXPO_PUBLIC_GOOGLE_MAPS_KEY`, read in `apps/client/app.config.ts`; Jorge still has to create it), otherwise the app's own drawn map. The line on the map is straight between the two ends (no directions API); no server, pricing or database change. Day tours screens unchanged. Not yet: real card payments, in-app account deletion. Store accounts (§11.6) are the long pole |
@@ -1783,7 +1801,7 @@ multi-day trips were retired (§1, §5.5) and are not on the roadmap.
     travellers and "Costa Rica Private Transfers Partner" for drivers, built from one codebase (§11.1).
 14. **Store publisher:** plan (Jorge, 2026-10-14): a **new Costa Rican S.A.** for Costa Rica Private Transfers
     (legal name to confirm, ideally "Costa Rica Private Transfers S.A."). The same company should hold the D-U-N-S
-    number, Apple and Google accounts, Green Pay merchant account, bank account and domain. It must
+    number, Apple and Google accounts, Stripe account, bank account and domain. **Update (Jorge, 2026-11-19/20):** a **US LLC formed through Doola** instead of the S.A.; legal name and state to confirm. It must
     not be Jorge personally or Costa Rica Travel Planner, or the store would show that name as the
     seller (brand separation, §10). Check ICT / tax registration needs with the notary.
 15. **Account deletion and data retention.** Both stores require users to be able to delete their
@@ -1947,7 +1965,7 @@ Rules for every AI:
   and proof of insurance. Show the ICT permit as a per-driver badge, never as a blanket claim.
 - Reflect real Costa Rican operations: ICT permits, SINAC park permits and timed entries, Sierpe
   boat logistics, Marchamo / Dekra / INS compliance, realistic drive times, WhatsApp-first sales.
-- Never commit secrets. Supabase service-role keys, the Google Maps key and Green Pay credentials
+- Never commit secrets. Supabase service-role keys, the Google Maps key and the Stripe keys
   live only in Vercel environment variables.
 
 ---
@@ -2013,7 +2031,7 @@ preview before any app code is written. Vercel must keep building only the websi
   The service-role key never goes into an app.
 - **New API routes for the rest.** Today the website uses Next.js server actions
   (`src/app/*/actions.ts`), which apps cannot call. Anything the server must do (re-price a
-  trip request, write a booking, send and read trip chat, bid rules, Green Pay) gets a versioned route handler under
+  trip request, write a booking, send and read trip chat, bid rules, card payment) gets a versioned route handler under
   `/api/v1/…`, sharing its logic with the server action. The server always re-prices; a price
   shown in an app is display only.
 - **Login:** the same email + 6-digit code as the website. If Google sign-in is ever added to
@@ -2034,7 +2052,7 @@ preview before any app code is written. Vercel must keep building only the websi
 
 Transfers and tours are real-world services used outside the app, so Apple and Google do
 **not** require their in-app purchase systems (no 15–30% store fee). The apps open the same
-Green Pay checkout as the website in an in-app browser. Card data never touches the app, our
+Stripe checkout as the website in an in-app browser (`/api/v1/client/pay-start`). Card data never touches the app, our
 server or the database (§6.4).
 
 ### 11.6 Store accounts and requirements (Jorge's to-do)

@@ -104,7 +104,7 @@ export default async function DispatchPage({ searchParams }: { searchParams: Pro
     supabase
       .from("bookings")
       .select(
-        "id, booking_ref, status, service_type, catalog_item_id, scheduled_at, origin, destination, origin_coords, destination_coords, sightseeing_stops, drive_minutes, vehicle_class, passenger_count, assigned_driver_id, assigned_vehicle_id, driver_payout, posting_closes_at, preferences, total_price, cash_fee, amount_paid, payment_mode, trips(guest_name), bids(id, driver_id, vehicle_id, bid_amount, status)",
+        "id, booking_ref, status, service_type, catalog_item_id, scheduled_at, origin, destination, origin_coords, destination_coords, sightseeing_stops, drive_minutes, vehicle_class, passenger_count, assigned_driver_id, assigned_vehicle_id, driver_payout, posting_closes_at, preferences, total_price, cash_fee, amount_paid, amount_held, payment_mode, trips(guest_name), bids(id, driver_id, vehicle_id, bid_amount, status)",
       )
       .neq("status", "cancelled")
       .gte("scheduled_at", costaRicaTimestamp(fromDay, "00:00"))

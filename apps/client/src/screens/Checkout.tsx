@@ -9,6 +9,7 @@ import { usd } from "../format";
 import { success } from "../haptics";
 import { useT } from "../i18n";
 import { useNav, type RootParams } from "../nav";
+import { payByCard } from "../pay";
 import { useSession } from "../session";
 import { C, R, S, SP, T } from "../theme";
 import { Bar, Btn, Card, IconLine, Text } from "../ui";
@@ -49,11 +50,11 @@ function SuccessMark({ done }: { done: boolean }) {
 }
 
 /**
- * After a request is sent. Paying online uses a TEST checkout for now (Jorge,
- * 2026-11-09): no card is asked for and no money moves; the server records the
- * booking as paid with a "test" payment so the whole flow can be tried. It is
- * replaced by the real card checkout before launch, and the server refuses it
- * once the site is live.
+ * After a request is sent. Paying online:
+ * - card checkout (Stripe, 2026-11-22): "Pay by card" opens Stripe's page; the card is held and
+ *   charged once the driver is confirmed. Back in the app, the trips reload to see it.
+ * - otherwise the TEST checkout (Jorge, 2026-11-09): no card, no money; the server records a
+ *   "test" payment so the whole flow can be tried. The server refuses it once the site is live.
  */
 export function Checkout() {
   const { t } = useT();
@@ -61,10 +62,12 @@ export function Checkout() {
   const insets = useSafeAreaInsets();
   const demo = useDemo();
   const { reload } = useSession();
-  const { tripToken, payOnline, totalCents, testCheckout } = useRoute<RouteProp<RootParams, "Sent">>().params;
+  const { tripToken, payOnline, totalCents, testCheckout, cardCheckout, checkoutUrl } = useRoute<RouteProp<RootParams, "Sent">>().params;
+  const { trips } = useSession();
   const [busy, setBusy] = useState(false);
   const [paid, setPaid] = useState(Boolean(demo?.paid));
   const [error, setError] = useState("");
+  const opened = useRef(false);
 
   async function pay() {
     if (!tripToken) return;
@@ -77,12 +80,38 @@ export function Checkout() {
     setPaid(true);
   }
 
+  /** Stripe's page; back in the app, check whether the card is now held (or charged). */
+  async function payCard() {
+    if (!tripToken) return;
+    setBusy(true);
+    setError("");
+    // The page opened with the request can only be used once; after that ask for a new one.
+    const err = await payByCard(tripToken, opened.current ? null : checkoutUrl);
+    opened.current = true;
+    if (err) {
+      setBusy(false);
+      return setError(t(err, "No pudimos abrir la página de pago."));
+    }
+    await reload();
+    setBusy(false);
+  }
+  // Paid or held once the trips reload: every online booking of this trip has nothing left to pay.
+  const trip = trips.find((x) => x.token === tripToken);
+  const cardDone = Boolean(cardCheckout && trip && trip.bookings.length > 0 && trip.bookings.every((b) => !b.payByCard));
+  const cardHeld = cardDone && Boolean(trip?.bookings.some((b) => (b.heldUsd ?? 0) > 0));
+  useEffect(() => {
+    if (cardDone && !paid) {
+      success();
+      setPaid(true);
+    }
+  }, [cardDone, paid]);
+
   function done() {
     void reload();
     nav.reset({ index: 0, routes: [{ name: "Tabs", params: { screen: "Trips" } }] });
   }
 
-  const canPayNow = payOnline && !paid && testCheckout && Boolean(tripToken);
+  const canPayNow = payOnline && !paid && (testCheckout || Boolean(cardCheckout)) && Boolean(tripToken);
   return (
     <ScrollView style={S.screen} contentContainerStyle={{ paddingTop: insets.top + SP.xl, paddingHorizontal: SP.page, paddingBottom: insets.bottom + SP.xl, gap: SP.lg }} showsVerticalScrollIndicator={false}>
       <Bar style="dark" />
@@ -91,7 +120,15 @@ export function Checkout() {
         <Text accessibilityRole="header" style={[T.display, { textAlign: "center" }]}>
           {paid ? t("Payment received", "Pago recibido") : t("Request sent", "Solicitud enviada")}
         </Text>
-        <Text style={[T.body, { textAlign: "center" }]}>{paid ? t("Thank you! Your trip is paid.", "¡Gracias! Su viaje está pagado.") : t("We got your request. Nothing has been charged.", "Recibimos su solicitud. No se ha cobrado nada.")}</Text>
+        <Text style={[T.body, { textAlign: "center" }]}>
+          {paid
+            ? cardHeld
+              ? t("Thank you! Your card is held and charged once your driver is confirmed.", "¡Gracias! Su tarjeta queda retenida y se cobra cuando su conductor esté confirmado.")
+              : t("Thank you! Your trip is paid.", "¡Gracias! Su viaje está pagado.")
+            : cardCheckout && payOnline
+              ? t("Your request is saved. One more step: pay by card to secure it.", "Su solicitud está guardada. Un paso más: pague con tarjeta para asegurarla.")
+              : t("We got your request. Nothing has been charged.", "Recibimos su solicitud. No se ha cobrado nada.")}
+        </Text>
       </View>
       <Card>
         <Text style={T.label}>{t("What happens next", "Qué sigue")}</Text>
@@ -106,7 +143,23 @@ export function Checkout() {
             <Text style={T.bodyStrong}>{t("To pay online", "Por pagar en línea")}</Text>
             <Text style={T.money}>{usd(totalCents / 100)}</Text>
           </View>
-          {testCheckout && tripToken ? (
+          {cardCheckout && tripToken ? (
+            <>
+              <IconLine
+                icon="lock-closed-outline"
+                text={t(
+                  "On Stripe's secure page. The amount is held first and charged once your driver is confirmed (6 days after booking at the latest).",
+                  "En la página segura de Stripe. El monto primero queda retenido y se cobra cuando su conductor esté confirmado (a más tardar 6 días después de reservar).",
+                )}
+              />
+              <Btn label={t("Pay " + usd(totalCents / 100) + " by card", "Pagar " + usd(totalCents / 100) + " con tarjeta")} icon="card-outline" onPress={() => void payCard()} busy={busy} />
+              {error ? (
+                <Text accessibilityRole="alert" style={S.error}>
+                  {error}
+                </Text>
+              ) : null}
+            </>
+          ) : testCheckout && tripToken ? (
             <>
               <View style={{ backgroundColor: C.amberSoft, borderRadius: R.control, padding: 14, gap: 2 }}>
                 <Text style={{ color: C.amber, fontWeight: "700", fontSize: 15 }}>{t("Test checkout", "Pago de prueba")}</Text>

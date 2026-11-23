@@ -29,6 +29,8 @@ import {
   tripRequestEmail,
 } from "@/lib/travellerMessages";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { requestOrigin } from "@/lib/requestOrigin";
+import { STRIPE_ENABLED, startTripCheckout } from "@/lib/stripePayments";
 import {
   MAX_TRIP_ITEMS,
   itemTime,
@@ -73,7 +75,15 @@ export interface TripRequestInput {
 
 export type TripRequestResult =
   /** tripToken: the code in the traveller's private trip-page link. */
-  | { ok: true; refs: string[]; tripToken: string | null; /** Booking ids, for a booking entered by the team. */ ids?: string[] }
+  | {
+      ok: true;
+      refs: string[];
+      tripToken: string | null;
+      /** Booking ids, for a booking entered by the team. */
+      ids?: string[];
+      /** Stripe's payment page, when the traveller pays online and Stripe is set up: go there next. */
+      checkoutUrl?: string;
+    }
   | {
       ok: false;
       error: string;
@@ -398,7 +408,7 @@ async function saveTripRequest(input: TripRequestInput, team: TeamEntry | null):
           guestName: name,
           refs,
           itemLines: lang === "en" ? itemLines : itemLinesIn(lang),
-          paymentLine: requestPaymentLine(lang, { cashCents, onlineCents, feeTotalCents, feePercent: formatBpsPercent(feeBps) }),
+          paymentLine: requestPaymentLine(lang, { cashCents, onlineCents, feeTotalCents, feePercent: formatBpsPercent(feeBps), card: STRIPE_ENABLED }),
           promoLine: promo ? requestPromoLine(lang, promo.code, promo.totalCents) : undefined,
           tripUrl,
           hasRide: priced.some((p) => p.spec.kind === "transfer"),
@@ -439,7 +449,9 @@ async function saveTripRequest(input: TripRequestInput, team: TeamEntry | null):
             `${name} (${email}, ${phone}) sent ${refs.length} item${refs.length > 1 ? "s" : ""} worth $${total.toFixed(2)}.`,
             cashCents > 0
               ? `Pays cash to the driver: ${money(cashCents)} (cash fee ${money(feeTotalCents)})${onlineCents > 0 ? `; online in full: ${money(onlineCents)}` : ""}.`
-              : `Pays online in full: ${money(onlineCents)} (send the payment link once confirmed).`,
+              : STRIPE_ENABLED
+                ? `Pays online in full: ${money(onlineCents)} by card on Stripe (held, charged once every ride has a driver or on day 6).`
+                : `Pays online in full: ${money(onlineCents)} (send the payment link once confirmed).`,
             promo
               ? `Promo code ${promo.code}: ${money(promo.totalCents)} off (half from our share, half from the driver's payout).`
               : "",
@@ -451,7 +463,14 @@ async function saveTripRequest(input: TripRequestInput, team: TeamEntry | null):
         } : null,
       });
     });
-    return { ok: true, refs, tripToken, ...(team ? { ids } : {}) };
+    // Card payment (Stripe, src/lib/stripePayments.ts): a traveller who chose to pay online goes
+    // straight to Stripe's page. If it can't open, the trip is still saved and its page has "Pay".
+    let checkoutUrl: string | undefined;
+    if (!team && STRIPE_ENABLED && onlineCents > 0) {
+      const pay = await startTripCheckout(tripToken, await requestOrigin());
+      if (pay.ok) checkoutUrl = pay.url;
+    }
+    return { ok: true, refs, tripToken, ...(team ? { ids } : {}), ...(checkoutUrl ? { checkoutUrl } : {}) };
   } catch (e) {
     console.error("[trip request]", e);
     return { ok: false, error: "We couldn't save your request. Please try again or send it on WhatsApp." };

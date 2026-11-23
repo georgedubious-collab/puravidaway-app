@@ -65,6 +65,8 @@ export interface BookingRow {
   total_price: number;
   currency: string;
   amount_paid: number;
+  /** Held on the traveller's card by Stripe, not charged yet (src/lib/stripePayments.ts). Older rows: 0. */
+  amount_held?: number | string | null;
   /** deposit_20: retired 2026-11-08, only on older requests. */
   payment_mode: "full_100" | "cash_driver" | "deposit_20" | null;
   /** Cash booking fee (USD) on cash_driver bookings; 0 otherwise. Missing before migration 0012. */

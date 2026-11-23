@@ -71,8 +71,25 @@ export function requestItemLine(lang: PublicLang, i: RequestItem): string {
 
 export function requestPaymentLine(
   lang: PublicLang,
-  p: { cashCents: number; onlineCents: number; feeTotalCents: number; feePercent: string },
+  p: { cashCents: number; onlineCents: number; feeTotalCents: number; feePercent: string; card?: boolean },
 ): string {
+  // card: Stripe is on (src/lib/stripePayments.ts): the online part is paid by card on the last
+  // step, held, and charged once the driver is confirmed.
+  if (p.card) {
+    const online = t(
+      lang,
+      `${money(p.onlineCents)} by card on our secure payment page. The amount is held first and charged once your driver is confirmed (6 days after booking at the latest). If you didn't finish paying, use "Pay" on your trip page`,
+      `${money(p.onlineCents)} con tarjeta en nuestra página de pago segura. El monto primero queda retenido y se cobra cuando su conductor esté confirmado (a más tardar 6 días después de reservar). Si no terminó el pago, use «Pagar» en la página de su viaje`,
+    );
+    if (p.cashCents > 0) {
+      return t(
+        lang,
+        `Payment: cash to your driver, ${money(p.cashCents)} (includes a ${p.feePercent} cash booking fee of ${money(p.feeTotalCents)})${p.onlineCents > 0 ? `; ${online}` : ""}.`,
+        `Pago: efectivo al conductor, ${money(p.cashCents)} (incluye un cargo por reserva en efectivo del ${p.feePercent}, de ${money(p.feeTotalCents)})${p.onlineCents > 0 ? `; ${online}` : ""}.`,
+      );
+    }
+    return t(lang, `Payment: online in full, ${online}.`, `Pago: en línea, pago completo, ${online}.`);
+  }
   if (p.cashCents > 0) {
     return t(
       lang,
