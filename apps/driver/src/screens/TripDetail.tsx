@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Linking from "expo-linking";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { Keyboard, Platform, Pressable, ScrollView, Text, TextInput, View, type ScrollViewInstance } from "react-native";
 import { api } from "../api";
 import { SITE_URL } from "../config";
 import { crTime, plural, usd, vehicleLabel } from "../format";
@@ -90,6 +90,19 @@ export function TripDetail({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  // The chat is at the bottom: while the keyboard is open, make room under it and scroll down,
+  // so the driver sees what they type (Jorge, 2026-11-22: only "Voy en camino" was visible).
+  const scroll = useRef<ScrollViewInstance>(null);
+  const [keyboard, setKeyboard] = useState(0);
+  useEffect(() => {
+    const show = Keyboard.addListener(Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow", (e) => setKeyboard(e.endCoordinates.height));
+    const hide = Keyboard.addListener(Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide", () => setKeyboard(0));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
+  const toChat = useCallback(() => setTimeout(() => scroll.current?.scrollToEnd({ animated: true }), 250), []);
   const [teamWhatsapp, setTeamWhatsapp] = useState(demoSupport ?? "");
   const { t, lang } = useT();
   const pickup = trip.service_type === "transfer" ? target(trip.origin, trip.origin_coords) : null;
@@ -147,7 +160,15 @@ export function TripDetail({
   if (prefs.electric) asked.push(t("Vehículo eléctrico, si hay disponible", "Electric vehicle, if available"));
 
   return (
-    <ScrollView style={S.screen} contentContainerStyle={{ padding: 12, paddingBottom: 32, gap: 10 }} keyboardShouldPersistTaps="handled">
+    <ScrollView
+      ref={scroll}
+      style={S.screen}
+      contentContainerStyle={{ padding: 12, paddingBottom: 32 + keyboard, gap: 10 }}
+      keyboardShouldPersistTaps="handled"
+      onContentSizeChange={() => {
+        if (keyboard) toChat();
+      }}
+    >
       <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
         <Badge text={stage.text} tone={stage.tone} />
         {vehicle ? <InfoChip icon="car-outline" text={vehicle} /> : null}
@@ -330,7 +351,7 @@ export function TripDetail({
       {active ? <Btn label={t(...next.button)} onPress={() => void step(next.id)} busy={busy} color={C.emerald} /> : null}
       {error ? <Text style={S.error}>{error}</Text> : null}
 
-      <Chat bookingId={trip.id} bookingRef={trip.booking_ref} demo={demoChat} demoState={demoChatState} support={teamWhatsapp} />
+      <Chat bookingId={trip.id} bookingRef={trip.booking_ref} demo={demoChat} demoState={demoChatState} support={teamWhatsapp} onTyping={toChat} />
     </ScrollView>
   );
 }
@@ -461,12 +482,15 @@ function Chat({
   demo,
   demoState,
   support,
+  onTyping,
 }: {
   bookingId: string;
   bookingRef: string;
   demo?: ChatMessage[];
   demoState?: { closed?: boolean; notice?: boolean; draft?: string };
   support: string;
+  /** The message box got the focus: the screen scrolls it into view above the keyboard. */
+  onTyping?: () => void;
 }) {
   const { t, lang } = useT();
   const [messages, setMessages] = useState<ChatMessage[]>(demo ?? []);
@@ -566,6 +590,7 @@ function Chat({
               accessibilityLabel={t("Mensaje", "Message")}
               value={text}
               onChangeText={setText}
+              onFocus={onTyping}
               placeholder={t("Escriba un mensaje", "Write a message")}
               placeholderTextColor={C.faint}
               multiline

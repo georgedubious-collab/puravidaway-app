@@ -1,0 +1,1 @@
+- 2026-11-22 — Claude — Driver app: the trip chat stays visible while typing (the screen makes room for the keyboard and scrolls to the message box; before, only "Voy en camino" showed). On the job board, a car that fits but is on hold for a document check now says "Su vehículo está en revisión…" instead of "no tiene espacio".
