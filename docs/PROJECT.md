@@ -1295,8 +1295,8 @@ show as "client's offer" in admin and like any other booking on the trip page, i
 ### 6.4 Payments
 Decided by Jorge 2026-11-08 (replaces the 100% / 20% deposit rule):
 - `full_100` — **pay online in full, by card (Stripe; Jorge, 2026-11-22: "pay at booking", with a hold).**
-  The last step says "Continue to secure payment" and opens Stripe's page (Stripe Checkout, card +
-  Apple Pay / Google Pay). The card is only **held** (authorised), not charged:
+  The last step says "Continue to secure payment" and opens Stripe's page (Stripe Checkout, **cards only**,
+  which includes Apple Pay / Google Pay; Jorge, 2026-11-22). The card is only **held** (authorised), not charged:
   - charged automatically once **every ride on that payment has a driver** (assigning in the admin
     or accepting an offer), or **6 days after booking at the latest** even without a driver (Stripe
     keeps a hold for 7 days); an hourly job (`/api/cron/card-holds`) checks the deadline;

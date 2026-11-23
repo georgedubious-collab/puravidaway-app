@@ -61,6 +61,10 @@ export async function startTripCheckout(tripToken: string, origin: string): Prom
   try {
     const session = await s.checkout.sessions.create({
       mode: "payment",
+      // Cards only (Jorge, 2026-11-22): Apple Pay and Google Pay come with "card". Bank transfers,
+      // Klarna, Cash App, Amazon Pay etc. stay off even if switched on in Stripe's dashboard: they
+      // don't all support a card hold, are US-only, or cost more.
+      allowed_payment_method_types: ["card"],
       locale: es ? "es" : "en",
       customer_email: trip.guest_email ?? undefined,
       line_items: due.map(({ b, cents }) => {
