@@ -1,6 +1,7 @@
 import { submitTripRequest, type TripRequestInput } from "@/app/trip/actions";
 import { parsePublicLang } from "@/lib/publicLang";
 import { localizeServerMessage } from "@/lib/serverMessagesEs";
+import { STRIPE_ENABLED } from "@/lib/stripePayments";
 import { TEST_CHECKOUT_ENABLED } from "@/lib/testCheckout";
 import { json, signedIn } from "../../shared";
 
@@ -33,6 +34,9 @@ export async function POST(req: Request) {
     promoDiscountCents: typeof b.promoDiscountCents === "number" ? b.promoDiscountCents : undefined,
   });
   // The app shows the error as it comes: in the app's language when we have a translation.
-  if (!res.ok) return json({ ...res, error: localizeServerMessage(res.error, lang), testCheckout: TEST_CHECKOUT_ENABLED }, 400);
-  return json({ ...res, testCheckout: TEST_CHECKOUT_ENABLED }, 200);
+  // cardCheckout: the app opens Stripe's page (/client/pay-start); testCheckout: the pre-launch
+  // test button (/client/pay-test). Never both.
+  const flags = { testCheckout: TEST_CHECKOUT_ENABLED, cardCheckout: STRIPE_ENABLED };
+  if (!res.ok) return json({ ...res, error: localizeServerMessage(res.error, lang), ...flags }, 400);
+  return json({ ...res, ...flags }, 200);
 }

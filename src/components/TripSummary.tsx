@@ -20,6 +20,9 @@ import { localizedHref, type PublicLang } from "@/lib/publicLang";
 import { localizeServerMessage } from "@/lib/serverMessagesEs";
 import { TOUR_PICKUP_MAX, cleanPickupPlace, pickupPlaceProblem } from "@/lib/tripRequest";
 import { useCatalog } from "./CatalogContext";
+
+/** Stripe is set up here (src/lib/stripePayments.ts): "pay online" means card on the next step. */
+const CARD_CHECKOUT = Boolean(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
 import { usePublicLang, useT } from "./PublicLangContext";
 
 export interface TripContact {
@@ -182,6 +185,8 @@ export function TripSummary({ trip }: { trip: TripState }) {
         // Totals and codes only: never the contact details, the references or the trip link.
         trackLead(items, totals.totalCents, mode, promo?.code);
         trip.onSent(res.refs, res.tripToken);
+        // Paying online with Stripe: on to Stripe's page (the trip is already saved).
+        if (res.checkoutUrl) window.location.assign(res.checkoutUrl);
       } else {
         if ("repriced" in res) trip.onReprice(res.repriced);
         const message = localizeServerMessage(res.error, lang);
@@ -245,10 +250,15 @@ export function TripSummary({ trip }: { trip: TripState }) {
               [
                 "full_100",
                 t("Pay online in full", "Pagar en línea el total"),
-                t(
-                  "We send you a secure payment link once your trip is confirmed.",
-                  "Le enviamos un enlace de pago seguro cuando su viaje esté confirmado.",
-                ),
+                CARD_CHECKOUT
+                  ? t(
+                      "By card on the next step. It is held first and charged once your driver is confirmed (6 days after booking at the latest).",
+                      "Con tarjeta en el siguiente paso. Primero queda retenida y se cobra cuando su conductor esté confirmado (a más tardar 6 días después de reservar).",
+                    )
+                  : t(
+                      "We send you a secure payment link once your trip is confirmed.",
+                      "Le enviamos un enlace de pago seguro cuando su viaje esté confirmado.",
+                    ),
               ],
               [
                 "cash_driver",
@@ -314,7 +324,7 @@ export function TripSummary({ trip }: { trip: TripState }) {
             </div>
             {totals.onlineCents > 0 && (
               <div className="flex items-center justify-between">
-                <span>{t("Online, link sent once confirmed", "En línea, enlace enviado al confirmar")}</span>
+                <span>{CARD_CHECKOUT ? t("Online by card", "En línea con tarjeta") : t("Online, link sent once confirmed", "En línea, enlace enviado al confirmar")}</span>
                 <span className="font-bold">{formatUSD(totals.onlineCents)}</span>
               </div>
             )}
@@ -430,7 +440,12 @@ export function TripSummary({ trip }: { trip: TripState }) {
           disabled={items.length === 0 || pending}
           className="w-full min-h-12 bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold rounded-xl flex items-center justify-center gap-2 disabled:opacity-50"
         >
-          <Send className="w-5 h-5" /> {pending ? t("Sending…", "Enviando…") : t("Send trip request", "Enviar solicitud de viaje")}
+          <Send className="w-5 h-5" />{" "}
+          {pending
+            ? t("Sending…", "Enviando…")
+            : CARD_CHECKOUT && totals.onlineCents > 0
+              ? t("Continue to secure payment", "Continuar al pago seguro")
+              : t("Send trip request", "Enviar solicitud de viaje")}
         </button>
         <p className="text-xs text-slate-500 text-center">
           {t("By sending this request you agree to our", "Al enviar esta solicitud usted acepta nuestros")}{" "}
@@ -439,13 +454,20 @@ export function TripSummary({ trip }: { trip: TripState }) {
           <Link href={localizedHref("/cancellation", lang)} target="_blank" className="inline-flex min-h-11 items-center font-semibold text-emerald-700 underline">{t("Cancellation policy", "la Política de cancelación")}</Link>.
         </p>
         <p className="text-xs text-slate-500 text-center">
-          {t(
-            "Nothing is charged now. Our team confirms availability and your pickup times by email and in your trip chat",
-            "No se cobra nada ahora. Nuestro equipo confirma la disponibilidad y sus horas de recogida por correo y en el chat de su viaje",
-          )}
-          {totals.onlineCents > 0 || items.length === 0
-            ? t(", then sends your secure payment link.", ", y luego le envía su enlace de pago seguro.")
-            : t(". You pay your driver in cash on the day.", ". Usted paga a su conductor en efectivo el día del servicio.")}
+          {CARD_CHECKOUT && totals.onlineCents > 0
+            ? t(
+                "Next you enter your card on Stripe's secure page. The amount is held first and charged once your driver is confirmed, or 6 days after booking at the latest. If we can't serve your trip, we release the hold or refund you in full.",
+                "Luego ingresa su tarjeta en la página segura de Stripe. El monto primero queda retenido y se cobra cuando su conductor esté confirmado, o a más tardar 6 días después de reservar. Si no podemos atender su viaje, liberamos la retención o le devolvemos todo.",
+              )
+            : t(
+                "Nothing is charged now. Our team confirms availability and your pickup times by email and in your trip chat",
+                "No se cobra nada ahora. Nuestro equipo confirma la disponibilidad y sus horas de recogida por correo y en el chat de su viaje",
+              )}
+          {CARD_CHECKOUT && totals.onlineCents > 0
+            ? null
+            : totals.onlineCents > 0 || items.length === 0
+              ? t(", then sends your secure payment link.", ", y luego le envía su enlace de pago seguro.")
+              : t(". You pay your driver in cash on the day.", ". Usted paga a su conductor en efectivo el día del servicio.")}
         </p>
         {items.length > 0 && (
           <a

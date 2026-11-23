@@ -252,6 +252,8 @@ export interface PaidFields {
   total_price?: number | string | null;
   cash_fee?: number | string | null;
   amount_paid?: number | string | null;
+  /** Held on the card by Stripe, not charged yet (src/lib/stripePayments.ts). */
+  amount_held?: number | string | null;
   payment_mode?: string | null;
 }
 
@@ -259,11 +261,22 @@ export interface PaidFields {
  * A new request (pending_payment) whose money is all in: amount received ≥ price + cash fee, the
  * same rule as the "Pagado" payment chip (paymentState). Test checkouts count: they record the
  * amount like a real payment (src/lib/testCheckout.ts) and carry their own "PRUEBA" chip.
+ * A card held by Stripe for the rest counts too (2026-11-22): the money is secured, and it is
+ * charged once the driver is assigned (src/lib/cardHold.ts).
  */
 export function isPaidRequest(status: string, b: PaidFields | null | undefined): boolean {
   if (status !== "pending_payment" || !b || b.total_price == null) return false;
   return (
-    paymentState({ status, total_price: b.total_price, cash_fee: b.cash_fee, amount_paid: b.amount_paid ?? 0, payment_mode: b.payment_mode ?? null }) === "paid"
+    ["paid", "held"].includes(
+      paymentState({
+        status,
+        total_price: b.total_price,
+        cash_fee: b.cash_fee,
+        amount_paid: b.amount_paid ?? 0,
+        amount_held: b.amount_held ?? 0,
+        payment_mode: b.payment_mode ?? null,
+      }),
+    )
   );
 }
 
@@ -272,7 +285,11 @@ export function isPaidRequest(status: string, b: PaidFields | null | undefined):
  * (green) instead of "Esperando pago" (Jorge, 2026-11-13). Team only: travellers' texts unchanged.
  */
 export function statusView(status: string, lang: "es" | "en", b?: PaidFields | null): { label: string; tone: Tone } {
-  if (isPaidRequest(status, b)) return { label: lang === "en" ? "New request · paid" : "Solicitud nueva · pagada", tone: "green" };
+  if (isPaidRequest(status, b)) {
+    // Card held by Stripe, charged once the driver is assigned (src/lib/cardHold.ts).
+    if (Number(b?.amount_held ?? 0) > 0) return { label: lang === "en" ? "New request · card held" : "Solicitud nueva · tarjeta retenida", tone: "green" };
+    return { label: lang === "en" ? "New request · paid" : "Solicitud nueva · pagada", tone: "green" };
+  }
   return { label: statusShort(status, lang), tone: STATUS_TONE[status] ?? "grey" };
 }
 
@@ -282,7 +299,7 @@ export function statusShort(status: string, lang: "es" | "en"): string {
   return s ? s[lang === "en" ? 1 : 0] : status;
 }
 
-export type PaymentState = "paid" | "partial" | "cash" | "due" | "refund" | "none";
+export type PaymentState = "paid" | "held" | "partial" | "cash" | "due" | "refund" | "none";
 
 /**
  * Where the money stands on one booking, from what is stored: amount received vs what the
@@ -294,12 +311,16 @@ export function paymentState(b: {
   total_price: number | string;
   cash_fee?: number | string | null;
   amount_paid: number | string | null;
+  amount_held?: number | string | null;
   payment_mode: string | null;
 }): PaymentState {
   const due = Math.round((Number(b.total_price) + Number(b.cash_fee ?? 0)) * 100);
   const paid = Math.round(Number(b.amount_paid ?? 0) * 100);
+  const held = Math.round(Number(b.amount_held ?? 0) * 100);
   if (b.status === "cancelled") return paid > 0 ? "refund" : "none";
   if (due > 0 && paid >= due) return "paid";
+  // The rest is held on the card (Stripe), charged once the driver is assigned.
+  if (due > 0 && held > 0 && paid + held >= due) return "held";
   if (paid > 0) return "partial";
   if (b.payment_mode === "cash_driver") return "cash";
   return "due";
@@ -307,6 +328,7 @@ export function paymentState(b: {
 
 export const PAYMENT_TONE: Record<PaymentState, Tone> = {
   paid: "green",
+  held: "green",
   partial: "amber",
   cash: "grey",
   due: "orange",
@@ -316,6 +338,7 @@ export const PAYMENT_TONE: Record<PaymentState, Tone> = {
 
 const PAYMENT_LABEL: Record<PaymentState, [string, string]> = {
   paid: ["Pagado", "Paid"],
+  held: ["Tarjeta retenida", "Card held"],
   partial: ["Pago parcial", "Part paid"],
   cash: ["Efectivo al conductor", "Cash to driver"],
   due: ["Pendiente", "Due"],

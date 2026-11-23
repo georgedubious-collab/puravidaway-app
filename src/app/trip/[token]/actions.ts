@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { isLowRating } from "@/lib/automationRules";
 import { TRIP_TOKEN } from "@/lib/bookings";
@@ -9,6 +10,8 @@ import { alertTeamOfLowRating } from "@/lib/lowRatingAlert";
 import { hasContactDetails } from "@/lib/preferences";
 import { parseRating } from "@/lib/reviewReminder";
 import { cleanSignText, signEditable, signTextProblem, SIGN_ERROR_CONTACT } from "@/lib/sign";
+import { requestOrigin } from "@/lib/requestOrigin";
+import { startTripCheckout } from "@/lib/stripePayments";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -107,4 +110,16 @@ export async function saveSign(_prev: FormState, fd: FormData): Promise<FormStat
     if (!saved?.length) throw new InputError("The name sign can't be changed any more: your driver is already on the way.");
     revalidatePath(`/trip/${token}`);
   }, "We couldn't save the name sign. Please try again.");
+}
+
+/**
+ * "Pay" on the trip page: on to Stripe's page for what is still to pay online (the card is held,
+ * src/lib/stripePayments.ts). The private link (token) proves it's the traveller. If the page
+ * can't open, back to the trip page with a message.
+ */
+export async function startTripPayment(fd: FormData): Promise<void> {
+  const token = String(fd.get("token") ?? "");
+  if (!TRIP_TOKEN.test(token)) redirect("/");
+  const res = await startTripCheckout(token, await requestOrigin());
+  redirect(res.ok ? res.url : `/trip/${token}?pay=error`);
 }

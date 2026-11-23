@@ -65,7 +65,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
     supabase
       .from("bookings")
       .select(
-        "id, booking_ref, scheduled_at, service_type, origin, destination, catalog_item_id, vehicle_class, passenger_count, luggage_count, carry_on_count, assigned_driver_id, status, flight_or_hotel_notes, night_premium, payment_mode, posting_closes_at, total_price, cash_fee, amount_paid, en_route_at, trips(guest_name)",
+        "id, booking_ref, scheduled_at, service_type, origin, destination, catalog_item_id, vehicle_class, passenger_count, luggage_count, carry_on_count, assigned_driver_id, status, flight_or_hotel_notes, night_premium, payment_mode, posting_closes_at, total_price, cash_fee, amount_paid, amount_held, en_route_at, trips(guest_name)",
       )
       .gte("scheduled_at", crDay(today))
       .lt("scheduled_at", crDay(addDays(today, 7)))
@@ -76,7 +76,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
     // New requests, paid or not (paid ones say "pagada": a paid request isn't waiting for payment).
     supabase
       .from("bookings")
-      .select("id, total_price, cash_fee, amount_paid, payment_mode")
+      .select("id, total_price, cash_fee, amount_paid, amount_held, payment_mode")
       .eq("status", "pending_payment")
       .limit(1000)
       .returns<{ id: string; total_price: number | string; cash_fee: number | string | null; amount_paid: number | string | null; payment_mode: string | null }[]>(),
@@ -105,7 +105,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
     supabase
       .from("bookings")
       .select(
-        "id, booking_ref, scheduled_at, status, posting_closes_at, service_type, origin, destination, catalog_item_id, vehicle_class, sightseeing_stops, driver_payout, total_price, cash_fee, amount_paid, payment_mode, assigned_driver_id",
+        "id, booking_ref, scheduled_at, status, posting_closes_at, service_type, origin, destination, catalog_item_id, vehicle_class, sightseeing_stops, driver_payout, total_price, cash_fee, amount_paid, amount_held, payment_mode, assigned_driver_id",
       )
       .in("status", ["pending_payment", "pending_bids", "confirmed"])
       .is("assigned_driver_id", null)
@@ -115,7 +115,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
       .returns<NoDriverRow[]>(),
     supabase
       .from("bookings")
-      .select("id, booking_ref, created_at, total_price, cash_fee, amount_paid, payment_mode")
+      .select("id, booking_ref, created_at, total_price, cash_fee, amount_paid, amount_held, payment_mode")
       .eq("status", "pending_payment")
       .lt("created_at", new Date(now - 24 * HOUR).toISOString())
       .order("created_at")

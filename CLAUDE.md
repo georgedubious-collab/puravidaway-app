@@ -37,7 +37,7 @@ plainly, avoid jargon, and never assume a dev-team workflow (no "ask your backen
 - Next.js App Router + TypeScript strict + Tailwind. No new frameworks without discussion.
 - Supabase: every table gets RLS (policies in `docs/PROJECT.md` §7.7). Never expose the service
   role key to the client; server-only code goes in route handlers / server actions.
-- Payments (Green Pay) are server-side only. Never log or store card data.
+- Payments (Stripe, replaced Green Pay 2026-11-20) are server-side only. Never log or store card data.
 - Driver KYC data (Cédula, license, insurance) is sensitive: admin + owning driver only.
 - Prices are USD `numeric(10,2)`; apply season multipliers from the DB, not hardcoded.
 - Mobile-first responsive; the design reference is the original prototype (emerald/amber,

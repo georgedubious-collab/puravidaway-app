@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
-import { Car, CheckCircle2, Languages, ShieldCheck, Zap } from "lucide-react";
+import { Car, CheckCircle2, CreditCard, Languages, ShieldCheck, Zap } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
 import { ChatBox } from "@/components/ChatBox";
 import { HtmlLang } from "@/components/site/HtmlLang";
@@ -10,7 +10,9 @@ import { CostaRicaFlag, UsFlag } from "@/components/site/LangSwitch";
 import { LiveRefresh } from "@/components/LiveRefresh";
 import { RateDriver } from "@/components/RateDriver";
 import { SignEditor } from "@/components/SignEditor";
-import { rateDriver, saveSign } from "./actions";
+import { rateDriver, saveSign, startTripPayment } from "./actions";
+import { onlineDueCents } from "@/lib/cardHold";
+import { STRIPE_ENABLED, recordCheckout } from "@/lib/stripePayments";
 import { signEditable } from "@/lib/sign";
 import { TRIP_TOKEN, bookingDue, serviceLabel, usd, type BookingRow, type BookingStatus } from "@/lib/bookings";
 import { localizeCatalog, placeNameFor } from "@/lib/catalogEs";
@@ -24,7 +26,11 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { travellerPhotoPaths } from "@/lib/vehiclePhotos";
 import { CarPhotoGallery } from "./CarPhotoGallery";
 
-type Props = { params: Promise<{ token: string }>; searchParams: Promise<{ lang?: string | string[] }> };
+type Props = {
+  params: Promise<{ token: string }>;
+  /** paid = Stripe's checkout id on the way back from paying; pay = "cancelled" | "error". */
+  searchParams: Promise<{ lang?: string | string[]; paid?: string | string[]; pay?: string | string[] }>;
+};
 
 /**
  * The page's language: the one the trip request was sent in (trips.language), unless
@@ -98,9 +104,15 @@ export default async function TripPage({ params, searchParams }: Props) {
   const { data: trip } = await db.from("trips").select("id, guest_name, language").eq("access_token", token).maybeSingle();
   if (!trip) notFound();
   const tripId = trip.id as string;
-  const lang = pageLang(trip.language, (await searchParams).lang);
+  const sp = await searchParams;
+  const lang = pageLang(trip.language, sp.lang);
   const other: PublicLang = lang === "es" ? "en" : "es";
   const t = <T,>(en: T, es: T): T => pick(lang, en, es);
+
+  // Back from Stripe's page: save the payment now (Stripe's webhook does the same; once only).
+  const paidParam = typeof sp.paid === "string" ? sp.paid : "";
+  const justPaid = paidParam ? (await recordCheckout(paidParam, tripId)).state : "none";
+  const payNote = typeof sp.pay === "string" ? sp.pay : "";
 
   const { data: bookings } = await db
     .from("bookings")
@@ -109,6 +121,7 @@ export default async function TripPage({ params, searchParams }: Props) {
     .order("scheduled_at")
     .returns<BookingRow[]>();
   if (!bookings?.length) notFound();
+  const payDueCents = bookings.reduce((n, b) => n + onlineDueCents(b), 0);
   const catalog = localizeCatalog(await getCatalog(), lang);
   // Ratings already given (one per booking).
   const { data: reviews } = await db
@@ -266,6 +279,46 @@ export default async function TripPage({ params, searchParams }: Props) {
           <RateDriver action={rateDriver} token={token} bookingId={toRate.id} driverFirstName={toRateDriver.firstName} ride={itemName(toRate)} lang={lang} />
         )}
 
+        {justPaid !== "none" && (
+          <div role="status" className="flex gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-950">
+            <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600" />
+            <p>
+              <strong>{t("Payment received. Thank you!", "Pago recibido. ¡Gracias!")}</strong>{" "}
+              {justPaid === "held"
+                ? t(
+                    "The amount is held on your card and charged once your driver is confirmed (6 days after booking at the latest). If we can't serve your trip, the hold is released.",
+                    "El monto queda retenido en su tarjeta y se cobra cuando su conductor esté confirmado (a más tardar 6 días después de reservar). Si no podemos atender su viaje, la retención se libera.",
+                  )
+                : t("Your card has been charged.", "Su tarjeta ha sido cobrada.")}
+            </p>
+          </div>
+        )}
+        {STRIPE_ENABLED && payDueCents > 0 && (
+          <form action={startTripPayment} className="space-y-3 rounded-2xl border border-amber-300 bg-amber-50 p-4">
+            <input type="hidden" name="token" value={token} />
+            {payNote === "cancelled" && (
+              <p className="text-sm font-semibold text-amber-900">{t("Your payment wasn't finished. You can try again here.", "Su pago no se completó. Puede intentarlo de nuevo aquí.")}</p>
+            )}
+            {payNote === "error" && (
+              <p className="text-sm font-semibold text-red-800">
+                {t("We couldn't open the payment page. Please try again, or message us.", "No pudimos abrir la página de pago. Inténtelo de nuevo o escríbanos.")}
+              </p>
+            )}
+            <p className="text-sm text-slate-700">
+              {t(
+                `To pay online: ${usd(payDueCents / 100)}. Your card is held first and charged once your driver is confirmed.`,
+                `Por pagar en línea: ${usd(payDueCents / 100)}. Su tarjeta primero queda retenida y se cobra cuando su conductor esté confirmado.`,
+              )}
+            </p>
+            <button
+              type="submit"
+              className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-amber-400 font-extrabold text-slate-950 hover:bg-amber-300"
+            >
+              <CreditCard className="h-5 w-5" /> {t(`Pay ${usd(payDueCents / 100)} by card`, `Pagar ${usd(payDueCents / 100)} con tarjeta`)}
+            </button>
+          </form>
+        )}
+
         {(locs ?? []).length > 0 && <LiveRefresh seconds={20} />}
         {bookings.map((b) => {
           const driver = driverCard(b.assigned_driver_id);
@@ -306,10 +359,19 @@ export default async function TripPage({ params, searchParams }: Props) {
                           `Cash to your driver · incl. ${usd(b.cash_fee ?? 0)} cash booking fee`,
                           `Efectivo al conductor · incluye ${usd(b.cash_fee ?? 0)} de cargo por reserva en efectivo`,
                         )
-                      : t(
-                          "Online in full · secure payment link once confirmed",
-                          "En línea, pago completo · enlace de pago seguro una vez confirmado",
-                        )}
+                      : Number(b.amount_paid ?? 0) >= Number(b.total_price) && Number(b.total_price) > 0
+                        ? t("Paid online by card", "Pagado en línea con tarjeta")
+                        : Number(b.amount_held ?? 0) > 0
+                          ? t(
+                              "Card held · charged once your driver is confirmed",
+                              "Tarjeta retenida · se cobra cuando su conductor esté confirmado",
+                            )
+                          : STRIPE_ENABLED
+                            ? t("Online in full · not paid yet", "En línea, pago completo · aún sin pagar")
+                            : t(
+                                "Online in full · secure payment link once confirmed",
+                                "En línea, pago completo · enlace de pago seguro una vez confirmado",
+                              )}
                   </p>
                   {Number(b.night_premium ?? 0) > 0 && (
                     <p className="text-xs text-slate-500">

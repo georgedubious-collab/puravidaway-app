@@ -12,6 +12,10 @@ export interface AppBooking {
   passengers: number | null;
   dueUsd: number;
   paymentMode: string | null;
+  /** Held on the card by Stripe, not charged yet (charged once the driver is confirmed). Older servers don't send it. */
+  heldUsd?: number;
+  /** Online part not paid or held yet, and card payment is on: offer "Pay by card". Older servers don't send it. */
+  payByCard?: boolean;
   cashFeeUsd: number;
   driver: { firstName: string; bio: string | null; english: string | null; ict: boolean; photo: string | null; rating: string | null } | null;
   /** `electric`: our team marked the assigned vehicle as electric. Older servers don't send it. */
@@ -189,4 +193,8 @@ export interface Sent {
   payOnline: boolean;
   totalCents: number;
   testCheckout: boolean;
+  /** Card payment (Stripe) is on: pay on Stripe's page. Older servers don't send it. */
+  cardCheckout?: boolean;
+  /** Stripe's page, already opened by the server for this request. */
+  checkoutUrl?: string | null;
 }

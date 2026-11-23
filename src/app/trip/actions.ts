@@ -8,7 +8,7 @@ import { getCatalog } from "@/lib/catalogSource";
 import { requireRole } from "@/lib/auth";
 import { cashAllowed, itemPaymentMode, parsePaymentMode } from "@/lib/cart";
 import { costaRicaTimestamp, formatScheduledAt, todayInCostaRica } from "@/lib/dates";
-import { ADMIN_EMAIL, SITE_URL, sendEmail } from "@/lib/email";
+import { ADMIN_EMAIL, SITE_URL, sendEmail, type Email } from "@/lib/email";
 import { adminBookingPath, sendTeamAlert } from "@/lib/teamAlerts";
 import { alertText, isTonight } from "@/lib/teamAlertRules";
 import { routeMinutes, stopTotalCents } from "@/lib/catalog";
@@ -29,6 +29,9 @@ import {
   tripRequestEmail,
 } from "@/lib/travellerMessages";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { UNPAID_AFTER_MINUTES, holdRequestNotices } from "@/lib/requestNotices";
+import { requestOrigin } from "@/lib/requestOrigin";
+import { STRIPE_ENABLED, startTripCheckout } from "@/lib/stripePayments";
 import {
   MAX_TRIP_ITEMS,
   itemTime,
@@ -73,7 +76,15 @@ export interface TripRequestInput {
 
 export type TripRequestResult =
   /** tripToken: the code in the traveller's private trip-page link. */
-  | { ok: true; refs: string[]; tripToken: string | null; /** Booking ids, for a booking entered by the team. */ ids?: string[] }
+  | {
+      ok: true;
+      refs: string[];
+      tripToken: string | null;
+      /** Booking ids, for a booking entered by the team. */
+      ids?: string[];
+      /** Stripe's payment page, when the traveller pays online and Stripe is set up: go there next. */
+      checkoutUrl?: string;
+    }
   | {
       ok: false;
       error: string;
@@ -390,68 +401,114 @@ async function saveTripRequest(input: TripRequestInput, team: TeamEntry | null):
       );
     };
     const itemLines = itemLinesIn("en");
-    after(async () => {
-      if (team && !team.emailTraveller) return; // entered by the team: the traveller gets the link only if asked
-      await sendEmail({
-        to: email,
-        ...tripRequestEmail(lang, {
-          guestName: name,
-          refs,
-          itemLines: lang === "en" ? itemLines : itemLinesIn(lang),
-          paymentLine: requestPaymentLine(lang, { cashCents, onlineCents, feeTotalCents, feePercent: formatBpsPercent(feeBps) }),
-          promoLine: promo ? requestPromoLine(lang, promo.code, promo.totalCents) : undefined,
-          tripUrl,
-          hasRide: priced.some((p) => p.spec.kind === "transfer"),
-        }),
-      });
-      if (team) return;
-      // The team: the email as before, plus a push to their phones (src/lib/teamAlerts.ts).
-      // A pickup within 12 hours is a "booking for tonight" alert; anything later a plain
-      // "new request". The push holds the traveller's initial only, never their contact.
-      const now = new Date();
-      const byTime = priced
-        .map((p, i) => ({ p, i, at: rows[i].scheduled_at as string }))
-        .sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
-      const soon = byTime.find((x) => isTonight(x.at, now));
-      const first = soon ?? byTime[0];
-      const esNames = localizeCatalog(catalog, "es");
-      const fs = first.p.spec;
-      const route =
-        fs.kind === "transfer"
-          ? `${placeNameFor(first.p.ride?.origin.label ?? fs.origin, "es")} → ${placeNameFor(first.p.ride?.destination.label ?? fs.destination, "es")}`
-          : (esNames.dayTours.find((t) => t.id === fs.tourId)?.name ?? fs.tourId);
-      const kind = soon ? "tonight" : "new_request";
-      const text = alertText(kind, {
-        ref: refs[first.i] ?? refs[0],
-        route,
-        when: formatScheduledAt(first.at, "es"),
-        guestName: name,
-        minutes: Math.round((new Date(first.at).getTime() - now.getTime()) / 60000),
-        count: refs.length,
-      });
-      await sendTeamAlert(kind, {
-        dedupeKey: ids[0] ?? refs[0],
-        push: { ...text, url: ids[first.i] ? adminBookingPath(ids[first.i]) : "/admin/bookings" },
-        email: ADMIN_EMAIL ? {
-          to: ADMIN_EMAIL,
-          subject: `${soon ? "PICKUP WITHIN 12 H · " : ""}New trip request ${refs.join(", ")} · $${total.toFixed(2)}`,
-          lines: [
-            `${name} (${email}, ${phone}) sent ${refs.length} item${refs.length > 1 ? "s" : ""} worth $${total.toFixed(2)}.`,
-            cashCents > 0
-              ? `Pays cash to the driver: ${money(cashCents)} (cash fee ${money(feeTotalCents)})${onlineCents > 0 ? `; online in full: ${money(onlineCents)}` : ""}.`
-              : `Pays online in full: ${money(onlineCents)} (send the payment link once confirmed).`,
-            promo
-              ? `Promo code ${promo.code}: ${money(promo.totalCents)} off (half from our share, half from the driver's payout).`
-              : "",
-            ...itemLines,
-            notes ? `Notes: ${notes}` : "",
-            clientLanguageNote(lang),
-          ].filter(Boolean),
-          button: { label: "Open in Bookings", url: `${SITE_URL}/admin/bookings` },
-        } : null,
-      });
+    // The traveller's "we got your request" email (none when the team entered it without asking).
+    const travellerMail: Email | null =
+      team && !team.emailTraveller
+        ? null
+        : {
+            to: email,
+            ...tripRequestEmail(lang, {
+              guestName: name,
+              refs,
+              itemLines: lang === "en" ? itemLines : itemLinesIn(lang),
+              paymentLine: requestPaymentLine(lang, { cashCents, onlineCents, feeTotalCents, feePercent: formatBpsPercent(feeBps), card: STRIPE_ENABLED }),
+              promoLine: promo ? requestPromoLine(lang, promo.code, promo.totalCents) : undefined,
+              tripUrl,
+              hasRide: priced.some((p) => p.spec.kind === "transfer"),
+            }),
+          };
+    // The team: the email as before, plus a push to their phones (src/lib/teamAlerts.ts).
+    // A pickup within 12 hours is a "booking for tonight" alert; anything later a plain
+    // "new request". The push holds the traveller's initial only, never their contact.
+    const now = new Date();
+    const byTime = priced
+      .map((p, i) => ({ p, i, at: rows[i].scheduled_at as string }))
+      .sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
+    const soon = byTime.find((x) => isTonight(x.at, now));
+    const first = soon ?? byTime[0];
+    const esNames = localizeCatalog(catalog, "es");
+    const fs = first.p.spec;
+    const route =
+      fs.kind === "transfer"
+        ? `${placeNameFor(first.p.ride?.origin.label ?? fs.origin, "es")} → ${placeNameFor(first.p.ride?.destination.label ?? fs.destination, "es")}`
+        : (esNames.dayTours.find((t) => t.id === fs.tourId)?.name ?? fs.tourId);
+    const kind = soon ? "tonight" : "new_request";
+    const text = alertText(kind, {
+      ref: refs[first.i] ?? refs[0],
+      route,
+      when: formatScheduledAt(first.at, "es"),
+      guestName: name,
+      minutes: Math.round((new Date(first.at).getTime() - now.getTime()) / 60000),
+      count: refs.length,
     });
-    return { ok: true, refs, tripToken, ...(team ? { ids } : {}) };
+    const pushUrl = ids[first.i] ? adminBookingPath(ids[first.i]) : "/admin/bookings";
+    const teamLines = [
+      `${name} (${email}, ${phone}) sent ${refs.length} item${refs.length > 1 ? "s" : ""} worth $${total.toFixed(2)}.`,
+      cashCents > 0
+        ? `Pays cash to the driver: ${money(cashCents)} (cash fee ${money(feeTotalCents)})${onlineCents > 0 ? `; online in full: ${money(onlineCents)}` : ""}.`
+        : STRIPE_ENABLED
+          ? `Pays online in full: ${money(onlineCents)} by card on Stripe (held, charged once every ride has a driver or on day 6).`
+          : `Pays online in full: ${money(onlineCents)} (send the payment link once confirmed).`,
+      promo ? `Promo code ${promo.code}: ${money(promo.totalCents)} off (half from our share, half from the driver's payout).` : "",
+      ...itemLines,
+      notes ? `Notes: ${notes}` : "",
+      clientLanguageNote(lang),
+    ].filter(Boolean);
+    const teamAlert = {
+      dedupeKey: ids[0] ?? refs[0],
+      push: { ...text, url: pushUrl },
+      email: ADMIN_EMAIL
+        ? {
+            to: ADMIN_EMAIL,
+            subject: `${soon ? "PICKUP WITHIN 12 H · " : ""}New trip request ${refs.join(", ")} · $${total.toFixed(2)}`,
+            lines: teamLines,
+            button: { label: "Open in Bookings", url: `${SITE_URL}/admin/bookings` },
+          }
+        : null,
+    };
+
+    // Card payment (Stripe, src/lib/stripePayments.ts): a traveller who chose to pay online goes
+    // straight to Stripe's page. If it can't open, the trip is still saved and its page has "Pay".
+    let checkoutUrl: string | undefined;
+    if (!team && STRIPE_ENABLED && onlineCents > 0) {
+      const pay = await startTripCheckout(tripToken, await requestOrigin());
+      if (pay.ok) checkoutUrl = pay.url;
+    }
+    // Paying by card: the messages wait until the card is held, or 30 minutes unpaid
+    // (src/lib/requestNotices.ts, Jorge 2026-11-22). Otherwise they go now, as before.
+    const waitForCard =
+      checkoutUrl !== undefined &&
+      (await holdRequestNotices(tripId, {
+        traveller: travellerMail,
+        team: { kind, input: teamAlert },
+        unpaid: {
+          dedupeKey: `unpaid-${ids[0] ?? refs[0]}`,
+          push: {
+            title: `Solicitud sin pagar · ${refs[first.i] ?? refs[0]}`,
+            body: `${name.split(" ")[0]} no completó el pago con tarjeta · ${route} · ${formatScheduledAt(first.at, "es")}`,
+            url: pushUrl,
+          },
+          email: ADMIN_EMAIL
+            ? {
+                to: ADMIN_EMAIL,
+                subject: `UNPAID trip request ${refs.join(", ")} · $${total.toFixed(2)} (card not completed)`,
+                lines: [
+                  `The traveller didn't finish paying by card within ${UNPAID_AFTER_MINUTES} minutes. They got the request email with a "Pay" link to their trip page; you may want to follow up on WhatsApp.`,
+                  ...teamLines,
+                ],
+                button: { label: "Open in Bookings", url: `${SITE_URL}/admin/bookings` },
+              }
+            : null,
+        },
+      }));
+    if (!waitForCard) {
+      after(async () => {
+        if (travellerMail) await sendEmail(travellerMail);
+        if (team) return;
+        await sendTeamAlert(kind, teamAlert);
+      });
+    }
+    return { ok: true, refs, tripToken, ...(team ? { ids } : {}), ...(checkoutUrl ? { checkoutUrl } : {}) };
   } catch (e) {
     console.error("[trip request]", e);
     return { ok: false, error: "We couldn't save your request. Please try again or send it on WhatsApp." };

@@ -1,19 +1,21 @@
 import "server-only";
 import { SITE_INDEXABLE } from "./site";
+import { STRIPE_ENABLED } from "./stripePayments";
 import { createSupabaseAdminClient } from "./supabase/admin";
 
 /**
  * TEST checkout (Jorge, 2026-11-09: "dummy checkout for now"). Stands in for
- * Green Pay until it is connected: no card is asked for and no money moves.
+ * Stripe until it is connected: no card is asked for and no money moves.
  * It records the online-payable bookings of a trip as paid with a payment row
  * marked provider = 'test', so the rest of the flow (dispatch, payouts) can be
  * tried end to end.
  *
  * It only works while the site is in its pre-launch state (not indexable). The
  * day NEXT_PUBLIC_SITE_INDEXABLE is set to true for launch, this switches itself
- * off; real payments must be in place by then (PROJECT.md §6.4).
+ * off; real payments must be in place by then (PROJECT.md §6.4). It is also off wherever Stripe
+ * is set up (STRIPE_SECRET_KEY): there the traveller pays on Stripe's page (src/lib/stripePayments.ts).
  */
-export const TEST_CHECKOUT_ENABLED = !SITE_INDEXABLE;
+export const TEST_CHECKOUT_ENABLED = !SITE_INDEXABLE && !STRIPE_ENABLED;
 
 export interface TestPayResult {
   ok: boolean;
